@@ -54,4 +54,4 @@ The package also provides:
 - This package targets browser-style runtimes and ESM consumption.
 - Node CLI usage belongs to `@tokamak-zk-evm/synthesizer-node`.
 - Workspace overview: [../README.md](../README.md)
-- Repository changelog: [../../../../CHANGELOG.md](../../../../CHANGELOG.md)
+- Repository changelog: [https://github.com/tokamak-network/Tokamak-zk-EVM/blob/main/CHANGELOG.md](https://github.com/tokamak-network/Tokamak-zk-EVM/blob/main/CHANGELOG.md)

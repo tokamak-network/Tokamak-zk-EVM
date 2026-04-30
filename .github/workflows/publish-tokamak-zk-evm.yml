@@ -126,6 +126,17 @@ jobs:
             })
             .sort((left, right) => left.name.localeCompare(right.name));
 
+          for (const pkg of packages) {
+            const entries = execFileSync('tar', ['-tzf', path.join(tarballDir, pkg.file)], {
+              encoding: 'utf8',
+            })
+              .split('\n')
+              .filter(Boolean);
+            if (entries.some((entry) => entry === 'package/CHANGELOG.md')) {
+              throw new Error(`${pkg.file} must not include CHANGELOG.md`);
+            }
+          }
+
           const actualNames = new Set(packages.map((pkg) => pkg.name));
           for (const expectedName of expectedNames) {
             if (!actualNames.has(expectedName)) {

@@ -149,20 +149,6 @@ if (!fileExists('CHANGELOG.md')) {
   ) {
     fail(`Root CHANGELOG.md must contain a release entry for ${expectedVersion}.`);
   }
-
-  for (const relativePath of [
-    'packages/cli/CHANGELOG.md',
-    'packages/frontend/qap-compiler/CHANGELOG.md',
-    'packages/frontend/qap-compiler/dist/CHANGELOG.md',
-    'packages/frontend/synthesizer/CHANGELOG.md',
-    'packages/frontend/synthesizer/node-cli/CHANGELOG.md',
-    'packages/frontend/synthesizer/web-app/CHANGELOG.md',
-    'packages/backend/CHANGELOG.md',
-  ]) {
-    if (fileExists(relativePath) && readText(relativePath) !== changelog) {
-      fail(`${relativePath} must be synchronized from root CHANGELOG.md.`);
-    }
-  }
 }
 
 if (process.exitCode) {

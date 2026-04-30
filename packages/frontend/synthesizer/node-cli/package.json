@@ -47,7 +47,6 @@
   "files": [
     "dist",
     "build-metadata.json",
-    "CHANGELOG.md",
     "README.md",
     "LICENSE-MIT",
     "LICENSE-APACHE",
@@ -55,7 +54,7 @@
   ],
   "scripts": {
     "build": "npm run typecheck && npm run build:package",
-    "build:package": "npm run sync:changelog && node scripts/build-package.mjs",
+    "build:package": "node scripts/build-package.mjs",
     "clean": "../../../../config/monorepo-js//cli/clean-package.sh",
     "cli": "tsx --tsconfig tsconfig.dev.json src/cli/index.ts",
     "examples": "tsx --tsconfig tsconfig.dev.json ../../../scripts/examples-runner.ts -- evm",
@@ -76,7 +75,6 @@
     "test:private-state-redeem": "tsx --tsconfig tsconfig.dev.json tests/scripts/run-private-state-redeem-main-from-configs.ts",
     "test:private-state-redeem:prep": "tsx --tsconfig tsconfig.dev.json tests/scripts/run-private-state-redeem-config-matrix.ts",
     "test:node": "npm run -s test",
-    "sync:changelog": "node ../../../../scripts/sync-package-changelog.mjs packages/frontend/synthesizer/node-cli",
     "tsc": "npm run typecheck",
     "typecheck": "tsc -p tsconfig.json --pretty false",
     "prepack": "npm run build:package"

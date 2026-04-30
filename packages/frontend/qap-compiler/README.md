@@ -4,6 +4,8 @@ Tokamak zk-EVM Subcircuit Library is a prebuilt R1CS subcircuit library package 
 
 The published package exposes consumer-facing subcircuit artifacts, metadata, witness-generation helpers, and synced Circom constants used by Tokamak zk-EVM consumers on the `main` branch.
 
+Release notes are maintained in the [repository changelog](https://github.com/tokamak-network/Tokamak-zk-EVM/blob/main/CHANGELOG.md).
+
 ## Installation
 
 ```shell
@@ -71,6 +73,7 @@ The maintainer-side generation algorithm and tooling are still referred to as `q
 ## Further Documentation
 
 - [Detailed package documentation](https://github.com/tokamak-network/Tokamak-zk-EVM/blob/main/packages/frontend/qap-compiler/docs/README.md)
+- [Repository changelog](https://github.com/tokamak-network/Tokamak-zk-EVM/blob/main/CHANGELOG.md)
 - [Tokamak zk-SNARK paper](https://eprint.iacr.org/2024/507)
 
 ## Original Contribution

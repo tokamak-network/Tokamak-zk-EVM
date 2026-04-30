@@ -14,7 +14,6 @@ const repoRoot = path.resolve(packageRoot, '..', '..', '..');
 const distDir = path.resolve(packageRoot, 'dist');
 const rootPackageJsonPath = path.resolve(packageRoot, 'package.json');
 const readmePath = path.resolve(packageRoot, 'README.md');
-const changelogPath = path.resolve(repoRoot, 'CHANGELOG.md');
 const libraryDir = path.resolve(packageRoot, 'subcircuits/library');
 const constantsPath = path.resolve(packageRoot, 'subcircuits/circom/constants.circom');
 const expectedCircomVersion = process.env.QAP_COMPILER_EXPECTED_CIRCOM_VERSION ?? null;
@@ -85,11 +84,6 @@ if (!fs.existsSync(readmePath)) {
   process.exit(1);
 }
 
-if (!fs.existsSync(changelogPath)) {
-  console.error(`Error: root CHANGELOG not found at '${changelogPath}'.`);
-  process.exit(1);
-}
-
 let tokamakL2jsPackageJsonPath;
 try {
   tokamakL2jsPackageJsonPath = resolvePackageJsonPath('tokamak-l2js');
@@ -138,7 +132,6 @@ fs.cpSync(libraryDir, path.join(distDir, 'subcircuits', 'library'), {
 });
 fs.copyFileSync(constantsPath, path.join(distDir, 'subcircuits', 'circom', 'constants.circom'));
 fs.copyFileSync(readmePath, path.join(distDir, 'README.md'));
-fs.copyFileSync(changelogPath, path.join(distDir, 'CHANGELOG.md'));
 fs.copyFileSync(path.resolve(packageRoot, 'LICENSE-MIT'), path.join(distDir, 'LICENSE-MIT'));
 fs.copyFileSync(path.resolve(packageRoot, 'LICENSE-APACHE'), path.join(distDir, 'LICENSE-APACHE'));
 fs.writeFileSync(path.join(distDir, 'build-metadata.json'), `${JSON.stringify(buildMetadata, null, 2)}\n`);

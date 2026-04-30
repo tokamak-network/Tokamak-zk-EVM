@@ -2,7 +2,7 @@
 
 All notable changes to Tokamak zk-EVM are documented in this file.
 
-The repository uses a synchronized release version for the CLI, subcircuit library, synthesizer packages, and backend Rust workspace. Package-local changelog files are generated from this root changelog for publish artifacts only.
+The repository uses a synchronized release version for the CLI, subcircuit library, synthesizer packages, and backend Rust workspace. This root changelog is the only changelog source. npm package artifacts do not include changelog files; package READMEs link back to this root changelog.
 
 The format is based on Keep a Changelog.
 
@@ -13,6 +13,7 @@ The format is based on Keep a Changelog.
 ### Repository
 
 - Synchronized the release version to `2.0.15` across the CLI, subcircuit library, synthesizer packages, and backend workspace.
+- Removed package-local changelog mirrors from npm package artifacts and linked package READMEs to the root changelog instead.
 - Added the Tokamak zk-EVM version management rules and CRS compatibility check policy to `docs/version-rules.md`.
 - Clarified that, within a fixed `MAJOR.MINOR` compatibility line, CRS reuse across patch releases is gated by subcircuit `sourceDigest` equality.
 - Removed obsolete repository-local documentation files that are no longer part of the release documentation set.

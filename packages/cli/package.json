@@ -47,15 +47,13 @@
     "manifests",
     "scripts",
     "vendor",
-    "CHANGELOG.md",
     "README.md",
     "LICENSE-MIT",
     "LICENSE-APACHE"
   ],
   "scripts": {
-    "sync:changelog": "node ../../scripts/sync-package-changelog.mjs packages/cli",
     "prepare:package": "node scripts/prepare-package.mjs",
-    "build": "npm run sync:changelog && npm run prepare:package && tsc -p tsconfig.json --pretty false",
+    "build": "npm run prepare:package && tsc -p tsconfig.json --pretty false",
     "release:check": "node scripts/release-readiness.cjs",
     "typecheck": "tsc -p tsconfig.json --pretty false --noEmit",
     "publish": "node scripts/publish-package.cjs",

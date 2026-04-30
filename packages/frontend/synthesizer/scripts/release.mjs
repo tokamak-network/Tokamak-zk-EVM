@@ -11,12 +11,10 @@ const repoRoot = path.resolve(workspaceRoot, '..', '..', '..');
 const workspaceTagPrefix = 'synthesizer-v';
 const packageEntries = [
   {
-    changelogHeading: 'node-cli',
     dir: 'node-cli',
     name: '@tokamak-zk-evm/synthesizer-node',
   },
   {
-    changelogHeading: 'web-app',
     dir: 'web-app',
     name: '@tokamak-zk-evm/synthesizer-web',
   },
@@ -24,7 +22,6 @@ const packageEntries = [
 const officialDocs = [
   'README.md',
   'llms.txt',
-  'CHANGELOG.md',
   'docs/README.md',
   'docs/architecture.md',
   'docs/maintainer-guide.md',
@@ -220,10 +217,14 @@ function validatePackageMetadata(version) {
     }
 
     const files = new Set(Array.isArray(manifest.files) ? manifest.files : []);
-    for (const required of ['dist', 'CHANGELOG.md', 'README.md']) {
+    for (const required of ['dist', 'README.md']) {
       if (!files.has(required)) {
         fail(`${entry.dir}/package.json must publish '${required}'.`);
       }
+    }
+
+    if (files.has('CHANGELOG.md')) {
+      fail(`${entry.dir}/package.json must not publish package-local CHANGELOG.md.`);
     }
   }
 }

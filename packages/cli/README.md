@@ -2,6 +2,8 @@
 
 `@tokamak-zk-evm/cli` installs the Tokamak zk-EVM runtime on the local machine and runs the proof flow from the command line.
 
+Release notes are maintained in the [repository changelog](https://github.com/tokamak-network/Tokamak-zk-EVM/blob/main/CHANGELOG.md).
+
 Main commands:
 
 - `--install`

@@ -57,4 +57,4 @@ The CLI writes:
 - Debug-only config execution lives under `examples/config-runner.ts`.
 - Browser usage belongs to `@tokamak-zk-evm/synthesizer-web`.
 - Workspace overview: [../README.md](../README.md)
-- Repository changelog: [../../../../CHANGELOG.md](../../../../CHANGELOG.md)
+- Repository changelog: [https://github.com/tokamak-network/Tokamak-zk-EVM/blob/main/CHANGELOG.md](https://github.com/tokamak-network/Tokamak-zk-EVM/blob/main/CHANGELOG.md)

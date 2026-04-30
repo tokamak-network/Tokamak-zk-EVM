@@ -46,7 +46,7 @@ Rules:
 - The `### Synthesizer` section must be written from consumer impact, not from internal refactor detail.
 - Record only changes that affect npm-published package artifacts or their consumer-facing behavior.
 
-For package publishing, the root changelog is mirrored into `node-cli/CHANGELOG.md` and `web-app/CHANGELOG.md` by package build/prepack scripts. Those mirrored files are publish assets, not canonical editing targets.
+For package publishing, changelog content stays only in the repository root `CHANGELOG.md`. Package artifacts do not include package-local changelog files; package READMEs link to the root changelog instead.
 
 ## Documentation Policy
 

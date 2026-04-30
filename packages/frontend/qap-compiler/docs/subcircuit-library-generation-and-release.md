@@ -27,7 +27,7 @@ The maintainer-side flow is:
 
 1. Sync `subcircuits/circom/constants.circom` from the published `tokamak-l2js` dependency.
 2. Build the generated subcircuit library into `subcircuits/library`.
-3. Assemble the publishable `dist` package from the generated library, synced constants, package metadata, and the consumer-facing README and changelog.
+3. Assemble the publishable `dist` package from the generated library, synced constants, package metadata, and the consumer-facing README.
 4. Publish `dist` to npm.
 
 The published `dist` package excludes the build-log-style `info` directory and keeps the consumer-facing artifact surface focused on the generated library outputs and synced constants.
@@ -54,7 +54,7 @@ Versioning rules for this package are:
 
 - npm version changes are synchronized from the root repository version.
 - changelog entries are maintained in the root `CHANGELOG.md` and record only changes that affect npm-published package artifacts or their consumer-facing behavior.
-- the `dist` package receives a copied changelog during assembly.
+- the `dist` package does not include a changelog file; its README links to the root changelog.
 - package-specific Git tags use the format `subcircuit-library-vX.Y.Z`.
 - package-specific tags are maintained from `1.0.0` onward.
 - pre-`1.0.0` history is preserved as reconstructed repository history rather than as package-specific tags.

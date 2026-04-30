@@ -44,17 +44,15 @@
   "files": [
     "dist",
     "build-metadata.json",
-    "CHANGELOG.md",
     "README.md",
     "LICENSE-MIT",
     "LICENSE-APACHE",
     "NOTICE"
   ],
   "scripts": {
-    "sync:changelog": "node ../../../../scripts/sync-package-changelog.mjs packages/frontend/synthesizer/web-app",
     "sync:bundled-subcircuit-module": "node scripts/generate-bundled-subcircuit-module.mjs",
     "build": "npm run typecheck && npm run build:package",
-    "build:package": "npm run sync:changelog && npm run sync:bundled-subcircuit-module && node scripts/build-package.mjs",
+    "build:package": "npm run sync:bundled-subcircuit-module && node scripts/build-package.mjs",
     "typecheck": "npm run sync:bundled-subcircuit-module && tsc -p tsconfig.json --pretty false",
     "tsc": "npm run typecheck",
     "prepack": "npm run build:package"

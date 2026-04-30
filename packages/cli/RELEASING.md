@@ -24,10 +24,9 @@ When a commit reaches `main`, `.github/workflows/publish-cli.yml`:
 1. Reads `packages/cli/package.json`
 2. Compares the local version with the version already published on npm
 3. Validates the root `CHANGELOG.md`
-4. Copies the root changelog into the CLI package publish asset
-5. Builds the CLI package
-6. Runs `npm publish --dry-run`
-7. Publishes to npm if the local version is newer
+4. Builds the CLI package
+5. Runs `npm publish --dry-run`
+6. Publishes to npm if the local version is newer
 
 If the local version is equal to the npm version, the workflow does not publish.
 
@@ -44,4 +43,4 @@ Use this format:
 - Another user-facing change
 ```
 
-Keep changelog entries short and written for package consumers. Record only changes that affect npm-published package artifacts or their consumer-facing behavior. Package-local changelog files are generated from the root changelog for npm publish artifacts only.
+Keep changelog entries short and written for package consumers. Record only changes that affect npm-published package artifacts or their consumer-facing behavior. Package artifacts do not include changelog files; package READMEs link to the root changelog instead.
