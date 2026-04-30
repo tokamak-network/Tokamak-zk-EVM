@@ -36,6 +36,8 @@ use std::fs::{self, File};
 use std::io::{self, BufReader, BufWriter, Write};
 use std::ops::Deref;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Instant;
 use std::{env, fmt};
 
 #[macro_export]
@@ -1131,6 +1133,7 @@ pub fn read_R1CS_gen_uvwXY(
     eval_uvwxy_sparse_rows(
         placement_variables,
         &r1cs_by_id,
+        &usage_counts,
         n,
         &mut u_eval,
         &mut v_eval,
@@ -1164,12 +1167,28 @@ pub fn read_R1CS_gen_uvwXY(
 fn eval_uvwxy_sparse_rows(
     placement_variables: &Box<[PlacementVariables]>,
     r1cs_by_id: &[Option<SubcircuitR1CS>],
+    usage_counts: &[usize],
     n: usize,
     u_eval: &mut [ScalarField],
     v_eval: &mut [ScalarField],
     w_eval: &mut [ScalarField],
 ) {
     use rayon::prelude::*;
+
+    let profile_timers =
+        (env::var("TOKAMAK_UVWXY_PROFILE").ok().as_deref() == Some("1")).then(|| {
+            (
+                (0..r1cs_by_id.len())
+                    .map(|_| AtomicU64::new(0))
+                    .collect::<Vec<_>>(),
+                (0..r1cs_by_id.len())
+                    .map(|_| AtomicU64::new(0))
+                    .collect::<Vec<_>>(),
+                (0..r1cs_by_id.len())
+                    .map(|_| AtomicU64::new(0))
+                    .collect::<Vec<_>>(),
+            )
+        });
 
     u_eval
         .par_chunks_mut(n)
@@ -1183,14 +1202,80 @@ fn eval_uvwxy_sparse_rows(
                 .expect("R1CS for subcircuit id must be preloaded.");
             let variables = &placement.variables;
 
+            let a_start = profile_timers.as_ref().map(|_| Instant::now());
             let d_vec_a = build_d_vec(variables, &compact_r1cs.A_active_wires);
-            let d_vec_b = build_d_vec(variables, &compact_r1cs.B_active_wires);
-            let d_vec_c = build_d_vec(variables, &compact_r1cs.C_active_wires);
-
             eval_sparse_rows(&d_vec_a, &compact_r1cs.A_sparse_rows, u_chunk);
+            if let Some(start) = a_start {
+                profile_timers.as_ref().unwrap().0[subcircuit_id]
+                    .fetch_add(start.elapsed().as_nanos() as u64, Ordering::Relaxed);
+            }
+
+            let b_start = profile_timers.as_ref().map(|_| Instant::now());
+            let d_vec_b = build_d_vec(variables, &compact_r1cs.B_active_wires);
             eval_sparse_rows(&d_vec_b, &compact_r1cs.B_sparse_rows, v_chunk);
+            if let Some(start) = b_start {
+                profile_timers.as_ref().unwrap().1[subcircuit_id]
+                    .fetch_add(start.elapsed().as_nanos() as u64, Ordering::Relaxed);
+            }
+
+            let c_start = profile_timers.as_ref().map(|_| Instant::now());
+            let d_vec_c = build_d_vec(variables, &compact_r1cs.C_active_wires);
             eval_sparse_rows(&d_vec_c, &compact_r1cs.C_sparse_rows, w_chunk);
+            if let Some(start) = c_start {
+                profile_timers.as_ref().unwrap().2[subcircuit_id]
+                    .fetch_add(start.elapsed().as_nanos() as u64, Ordering::Relaxed);
+            }
         });
+
+    if let Some((a_nanos, b_nanos, c_nanos)) = profile_timers {
+        for (subcircuit_id, compact_r1cs) in r1cs_by_id.iter().enumerate() {
+            let Some(compact_r1cs) = compact_r1cs.as_ref() else {
+                continue;
+            };
+            if usage_counts[subcircuit_id] == 0 {
+                continue;
+            }
+            print_uvwxy_profile_row(
+                subcircuit_id,
+                "A",
+                usage_counts[subcircuit_id],
+                compact_r1cs.A_active_wires.len(),
+                &compact_r1cs.A_sparse_rows,
+                a_nanos[subcircuit_id].load(Ordering::Relaxed),
+            );
+            print_uvwxy_profile_row(
+                subcircuit_id,
+                "B",
+                usage_counts[subcircuit_id],
+                compact_r1cs.B_active_wires.len(),
+                &compact_r1cs.B_sparse_rows,
+                b_nanos[subcircuit_id].load(Ordering::Relaxed),
+            );
+            print_uvwxy_profile_row(
+                subcircuit_id,
+                "C",
+                usage_counts[subcircuit_id],
+                compact_r1cs.C_active_wires.len(),
+                &compact_r1cs.C_sparse_rows,
+                c_nanos[subcircuit_id].load(Ordering::Relaxed),
+            );
+        }
+    }
+}
+
+fn print_uvwxy_profile_row(
+    subcircuit_id: usize,
+    matrix: &str,
+    uses: usize,
+    active_wires: usize,
+    rows: &[Vec<(usize, ScalarField)>],
+    nanos: u64,
+) {
+    let nonzero_rows = rows.iter().filter(|row| !row.is_empty()).count();
+    let entries: usize = rows.iter().map(Vec::len).sum();
+    println!(
+        "uvwXY.profile subcircuit={subcircuit_id} matrix={matrix} uses={uses} active_wires={active_wires} nonzero_rows={nonzero_rows} entries={entries} nanos={nanos}"
+    );
 }
 
 fn _from_r1cs_to_eval(
