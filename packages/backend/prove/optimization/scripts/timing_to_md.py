@@ -52,14 +52,14 @@ def parse_poly_event(name: str):
 
 
 def parse_encode_event(name: str):
-    # Expected: proveX.encode.<var>
+    # Expected: proveX.encode.<var> or init.encode.<var>
     parts = name.split(".")
     if len(parts) < 3:
         return None
     module = None
     var = parts[-1]
     for part in parts:
-        if part.startswith("prove"):
+        if part.startswith("prove") or part == "init":
             module = part
             break
     if module is None or "encode" not in parts:
@@ -157,6 +157,20 @@ def build_report(data: dict) -> str:
     lines.append("| item | value |")
     lines.append("| --- | --- |")
     lines.append(f"| total_wall | {format_seconds(total_wall_ms)} |")
+    lines.append("")
+
+    lines.append("## Timing Boundaries")
+    lines.append("")
+    lines.append("- `encode` includes only the MSM call inside polynomial encoding.")
+    lines.append(
+        "- Polynomial work needed before encoding is reported under `poly`, usually as `combine`, `add`, `mul`, or `eval`."
+    )
+    lines.append(
+        "- `div_by_vanishing_opt` and `div_by_ruffini` include only the division calls; numerator construction is reported separately under `poly`."
+    )
+    lines.append(
+        "- Raw JSON may contain `encode_call` spans for outer diagnostics, but they are excluded from the encode summary tables."
+    )
     lines.append("")
 
     setup_params = data.get("setup_params")

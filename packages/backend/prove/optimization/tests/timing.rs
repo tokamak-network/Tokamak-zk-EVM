@@ -11,6 +11,27 @@ use prove::{ProveInputPaths, Prover, TranscriptManager};
 use prove::timing;
 
 #[cfg(feature = "timing")]
+fn take_all_timing_events() -> Vec<timing::TimingEvent> {
+    let mut events = timing::take_events();
+    events.extend(libs::timing::take_events().into_iter().map(|event| {
+        timing::TimingEvent {
+            name: event.name,
+            category: event.category,
+            nanos: event.nanos,
+            sizes: event
+                .sizes
+                .into_iter()
+                .map(|size| timing::SizeInfo {
+                    label: size.label,
+                    dims: size.dims,
+                })
+                .collect(),
+        }
+    }));
+    events
+}
+
+#[cfg(feature = "timing")]
 #[derive(serde::Serialize)]
 struct StageSummary {
     total_ms: f64,
@@ -89,6 +110,7 @@ fn timing_prove_stages() {
 
     check_device();
     timing::reset();
+    libs::timing::reset();
     let wall_start = Instant::now();
 
     let (mut prover, _binding) = Prover::init(&paths);
@@ -120,7 +142,7 @@ fn timing_prove_stages() {
     let (_proof4, _proof4_test) = prover.prove4(&proof3, &thetas, kappa0, chi, zeta, kappa1);
 
     let total_wall_ms = wall_start.elapsed().as_secs_f64() * 1000.0;
-    let events = timing::take_events();
+    let events = take_all_timing_events();
 
     let mut summary: BTreeMap<String, StageSummary> = BTreeMap::new();
     for event in &events {

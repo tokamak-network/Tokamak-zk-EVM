@@ -22,7 +22,7 @@ clap = { workspace = true }
 [features]
 default = []
 testing-mode = []
-timing = []
+timing = ["libs/timing"]
 
 [[test]]
 name = "timing"

@@ -6,6 +6,8 @@ use crate::group_structures::{
     Sigma2, SigmaPreprocess, SigmaVerify,
 };
 use crate::polynomial_structures::{from_subcircuit_to_QAP, QAP};
+#[cfg(feature = "timing")]
+use crate::timing::{record as record_timing, SizeInfo};
 use crate::utils::check_gpu;
 use crate::vector_operations::transpose_inplace;
 use icicle_bls12_381::curve::{
@@ -2246,6 +2248,15 @@ fn encode_poly_from_xy_powers(
     params: &SetupParams,
     xy_powers: &[ArchivedG1SerdeRkyv],
 ) -> G1serde {
+    encode_poly_from_xy_powers_with_timing(poly, params, xy_powers, None)
+}
+
+fn encode_poly_from_xy_powers_with_timing(
+    poly: &mut DensePolynomialExt,
+    params: &SetupParams,
+    xy_powers: &[ArchivedG1SerdeRkyv],
+    timing_name: Option<&'static str>,
+) -> G1serde {
     poly.optimize_size();
     let x_size = poly.x_size;
     let y_size = poly.y_size;
@@ -2290,6 +2301,8 @@ fn encode_poly_from_xy_powers(
     };
 
     let mut msm_res = vec![G1Projective::zero(); 1];
+    #[cfg(feature = "timing")]
+    let msm_start = Instant::now();
     msm::msm(
         HostSlice::from_slice(&poly_coeffs_vec_compact),
         HostSlice::from_slice(&rs_unpacked),
@@ -2297,12 +2310,38 @@ fn encode_poly_from_xy_powers(
         HostSlice::from_mut_slice(&mut msm_res),
     )
     .unwrap();
+    #[cfg(feature = "timing")]
+    if let Some(name) = timing_name {
+        record_timing(
+            name,
+            "encode",
+            msm_start.elapsed(),
+            vec![SizeInfo {
+                label: "msm",
+                dims: vec![target_x_size, target_y_size],
+            }],
+        );
+    }
     G1serde(G1Affine::from(msm_res[0]))
 }
 
 impl ArchivedSigma1Rkyv {
     pub fn encode_poly(&self, poly: &mut DensePolynomialExt, params: &SetupParams) -> G1serde {
         encode_poly_from_xy_powers(poly, params, self.xy_powers.as_slice())
+    }
+
+    pub fn encode_poly_timed(
+        &self,
+        poly: &mut DensePolynomialExt,
+        params: &SetupParams,
+        timing_name: &'static str,
+    ) -> G1serde {
+        encode_poly_from_xy_powers_with_timing(
+            poly,
+            params,
+            self.xy_powers.as_slice(),
+            Some(timing_name),
+        )
     }
 
     pub fn encode_O_pub_fix(
@@ -2390,6 +2429,20 @@ impl ArchivedSigma1Rkyv {
 impl ArchivedPartialSigma1Rkyv {
     pub fn encode_poly(&self, poly: &mut DensePolynomialExt, params: &SetupParams) -> G1serde {
         encode_poly_from_xy_powers(poly, params, self.xy_powers.as_slice())
+    }
+
+    pub fn encode_poly_timed(
+        &self,
+        poly: &mut DensePolynomialExt,
+        params: &SetupParams,
+        timing_name: &'static str,
+    ) -> G1serde {
+        encode_poly_from_xy_powers_with_timing(
+            poly,
+            params,
+            self.xy_powers.as_slice(),
+            Some(timing_name),
+        )
     }
 
     pub fn encode_O_pub_fix(

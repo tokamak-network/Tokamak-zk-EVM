@@ -19,6 +19,46 @@ This report summarizes the CUDA prove optimization experiments performed on the 
 | `timing.remote.batch-encode.cuda.json` | 31.744249 s | 0.736217 s | 10.721734 s | 0.288986 s | 0.055206 s |
 | `timing.remote.batch-encode-prove0-prove2.cuda.json` | 31.387785 s | 0.743366 s | 10.096364 s | 0.289947 s | 0.055855 s |
 | `timing.remote.div-by-vanishing-recurrence.cuda.json` | 28.910223 s | 0.746520 s | 10.058344 s | 0.287018 s | 0.057240 s |
+| `timing.remote.strict.cuda.json` | 28.598577 s | 0.739194 s | 9.985713 s | 0.281175 s | 0.055986 s |
+
+## Timing Semantics Correction
+
+Earlier timing artifacts used broad spans around some encode and division call sites. Those spans were useful for end-to-end module accounting, but they mixed polynomial preparation work with the target operation being discussed.
+
+The strict timing artifact, `timing.remote.strict.cuda.json`, separates the boundaries as follows:
+
+- `encode` is pure MSM time inside polynomial encoding.
+- polynomial operations needed before encoding are reported under `poly`.
+- `div_by_vanishing_opt` and `div_by_ruffini` include only the division calls.
+- numerator construction for those divisions is reported separately as `poly.combine` or `poly.add`.
+
+Under this stricter view, the dominant prove cost is polynomial combination, not pure division or MSM:
+
+| category or operation | time |
+| --- | ---: |
+| category `poly` | 20.568262 s |
+| category `encode` | 1.262047 s |
+| `poly.combine` | 15.840093 s |
+| `poly.div_by_vanishing_opt` | 1.310417 s |
+| `poly.div_by_ruffini` | 1.510268 s |
+
+The pure vanishing-division calls are:
+
+| event | time |
+| --- | ---: |
+| `poly.div_by_vanishing_opt.prove0.q0q1` | 0.461748 s |
+| `poly.div_by_vanishing_opt.prove2.qCXqCY` | 0.848669 s |
+
+The largest strict polynomial-combination sites in this run are:
+
+| event | time |
+| --- | ---: |
+| `poly.combine.prove2.p_comb` | 4.500720 s |
+| `poly.combine.prove2.Q_CY` | 1.943383 s |
+| `poly.combine.prove2.Q_CX` | 1.616636 s |
+| `poly.combine.prove4.LHS_zk1` | 1.326547 s |
+| `poly.combine.prove4.LHS_zk2` | 1.204088 s |
+| `poly.combine.prove4.Pi_A` | 0.912939 s |
 
 ## Successful Changes
 
@@ -57,16 +97,18 @@ This report summarizes the CUDA prove optimization experiments performed on the 
 
    This removes the dominant 2D NTT work from the division path while preserving the same decomposition `P = Q_X (X^c - 1) + Q_Y (Y^d - 1)`.
 
+   The table below uses the legacy broad division-site spans from the original artifacts. Those spans measured the call-site region around the division and, for some sites, included polynomial numerator construction. They remain useful for comparing the accepted recurrence change against the immediately preceding run, but they should not be read as pure division time.
+
    | metric | before | recurrence | delta |
    | --- | ---: | ---: | ---: |
    | total wall | 31.712050 s | 28.910223 s | -2.801828 s |
-   | `poly.div_by_vanishing_opt.prove0.q0q1` | 2.149125 s | 1.087509 s | -1.061616 s |
-   | `poly.div_by_vanishing_opt.prove2.qCXqCY` | 7.113222 s | 5.397610 s | -1.715612 s |
+   | legacy `poly.div_by_vanishing_opt.prove0.q0q1` span | 2.149125 s | 1.087509 s | -1.061616 s |
+   | legacy `poly.div_by_vanishing_opt.prove2.qCXqCY` span | 7.113222 s | 5.397610 s | -1.715612 s |
    | `prove0.total` | 6.109721 s | 5.032357 s | -1.077364 s |
    | `prove2.total` | 12.713798 s | 11.073070 s | -1.640729 s |
    | category `poly` | 17.958210 s | 15.106989 s | -2.851220 s |
 
-   The CUDA timing test passed with this implementation. The remaining `div_by_vanishing_opt` time is mostly coefficient extraction, block accumulation, recurrence loops, and polynomial materialization rather than NTT-based division.
+   A strict follow-up measurement shows that the pure vanishing-division calls now take `1.310417 s` total: `0.461748 s` for `prove0.q0q1` and `0.848669 s` for `prove2.qCXqCY`. The CUDA timing test passed with this implementation. The remaining pure division time is mostly coefficient extraction, block accumulation, recurrence loops, and polynomial materialization rather than NTT-based division.
 
 ## Failed Or Rejected Changes
 
@@ -172,12 +214,15 @@ This report summarizes the CUDA prove optimization experiments performed on the 
 
 ## Current Accepted Baseline
 
-The current accepted CUDA baseline is `timing.remote.div-by-vanishing-recurrence.cuda.json`:
+The current accepted CUDA baseline is `timing.remote.strict.cuda.json`. It uses the same accepted logic as the vanishing-division recurrence baseline, but with stricter timing boundaries:
 
-- total wall: `28.910223 s`
-- init: `0.746520 s`
-- prove4: `10.058344 s`
-- uvwXY: `0.287018 s`
-- s0/s1: `0.057240 s`
+- total wall: `28.598577 s`
+- init: `0.739194 s`
+- prove4: `9.985713 s`
+- uvwXY: `0.281175 s`
+- s0/s1: `0.055986 s`
+- pure MSM encode total: `1.262047 s`
+- pure vanishing division total: `1.310417 s`
+- polynomial combination total: `15.840093 s`
 
-Future optimization should treat selected `prove4` polynomial operations and the remaining coefficient movement inside `div_by_vanishing_opt` as the next higher-value targets. Fused linear combination and `lagrange_K0_XY` special multiplication should only be reconsidered in narrower forms if they are measured one site at a time.
+Future optimization should treat selected polynomial-combination sites as the next higher-value targets. Pure MSM encoding and pure vanishing division are no longer the dominant costs under the strict timing view. Fused linear combination and `lagrange_K0_XY` special multiplication should only be reconsidered in narrower forms if they are measured one site at a time.
