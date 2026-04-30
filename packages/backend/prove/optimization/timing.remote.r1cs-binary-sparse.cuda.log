@@ -1,0 +1,156 @@
+warning: virtual workspace defaulting to `resolver = "1"` despite one or more workspace members being on edition 2021 which implies `resolver = "2"`
+  |
+  = note: to keep the current resolver, specify `workspace.resolver = "1"` in the workspace root's manifest
+  = note: to use the edition 2021 resolver, specify `workspace.resolver = "2"` in the workspace root's manifest
+  = note: for more details see https://doc.rust-lang.org/cargo/reference/resolver.html#resolver-versions
+warning: /home/ubuntu/Tokamak-zk-EVM/packages/backend/setup/mpc-setup/Cargo.toml: version requirement `5.0.0+20220225` for dependency `google-drive3` includes semver metadata which will be ignored, removing the metadata is recommended to avoid confusion
+    Finished `release` profile [optimized] target(s) in 0.11s
+     Running optimization/tests/timing.rs (target/release/deps/timing-aaffeeeabc9eb25a)
+
+running 1 test
+[WARNING] Defaulting to Ingonyama icicle-cuda-license-server at `5053@license.icicle.ingonyama.com`. For more information about icicle-cuda-license, please contact support@ingonyama.com.
+[INFO] ICICLE backend loaded from /opt/icicle/lib/backend
+CUDA is available
+uvwXY.phase name=alloc_eval_buffers nanos=33244447
+uvwXY.phase name=usage_scan nanos=13667
+r1cs_binary.phase subcircuit=6 name=read_binary nanos=223203
+r1cs_binary.phase subcircuit=6 name=active_wire_scan nanos=550599
+r1cs_binary.phase subcircuit=6 name=active_wire_sort nanos=102304
+r1cs_binary.phase subcircuit=6 name=compact_index_maps nanos=31722
+r1cs_binary.phase subcircuit=6 name=alloc_sparse_rows nanos=101402
+r1cs_binary.phase subcircuit=6 name=fill_sparse_rows nanos=927264
+r1cs_binary.phase subcircuit=6 name=total nanos=1950550
+r1cs_binary.phase subcircuit=2 name=read_binary nanos=7928
+r1cs_binary.phase subcircuit=2 name=active_wire_scan nanos=14878
+r1cs_binary.phase subcircuit=2 name=active_wire_sort nanos=2550
+r1cs_binary.phase subcircuit=2 name=compact_index_maps nanos=588
+r1cs_binary.phase subcircuit=2 name=alloc_sparse_rows nanos=14557
+r1cs_binary.phase subcircuit=2 name=fill_sparse_rows nanos=13883
+r1cs_binary.phase subcircuit=2 name=total nanos=59614
+r1cs_binary.phase subcircuit=9 name=read_binary nanos=11460
+r1cs_binary.phase subcircuit=9 name=active_wire_scan nanos=74812
+r1cs_binary.phase subcircuit=9 name=active_wire_sort nanos=12099
+r1cs_binary.phase subcircuit=9 name=compact_index_maps nanos=1751
+r1cs_binary.phase subcircuit=9 name=alloc_sparse_rows nanos=73025
+r1cs_binary.phase subcircuit=9 name=fill_sparse_rows nanos=85175
+r1cs_binary.phase subcircuit=9 name=total nanos=262767
+r1cs_binary.phase subcircuit=12 name=read_binary nanos=4429
+r1cs_binary.phase subcircuit=12 name=active_wire_scan nanos=5846
+r1cs_binary.phase subcircuit=12 name=active_wire_sort nanos=1022
+r1cs_binary.phase subcircuit=12 name=compact_index_maps nanos=537
+r1cs_binary.phase subcircuit=12 name=alloc_sparse_rows nanos=102486
+r1cs_binary.phase subcircuit=12 name=fill_sparse_rows nanos=12159
+r1cs_binary.phase subcircuit=12 name=total nanos=130950
+r1cs_binary.phase subcircuit=7 name=read_binary nanos=8472
+r1cs_binary.phase subcircuit=7 name=active_wire_scan nanos=55413
+r1cs_binary.phase subcircuit=7 name=active_wire_sort nanos=9147
+r1cs_binary.phase subcircuit=7 name=compact_index_maps nanos=1114
+r1cs_binary.phase subcircuit=7 name=alloc_sparse_rows nanos=103822
+r1cs_binary.phase subcircuit=7 name=fill_sparse_rows nanos=102507
+r1cs_binary.phase subcircuit=7 name=total nanos=286721
+r1cs_binary.phase subcircuit=3 name=read_binary nanos=73143
+r1cs_binary.phase subcircuit=3 name=active_wire_scan nanos=204937
+r1cs_binary.phase subcircuit=3 name=active_wire_sort nanos=57423
+r1cs_binary.phase subcircuit=3 name=compact_index_maps nanos=15313
+r1cs_binary.phase subcircuit=3 name=alloc_sparse_rows nanos=100317
+r1cs_binary.phase subcircuit=3 name=fill_sparse_rows nanos=298445
+r1cs_binary.phase subcircuit=3 name=total nanos=756001
+r1cs_binary.phase subcircuit=1 name=read_binary nanos=5194
+r1cs_binary.phase subcircuit=1 name=active_wire_scan nanos=7504
+r1cs_binary.phase subcircuit=1 name=active_wire_sort nanos=1610
+r1cs_binary.phase subcircuit=1 name=compact_index_maps nanos=737
+r1cs_binary.phase subcircuit=1 name=alloc_sparse_rows nanos=73406
+r1cs_binary.phase subcircuit=1 name=fill_sparse_rows nanos=12406
+r1cs_binary.phase subcircuit=1 name=total nanos=114674
+r1cs_binary.phase subcircuit=4 name=read_binary nanos=147327
+r1cs_binary.phase subcircuit=4 name=active_wire_scan nanos=373792
+r1cs_binary.phase subcircuit=4 name=active_wire_sort nanos=87625
+r1cs_binary.phase subcircuit=4 name=compact_index_maps nanos=24654
+r1cs_binary.phase subcircuit=4 name=alloc_sparse_rows nanos=102625
+r1cs_binary.phase subcircuit=4 name=fill_sparse_rows nanos=529353
+r1cs_binary.phase subcircuit=4 name=total nanos=1272782
+r1cs_binary.phase subcircuit=5 name=read_binary nanos=186039
+r1cs_binary.phase subcircuit=5 name=active_wire_scan nanos=515556
+r1cs_binary.phase subcircuit=5 name=active_wire_sort nanos=63566
+r1cs_binary.phase subcircuit=5 name=compact_index_maps nanos=8433
+r1cs_binary.phase subcircuit=5 name=alloc_sparse_rows nanos=49676
+r1cs_binary.phase subcircuit=5 name=fill_sparse_rows nanos=923584
+r1cs_binary.phase subcircuit=5 name=total nanos=1755567
+r1cs_binary.phase subcircuit=11 name=read_binary nanos=217996
+r1cs_binary.phase subcircuit=11 name=active_wire_scan nanos=555303
+r1cs_binary.phase subcircuit=11 name=active_wire_sort nanos=83638
+r1cs_binary.phase subcircuit=11 name=compact_index_maps nanos=10435
+r1cs_binary.phase subcircuit=11 name=alloc_sparse_rows nanos=14711
+r1cs_binary.phase subcircuit=11 name=fill_sparse_rows nanos=1417711
+r1cs_binary.phase subcircuit=11 name=total nanos=2308369
+r1cs_binary.phase subcircuit=0 name=read_binary nanos=7337
+r1cs_binary.phase subcircuit=0 name=active_wire_scan nanos=38824
+r1cs_binary.phase subcircuit=0 name=active_wire_sort nanos=4758
+r1cs_binary.phase subcircuit=0 name=compact_index_maps nanos=920
+r1cs_binary.phase subcircuit=0 name=alloc_sparse_rows nanos=17018
+r1cs_binary.phase subcircuit=0 name=fill_sparse_rows nanos=22677
+r1cs_binary.phase subcircuit=0 name=total nanos=96280
+r1cs_binary.phase subcircuit=13 name=read_binary nanos=244667
+r1cs_binary.phase subcircuit=13 name=active_wire_scan nanos=607659
+r1cs_binary.phase subcircuit=13 name=active_wire_sort nanos=82979
+r1cs_binary.phase subcircuit=13 name=compact_index_maps nanos=8396
+r1cs_binary.phase subcircuit=13 name=alloc_sparse_rows nanos=118141
+r1cs_binary.phase subcircuit=13 name=fill_sparse_rows nanos=1096313
+r1cs_binary.phase subcircuit=13 name=total nanos=2168250
+r1cs_binary.phase subcircuit=10 name=read_binary nanos=69943
+r1cs_binary.phase subcircuit=10 name=active_wire_scan nanos=586690
+r1cs_binary.phase subcircuit=10 name=active_wire_sort nanos=80655
+r1cs_binary.phase subcircuit=10 name=compact_index_maps nanos=41302
+r1cs_binary.phase subcircuit=10 name=alloc_sparse_rows nanos=102342
+r1cs_binary.phase subcircuit=10 name=fill_sparse_rows nanos=1060556
+r1cs_binary.phase subcircuit=10 name=total nanos=1949937
+uvwXY.phase name=r1cs_preload_sparse nanos=13192856
+Using sparse R1CS uvwXY generation.
+uvwXY.phase name=sparse_eval_cpu_rayon nanos=126057491
+📊 Subcircuit uses: 13 unique, 166 total
+  📋 Subcircuit 0 used 1 times
+  📋 Subcircuit 1 used 1 times
+  📋 Subcircuit 2 used 1 times
+  📋 Subcircuit 3 used 1 times
+  📋 Subcircuit 4 used 1 times
+  📋 Subcircuit 5 used 88 times
+  📋 Subcircuit 6 used 16 times
+  📋 Subcircuit 7 used 2 times
+  📋 Subcircuit 9 used 2 times
+  📋 Subcircuit 10 used 13 times
+  📋 Subcircuit 11 used 4 times
+  📋 Subcircuit 12 used 1 times
+  📋 Subcircuit 13 used 35 times
+uvwXY.phase name=usage_report_stdout nanos=9712
+uvwXY.phase name=transpose_cpu nanos=65689263
+uvwXY.phase name=from_rou_evals_gpu_icicle nanos=39465439
+uvwXY.phase name=cleanup_local_buffers nanos=4818010
+uvwXY.phase name=uvwxy_total_function nanos=282572415
+🔄 Starting binding computation (MSMs)...
+test timing_prove_stages ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 33.02s
+
+	Command being timed: "env TOKAMAK_UVWXY_PHASE_PROFILE=1 PROVE_QAP_PATH=/home/ubuntu/Tokamak-zk-EVM/packages/frontend/qap-compiler/subcircuits/library PROVE_SYNTHESIZER_PATH=/home/ubuntu/Tokamak-zk-EVM/packages/frontend/synthesizer/outputs PROVE_SETUP_PATH=/home/ubuntu/Tokamak-zk-EVM/packages/backend/setup/output PROVE_OUT_PATH=/home/ubuntu/Tokamak-zk-EVM/packages/backend/prove/output TIMING_OUT=/home/ubuntu/Tokamak-zk-EVM/packages/backend/prove/output/timing.remote.r1cs-binary-sparse.cuda.json cargo test --release -p prove --features timing --test timing -- --nocapture"
+	User time (seconds): 17.57
+	System time (seconds): 22.04
+	Percent of CPU this job got: 119%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:33.22
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 1894716
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 11339011
+	Voluntary context switches: 51209
+	Involuntary context switches: 7637
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 80
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
