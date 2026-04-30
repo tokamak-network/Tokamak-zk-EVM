@@ -6,7 +6,7 @@ use crate::group_structures::{
     Sigma2, SigmaPreprocess, SigmaVerify,
 };
 use crate::polynomial_structures::{from_subcircuit_to_QAP, QAP};
-use crate::utils::{check_device, check_gpu};
+use crate::utils::check_gpu;
 use crate::vector_operations::transpose_inplace;
 use icicle_bls12_381::curve::{
     BaseField, G1Affine, G1Projective, G2Affine, G2BaseField, ScalarField,
@@ -1125,120 +1125,17 @@ pub fn read_R1CS_gen_uvwXY(
         r1cs_by_id[subcircuit_id] = Some(loaded_r1cs);
     }
 
-    let use_gpu = check_gpu();
-    use rayon::prelude::*;
-
-    if use_gpu {
-        // GPU path: batch matmul per subcircuit, parallelize only LHS prep
-        check_device();
-
-        for (subcircuit_id, indices) in indices_by_subcircuit.iter().enumerate() {
-            if indices.is_empty() {
-                continue;
-            }
-            let compact_r1cs = r1cs_by_id[subcircuit_id]
-                .as_ref()
-                .expect("R1CS for subcircuit id must be preloaded.");
-            let m = indices.len();
-
-            let d_a = compact_r1cs.A_active_wires.len();
-            if d_a > 0 {
-                let mut lhs_a = vec![ScalarField::zero(); m * d_a];
-                lhs_a.par_chunks_mut(d_a).zip(indices.par_iter()).for_each(
-                    |(row, &placement_idx)| {
-                        let variables = &placement_variables[placement_idx].variables;
-                        fill_row_from_active_wires(variables, &compact_r1cs.A_active_wires, row);
-                    },
-                );
-
-                let mut res_a = vec![ScalarField::zero(); m * n];
-                matrix_matrix_mul_auto_tiled(
-                    &lhs_a,
-                    &compact_r1cs.A_compact_col_mat,
-                    m,
-                    d_a,
-                    n,
-                    &mut res_a,
-                );
-                for (row_idx, &placement_idx) in indices.iter().enumerate() {
-                    let src = &res_a[row_idx * n..(row_idx + 1) * n];
-                    u_eval[placement_idx * n..(placement_idx + 1) * n].copy_from_slice(src);
-                }
-            }
-
-            let d_b = compact_r1cs.B_active_wires.len();
-            if d_b > 0 {
-                let mut lhs_b = vec![ScalarField::zero(); m * d_b];
-                lhs_b.par_chunks_mut(d_b).zip(indices.par_iter()).for_each(
-                    |(row, &placement_idx)| {
-                        let variables = &placement_variables[placement_idx].variables;
-                        fill_row_from_active_wires(variables, &compact_r1cs.B_active_wires, row);
-                    },
-                );
-
-                let mut res_b = vec![ScalarField::zero(); m * n];
-                matrix_matrix_mul_auto_tiled(
-                    &lhs_b,
-                    &compact_r1cs.B_compact_col_mat,
-                    m,
-                    d_b,
-                    n,
-                    &mut res_b,
-                );
-                for (row_idx, &placement_idx) in indices.iter().enumerate() {
-                    let src = &res_b[row_idx * n..(row_idx + 1) * n];
-                    v_eval[placement_idx * n..(placement_idx + 1) * n].copy_from_slice(src);
-                }
-            }
-
-            let d_c = compact_r1cs.C_active_wires.len();
-            if d_c > 0 {
-                let mut lhs_c = vec![ScalarField::zero(); m * d_c];
-                lhs_c.par_chunks_mut(d_c).zip(indices.par_iter()).for_each(
-                    |(row, &placement_idx)| {
-                        let variables = &placement_variables[placement_idx].variables;
-                        fill_row_from_active_wires(variables, &compact_r1cs.C_active_wires, row);
-                    },
-                );
-
-                let mut res_c = vec![ScalarField::zero(); m * n];
-                matrix_matrix_mul_auto_tiled(
-                    &lhs_c,
-                    &compact_r1cs.C_compact_col_mat,
-                    m,
-                    d_c,
-                    n,
-                    &mut res_c,
-                );
-                for (row_idx, &placement_idx) in indices.iter().enumerate() {
-                    let src = &res_c[row_idx * n..(row_idx + 1) * n];
-                    w_eval[placement_idx * n..(placement_idx + 1) * n].copy_from_slice(src);
-                }
-            }
-        }
-    } else {
-        // CPU path: sparse rows evaluation (no dense matmul)
-        u_eval
-            .par_chunks_mut(n)
-            .zip(v_eval.par_chunks_mut(n))
-            .zip(w_eval.par_chunks_mut(n))
-            .zip(placement_variables.par_iter())
-            .for_each(|(((u_chunk, v_chunk), w_chunk), placement)| {
-                let subcircuit_id = placement.subcircuitId;
-                let compact_r1cs = r1cs_by_id[subcircuit_id]
-                    .as_ref()
-                    .expect("R1CS for subcircuit id must be preloaded.");
-                let variables = &placement.variables;
-
-                let d_vec_a = build_d_vec(variables, &compact_r1cs.A_active_wires);
-                let d_vec_b = build_d_vec(variables, &compact_r1cs.B_active_wires);
-                let d_vec_c = build_d_vec(variables, &compact_r1cs.C_active_wires);
-
-                eval_sparse_rows(&d_vec_a, &compact_r1cs.A_sparse_rows, u_chunk);
-                eval_sparse_rows(&d_vec_b, &compact_r1cs.B_sparse_rows, v_chunk);
-                eval_sparse_rows(&d_vec_c, &compact_r1cs.C_sparse_rows, w_chunk);
-            });
+    if check_gpu() {
+        println!("Using sparse CPU uvwXY generation while GPU remains active for later stages.");
     }
+    eval_uvwxy_sparse_rows(
+        placement_variables,
+        &r1cs_by_id,
+        n,
+        &mut u_eval,
+        &mut v_eval,
+        &mut w_eval,
+    );
 
     // Report usage statistics
     let unique_subcircuits = unique_ids.len();
@@ -1262,6 +1159,38 @@ pub fn read_R1CS_gen_uvwXY(
         DensePolynomialExt::from_rou_evals(HostSlice::from_slice(&v_eval), n, s_max, None, None),
         DensePolynomialExt::from_rou_evals(HostSlice::from_slice(&w_eval), n, s_max, None, None),
     );
+}
+
+fn eval_uvwxy_sparse_rows(
+    placement_variables: &Box<[PlacementVariables]>,
+    r1cs_by_id: &[Option<SubcircuitR1CS>],
+    n: usize,
+    u_eval: &mut [ScalarField],
+    v_eval: &mut [ScalarField],
+    w_eval: &mut [ScalarField],
+) {
+    use rayon::prelude::*;
+
+    u_eval
+        .par_chunks_mut(n)
+        .zip(v_eval.par_chunks_mut(n))
+        .zip(w_eval.par_chunks_mut(n))
+        .zip(placement_variables.par_iter())
+        .for_each(|(((u_chunk, v_chunk), w_chunk), placement)| {
+            let subcircuit_id = placement.subcircuitId;
+            let compact_r1cs = r1cs_by_id[subcircuit_id]
+                .as_ref()
+                .expect("R1CS for subcircuit id must be preloaded.");
+            let variables = &placement.variables;
+
+            let d_vec_a = build_d_vec(variables, &compact_r1cs.A_active_wires);
+            let d_vec_b = build_d_vec(variables, &compact_r1cs.B_active_wires);
+            let d_vec_c = build_d_vec(variables, &compact_r1cs.C_active_wires);
+
+            eval_sparse_rows(&d_vec_a, &compact_r1cs.A_sparse_rows, u_chunk);
+            eval_sparse_rows(&d_vec_b, &compact_r1cs.B_sparse_rows, v_chunk);
+            eval_sparse_rows(&d_vec_c, &compact_r1cs.C_sparse_rows, w_chunk);
+        });
 }
 
 fn _from_r1cs_to_eval(
@@ -1302,20 +1231,6 @@ fn _from_r1cs_to_eval_slice(
 
         let n = eval_slice.len();
         matrix_matrix_mul(&d_vec, compact_mat, 1, d_len_A, n, eval_slice);
-    }
-}
-
-fn fill_row_from_active_wires(
-    variables: &Box<[HexString]>,
-    active_wires: &Vec<usize>,
-    row: &mut [ScalarField],
-) {
-    if row.len() != active_wires.len() {
-        panic!("Incorrect row length for active wires.");
-    }
-    for (i, &local_idx) in active_wires.iter().enumerate() {
-        let hex_str = &variables[local_idx];
-        row[i] = ScalarField::from_hex(&hex_str.0);
     }
 }
 
