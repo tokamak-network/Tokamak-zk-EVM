@@ -8,6 +8,47 @@ The format is based on Keep a Changelog.
 
 ## Unreleased
 
+## [2.0.15] - 2026-04-30
+
+### Repository
+
+- Synchronized the release version to `2.0.15` across the CLI, subcircuit library, synthesizer packages, and backend workspace.
+- Added the Tokamak zk-EVM version management rules and CRS compatibility check policy to `docs/version-rules.md`.
+- Removed obsolete repository-local documentation files that are no longer part of the release documentation set.
+
+### CLI
+
+- Bumped `@tokamak-zk-evm/cli` to `2.0.15`.
+- Updated the CLI package to consume `@tokamak-zk-evm/synthesizer-node` through the synchronized `^2.0.15` dependency range.
+- Added `tokamakZkEvm.compatibleBackendVersion` as the CLI-owned backend compatibility version source of truth.
+- Changed CRS install selection to use strict `MAJOR.MINOR` CRS archive names and reject patch-versioned CRS archives.
+- Added CRS provenance, CRS artifact hash, backend metadata, and subcircuit source digest validation before installing downloaded CRS artifacts.
+- Kept installed runtime state scoped to the installed package version and derived the CRS compatibility version from that package version.
+
+### Subcircuit Library
+
+- Bumped `@tokamak-zk-evm/subcircuit-library` to `2.0.15`.
+
+### Synthesizer
+
+- Bumped `@tokamak-zk-evm/synthesizer-node` and `@tokamak-zk-evm/synthesizer-web` to `2.0.15`.
+- Updated both synthesizer packages to consume `@tokamak-zk-evm/subcircuit-library` through the synchronized `^2.0.15` dependency range.
+
+### Backend Workspace
+
+- Bumped the backend Rust workspace version to `2.0.15`.
+- Recorded the CLI-compatible backend version in backend build metadata.
+- Recorded subcircuit-library source digests in backend build metadata for CRS compatibility checks.
+- Changed dusk-backed MPC setup provenance and CRS archive naming to use the `MAJOR.MINOR` compatibility version.
+- Added pre-publication validation that rejects CRS provenance or build metadata that does not match the CLI-compatible backend version.
+
+### CI
+
+- Moved source build validation to the front of the publish workflow.
+- Moved EVM compatibility tests into the publish workflow before post-publish test and build validation.
+- Added npm-registry refresh before EVM compatibility tests so post-publish checks use the latest published Tokamak zk-EVM packages.
+- Updated the published CRS check to select only the latest strict `MAJOR.MINOR` CRS archive and validate its embedded provenance, metadata, and hashes.
+
 ## [2.0.14] - 2026-04-29
 
 ### Repository

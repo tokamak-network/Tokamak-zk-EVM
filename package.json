@@ -1,6 +1,6 @@
 {
   "name": "tokamak-zk-evm-monorepo",
-  "version": "2.0.14",
+  "version": "2.0.15",
   "description": "Tokamak zk-EVM: A tool that converts Ethereum transactions into Zero-Knowledge Proofs",
   "license": "MIT OR Apache-2.0",
   "author": "Tokamak Network",
