@@ -28,11 +28,9 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: '24'
-          cache: 'npm'
-          cache-dependency-path: package-lock.json
 
       - name: Install workspace dependencies
-        run: npm ci
+        run: npm install --package-lock=false
 
       - name: Check synchronized versions
         run: npm run version:check
