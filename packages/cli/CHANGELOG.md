@@ -14,6 +14,7 @@ The format is based on Keep a Changelog.
 
 - Synchronized the release version to `2.0.15` across the CLI, subcircuit library, synthesizer packages, and backend workspace.
 - Added the Tokamak zk-EVM version management rules and CRS compatibility check policy to `docs/version-rules.md`.
+- Clarified that, within a fixed `MAJOR.MINOR` compatibility line, CRS reuse across patch releases is gated by subcircuit `sourceDigest` equality.
 - Removed obsolete repository-local documentation files that are no longer part of the release documentation set.
 
 ### CLI
@@ -40,6 +41,7 @@ The format is based on Keep a Changelog.
 - Recorded the CLI-compatible backend version in backend build metadata.
 - Recorded subcircuit-library source digests in backend build metadata for CRS compatibility checks.
 - Restricted the subcircuit source digest to CRS-relevant constants, r1cs, wasm, json, and library configuration artifacts.
+- Simplified subcircuit snapshot metadata by deriving the constants path from the unpacked snapshot layout instead of storing it separately.
 - Changed dusk-backed MPC setup provenance and CRS archive naming to use the `MAJOR.MINOR` compatibility version.
 - Added pre-publication validation that rejects CRS provenance or build metadata that does not match the CLI-compatible backend version.
 
