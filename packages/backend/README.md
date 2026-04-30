@@ -148,13 +148,10 @@ Produces:
 
 - `preprocess.json`
 
-Release example:
+CLI package example:
 
 ```bash
-cargo run --release -p preprocess -- \
-  --crs ./setup/output \
-  --synthesizer-stat ./dist/resource/synthesizer/output \
-  --output ./verify/preprocess/output
+tokamak-cli --preprocess
 ```
 
 ### `prove`
@@ -169,13 +166,10 @@ Produces:
 
 - `proof.json`
 
-Release example:
+CLI package example:
 
 ```bash
-cargo run --release -p prove -- \
-  --crs ./setup/output \
-  --synthesizer-stat ./dist/resource/synthesizer/output \
-  --output ./prove/output
+tokamak-cli --prove
 ```
 
 ### `verify`
@@ -192,14 +186,10 @@ Produces:
 
 - `true` or `false` on stdout
 
-Release example:
+CLI package example:
 
 ```bash
-cargo run --release -p verify -- \
-  --crs ./setup/output \
-  --synthesizer-stat ./dist/resource/synthesizer/output \
-  --preprocess ./verify/preprocess/output \
-  --proof ./prove/output
+tokamak-cli --verify
 ```
 
 ## Debugging with VS Code
