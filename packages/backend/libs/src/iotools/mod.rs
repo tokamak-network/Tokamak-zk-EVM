@@ -2257,6 +2257,7 @@ fn encode_poly_from_xy_powers_with_timing(
     xy_powers: &[ArchivedG1SerdeRkyv],
     timing_name: Option<&'static str>,
 ) -> G1serde {
+    poly.optimize_size();
     let x_size = poly.x_size;
     let y_size = poly.y_size;
     let rs_x_size = std::cmp::max(2 * params.n, 2 * (params.l_D - params.l));
@@ -2264,18 +2265,7 @@ fn encode_poly_from_xy_powers_with_timing(
     let target_x_size = (poly.x_degree + 1) as usize;
     let target_y_size = (poly.y_degree + 1) as usize;
     if target_x_size > rs_x_size || target_y_size > rs_y_size {
-        panic!(
-            "Insufficient length of sigma.sigma_1.xy_powers for {:?}: target={}x{}, rs={}x{}, poly_size={}x{}, degree={}x{}",
-            timing_name,
-            target_x_size,
-            target_y_size,
-            rs_x_size,
-            rs_y_size,
-            x_size,
-            y_size,
-            poly.x_degree,
-            poly.y_degree
-        );
+        panic!("Insufficient length of sigma.sigma_1.xy_powers");
     }
     if target_x_size * target_y_size == 0 {
         return G1serde::zero();

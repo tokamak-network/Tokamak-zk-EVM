@@ -64,6 +64,7 @@ macro_rules! impl_encode_poly {
                 poly: &mut DensePolynomialExt,
                 params: &SetupParams,
             ) -> G1serde {
+                poly.optimize_size();
                 let x_size = poly.x_size;
                 let y_size = poly.y_size;
                 let rs_x_size = std::cmp::max(2 * params.n, 2 * (params.l_D - params.l));

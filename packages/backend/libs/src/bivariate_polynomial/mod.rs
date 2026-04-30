@@ -163,8 +163,8 @@ impl Add for &DensePolynomialExt {
         //let (x_degree, y_degree) = DensePolynomialExt::find_degree(&out_poly, x_size, y_size);
         let out = DensePolynomialExt {
             poly: out_poly,
-            x_degree: cmp::max(lhs_ext.x_degree, rhs_ext.x_degree),
-            y_degree: cmp::max(lhs_ext.y_degree, rhs_ext.y_degree),
+            x_degree: x_size as i64 - 1,
+            y_degree: y_size as i64 - 1,
             x_size,
             y_size,
         };
@@ -197,8 +197,8 @@ impl AddAssign<&DensePolynomialExt> for DensePolynomialExt {
         self.x_size = lhs_ext.x_size;
         self.y_size = lhs_ext.y_size;
         //let (x_degree, y_degree) = DensePolynomialExt::find_degree(&self.poly, self.x_size, self.y_size);
-        self.x_degree = cmp::max(lhs_ext.x_degree, rhs_ext.x_degree);
-        self.y_degree = cmp::max(lhs_ext.y_degree, rhs_ext.y_degree);
+        self.x_degree = self.x_size as i64 - 1;
+        self.y_degree = self.y_size as i64 - 1;
         #[cfg(feature = "timing")]
         record_detail(
             "addition",
@@ -231,8 +231,8 @@ impl Sub for &DensePolynomialExt {
         //let (x_degree, y_degree) = DensePolynomialExt::find_degree(&out_poly, x_size, y_size);
         let out = DensePolynomialExt {
             poly: out_poly,
-            x_degree: cmp::max(lhs_ext.x_degree, rhs_ext.x_degree),
-            y_degree: cmp::max(lhs_ext.y_degree, rhs_ext.y_degree),
+            x_degree: x_size as i64 - 1,
+            y_degree: y_size as i64 - 1,
             x_size,
             y_size,
         };
@@ -298,13 +298,7 @@ impl Mul<&ScalarField> for &DensePolynomialExt {
         let mut res_coeffs =
             DeviceVec::<ScalarField>::device_malloc(self.x_size * self.y_size).unwrap();
         ScalarCfg::scalar_mul(scaler, &coeffs, &mut res_coeffs, &vec_ops_cfg).unwrap();
-        let out = DensePolynomialExt {
-            poly: DensePolynomial::from_coeffs(&res_coeffs, self.x_size * self.y_size),
-            x_degree: self.x_degree,
-            y_degree: self.y_degree,
-            x_size: self.x_size,
-            y_size: self.y_size,
-        };
+        let out = DensePolynomialExt::from_coeffs(&res_coeffs, self.x_size, self.y_size);
         #[cfg(feature = "timing")]
         record_detail(
             "scaling",
@@ -346,13 +340,7 @@ impl Mul<&DensePolynomialExt> for &ScalarField {
         let mut res_coeffs =
             DeviceVec::<ScalarField>::device_malloc(rhs.x_size * rhs.y_size).unwrap();
         ScalarCfg::scalar_mul(scaler, &coeffs, &mut res_coeffs, &vec_ops_cfg).unwrap();
-        let out = DensePolynomialExt {
-            poly: DensePolynomial::from_coeffs(&res_coeffs, rhs.x_size * rhs.y_size),
-            x_degree: rhs.x_degree,
-            y_degree: rhs.y_degree,
-            x_size: rhs.x_size,
-            y_size: rhs.y_size,
-        };
+        let out = DensePolynomialExt::from_coeffs(&res_coeffs, rhs.x_size, rhs.y_size);
         #[cfg(feature = "timing")]
         record_detail(
             "scaling",
@@ -378,16 +366,11 @@ impl Add<&DensePolynomialExt> for &ScalarField {
         rhs.copy_coeffs(0, coeffs);
         coeffs_vec[0] = coeffs_vec[0] + *self;
         let res_coeffs = coeffs_vec.clone();
-        let out = DensePolynomialExt {
-            poly: DensePolynomial::from_coeffs(
-                HostSlice::from_slice(&res_coeffs),
-                rhs.x_size * rhs.y_size,
-            ),
-            x_degree: cmp::max(rhs.x_degree, 0),
-            y_degree: cmp::max(rhs.y_degree, 0),
-            x_size: rhs.x_size,
-            y_size: rhs.y_size,
-        };
+        let out = DensePolynomialExt::from_coeffs(
+            HostSlice::from_slice(&res_coeffs),
+            rhs.x_size,
+            rhs.y_size,
+        );
         #[cfg(feature = "timing")]
         record_detail(
             "addition",
@@ -413,16 +396,11 @@ impl Add<&ScalarField> for &DensePolynomialExt {
         self.copy_coeffs(0, coeffs);
         coeffs_vec[0] = coeffs_vec[0] + *rhs;
         let res_coeffs = coeffs_vec.clone();
-        let out = DensePolynomialExt {
-            poly: DensePolynomial::from_coeffs(
-                HostSlice::from_slice(&res_coeffs),
-                self.x_size * self.y_size,
-            ),
-            x_degree: cmp::max(self.x_degree, 0),
-            y_degree: cmp::max(self.y_degree, 0),
-            x_size: self.x_size,
-            y_size: self.y_size,
-        };
+        let out = DensePolynomialExt::from_coeffs(
+            HostSlice::from_slice(&res_coeffs),
+            self.x_size,
+            self.y_size,
+        );
         #[cfg(feature = "timing")]
         record_detail(
             "addition",
@@ -449,13 +427,7 @@ impl Sub<&DensePolynomialExt> for &ScalarField {
         neg_rhs.copy_coeffs(0, coeffs);
         coeffs[0] = *self + coeffs[0];
 
-        let out = DensePolynomialExt {
-            poly: DensePolynomial::from_coeffs(coeffs, rhs.x_size * rhs.y_size),
-            x_degree: cmp::max(rhs.x_degree, 0),
-            y_degree: cmp::max(rhs.y_degree, 0),
-            x_size: rhs.x_size,
-            y_size: rhs.y_size,
-        };
+        let out = DensePolynomialExt::from_coeffs(coeffs, rhs.x_size, rhs.y_size);
         #[cfg(feature = "timing")]
         record_detail(
             "addition",
@@ -481,16 +453,11 @@ impl Sub<&ScalarField> for &DensePolynomialExt {
         self.copy_coeffs(0, coeffs);
         coeffs_vec[0] = coeffs_vec[0] - *rhs;
         let res_coeffs = coeffs_vec.clone();
-        let out = DensePolynomialExt {
-            poly: DensePolynomial::from_coeffs(
-                HostSlice::from_slice(&res_coeffs),
-                self.x_size * self.y_size,
-            ),
-            x_degree: cmp::max(self.x_degree, 0),
-            y_degree: cmp::max(self.y_degree, 0),
-            x_size: self.x_size,
-            y_size: self.y_size,
-        };
+        let out = DensePolynomialExt::from_coeffs(
+            HostSlice::from_slice(&res_coeffs),
+            self.x_size,
+            self.y_size,
+        );
         #[cfg(feature = "timing")]
         record_detail(
             "addition",
@@ -854,20 +821,14 @@ impl BivariatePolynomial for DensePolynomialExt {
         let mut scaled_coeffs_vec = vec![Self::Field::zero(); self.x_size * self.y_size];
         let scaled_coeffs = HostSlice::from_mut_slice(&mut scaled_coeffs_vec);
         self._scale_coeffs(x_factor, false, scaled_coeffs);
-        let mut out = DensePolynomialExt::from_coeffs(scaled_coeffs, self.x_size, self.y_size);
-        out.x_degree = self.x_degree;
-        out.y_degree = self.y_degree;
-        return out;
+        return DensePolynomialExt::from_coeffs(scaled_coeffs, self.x_size, self.y_size);
     }
 
     fn scale_coeffs_y(&self, y_factor: &Self::Field) -> Self {
         let mut scaled_coeffs_vec = vec![Self::Field::zero(); self.x_size * self.y_size];
         let scaled_coeffs = HostSlice::from_mut_slice(&mut scaled_coeffs_vec);
         self._scale_coeffs(y_factor, true, scaled_coeffs);
-        let mut out = DensePolynomialExt::from_coeffs(scaled_coeffs, self.x_size, self.y_size);
-        out.x_degree = self.x_degree;
-        out.y_degree = self.y_degree;
-        return out;
+        return DensePolynomialExt::from_coeffs(scaled_coeffs, self.x_size, self.y_size);
     }
 
     fn _scale_coeffs<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
@@ -1112,23 +1073,21 @@ impl BivariatePolynomial for DensePolynomialExt {
         self.poly = DensePolynomial::from_coeffs(res_coeffs, new_size);
         self.x_size = new_x_size;
         self.y_size = new_y_size;
-        if self.x_degree >= new_x_size as i64 {
-            self.x_degree = new_x_size as i64 - 1;
-        }
-        if self.y_degree >= new_y_size as i64 {
-            self.y_degree = new_y_size as i64 - 1;
-        }
     }
 
     fn optimize_size(&mut self) {
-        // Conservative-degree mode keeps x_degree/y_degree as upper bounds.
-        // Avoid exact degree scans and shrink operations on hot paths.
+        let (updated_x_degree, updated_y_degree) = self.find_degree();
+        self.x_degree = updated_x_degree;
+        self.y_degree = updated_y_degree;
+        let target_x_size = updated_x_degree + 1;
+        let target_y_size = updated_y_degree + 1;
+        if target_x_size == 0 || target_y_size == 0 {
+            return;
+        }
+        self.resize(target_x_size as usize, target_y_size as usize);
     }
 
     fn mul_monomial(&self, x_exponent: usize, y_exponent: usize) -> Self {
-        if self.x_degree < 0 || self.y_degree < 0 {
-            return Self::zero();
-        }
         if x_exponent == 0 && y_exponent == 0 {
             self.clone()
         } else {
@@ -1139,37 +1098,27 @@ impl BivariatePolynomial for DensePolynomialExt {
             let orig_coeffs = HostSlice::from_mut_slice(&mut orig_coeffs_vec);
             self.copy_coeffs(0, orig_coeffs);
 
-            let active_x_size = (self.x_degree + 1) as usize;
-            let active_y_size = (self.y_degree + 1) as usize;
-            let target_x_size = active_x_size + x_exponent;
-            let target_y_size = active_y_size + y_exponent;
+            let target_x_size = (self.x_degree + 1) as usize + x_exponent;
+            let target_y_size = (self.y_degree + 1) as usize + y_exponent;
             let (new_x_size, new_y_size) = _find_size_as_twopower(target_x_size, target_y_size);
             let new_size: usize = new_x_size * new_y_size;
 
             let mut res_coeffs_vec = vec![Self::Field::zero(); new_size];
-            for i in 0..active_x_size {
+            for i in 0..self.x_size {
                 res_coeffs_vec[new_y_size * (i + x_exponent) + y_exponent
-                    ..new_y_size * (i + x_exponent) + active_y_size + y_exponent]
-                    .copy_from_slice(
-                        &orig_coeffs_vec[self.y_size * i..self.y_size * i + active_y_size],
-                    );
+                    ..new_y_size * (i + x_exponent) + self.y_size + y_exponent]
+                    .copy_from_slice(&orig_coeffs_vec[self.y_size * i..self.y_size * (i + 1)]);
             }
 
             let res_coeffs = HostSlice::from_slice(&res_coeffs_vec);
 
-            let mut out = DensePolynomialExt::from_coeffs(res_coeffs, new_x_size, new_y_size);
-            out.x_degree = self.x_degree + x_exponent as i64;
-            out.y_degree = self.y_degree + y_exponent as i64;
-            out
+            DensePolynomialExt::from_coeffs(res_coeffs, new_x_size, new_y_size)
         }
     }
 
     fn _mul(&self, rhs: &Self) -> Self {
-        let (lhs_x_degree, lhs_y_degree) = self.degree();
-        let (rhs_x_degree, rhs_y_degree) = rhs.degree();
-        if lhs_x_degree < 0 || lhs_y_degree < 0 || rhs_x_degree < 0 || rhs_y_degree < 0 {
-            return Self::zero();
-        }
+        let (lhs_x_degree, lhs_y_degree) = self.find_degree();
+        let (rhs_x_degree, rhs_y_degree) = rhs.find_degree();
         if lhs_x_degree + lhs_y_degree == 0 && rhs_x_degree + rhs_y_degree > 0 {
             return &(rhs.clone()) * &(self.get_coeff(0, 0));
         }
@@ -1204,8 +1153,7 @@ impl BivariatePolynomial for DensePolynomialExt {
         drop(rhs_evals);
 
         let mut res = DensePolynomialExt::from_rou_evals(&out_evals, x_size, y_size, None, None);
-        res.x_degree = lhs_x_degree + rhs_x_degree;
-        res.y_degree = lhs_y_degree + rhs_y_degree;
+        res.optimize_size();
         return res;
     }
 
@@ -1318,6 +1266,7 @@ impl BivariatePolynomial for DensePolynomialExt {
         {
             panic!("The denominators must have degress as powers of two.")
         }
+        self.optimize_size();
         let numer_x_size = self.x_size;
         let numer_y_size = self.y_size;
         let numer_x_degree = self.x_degree;
@@ -1505,6 +1454,7 @@ impl BivariatePolynomial for DensePolynomialExt {
         {
             panic!("The denominators must have degress as powers of two.")
         }
+        self.optimize_size();
         let numer_x_size = self.x_size;
         let numer_y_size = self.y_size;
         let numer_x_degree = self.x_degree;
@@ -1609,16 +1559,16 @@ impl BivariatePolynomial for DensePolynomialExt {
         );
         let mut quo_y =
             DensePolynomialExt::from_coeffs(HostSlice::from_slice(&quo_y_coeffs_vec), c, y_size);
-        if numer_x_degree >= denom_x_degree {
-            quo_x.x_degree = numer_x_degree - denom_x_degree;
-            quo_x.y_degree = numer_y_degree;
+        if x_size > c {
+            quo_x.x_degree = (x_size - c - 1) as i64;
+            quo_x.y_degree = y_size as i64 - 1;
         } else {
             quo_x.x_degree = -1;
             quo_x.y_degree = -1;
         }
-        if numer_y_degree >= denom_y_degree {
-            quo_y.x_degree = cmp::min(numer_x_degree, denom_x_degree - 1);
-            quo_y.y_degree = numer_y_degree - denom_y_degree;
+        if y_size > d {
+            quo_y.x_degree = c as i64 - 1;
+            quo_y.y_degree = (y_size - d - 1) as i64;
         } else {
             quo_y.x_degree = -1;
             quo_y.y_degree = -1;
@@ -1661,31 +1611,16 @@ impl BivariatePolynomial for DensePolynomialExt {
         let mut q_x_coeffs_vec_flat: Vec<Self::Field> =
             q_x_coeffs_vec.into_par_iter().flatten().collect();
         transpose_inplace(&mut q_x_coeffs_vec_flat, y_len, x_len);
-        let mut q_x = DensePolynomialExt::from_coeffs(
+        let q_x = DensePolynomialExt::from_coeffs(
             HostSlice::from_slice(&q_x_coeffs_vec_flat),
             x_len,
             y_len,
         );
-        if self.x_degree > 0 {
-            q_x.x_degree = self.x_degree - 1;
-            q_x.y_degree = self.y_degree;
-        } else {
-            q_x.x_degree = -1;
-            q_x.y_degree = -1;
-        }
 
         // Divide R_X(Y) by (Y-y).
         let (q_y_coeffs_vec, r_y) =
             DensePolynomialExt::_div_uni_coeffs_by_ruffini(&r_x_coeffs_vec, y);
-        let mut q_y =
-            DensePolynomialExt::from_coeffs(HostSlice::from_slice(&q_y_coeffs_vec), 1, y_len);
-        if self.y_degree > 0 {
-            q_y.x_degree = 0;
-            q_y.y_degree = self.y_degree - 1;
-        } else {
-            q_y.x_degree = -1;
-            q_y.y_degree = -1;
-        }
+        let q_y = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&q_y_coeffs_vec), 1, y_len);
         (q_x, q_y, r_y)
     }
 
