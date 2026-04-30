@@ -10,6 +10,7 @@ pub mod vector_operations;
 
 #[cfg(feature = "timing")]
 pub mod timing {
+    use std::cell::RefCell;
     use std::sync::{Mutex, OnceLock};
     use std::time::{Duration, Instant};
 
@@ -23,8 +24,8 @@ pub mod timing {
 
     #[derive(Clone, Debug, Serialize)]
     pub struct TimingEvent {
-        pub name: &'static str,
-        pub category: &'static str,
+        pub name: String,
+        pub category: String,
         pub nanos: u128,
         pub sizes: Vec<SizeInfo>,
     }
@@ -44,6 +45,7 @@ pub mod timing {
         if let Ok(mut guard) = collector().lock() {
             guard.events.clear();
         }
+        DETAIL_CONTEXT.with(|stack| stack.borrow_mut().clear());
     }
 
     pub fn record(
@@ -52,6 +54,10 @@ pub mod timing {
         duration: Duration,
         sizes: Vec<SizeInfo>,
     ) {
+        record_string(name.to_string(), category.to_string(), duration, sizes);
+    }
+
+    fn record_string(name: String, category: String, duration: Duration, sizes: Vec<SizeInfo>) {
         if let Ok(mut guard) = collector().lock() {
             guard.events.push(TimingEvent {
                 name,
@@ -67,6 +73,45 @@ pub mod timing {
             return std::mem::take(&mut guard.events);
         }
         Vec::new()
+    }
+
+    thread_local! {
+        static DETAIL_CONTEXT: RefCell<Vec<&'static str>> = const { RefCell::new(Vec::new()) };
+    }
+
+    pub struct DetailScopeGuard {
+        active: bool,
+    }
+
+    pub fn enter_detail_scope(name: &'static str, category: &'static str) -> DetailScopeGuard {
+        let active = category == "poly" && name.starts_with("poly.combine.");
+        if active {
+            DETAIL_CONTEXT.with(|stack| stack.borrow_mut().push(name));
+        }
+        DetailScopeGuard { active }
+    }
+
+    impl Drop for DetailScopeGuard {
+        fn drop(&mut self) {
+            if self.active {
+                DETAIL_CONTEXT.with(|stack| {
+                    stack.borrow_mut().pop();
+                });
+            }
+        }
+    }
+
+    pub fn record_detail(op: &'static str, duration: Duration, sizes: Vec<SizeInfo>) {
+        let context = DETAIL_CONTEXT.with(|stack| stack.borrow().last().copied());
+        if let Some(context) = context {
+            let suffix = context.strip_prefix("poly.combine.").unwrap_or(context);
+            record_string(
+                format!("poly_detail.{op}.{suffix}"),
+                "poly_detail".to_string(),
+                duration,
+                sizes,
+            );
+        }
     }
 
     pub struct SpanGuard {

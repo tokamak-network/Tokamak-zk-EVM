@@ -147,6 +147,34 @@ The largest strict polynomial-combination sites in this run are:
 
    `Q_CX` and `Pi_A` were neutral in this run, but the batch is positive overall because `p_comb`, `LHS_zk1`, `term_B_zk`, and `KL` improved clearly. The CUDA timing test passed.
 
+## Diagnostic Timing
+
+### Polynomial-combination detail timing
+
+`timing.remote.poly-comb-detail.cuda.json` is a diagnostic run on top of the accepted algebraic-combination code. It adds nested `poly_detail` events while a `poly.combine.*` span is active. These detail events are excluded from the normal `poly` totals to avoid double-counting, and the run should not be used as the accepted performance baseline because the additional timing records add measurement overhead.
+
+The detail totals show that generic polynomial multiplication is still the largest component inside polynomial-combination spans, but addition is also a large fraction:
+
+| detail operation | time |
+| --- | ---: |
+| multiplication | 8.791025 s |
+| addition | 5.720295 s |
+| scaling | 0.625577 s |
+
+Top detail targets:
+
+| target | addition | multiplication | scaling | total |
+| --- | ---: | ---: | ---: | ---: |
+| `prove2.p_comb` | 0.281001 s | 3.689850 s | 0.050819 s | 4.021669 s |
+| `prove2.Q_CY` | 0.284850 s | 1.609415 s | 0.035909 s | 1.930174 s |
+| `prove2.Q_CX` | 0.619124 s | 1.008238 s | 0.023295 s | 1.650657 s |
+| `prove4.LHS_zk2` | 0.187774 s | 0.983838 s | 0.039706 s | 1.211318 s |
+| `prove4.LHS_zk1` | 0.180626 s | 0.949706 s | 0.043845 s | 1.174176 s |
+| `prove4.Pi_A` | 0.793005 s | 0.000000 s | 0.133940 s | 0.926945 s |
+| `prove4.LHS_for_copy` | 0.674182 s | 0.000000 s | 0.109677 s | 0.783859 s |
+
+This changes the next optimization question: reducing multiplication count alone is not enough. The remaining polynomial-combination cost also includes substantial repeated addition/resizing work, especially in scalar-linear-combination sites such as `Pi_A`, `LHS_for_copy`, `Q_AX`, `Q_AY`, and `pC`.
+
 ## Failed Or Rejected Changes
 
 1. **Host round-trip and small memory-movement optimizations were not adopted.**

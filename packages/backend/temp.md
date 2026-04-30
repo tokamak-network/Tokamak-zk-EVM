@@ -289,6 +289,30 @@ The batch was implemented and measured in `prove/optimization/timing.remote.poly
 
 The CUDA timing test passed. Some individual targets were neutral, but the combined rewrite is positive overall.
 
+## Detail Breakdown Measurement
+
+`prove/optimization/timing.remote.poly-comb-detail.cuda.json` adds nested `poly_detail` events inside active `poly.combine.*` spans. These events are diagnostic only and are excluded from normal `poly` totals to avoid double-counting.
+
+| detail operation | time |
+| --- | ---: |
+| multiplication | 8.791025 s |
+| addition | 5.720295 s |
+| scaling | 0.625577 s |
+
+The largest detail targets are:
+
+| target | addition | multiplication | scaling | total |
+| --- | ---: | ---: | ---: | ---: |
+| `prove2.p_comb` | 0.281001 s | 3.689850 s | 0.050819 s | 4.021669 s |
+| `prove2.Q_CY` | 0.284850 s | 1.609415 s | 0.035909 s | 1.930174 s |
+| `prove2.Q_CX` | 0.619124 s | 1.008238 s | 0.023295 s | 1.650657 s |
+| `prove4.LHS_zk2` | 0.187774 s | 0.983838 s | 0.039706 s | 1.211318 s |
+| `prove4.LHS_zk1` | 0.180626 s | 0.949706 s | 0.043845 s | 1.174176 s |
+| `prove4.Pi_A` | 0.793005 s | 0.000000 s | 0.133940 s | 0.926945 s |
+| `prove4.LHS_for_copy` | 0.674182 s | 0.000000 s | 0.109677 s | 0.783859 s |
+
+This measurement shows that multiplication is still the largest combine component, but repeated addition and resizing are also large enough that further optimization should not focus only on multiplication count.
+
 ## Suggested Application Order
 
 1. Apply `Q_CX/Q_CY` factorization.

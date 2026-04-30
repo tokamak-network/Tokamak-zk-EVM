@@ -51,6 +51,25 @@ def parse_poly_event(name: str):
     return op, module, var
 
 
+def parse_poly_detail_event(name: str):
+    # Expected: poly_detail.<op>.<proveX>.<var>
+    parts = name.split(".")
+    if len(parts) < 4:
+        return None
+    if parts[0] != "poly_detail":
+        return None
+    op = parts[1]
+    module = None
+    var = parts[-1]
+    for part in parts[2:-1]:
+        if part.startswith("prove"):
+            module = part
+            break
+    if module is None:
+        module = parts[2]
+    return op, module, var
+
+
 def parse_encode_event(name: str):
     # Expected: proveX.encode.<var> or init.encode.<var>
     parts = name.split(".")
@@ -96,6 +115,8 @@ def build_report(data: dict) -> str:
             encode_total += ms
 
     poly_op_totals = defaultdict(float)
+    poly_detail_totals = defaultdict(float)
+    poly_detail_rows = []
     poly_event_rows = []
     encode_event_rows = []
     init_event_rows = []
@@ -116,6 +137,23 @@ def build_report(data: dict) -> str:
                         "sizes": sizes_to_string(e.get("sizes", [])),
                     }
                 )
+        if e.get("category") == "poly_detail":
+            parsed = parse_poly_detail_event(e.get("name", ""))
+            if parsed is None:
+                continue
+            op, module, var = parsed
+            ms = e.get("nanos", 0) / 1_000_000.0
+            poly_detail_totals[op] += ms
+            poly_detail_rows.append(
+                {
+                    "op": op,
+                    "module": module,
+                    "var": var,
+                    "ms": ms,
+                    "sizes": sizes_to_string(e.get("sizes", [])),
+                }
+            )
+            continue
         if e.get("category") != "poly":
             if e.get("category") == "encode":
                 parsed = parse_encode_event(e.get("name", ""))
@@ -170,6 +208,9 @@ def build_report(data: dict) -> str:
     )
     lines.append(
         "- Raw JSON may contain `encode_call` spans for outer diagnostics, but they are excluded from the encode summary tables."
+    )
+    lines.append(
+        "- `poly_detail` breaks down operations executed inside `poly.combine.*` spans and is excluded from `poly` totals to avoid double-counting."
     )
     lines.append("")
 
@@ -245,6 +286,29 @@ def build_report(data: dict) -> str:
             f"| {row['op']} | {row['module']} | {row['var']} | {format_seconds(row['ms'])} | {row['sizes']} |"
         )
     lines.append("")
+
+    if poly_detail_rows:
+        lines.append("## Poly Combine Detail Totals")
+        lines.append("")
+        lines.append("| detail operation | total |")
+        lines.append("| --- | --- |")
+        for op in sorted(poly_detail_totals.keys()):
+            lines.append(f"| {op} | {format_seconds(poly_detail_totals[op])} |")
+        lines.append("")
+
+        detail_by_target = defaultdict(lambda: defaultdict(float))
+        for row in poly_detail_rows:
+            detail_by_target[(row["module"], row["var"])][row["op"]] += row["ms"]
+        detail_ops = sorted(poly_detail_totals.keys())
+        lines.append("## Poly Combine Detail By Target")
+        lines.append("")
+        lines.append("| module | variable | " + " | ".join(detail_ops) + " | total |")
+        lines.append("| --- | --- | " + " | ".join(["---:"] * len(detail_ops)) + " | ---: |")
+        for (module, var), values in sorted(detail_by_target.items()):
+            total = sum(values.values())
+            op_values = " | ".join(format_seconds(values.get(op, 0.0)) for op in detail_ops)
+            lines.append(f"| {module} | {var} | {op_values} | {format_seconds(total)} |")
+        lines.append("")
 
     lines.append("## Encode Details (by variable)")
     lines.append("")

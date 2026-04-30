@@ -158,7 +158,7 @@ fn timing_prove_stages() {
                 .name
                 .split('.')
                 .next()
-                .unwrap_or(event.name)
+                .unwrap_or(&event.name)
                 .to_string()
         });
         let entry = summary.entry(stage).or_insert(StageSummary {
@@ -167,7 +167,7 @@ fn timing_prove_stages() {
             encode_ms: 0.0,
         });
         let ms = event.nanos as f64 / 1_000_000.0;
-        match event.category {
+        match event.category.as_str() {
             "poly" => entry.poly_ms += ms,
             "encode" => entry.encode_ms += ms,
             _ => {}

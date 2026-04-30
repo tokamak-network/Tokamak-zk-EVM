@@ -7,11 +7,16 @@ use icicle_core::traits::{Arithmetic, FieldConfig, FieldImpl, GenerateRandom};
 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
 use icicle_runtime::memory::{DeviceSlice, DeviceVec, HostOrDeviceSlice, HostSlice};
 use rayon::prelude::*;
+#[cfg(feature = "timing")]
+use std::time::Instant;
 use std::{
     cmp,
     ops::{Add, AddAssign, Mul, Neg, Sub},
     sync::{Mutex, OnceLock},
 };
+
+#[cfg(feature = "timing")]
+use crate::timing::{record_detail, SizeInfo};
 
 static NTT_DOMAIN_SIZE: OnceLock<Mutex<Option<usize>>> = OnceLock::new();
 
@@ -142,6 +147,8 @@ impl Clone for DensePolynomialExt {
 impl Add for &DensePolynomialExt {
     type Output = DensePolynomialExt;
     fn add(self: Self, rhs: Self) -> Self::Output {
+        #[cfg(feature = "timing")]
+        let timing_start = Instant::now();
         let mut lhs_ext = self.clone();
         let mut rhs_ext = rhs.clone();
         if self.x_size != rhs.x_size || self.y_size != rhs.y_size {
@@ -154,18 +161,30 @@ impl Add for &DensePolynomialExt {
         let x_size = lhs_ext.x_size;
         let y_size = lhs_ext.y_size;
         //let (x_degree, y_degree) = DensePolynomialExt::find_degree(&out_poly, x_size, y_size);
-        DensePolynomialExt {
+        let out = DensePolynomialExt {
             poly: out_poly,
             x_degree: x_size as i64 - 1,
             y_degree: y_size as i64 - 1,
             x_size,
             y_size,
-        }
+        };
+        #[cfg(feature = "timing")]
+        record_detail(
+            "addition",
+            timing_start.elapsed(),
+            vec![SizeInfo {
+                label: "result",
+                dims: vec![out.x_size, out.y_size],
+            }],
+        );
+        out
     }
 }
 
 impl AddAssign<&DensePolynomialExt> for DensePolynomialExt {
     fn add_assign(&mut self, rhs: &DensePolynomialExt) {
+        #[cfg(feature = "timing")]
+        let timing_start = Instant::now();
         let mut lhs_ext = self.clone();
         let mut rhs_ext = rhs.clone();
         if self.x_size != rhs.x_size || self.y_size != rhs.y_size {
@@ -180,6 +199,15 @@ impl AddAssign<&DensePolynomialExt> for DensePolynomialExt {
         //let (x_degree, y_degree) = DensePolynomialExt::find_degree(&self.poly, self.x_size, self.y_size);
         self.x_degree = self.x_size as i64 - 1;
         self.y_degree = self.y_size as i64 - 1;
+        #[cfg(feature = "timing")]
+        record_detail(
+            "addition",
+            timing_start.elapsed(),
+            vec![SizeInfo {
+                label: "result",
+                dims: vec![self.x_size, self.y_size],
+            }],
+        );
     }
 }
 
@@ -187,6 +215,8 @@ impl Sub for &DensePolynomialExt {
     type Output = DensePolynomialExt;
 
     fn sub(self: Self, rhs: Self) -> Self::Output {
+        #[cfg(feature = "timing")]
+        let timing_start = Instant::now();
         let mut lhs_ext = self.clone();
         let mut rhs_ext = rhs.clone();
         if self.x_size != rhs.x_size || self.y_size != rhs.y_size {
@@ -199,13 +229,23 @@ impl Sub for &DensePolynomialExt {
         let x_size = lhs_ext.x_size;
         let y_size = lhs_ext.y_size;
         //let (x_degree, y_degree) = DensePolynomialExt::find_degree(&out_poly, x_size, y_size);
-        DensePolynomialExt {
+        let out = DensePolynomialExt {
             poly: out_poly,
             x_degree: x_size as i64 - 1,
             y_degree: y_size as i64 - 1,
             x_size,
             y_size,
-        }
+        };
+        #[cfg(feature = "timing")]
+        record_detail(
+            "addition",
+            timing_start.elapsed(),
+            vec![SizeInfo {
+                label: "result",
+                dims: vec![out.x_size, out.y_size],
+            }],
+        );
+        out
     }
 }
 
@@ -213,7 +253,19 @@ impl Mul for &DensePolynomialExt {
     type Output = DensePolynomialExt;
 
     fn mul(self: Self, rhs: Self) -> Self::Output {
-        self._mul(rhs)
+        #[cfg(feature = "timing")]
+        let timing_start = Instant::now();
+        let out = self._mul(rhs);
+        #[cfg(feature = "timing")]
+        record_detail(
+            "multiplication",
+            timing_start.elapsed(),
+            vec![SizeInfo {
+                label: "result",
+                dims: vec![out.x_size, out.y_size],
+            }],
+        );
+        out
     }
 }
 
@@ -222,8 +274,20 @@ impl Mul<&ScalarField> for &DensePolynomialExt {
     type Output = DensePolynomialExt;
 
     fn mul(self: Self, rhs: &ScalarField) -> Self::Output {
+        #[cfg(feature = "timing")]
+        let timing_start = Instant::now();
         if rhs.eq(&ScalarField::one()) {
-            return self.clone();
+            let out = self.clone();
+            #[cfg(feature = "timing")]
+            record_detail(
+                "scaling",
+                timing_start.elapsed(),
+                vec![SizeInfo {
+                    label: "result",
+                    dims: vec![out.x_size, out.y_size],
+                }],
+            );
+            return out;
         }
         let mut coeffs =
             DeviceVec::<ScalarField>::device_malloc(self.x_size * self.y_size).unwrap();
@@ -234,7 +298,17 @@ impl Mul<&ScalarField> for &DensePolynomialExt {
         let mut res_coeffs =
             DeviceVec::<ScalarField>::device_malloc(self.x_size * self.y_size).unwrap();
         ScalarCfg::scalar_mul(scaler, &coeffs, &mut res_coeffs, &vec_ops_cfg).unwrap();
-        DensePolynomialExt::from_coeffs(&res_coeffs, self.x_size, self.y_size)
+        let out = DensePolynomialExt::from_coeffs(&res_coeffs, self.x_size, self.y_size);
+        #[cfg(feature = "timing")]
+        record_detail(
+            "scaling",
+            timing_start.elapsed(),
+            vec![SizeInfo {
+                label: "result",
+                dims: vec![out.x_size, out.y_size],
+            }],
+        );
+        out
     }
 }
 
@@ -243,8 +317,20 @@ impl Mul<&DensePolynomialExt> for &ScalarField {
     type Output = DensePolynomialExt;
 
     fn mul(self: Self, rhs: &DensePolynomialExt) -> Self::Output {
+        #[cfg(feature = "timing")]
+        let timing_start = Instant::now();
         if self.eq(&ScalarField::one()) {
-            return rhs.clone();
+            let out = rhs.clone();
+            #[cfg(feature = "timing")]
+            record_detail(
+                "scaling",
+                timing_start.elapsed(),
+                vec![SizeInfo {
+                    label: "result",
+                    dims: vec![out.x_size, out.y_size],
+                }],
+            );
+            return out;
         }
         let mut coeffs = DeviceVec::<ScalarField>::device_malloc(rhs.x_size * rhs.y_size).unwrap();
         rhs.copy_coeffs(0, &mut coeffs);
@@ -254,7 +340,17 @@ impl Mul<&DensePolynomialExt> for &ScalarField {
         let mut res_coeffs =
             DeviceVec::<ScalarField>::device_malloc(rhs.x_size * rhs.y_size).unwrap();
         ScalarCfg::scalar_mul(scaler, &coeffs, &mut res_coeffs, &vec_ops_cfg).unwrap();
-        DensePolynomialExt::from_coeffs(&res_coeffs, rhs.x_size, rhs.y_size)
+        let out = DensePolynomialExt::from_coeffs(&res_coeffs, rhs.x_size, rhs.y_size);
+        #[cfg(feature = "timing")]
+        record_detail(
+            "scaling",
+            timing_start.elapsed(),
+            vec![SizeInfo {
+                label: "result",
+                dims: vec![out.x_size, out.y_size],
+            }],
+        );
+        out
     }
 }
 
@@ -263,12 +359,28 @@ impl Add<&DensePolynomialExt> for &ScalarField {
     type Output = DensePolynomialExt;
 
     fn add(self: Self, rhs: &DensePolynomialExt) -> Self::Output {
+        #[cfg(feature = "timing")]
+        let timing_start = Instant::now();
         let mut coeffs_vec = vec![ScalarField::zero(); rhs.x_size * rhs.y_size];
         let coeffs = HostSlice::from_mut_slice(&mut coeffs_vec);
         rhs.copy_coeffs(0, coeffs);
         coeffs_vec[0] = coeffs_vec[0] + *self;
         let res_coeffs = coeffs_vec.clone();
-        DensePolynomialExt::from_coeffs(HostSlice::from_slice(&res_coeffs), rhs.x_size, rhs.y_size)
+        let out = DensePolynomialExt::from_coeffs(
+            HostSlice::from_slice(&res_coeffs),
+            rhs.x_size,
+            rhs.y_size,
+        );
+        #[cfg(feature = "timing")]
+        record_detail(
+            "addition",
+            timing_start.elapsed(),
+            vec![SizeInfo {
+                label: "result",
+                dims: vec![out.x_size, out.y_size],
+            }],
+        );
+        out
     }
 }
 
@@ -277,16 +389,28 @@ impl Add<&ScalarField> for &DensePolynomialExt {
     type Output = DensePolynomialExt;
 
     fn add(self: Self, rhs: &ScalarField) -> Self::Output {
+        #[cfg(feature = "timing")]
+        let timing_start = Instant::now();
         let mut coeffs_vec = vec![ScalarField::zero(); self.x_size * self.y_size];
         let coeffs = HostSlice::from_mut_slice(&mut coeffs_vec);
         self.copy_coeffs(0, coeffs);
         coeffs_vec[0] = coeffs_vec[0] + *rhs;
         let res_coeffs = coeffs_vec.clone();
-        DensePolynomialExt::from_coeffs(
+        let out = DensePolynomialExt::from_coeffs(
             HostSlice::from_slice(&res_coeffs),
             self.x_size,
             self.y_size,
-        )
+        );
+        #[cfg(feature = "timing")]
+        record_detail(
+            "addition",
+            timing_start.elapsed(),
+            vec![SizeInfo {
+                label: "result",
+                dims: vec![out.x_size, out.y_size],
+            }],
+        );
+        out
     }
 }
 
@@ -295,13 +419,25 @@ impl Sub<&DensePolynomialExt> for &ScalarField {
     type Output = DensePolynomialExt;
 
     fn sub(self: Self, rhs: &DensePolynomialExt) -> Self::Output {
+        #[cfg(feature = "timing")]
+        let timing_start = Instant::now();
         let neg_rhs = -rhs;
         let mut coeffs_vec = vec![ScalarField::zero(); rhs.x_size * rhs.y_size];
         let coeffs = HostSlice::from_mut_slice(&mut coeffs_vec);
         neg_rhs.copy_coeffs(0, coeffs);
         coeffs[0] = *self + coeffs[0];
 
-        DensePolynomialExt::from_coeffs(coeffs, rhs.x_size, rhs.y_size)
+        let out = DensePolynomialExt::from_coeffs(coeffs, rhs.x_size, rhs.y_size);
+        #[cfg(feature = "timing")]
+        record_detail(
+            "addition",
+            timing_start.elapsed(),
+            vec![SizeInfo {
+                label: "result",
+                dims: vec![out.x_size, out.y_size],
+            }],
+        );
+        out
     }
 }
 
@@ -310,16 +446,28 @@ impl Sub<&ScalarField> for &DensePolynomialExt {
     type Output = DensePolynomialExt;
 
     fn sub(self: Self, rhs: &ScalarField) -> Self::Output {
+        #[cfg(feature = "timing")]
+        let timing_start = Instant::now();
         let mut coeffs_vec = vec![ScalarField::zero(); self.x_size * self.y_size];
         let coeffs = HostSlice::from_mut_slice(&mut coeffs_vec);
         self.copy_coeffs(0, coeffs);
         coeffs_vec[0] = coeffs_vec[0] - *rhs;
         let res_coeffs = coeffs_vec.clone();
-        DensePolynomialExt::from_coeffs(
+        let out = DensePolynomialExt::from_coeffs(
             HostSlice::from_slice(&res_coeffs),
             self.x_size,
             self.y_size,
-        )
+        );
+        #[cfg(feature = "timing")]
+        record_detail(
+            "addition",
+            timing_start.elapsed(),
+            vec![SizeInfo {
+                label: "result",
+                dims: vec![out.x_size, out.y_size],
+            }],
+        );
+        out
     }
 }
 
@@ -327,7 +475,19 @@ impl Neg for &DensePolynomialExt {
     type Output = DensePolynomialExt;
 
     fn neg(self: Self) -> Self::Output {
-        self._neg()
+        #[cfg(feature = "timing")]
+        let timing_start = Instant::now();
+        let out = self._neg();
+        #[cfg(feature = "timing")]
+        record_detail(
+            "scaling",
+            timing_start.elapsed(),
+            vec![SizeInfo {
+                label: "result",
+                dims: vec![out.x_size, out.y_size],
+            }],
+        );
+        out
     }
 }
 

@@ -78,8 +78,8 @@ pub mod timing {
 
     #[derive(Clone, Debug, Serialize)]
     pub struct TimingEvent {
-        pub name: &'static str,
-        pub category: &'static str,
+        pub name: String,
+        pub category: String,
         pub nanos: u128,
         pub sizes: Vec<SizeInfo>,
     }
@@ -107,6 +107,10 @@ pub mod timing {
         duration: Duration,
         sizes: Vec<SizeInfo>,
     ) {
+        record_string(name.to_string(), category.to_string(), duration, sizes);
+    }
+
+    fn record_string(name: String, category: String, duration: Duration, sizes: Vec<SizeInfo>) {
         if let Ok(mut guard) = collector().lock() {
             guard.events.push(TimingEvent {
                 name,
@@ -129,15 +133,18 @@ pub mod timing {
         category: &'static str,
         start: Instant,
         sizes: Vec<SizeInfo>,
+        _detail_scope: Option<libs::timing::DetailScopeGuard>,
     }
 
     impl SpanGuard {
         pub fn new(name: &'static str, category: &'static str, sizes: Vec<SizeInfo>) -> Self {
+            let detail_scope = Some(libs::timing::enter_detail_scope(name, category));
             Self {
                 name,
                 category,
                 start: Instant::now(),
                 sizes,
+                _detail_scope: detail_scope,
             }
         }
     }
