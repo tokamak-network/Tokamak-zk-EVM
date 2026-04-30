@@ -422,20 +422,28 @@ impl Permutation {
     ) -> (DensePolynomialExt, DensePolynomialExt) {
         let omega_m_i = ntt::get_root_of_unity::<ScalarField>(m_i as u64);
         let omega_s_max = ntt::get_root_of_unity::<ScalarField>(s_max as u64);
+        let mut x_powers = vec![ScalarField::one(); m_i];
+        for row_idx in 1..m_i {
+            x_powers[row_idx] = x_powers[row_idx - 1] * omega_m_i;
+        }
+        let mut y_powers = vec![ScalarField::one(); s_max];
+        for col_idx in 1..s_max {
+            y_powers[col_idx] = y_powers[col_idx - 1] * omega_s_max;
+        }
+
         let mut s0_evals_vec = vec![ScalarField::zero(); m_i * s_max];
         let mut s1_evals_vec = vec![ScalarField::zero(); m_i * s_max];
-        // Initialization
         for row_idx in 0..m_i {
+            let row_start = row_idx * s_max;
             for col_idx in 0..s_max {
-                s0_evals_vec[row_idx * s_max + col_idx] = omega_m_i.pow(row_idx);
-                s1_evals_vec[row_idx * s_max + col_idx] = omega_s_max.pow(col_idx);
+                s0_evals_vec[row_start + col_idx] = x_powers[row_idx];
+                s1_evals_vec[row_start + col_idx] = y_powers[col_idx];
             }
         }
-        // Reflecting the actual values
-        for i in 0..perm_raw.len() {
-            let idx = perm_raw[i].row * s_max + perm_raw[i].col;
-            s0_evals_vec[idx] = omega_m_i.pow(perm_raw[i].X);
-            s1_evals_vec[idx] = omega_s_max.pow(perm_raw[i].Y);
+        for perm in perm_raw.iter() {
+            let idx = perm.row * s_max + perm.col;
+            s0_evals_vec[idx] = x_powers[perm.X];
+            s1_evals_vec[idx] = y_powers[perm.Y];
         }
         let s0_evals = HostSlice::from_slice(&s0_evals_vec);
         let s1_evals = HostSlice::from_slice(&s1_evals_vec);
