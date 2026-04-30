@@ -883,7 +883,7 @@ jobs:
     timeout-minutes: 90
     env:
       TOKAMAK_ZKEVM_CLI_CACHE_DIR: ${{ github.workspace }}/.tokamak-cli-cache
-      CONSUMER_DIR: ${{ github.workspace }}/.tokamak-cli-consumer
+      CONSUMER_DIR: ${{ github.workspace }}/tokamak-cli-consumer
 
     steps:
       - name: Checkout code
