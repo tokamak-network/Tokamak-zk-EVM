@@ -39,15 +39,6 @@ macro_rules! poly_comb {
         }};
     }
 
-macro_rules! poly_lc {
-    (($c:expr, $p:expr), $(($rest_c:expr, $rest_p:expr)),+ $(,)?) => {{
-        DensePolynomialExt::linear_combination(&[
-            ($c, &$p),
-            $(($rest_c, &$rest_p)),+
-        ])
-    }};
-}
-
 #[cfg(feature = "timing")]
 #[macro_export]
 macro_rules! time_block {
@@ -1876,7 +1867,7 @@ impl Prover {
                         dims: vec![self.witness.vXY.x_size, self.witness.vXY.y_size]
                     },],
                     {
-                        poly_lc!(
+                        poly_comb!(
                             (ScalarField::one(), self.witness.vXY),
                             (self.mixer.rV_X, self.instance.t_n),
                             (self.mixer.rV_Y, self.instance.t_smax)
@@ -1892,14 +1883,9 @@ impl Prover {
                         dims: vec![self.witness.uXY.x_size, self.witness.uXY.y_size]
                     },],
                     {
-                        let v_minus_eval = &VXY - &proof3.V_eval.0;
-                        let t_n_gap = &t_n_eval - &self.instance.t_n;
-                        let t_smax_gap = &t_smax_eval - &self.instance.t_smax;
-                        let rW_X_term = &rW_X * &t_n_gap;
-                        let rW_Y_term = &rW_Y * &t_smax_gap;
-                        poly_lc!(
+                        poly_comb!(
                             // for KZG of V
-                            (kappa1, v_minus_eval),
+                            (kappa1, &VXY - &proof3.V_eval.0),
                             // for Arithmetic constraints
                             (small_v_eval, self.witness.uXY),
                             (ScalarField::zero() - ScalarField::one(), self.witness.wXY),
@@ -1920,8 +1906,8 @@ impl Prover {
                                         + (self.mixer.rU_Y * t_smax_eval)),
                                 self.witness.vXY
                             ),
-                            (ScalarField::one(), rW_X_term),
-                            (ScalarField::one(), rW_Y_term)
+                            (rW_X, &t_n_eval - &self.instance.t_n),
+                            (rW_Y, &t_smax_eval - &self.instance.t_smax)
                         )
                     }
                 );
@@ -2305,7 +2291,7 @@ impl Prover {
                     dims: vec![self.witness.bXY.x_size, self.witness.bXY.y_size]
                 },],
                 {
-                    poly_lc!(
+                    poly_comb!(
                         (small_r_eval, gXY),
                         (ScalarField::zero() - small_r_omegaX_eval, fXY)
                     )
@@ -2319,7 +2305,7 @@ impl Prover {
                     dims: vec![self.witness.bXY.x_size, self.witness.bXY.y_size]
                 },],
                 {
-                    poly_lc!(
+                    poly_comb!(
                         (small_r_eval, gXY),
                         (ScalarField::zero() - small_r_omegaX_omegaY_eval, fXY)
                     )
@@ -2333,7 +2319,7 @@ impl Prover {
                     dims: vec![m_i, s_max]
                 },],
                 {
-                    poly_lc!(
+                    poly_comb!(
                         (small_r_eval - ScalarField::one(), lagrange_KL_XY),
                         (kappa0 * (chi - ScalarField::one()), term5),
                         (kappa0.pow(2) * lagrange_K0_eval, term6),
@@ -2381,7 +2367,7 @@ impl Prover {
                             label: "rB",
                             dims: vec![m_i, s_max]
                         },],
-                        { poly_lc!((t_mi_eval, rB_X), (t_s_max_eval, rB_Y)) }
+                        { &(&t_mi_eval * &rB_X) + &(&t_s_max_eval * &rB_Y) }
                     );
                     let term_B_zk = crate::time_block!(
                         "poly.combine.prove4.term_B_zk",
@@ -2390,14 +2376,7 @@ impl Prover {
                             label: "rB",
                             dims: vec![m_i, s_max]
                         },],
-                        {
-                            let term_B_zk_X = &rB_X * &self.instance.t_mi;
-                            let term_B_zk_Y = &rB_Y * &self.instance.t_smax;
-                            poly_lc!(
-                                (ScalarField::one(), term_B_zk_X),
-                                (ScalarField::one(), term_B_zk_Y)
-                            )
-                        }
+                        { &(&rB_X * &self.instance.t_mi) + &(&rB_Y * &self.instance.t_smax) }
                     );
                     (term9, term_B_zk)
                 };
@@ -2429,15 +2408,10 @@ impl Prover {
                             dims: vec![m_i, s_max]
                         },],
                         {
-                            let one_minus_x = &ScalarField::one() - &X_mono;
-                            let r_D1_term9 = &r_D1 * &term9;
-                            let lhs_zk1_term2 = &one_minus_x * &r_D1_term9;
-                            let chi_minus_x = &chi - &X_mono;
-                            let lhs_zk1_term3 = &term10 * &chi_minus_x;
-                            poly_lc!(
+                            poly_comb!(
                                 ((chi - ScalarField::one()) * r_D1_eval, term_B_zk),
-                                (ScalarField::one(), lhs_zk1_term2),
-                                (ScalarField::one(), lhs_zk1_term3)
+                                (&ScalarField::one() - &X_mono, &r_D1 * &term9),
+                                (term10, (&chi - &X_mono))
                             )
                         }
                     ),
@@ -2449,15 +2423,10 @@ impl Prover {
                             dims: vec![m_i, s_max]
                         },],
                         {
-                            let lagrange_r_D2 = &lagrange_K0_XY * &r_D2;
-                            let neg_term9 = -&term9;
-                            let lhs_zk2_term2 = &lagrange_r_D2 * &neg_term9;
-                            let lagrange_k0_gap = &lagrange_K0_eval - &lagrange_K0_XY;
-                            let lhs_zk2_term3 = &term10 * &lagrange_k0_gap;
-                            poly_lc!(
+                            poly_comb!(
                                 (lagrange_K0_eval * r_D2_eval, term_B_zk),
-                                (ScalarField::one(), lhs_zk2_term2),
-                                (ScalarField::one(), lhs_zk2_term3)
+                                (&lagrange_K0_XY * &r_D2, -&term9),
+                                (term10, &lagrange_K0_eval - &lagrange_K0_XY)
                             )
                         }
                     ),
@@ -2480,7 +2449,7 @@ impl Prover {
                     dims: vec![m_i, s_max]
                 },],
                 {
-                    poly_lc!(
+                    poly_comb!(
                         (kappa1.pow(2), pC_XY),
                         (kappa1.pow(2) * kappa0, LHS_zk1),
                         (kappa1.pow(2) * kappa0.pow(2), LHS_zk2),
