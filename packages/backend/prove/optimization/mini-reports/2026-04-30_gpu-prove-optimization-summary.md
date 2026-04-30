@@ -22,6 +22,7 @@ This report summarizes the CUDA prove optimization experiments performed on the 
 | `timing.remote.strict.cuda.json` | 28.598577 s | 0.739194 s | 9.985713 s | 0.281175 s | 0.055986 s |
 | `timing.remote.poly-comb-algebraic.cuda.json` | 27.490122 s | 0.734930 s | 9.541593 s | 0.286616 s | 0.055128 s |
 | `timing.remote.special-form-products.cuda.json` | 26.709146 s | 0.740477 s | 9.519266 s | 0.284122 s | 0.054744 s |
+| `timing.remote.conservative-degree.cuda.json` | 26.825371 s | 0.745473 s | 9.539583 s | 0.287664 s | 0.055577 s |
 
 ## Timing Semantics Correction
 
@@ -338,9 +339,44 @@ This changes the next optimization question: reducing multiplication count alone
 
    The result indicates that this path does not reduce the dominant cost. The likely bottleneck is the number of ICICLE add/sub operations and intermediate polynomial constructions, not the Rust-side branch that cloned operands before checking dimensions. The code change was rolled back and the timing artifact is kept only as an experiment record.
 
-## Current Accepted Baseline
+8. **Complete conservative degree bounds were tested and kept as a policy change, but not as a speed win.**
 
-The current accepted CUDA baseline is `timing.remote.special-form-products.cuda.json`:
+   The experiment removed runtime `optimize_size` use from prove encoding and division paths, made `optimize_size()` a compatibility no-op, propagated conservative theoretical degree upper bounds through scalar operations, add/sub, multiplication, monomial shifts, `div_by_vanishing_opt`, and `div_by_ruffini`, and set known theoretical degrees for fixed vanishing polynomials such as `t_n`, `t_mi`, and `t_smax`.
+
+   The prove timing test passed locally and on the remote CUDA host. However, the CUDA measurement did not improve against the previous special-form-products baseline:
+
+   | metric | special-form baseline | conservative-degree | delta |
+   | --- | ---: | ---: | ---: |
+   | total wall | 26.709146 s | 26.825371 s | +0.116225 s |
+   | category `poly` | 18.653591 s | 18.698461 s | +0.044871 s |
+   | pure MSM encode | 1.270636 s | 1.262955 s | -0.007681 s |
+   | `poly.combine` | 14.007280 s | 14.024680 s | +0.017400 s |
+   | `div_by_vanishing_opt` | 1.315135 s | 1.316781 s | +0.001646 s |
+   | `div_by_ruffini` | 1.540679 s | 1.576574 s | +0.035894 s |
+   | detail addition | 7.076283 s | 7.077973 s | +0.001690 s |
+   | detail multiplication | 4.914589 s | 4.933451 s | +0.018862 s |
+   | detail scaling | 0.807468 s | 0.808720 s | +0.001253 s |
+
+   Interpretation:
+
+   - exact degree scans and shrink operations were not a meaningful bottleneck in the measured prove path;
+   - known vanishing-polynomial degree bounds keep the effect small, but the policy is still neutral to slightly negative;
+   - the policy is retained only because the branch direction explicitly chose theoretical upper bounds over exact shrinking.
+
+## Current Branch Measurement
+
+The current branch code corresponds to `timing.remote.conservative-degree.cuda.json`:
+
+- total wall: `26.825371 s`
+- init: `0.745473 s`
+- prove4: `9.539583 s`
+- uvwXY: `0.287664 s`
+- s0/s1: `0.055577 s`
+- pure MSM encode total: `1.262955 s`
+- pure vanishing division total: `1.316781 s`
+- polynomial combination total: `14.024680 s`
+
+For performance comparison, the fastest retained reference before the conservative-degree policy remains `timing.remote.special-form-products.cuda.json`:
 
 - total wall: `26.709146 s`
 - init: `0.740477 s`
@@ -351,4 +387,4 @@ The current accepted CUDA baseline is `timing.remote.special-form-products.cuda.
 - pure vanishing division total: `1.315135 s`
 - polynomial combination total: `14.007280 s`
 
-Future optimization should focus on `DensePolynomialExt` wrapper-level costs rather than more algebraic polynomial-multiplication reduction. The next higher-value targets are addition/subtraction fast paths, monomial-shift/intermediate reduction, and more accurate degree metadata. Pure MSM encoding and pure vanishing division are not the dominant costs under the strict timing view.
+Future optimization should focus on reducing the number of wrapper-level polynomial operations and intermediate polynomials. More accurate degree discovery, exact shrinking, pure MSM encoding, and pure vanishing division are not the dominant costs under the strict timing view.

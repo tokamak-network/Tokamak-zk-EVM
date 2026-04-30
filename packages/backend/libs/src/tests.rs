@@ -474,8 +474,7 @@ mod tests {
 
     #[test]
     fn test_optimize_size() {
-        // pass
-        // Create a larger polynomial (4x4) but with only 2x2 actually used
+        // Conservative-degree mode does not shrink allocated extents.
         let mut coeffs = vec![ScalarField::from_u32(0); 16];
         for y in 0..2 {
             for x in 0..2 {
@@ -485,16 +484,17 @@ mod tests {
         }
 
         let mut poly = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs), 4, 4);
-        // Manually adjust the degree to reflect the actual non-zero terms
         poly.x_degree = 1;
         poly.y_degree = 1;
+        let original_x_size = poly.x_size;
+        let original_y_size = poly.y_size;
 
-        // Optimize size
         poly.optimize_size();
 
-        // Size should be 2x2 (or the next power of 2 that can contain 2x2)
-        assert!(poly.x_size <= 2);
-        assert!(poly.y_size <= 2);
+        assert_eq!(poly.x_size, original_x_size);
+        assert_eq!(poly.y_size, original_y_size);
+        assert_eq!(poly.x_degree, 1);
+        assert_eq!(poly.y_degree, 1);
     }
 
     #[test]
@@ -591,9 +591,8 @@ mod tests {
         assert_eq!(result.x_size.is_power_of_two(), true);
         assert_eq!(result.y_size.is_power_of_two(), true);
 
-        // In the implemented code, the degrees are calculated as size-1, so we test against that
-        assert_eq!(result.x_degree, result.x_size as i64 - 1);
-        assert_eq!(result.y_degree, result.y_size as i64 - 1);
+        assert_eq!(result.x_degree, 2);
+        assert_eq!(result.y_degree, 2);
 
         // Original: 1 + 2x + 3y + 4xy
         // After multiplying by xy: xy + 2x^2y + 3xy^2 + 4x^2y^2

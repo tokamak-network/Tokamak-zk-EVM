@@ -1,200 +1,66 @@
-# DensePolynomialExt Wrapper Optimization Notes
+# Conservative Degree Bound Experiment
 
-## Background
+## Goal
 
-ICICLE provides highly optimized univariate polynomial primitives. `DensePolynomialExt` extends those primitives into a bivariate polynomial abstraction by wrapping univariate polynomial storage and recombining ICICLE operations such as NTT, vector operations, scalar multiplication, and transpose.
+Use complete conservative theoretical degree bounds instead of exact degree discovery and runtime shrinking.
 
-The main optimization risk is therefore not the ICICLE primitive itself. The risk is wrapper overhead between primitive calls:
+Scope:
 
-- unnecessary intermediate `DensePolynomialExt` values;
-- repeated add/sub/scale calls;
-- repeated clone and resize paths;
-- conservative degree metadata that later forces scans or oversized work;
-- wrapper-side coefficient placement work around monomial shifts and special-form products.
+- remove runtime `optimize_size` use from prove encode/division paths;
+- keep `optimize_size()` only as a compatibility no-op;
+- avoid `find_degree()` in hot polynomial arithmetic paths;
+- propagate upper-bound degree metadata through add/sub, scalar operations, multiplication, monomial shifts, `div_by_vanishing_opt`, and `div_by_ruffini`.
 
-Previous experiments showed that directly removing host round-trips or small memory movement did not produce meaningful end-to-end improvements. Future work should not focus on copy elimination by itself. The better target is reducing the number of wrapper-level operations and intermediate polynomials while keeping the same mathematical logic.
+## Implementation Summary
 
-## Current Accepted Baseline
+Changed `DensePolynomialExt` so hot operations preserve or derive degree upper bounds:
 
-The latest accepted CUDA timing artifact is:
+- add/sub/add-assign: `max(lhs_degree, rhs_degree)`;
+- scalar multiplication: preserve input degree;
+- scalar add/sub: `max(input_degree, 0)`;
+- `scale_coeffs_x/y`: preserve input degree;
+- generic multiplication: use stored degree metadata and set output degree to degree sums;
+- `mul_monomial`: copy only the active metadata rectangle and add the shift to degree bounds;
+- vanishing division and Ruffini division: set quotient degree bounds from numerator and denominator metadata;
+- fixed vanishing polynomials such as `t_n`, `t_mi`, and `t_smax`: set known theoretical degrees at construction time;
+- encode/division call sites no longer call `optimize_size()`.
 
-```text
-prove/optimization/timing.remote.special-form-products.cuda.json
-```
+`find_degree()` remains available as an explicit diagnostic/helper method, but it is no longer part of the prove hot path.
 
-Key values:
-
-| metric | value |
-| --- | ---: |
-| total wall | 26.709146 s |
-| category `poly` | 18.653591 s |
-| pure MSM encode | 1.270636 s |
-| `poly.combine` | 14.007280 s |
-| `div_by_vanishing_opt` | 1.315135 s |
-| `div_by_ruffini` | 1.540679 s |
-
-The special-form product rewrite reduced generic multiplication detail time, but increased addition and scaling:
-
-| detail operation | before | after | delta |
-| --- | ---: | ---: | ---: |
-| multiplication | 8.791025 s | 4.914589 s | -3.876436 s |
-| addition | 5.720295 s | 7.076283 s | +1.355988 s |
-| scaling | 0.625577 s | 0.807468 s | +0.181891 s |
-
-This means the next target is not more generic polynomial multiplication removal. It is reducing add/sub/scale/shift and intermediate construction overhead created by the current wrapper composition.
-
-## Findings
-
-### 1. Add/Sub/AddAssign Have High Wrapper Overhead
-
-Current `Add`, `Sub`, and `AddAssign` clone both operands before checking whether resizing is actually needed.
-
-Risk:
-
-- size-equal additions still pay clone overhead;
-- `AddAssign` is not truly in-place at the wrapper level;
-- frequent helper expansions now turn addition into a large measured cost.
-
-Plan:
-
-- add a size-equal fast path for `Add` and `Sub` that directly applies the ICICLE polynomial operation without resizing clones;
-- add a size-equal fast path for `AddAssign`;
-- keep the existing resize path unchanged for mismatched dimensions.
-
-This should be the first experiment because it is narrow, low-risk, and directly targets the current `poly_detail.addition` increase.
-
-### 2. Special-Form Helpers Create Too Many Intermediate Polynomials
-
-The accepted special-form implementation intentionally removed generic NTT multiplication, but it expands expressions into shifted/scaled intermediate polynomials. For example:
-
-```text
-(a0 + a1 X) * P = a0*P + a1*X*P
-term9 * P = c0*P + cX*X*P + cY*Y*P
-```
-
-This reduces multiplication detail time but increases addition and scaling.
-
-Plan:
-
-- do not revert the special-form logic;
-- inspect helper-level accumulation opportunities after Add/Sub fast paths are measured;
-- prefer building one output polynomial per helper when it reduces multiple wrapper calls without adding generic polynomial multiplication.
-
-Promising targets:
-
-- `mul_by_linear_x`;
-- `mul_by_linear_y`;
-- `mul_by_sparse_const_x_y`;
-- `mul_by_x_minus_one`;
-- `mul_by_one_minus_x`.
-
-### 3. Monomial Shift Is Now More Important
-
-`mul_monomial` is now used more often because special-form products are expressed through shifts.
-
-Risk:
-
-- general host round-trip removal has not shown meaningful wins before;
-- optimizing `mul_monomial` generically may be too broad.
-
-Plan:
-
-- do not start with a full generic `mul_monomial` rewrite;
-- consider only narrow fast paths for `mul_monomial(1, 0)` and `mul_monomial(0, 1)` after addition fast paths;
-- measure whether these paths reduce the special-form helper cost.
-
-### 4. Degree Metadata Is Too Conservative
-
-Most constructors and operations set degree metadata to `x_size - 1` and `y_size - 1`. Later code sometimes calls `find_degree` or `optimize_size`, which may force full coefficient scans and resizing decisions.
-
-Plan:
-
-- keep exact degree metadata in new helper outputs where it is easy and local;
-- consider operation-specific metadata updates:
-  - scalar multiplication preserves degree;
-  - monomial shift adds the shift to degree;
-  - add/sub degree is bounded by max degree;
-  - direct vanishing products have known degree from input length and exponent.
-
-This should be treated carefully because wrong degree metadata can corrupt later sizing decisions.
-
-### 5. Scale-Coefficient Paths Are Secondary
-
-`scale_coeffs_x/y` rebuild scaling vectors and perform extra data preparation. However, current total scale-coeffs time is much smaller than polynomial-combination addition.
-
-Plan:
-
-- do not optimize this first;
-- revisit only if later timing shows scale-coeffs becoming a larger share.
-
-### 6. to_rou_evals and biNTT Are Not the Next Target
-
-The bivariate NTT wrapper uses two batched univariate NTTs plus transposes. `to_rou_evals` also stages coefficient data before calling `_biNTT`.
-
-These are real wrapper costs, but previous experiments suggest host round-trip elimination alone does not materially improve end-to-end timing. They also do not directly address the current post-special-form addition increase.
-
-Plan:
-
-- leave `_biNTT` and `to_rou_evals` unchanged for now;
-- revisit only if future timing again identifies generic multiplication or ROU conversion as the dominant remaining cost.
-
-## Add/Sub/AddAssign Fast Path Experiment
-
-The first experiment added a size-equal fast path for `Add`, `Sub`, and `AddAssign` so that equal-sized operands would skip wrapper-level cloning and resize checks.
+## Measurement
 
 Artifact:
 
 ```text
-prove/optimization/timing.remote.addsub-fastpath.cuda.json
+prove/optimization/timing.remote.conservative-degree.cuda.json
 ```
 
-Result against the accepted `timing.remote.special-form-products.cuda.json` baseline:
+Comparison against the previous `timing.remote.special-form-products.cuda.json` baseline:
 
-| metric | baseline | add/sub fast path | delta |
+| metric | special-form baseline | conservative-degree | delta |
 | --- | ---: | ---: | ---: |
-| total wall | 26.709146 s | 26.920904 s | +0.211758 s |
-| `prove2.total` | 9.540950 s | 9.652942 s | +0.111992 s |
-| `prove4.total` | 9.519266 s | 9.623267 s | +0.104001 s |
-| `poly.combine` | 14.007280 s | 14.066674 s | +0.059394 s |
-| detail multiplication | 4.914589 s | 4.973365 s | +0.058776 s |
-| detail addition | 7.076283 s | 7.094381 s | +0.018098 s |
-| detail scaling | 0.807468 s | 0.789332 s | -0.018135 s |
+| total wall | 26.709146 s | 26.825371 s | +0.116225 s |
+| category `poly` | 18.653591 s | 18.698461 s | +0.044871 s |
+| category `encode` | 1.270636 s | 1.262955 s | -0.007681 s |
+| `poly.combine` | 14.007280 s | 14.024680 s | +0.017400 s |
+| `poly.div_by_vanishing_opt` | 1.315135 s | 1.316781 s | +0.001646 s |
+| `poly.div_by_ruffini` | 1.540679 s | 1.576574 s | +0.035894 s |
+| detail addition | 7.076283 s | 7.077973 s | +0.001690 s |
+| detail multiplication | 4.914589 s | 4.933451 s | +0.018862 s |
+| detail scaling | 0.807468 s | 0.808720 s | +0.001253 s |
 
-Decision:
+## Decision
 
-- rejected;
-- the code change was reverted;
-- the fast path did not reduce measured addition time and slightly regressed total wall time.
+This is not a performance win. The exact degree scan and shrink path was not a meaningful bottleneck in the measured prove workload, and conservative bounds were neutral to slightly negative.
 
-Likely explanation:
+The policy is kept in the branch because the current direction explicitly prefers theoretical upper bounds and removal of runtime shrinking. If pure wall-clock performance becomes the priority again, the conservative-degree patch should be compared against and possibly reverted to the `timing.remote.special-form-products.cuda.json` state.
 
-- ICICLE polynomial add/sub already dominates the operation cost, not the Rust-side clone branch;
-- removing the wrapper clones did not reduce the number of ICICLE add/sub calls or intermediate polynomial objects;
-- run-to-run variance may contribute, but the target metric did not move in the desired direction.
+## Next Focus
 
-## Next Experiment
+The remaining dominant cost is still `poly.combine`.
 
-Apply exactly one change:
+Useful next directions:
 
-```text
-Helper-level intermediate reduction without increasing generic polynomial multiplication count
-```
-
-Expected effect:
-
-- reduce the number of add/sub calls created by special-form helpers;
-- reduce intermediate polynomial construction in `mul_by_linear_x`, `mul_by_linear_y`, and `mul_by_sparse_const_x_y`;
-- no change to polynomial multiplication count;
-- no algebraic behavior change.
-
-Verification:
-
-1. `cargo check -p prove --features timing`
-2. `cargo test --release -p prove --features timing --test timing --no-run`
-3. local CPU timing correctness run if compile succeeds
-4. remote CUDA timing under a new artifact name
-
-Decision rule:
-
-- accept if `poly_detail.addition` and total wall both improve beyond normal run-to-run noise;
-- reject if addition improves but total wall is neutral or worse due to allocation or downstream effects.
+- reduce the number of add/sub/scale operations created by special-form helpers;
+- reduce intermediate `DensePolynomialExt` construction without adding generic polynomial multiplication;
+- consider target-specific helper accumulation only where it removes multiple wrapper operations at once.

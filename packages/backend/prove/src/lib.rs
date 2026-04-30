@@ -47,7 +47,10 @@ fn low_degree_x_times_vanishing(coeffs: &[ScalarField], exponent: usize) -> Dens
         out[idx] = out[idx] - *coeff;
         out[idx + exponent] = out[idx + exponent] + *coeff;
     }
-    DensePolynomialExt::from_coeffs(HostSlice::from_slice(&out), x_size, 1)
+    let mut poly = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&out), x_size, 1);
+    poly.x_degree = (exponent + coeffs.len() - 1) as i64;
+    poly.y_degree = 0;
+    poly
 }
 
 fn low_degree_y_times_vanishing(coeffs: &[ScalarField], exponent: usize) -> DensePolynomialExt {
@@ -58,7 +61,10 @@ fn low_degree_y_times_vanishing(coeffs: &[ScalarField], exponent: usize) -> Dens
         out[idx] = out[idx] - *coeff;
         out[idx + exponent] = out[idx + exponent] + *coeff;
     }
-    DensePolynomialExt::from_coeffs(HostSlice::from_slice(&out), 1, y_size)
+    let mut poly = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&out), 1, y_size);
+    poly.x_degree = 0;
+    poly.y_degree = (exponent + coeffs.len() - 1) as i64;
+    poly
 }
 
 fn mul_by_x_minus_one(poly: &DensePolynomialExt) -> DensePolynomialExt {
@@ -742,7 +748,14 @@ impl Prover {
                     let mut t_n_coeffs = vec![ScalarField::zero(); 2 * n];
                     t_n_coeffs[0] = ScalarField::zero() - ScalarField::one();
                     t_n_coeffs[n] = ScalarField::one();
-                    DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_n_coeffs), 2 * n, 1)
+                    let mut t_n = DensePolynomialExt::from_coeffs(
+                        HostSlice::from_slice(&t_n_coeffs),
+                        2 * n,
+                        1,
+                    );
+                    t_n.x_degree = n as i64;
+                    t_n.y_degree = 0;
+                    t_n
                 }
             );
             let t_mi = crate::time_block!(
@@ -756,7 +769,14 @@ impl Prover {
                     let mut t_mi_coeffs = vec![ScalarField::zero(); 2 * m_i];
                     t_mi_coeffs[0] = ScalarField::zero() - ScalarField::one();
                     t_mi_coeffs[m_i] = ScalarField::one();
-                    DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_mi_coeffs), 2 * m_i, 1)
+                    let mut t_mi = DensePolynomialExt::from_coeffs(
+                        HostSlice::from_slice(&t_mi_coeffs),
+                        2 * m_i,
+                        1,
+                    );
+                    t_mi.x_degree = m_i as i64;
+                    t_mi.y_degree = 0;
+                    t_mi
                 }
             );
             let t_smax = crate::time_block!(
@@ -770,11 +790,14 @@ impl Prover {
                     let mut t_smax_coeffs = vec![ScalarField::zero(); 2 * s_max];
                     t_smax_coeffs[0] = ScalarField::zero() - ScalarField::one();
                     t_smax_coeffs[s_max] = ScalarField::one();
-                    DensePolynomialExt::from_coeffs(
+                    let mut t_smax = DensePolynomialExt::from_coeffs(
                         HostSlice::from_slice(&t_smax_coeffs),
                         1,
                         2 * s_max,
-                    )
+                    );
+                    t_smax.x_degree = 0;
+                    t_smax.y_degree = s_max as i64;
+                    t_smax
                 }
             );
             // Generating permutation polynomials
