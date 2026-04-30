@@ -223,6 +223,56 @@ Top detail targets:
 
 This changes the next optimization question: reducing multiplication count alone is not enough. The remaining polynomial-combination cost also includes substantial repeated addition/resizing work, especially in scalar-linear-combination sites such as `Pi_A`, `LHS_for_copy`, `Q_AX`, `Q_AY`, and `pC`.
 
+### Add/mul internal line breakdown
+
+`timing.remote.poly-op-line-breakdown.cuda.json` is a diagnostic run on top of the current special-form-products baseline. It instruments the internals of `DensePolynomialExt` add/sub/add-assign, scalar add/sub, scalar multiplication, and generic polynomial multiplication while a `poly.combine.*` span is active.
+
+The run should not be used as a clean performance baseline because the extra events add measurement overhead. It is useful for identifying where the existing `addition`, `multiplication`, and `scaling` detail totals come from.
+
+Top internal add/sub costs:
+
+| step | time | count |
+| --- | ---: | ---: |
+| `addassign_resize_operands` | 4.154828 s | 37 |
+| `add_resize_operands` | 1.750222 s | 22 |
+| `sub_resize_operands` | 0.727609 s | 5 |
+| `addassign_clone_operands` | 0.137240 s | 47 |
+| `add_clone_operands` | 0.061107 s | 24 |
+| `sub_clone_operands` | 0.021419 s | 7 |
+| `addassign_icicle_add` | 0.020485 s | 47 |
+| `add_icicle_add` | 0.008253 s | 24 |
+| `sub_icicle_sub` | 0.002967 s | 7 |
+
+The actual ICICLE add/sub calls total only about `0.031705 s`. The dominant add/sub cost is operand resizing before the operation: about `6.632659 s`.
+
+Top internal generic multiplication costs:
+
+| step | time | count |
+| --- | ---: | ---: |
+| `mul_lhs_to_rou_evals` | 0.991095 s | 9 |
+| `mul_rhs_to_rou_evals` | 0.989168 s | 9 |
+| `mul_clone_resize_rhs` | 0.759121 s | 9 |
+| `mul_clone_resize_lhs` | 0.707461 s | 9 |
+| `mul_optimize_size` | 0.607036 s | 9 |
+| `mul_from_rou_evals` | 0.320329 s | 9 |
+| `mul_find_rhs_degree` | 0.279823 s | 9 |
+| `mul_find_lhs_degree` | 0.152890 s | 9 |
+| `mul_icicle_eval_mul` | 0.113471 s | 9 |
+
+Generic multiplication is dominated by NTT conversion and wrapper resizing. The element-wise evaluation multiplication itself is only `0.113471 s`. Exact degree work is material inside generic multiplication: `find_degree` totals `0.432713 s`, and `optimize_size` totals `0.607036 s`; however, the complete conservative-degree experiment showed that removing this work globally did not improve end-to-end time.
+
+Top internal scalar multiplication costs:
+
+| step | time | count |
+| --- | ---: | ---: |
+| `scalar_mul_copy_coeffs` | 0.432185 s | 77 |
+| `scalar_mul_icicle_scalar_mul` | 0.228732 s | 77 |
+| `scalar_mul_from_coeffs` | 0.054522 s | 77 |
+| `scalar_mul_alloc_output` | 0.037745 s | 77 |
+| `scalar_mul_alloc_input` | 0.031187 s | 77 |
+
+This diagnostic points to a more precise next target: construct polynomial-combination outputs at their final dimensions, avoiding chained resize-heavy add/sub operations. Replacing ICICLE add/sub or the field multiplication primitive itself is unlikely to help.
+
 ## Failed Or Rejected Changes
 
 1. **Host round-trip and small memory-movement optimizations were not adopted.**
