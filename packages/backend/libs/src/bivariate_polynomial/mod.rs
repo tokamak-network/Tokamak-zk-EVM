@@ -1,10 +1,12 @@
 use super::vector_operations::*;
 use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
 use icicle_bls12_381::polynomials::DensePolynomial;
+use icicle_bls12_381::program::bls12_381::FieldProgram;
 use icicle_core::ntt::{self, NTTDir};
 use icicle_core::polynomials::UnivariatePolynomial;
+use icicle_core::program::Program;
 use icicle_core::traits::{Arithmetic, FieldConfig, FieldImpl, GenerateRandom};
-use icicle_core::vec_ops::{VecOps, VecOpsConfig};
+use icicle_core::vec_ops::{execute_program, VecOps, VecOpsConfig};
 use icicle_runtime::memory::{DeviceSlice, DeviceVec, HostOrDeviceSlice, HostSlice};
 use rayon::prelude::*;
 use std::{
@@ -114,6 +116,57 @@ impl DensePolynomialExt {
             return true;
         }
         return false;
+    }
+
+    pub fn linear_combination(terms: &[(ScalarField, &DensePolynomialExt)]) -> DensePolynomialExt {
+        if terms.is_empty() {
+            return DensePolynomialExt::zero();
+        }
+
+        let target_x_size = terms.iter().map(|(_, poly)| poly.x_size).max().unwrap();
+        let target_y_size = terms.iter().map(|(_, poly)| poly.y_size).max().unwrap();
+        let (target_x_size, target_y_size) = _find_size_as_twopower(target_x_size, target_y_size);
+        let target_size = target_x_size * target_y_size;
+
+        let coefficients: Vec<ScalarField> = terms.iter().map(|(scalar, _)| *scalar).collect();
+        let program = FieldProgram::new(
+            move |vars| {
+                let mut acc = vars[0] * coefficients[0];
+                for (idx, coefficient) in coefficients.iter().enumerate().skip(1) {
+                    acc += vars[idx] * *coefficient;
+                }
+                vars[coefficients.len()] = acc;
+            },
+            (terms.len() + 1) as u32,
+        )
+        .expect("failed to create linear-combination program");
+
+        let mut input_coeffs = Vec::with_capacity(terms.len());
+        for (_, poly) in terms {
+            let mut coeffs = DeviceVec::<ScalarField>::device_malloc(target_size).unwrap();
+            if poly.x_size == target_x_size && poly.y_size == target_y_size {
+                poly.copy_coeffs(0, &mut coeffs);
+            } else {
+                let mut resized = (*poly).clone();
+                resized.resize(target_x_size, target_y_size);
+                resized.copy_coeffs(0, &mut coeffs);
+            }
+            input_coeffs.push(coeffs);
+        }
+
+        let output_coeffs = DeviceVec::<ScalarField>::device_malloc(target_size).unwrap();
+        let mut parameters: Vec<&DeviceVec<ScalarField>> = input_coeffs.iter().collect();
+        parameters.push(&output_coeffs);
+
+        let cfg = VecOpsConfig::default();
+        execute_program::<ScalarField, FieldProgram, DeviceVec<ScalarField>>(
+            &mut parameters,
+            &program,
+            &cfg,
+        )
+        .expect("linear-combination program failed");
+
+        DensePolynomialExt::from_coeffs(&output_coeffs, target_x_size, target_y_size)
     }
 }
 
