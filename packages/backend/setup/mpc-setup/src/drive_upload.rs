@@ -19,6 +19,7 @@ use zip::write::{ExtendedFileOptions, FileOptions};
 
 const DRIVE_FOLDER_MIME_TYPE: &str = "application/vnd.google-apps.folder";
 const PROVENANCE_FILE_NAME: &str = "crs_provenance.json";
+const BUILD_METADATA_FILE_NAME: &str = "build-metadata-mpc-setup.json";
 const FINAL_OUTPUT_FILES: [&str; 4] = [
     "combined_sigma.rkyv",
     "sigma_preprocess.rkyv",
@@ -67,6 +68,11 @@ pub fn preflight_drive_upload() -> Result<DriveUploadConfig, DriveUploadError> {
     Ok(config)
 }
 
+pub fn validate_release_build_metadata() -> Result<PathBuf, DriveUploadError> {
+    ensure_release_publish_supported()?;
+    resolve_build_metadata_path()
+}
+
 pub fn publish_output_archive(
     config: &DriveUploadConfig,
     intermediate_dir: &str,
@@ -106,7 +112,8 @@ pub fn publish_output_archive(
     write_provenance(&output_path, &provenance)?;
 
     let archive_path = intermediate_path.join(&archive_name);
-    create_output_archive(&output_path, &archive_path)?;
+    let build_metadata_path = resolve_build_metadata_path()?;
+    create_output_archive(&output_path, &archive_path, &build_metadata_path)?;
 
     let runtime = new_runtime()?;
     let upload_result = match runtime.block_on(upload_archive(config, &archive_path, &archive_name))
@@ -204,7 +211,11 @@ fn build_archive_name(provenance: &FinalCrsProvenance) -> Result<String, DriveUp
     ))
 }
 
-fn create_output_archive(output_path: &Path, archive_path: &Path) -> Result<(), DriveUploadError> {
+fn create_output_archive(
+    output_path: &Path,
+    archive_path: &Path,
+    build_metadata_path: &Path,
+) -> Result<(), DriveUploadError> {
     if let Some(parent) = archive_path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -219,6 +230,13 @@ fn create_output_archive(output_path: &Path, archive_path: &Path) -> Result<(), 
         add_file_to_archive(&mut archive, file_name, &file_path, options.clone())?;
     }
 
+    add_file_to_archive(
+        &mut archive,
+        BUILD_METADATA_FILE_NAME,
+        build_metadata_path,
+        options.clone(),
+    )?;
+
     archive.finish()?;
     Ok(())
 }
@@ -232,6 +250,128 @@ fn add_file_to_archive(
     let mut source = StdFile::open(source_path)?;
     archive.start_file(archive_name, options)?;
     io::copy(&mut source, archive)?;
+    Ok(())
+}
+
+fn resolve_build_metadata_path() -> Result<PathBuf, DriveUploadError> {
+    let mut candidates = Vec::new();
+
+    if let Ok(executable_path) = env::current_exe() {
+        if let Some(parent) = executable_path.parent() {
+            candidates.push(parent.join(BUILD_METADATA_FILE_NAME));
+        }
+    }
+
+    let manifest_candidate = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../target/release")
+        .join(BUILD_METADATA_FILE_NAME);
+    candidates.push(manifest_candidate);
+
+    for candidate in candidates {
+        if candidate.exists() {
+            validate_build_metadata(&candidate)?;
+            return Ok(candidate);
+        }
+    }
+
+    Err(DriveUploadError::Message(format!(
+        "cannot locate {}; expected it next to the executing binary or under packages/backend/target/release",
+        BUILD_METADATA_FILE_NAME
+    )))
+}
+
+fn validate_build_metadata(path: &Path) -> Result<(), DriveUploadError> {
+    let value: serde_json::Value = serde_json::from_slice(&fs::read(path)?)?;
+    let package_name = value
+        .get("packageName")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| {
+            DriveUploadError::Message(format!("{} is missing packageName", path.display()))
+        })?;
+    if package_name != "mpc-setup" {
+        return Err(DriveUploadError::Message(format!(
+            "{} has unexpected packageName {}; expected mpc-setup",
+            path.display(),
+            package_name
+        )));
+    }
+
+    let package_version = value
+        .get("packageVersion")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| {
+            DriveUploadError::Message(format!("{} is missing packageVersion", path.display()))
+        })?;
+    if package_version != env!("CARGO_PKG_VERSION") {
+        return Err(DriveUploadError::Message(format!(
+            "{} has stale packageVersion {}; expected {}",
+            path.display(),
+            package_version,
+            env!("CARGO_PKG_VERSION")
+        )));
+    }
+
+    let compatible_version = value
+        .get("compatibleBackendVersion")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| {
+            DriveUploadError::Message(format!(
+                "{} is missing compatibleBackendVersion",
+                path.display()
+            ))
+        })?;
+    let normalized_compatible = validate_canonical_compatible_version(
+        compatible_version,
+        "build metadata compatibleBackendVersion",
+    )?;
+    if normalized_compatible != compatible_backend_version() {
+        return Err(DriveUploadError::Message(format!(
+            "{} has compatibleBackendVersion {}; expected {}",
+            path.display(),
+            normalized_compatible,
+            compatible_backend_version()
+        )));
+    }
+
+    let runtime_mode = value
+        .get("dependencies")
+        .and_then(|dependencies| dependencies.get("subcircuitLibrary"))
+        .and_then(|dependency| dependency.get("runtimeMode"))
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| {
+            DriveUploadError::Message(format!(
+                "{} is missing dependencies.subcircuitLibrary.runtimeMode",
+                path.display()
+            ))
+        })?;
+    if runtime_mode != "bundled" {
+        return Err(DriveUploadError::Message(format!(
+            "{} has unexpected subcircuitLibrary runtimeMode {}; expected bundled",
+            path.display(),
+            runtime_mode
+        )));
+    }
+
+    let subcircuit_version = value
+        .get("dependencies")
+        .and_then(|dependencies| dependencies.get("subcircuitLibrary"))
+        .and_then(|dependency| dependency.get("buildVersion"))
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| {
+            DriveUploadError::Message(format!(
+                "{} is missing dependencies.subcircuitLibrary.buildVersion",
+                path.display()
+            ))
+        })?;
+    if subcircuit_version != env!("CARGO_PKG_VERSION") {
+        return Err(DriveUploadError::Message(format!(
+            "{} embeds subcircuit-library {}; expected backend workspace version {}",
+            path.display(),
+            subcircuit_version,
+            env!("CARGO_PKG_VERSION")
+        )));
+    }
+
     Ok(())
 }
 
@@ -260,12 +400,12 @@ fn validate_canonical_compatible_version(
     ))
 }
 
-#[cfg(not(debug_assertions))]
+#[cfg(tokamak_release_profile)]
 fn ensure_release_publish_supported() -> Result<(), DriveUploadError> {
     Ok(())
 }
 
-#[cfg(debug_assertions)]
+#[cfg(not(tokamak_release_profile))]
 fn ensure_release_publish_supported() -> Result<(), DriveUploadError> {
     Err(DriveUploadError::Message(
         "dusk-backed Google Drive publication is only supported in release builds".to_string(),
