@@ -24,6 +24,7 @@ This report summarizes the CUDA prove optimization experiments performed on the 
 | `timing.remote.special-form-products.cuda.json` | 26.709146 s | 0.740477 s | 9.519266 s | 0.284122 s | 0.054744 s |
 | `timing.remote.rowwise-add.cuda.json` | 24.682780 s | 0.748638 s | 7.999111 s | 0.287435 s | 0.056796 s |
 | `timing.remote.transpose-y-align-add.cuda.json` | 22.142922 s | 0.757955 s | 7.409432 s | 0.297708 s | 0.057173 s |
+| `timing.remote.y-align-add.cuda.json` | 22.598682 s | 0.745924 s | 7.484501 s | 0.287162 s | 0.055599 s |
 
 ## Timing Semantics Correction
 
@@ -367,6 +368,7 @@ The experiments below were either rolled back from the branch or kept only as di
 | add/sub size-equal fast paths | `timing.remote.addsub-fastpath.cuda.json` | rolled back |
 | complete conservative degree bounds | commit `821c79b2`, reverted by `a9256318` | rolled back |
 | resize and final-size accumulator pre-sizing | commit `fd6b0c2e`, reverted by `3a88a310` | rolled back |
+| y-align-only add/sub for all y-mismatched shapes | `timing.remote.y-align-add.cuda.json` | rejected |
 
 1. **Host round-trip and small memory-movement optimizations were not adopted.**
 
@@ -530,6 +532,31 @@ The experiments below were either rolled back from the branch or kept only as di
    | detail scaling | 0.807468 s | 0.520132 s | -0.287336 s |
 
    The detail-level addition time dropped sharply, but `poly.combine` did not improve. The pre-sizing rewrite moved resize work out of the `AddAssign` detail span and into term preparation inside the same `poly.combine.*` scope. This confirmed that the resize work must be removed, not merely moved. The change was reverted by `3a88a310`.
+
+10. **Y-align-only add/sub for all y-mismatched shapes was tested and rejected.**
+
+   The accepted transpose/y-align strategy uses transpose for the shape where `x_size` matches but `y_size` differs. A follow-up experiment tested a simpler rule: whenever `y_size` differs, resize only the smaller row stride to `max_y`, then use the same-y direct ICICLE polynomial add/sub path.
+
+   The micro-benchmark did not support the simpler rule. With `lhs=4096x256`, `x_same_y_mismatch_rhs=4096x128`, and 120 CUDA samples:
+
+   | case | transpose strategy | y-align-only | delta |
+   | --- | ---: | ---: | ---: |
+   | x-same/y-mismatch add mean | 0.015625 s | 0.021704 s | +0.006079 s |
+   | x-same/y-mismatch sub mean | 0.015629 s | 0.021765 s | +0.006137 s |
+
+   Full prove timing also regressed against the accepted `timing.remote.transpose-y-align-add.cuda.json` baseline:
+
+   | metric | transpose/y-align | y-align-only | delta |
+   | --- | ---: | ---: | ---: |
+   | total wall | 22.142922 s | 22.598682 s | +0.455759 s |
+   | category `poly` | 14.249268 s | 14.743973 s | +0.494705 s |
+   | pure MSM encode | 1.264790 s | 1.259694 s | -0.005097 s |
+   | `poly.combine` | 9.620149 s | 10.098663 s | +0.478514 s |
+   | `prove0.total` | 4.106111 s | 4.167320 s | +0.061209 s |
+   | `prove2.total` | 8.212712 s | 8.536624 s | +0.323912 s |
+   | `prove4.total` | 7.409432 s | 7.484501 s | +0.075070 s |
+
+   The experiment was reverted. The accepted rule remains: same-y direct, x-same/y-mismatch transpose, and both-mismatch y-align.
 
 ## Current Accepted Baseline
 
