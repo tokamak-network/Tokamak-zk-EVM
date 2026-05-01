@@ -943,12 +943,7 @@ where
     where
         Self: Sized;
     // Optimized variant: build denom inverses from axis-only values (tiled) instead of full evals.
-    fn div_by_vanishing_opt(
-        &mut self,
-        x_degree: i64,
-        y_degree: i64,
-        cache: &mut DivByVanishingCache,
-    ) -> (Self, Self)
+    fn div_by_vanishing_opt(&mut self, x_degree: i64, y_degree: i64) -> (Self, Self)
     where
         Self: Sized;
 
@@ -1893,12 +1888,7 @@ impl BivariatePolynomial for DensePolynomialExt {
         return (quo_x, quo_y);
     }
 
-    fn div_by_vanishing_opt(
-        &mut self,
-        denom_x_degree: i64,
-        denom_y_degree: i64,
-        _cache: &mut DivByVanishingCache,
-    ) -> (Self, Self) {
+    fn div_by_vanishing_opt(&mut self, denom_x_degree: i64, denom_y_degree: i64) -> (Self, Self) {
         if !((denom_x_degree as usize).is_power_of_two()
             && (denom_y_degree as usize).is_power_of_two())
         {

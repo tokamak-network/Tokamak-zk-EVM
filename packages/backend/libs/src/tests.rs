@@ -1220,13 +1220,7 @@ mod tests {
         let c = 32;
         let d = 16;
         let (mut p, t_x, t_y) = make_vanishing_instance(2 * c, 2 * d, c, d);
-        let mut cache = DivByVanishingCache {
-            denom_x_eval_inv: Box::new([]),
-            denom_y_eval_inv: Box::new([]),
-            denom_x_axis_inv: Box::new([]),
-            denom_y_axis_inv: Box::new([]),
-        };
-        let (mut q_x_found, mut q_y_found) = p.div_by_vanishing_opt(c as i64, d as i64, &mut cache);
+        let (mut q_x_found, mut q_y_found) = p.div_by_vanishing_opt(c as i64, d as i64);
         q_x_found.optimize_size();
         q_y_found.optimize_size();
         let p_reconstruct = &(&q_x_found * &t_x) + &(&q_y_found * &t_y);
@@ -1256,14 +1250,7 @@ mod tests {
         q_y_base.optimize_size();
 
         let mut p_opt = p.clone();
-        let mut cache_opt = DivByVanishingCache {
-            denom_x_eval_inv: Box::new([]),
-            denom_y_eval_inv: Box::new([]),
-            denom_x_axis_inv: Box::new([]),
-            denom_y_axis_inv: Box::new([]),
-        };
-        let (mut q_x_opt, mut q_y_opt) =
-            p_opt.div_by_vanishing_opt(c as i64, d as i64, &mut cache_opt);
+        let (mut q_x_opt, mut q_y_opt) = p_opt.div_by_vanishing_opt(c as i64, d as i64);
         q_x_opt.optimize_size();
         q_y_opt.optimize_size();
 

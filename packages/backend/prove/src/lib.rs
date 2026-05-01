@@ -3,9 +3,7 @@ use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
 use icicle_core::ntt;
 use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
 use icicle_runtime::memory::HostSlice;
-use libs::bivariate_polynomial::{
-    AxisCache, BivariatePolynomial, DenomCache, DensePolynomialExt, DivByVanishingCache,
-};
+use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use libs::field_structures::FieldSerde;
 use libs::group_structures::G1serde;
 use libs::iotools::*;
@@ -289,7 +287,6 @@ pub struct Quotients {
 }
 
 pub struct ProverCache {
-    div_by_vanishing: DivByVanishingCache,
     w_zk: Option<DensePolynomialExt>,
     term_b_zk: Option<DensePolynomialExt>,
     lagrange_kl_xy: Option<DensePolynomialExt>,
@@ -668,12 +665,6 @@ impl Prover {
             }
         };
         let cache = ProverCache {
-            div_by_vanishing: DivByVanishingCache {
-                denom_x_eval_inv: Box::<[DenomCache]>::default(),
-                denom_y_eval_inv: Box::<[DenomCache]>::default(),
-                denom_x_axis_inv: Box::<[AxisCache]>::default(),
-                denom_y_axis_inv: Box::<[AxisCache]>::default(),
-            },
             w_zk: None,
             term_b_zk: None,
             lagrange_kl_xy: None,
@@ -1164,7 +1155,6 @@ impl Prover {
                 p0XY.div_by_vanishing_opt(
                     self.setup_params.n as i64,
                     self.setup_params.s_max as i64,
-                    &mut self.cache.div_by_vanishing,
                 )
             }
         );
@@ -1768,13 +1758,7 @@ impl Prover {
                 label: "vanishing",
                 dims: vec![m_i, s_max]
             },],
-            {
-                p_comb.div_by_vanishing_opt(
-                    m_i as i64,
-                    s_max as i64,
-                    &mut self.cache.div_by_vanishing,
-                )
-            }
+            { p_comb.div_by_vanishing_opt(m_i as i64, s_max as i64) }
         );
         #[cfg(feature = "testing-mode")]
         {
