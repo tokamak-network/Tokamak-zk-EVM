@@ -1,10 +1,17 @@
+#[cfg(feature = "timing")]
 use std::collections::BTreeMap;
+#[cfg(feature = "timing")]
 use std::env;
+#[cfg(feature = "timing")]
 use std::fs;
+#[cfg(feature = "timing")]
 use std::path::PathBuf;
+#[cfg(feature = "timing")]
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
+#[cfg(feature = "timing")]
 use libs::utils::check_device;
+#[cfg(feature = "timing")]
 use prove::{ProveInputPaths, Prover, TranscriptManager};
 
 #[cfg(feature = "timing")]
@@ -64,6 +71,7 @@ struct TimingReport {
     events: Vec<timing::TimingEvent>,
 }
 
+#[cfg(feature = "timing")]
 fn read_env(name: &str) -> Option<String> {
     env::var(name)
         .ok()

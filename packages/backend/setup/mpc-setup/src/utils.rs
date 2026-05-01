@@ -1053,7 +1053,7 @@ pub fn verify3i(
     })
 }
 #[test]
-pub fn test_bilinear_map() {
+fn test_bilinear_map() {
     //initialize
     let g1 = icicle_g1_generator();
     let g2 = icicle_g2_generator();
@@ -1065,7 +1065,7 @@ pub fn test_bilinear_map() {
 }
 
 #[test]
-pub fn test_compute3() {
+fn test_compute3() {
     let rng = &mut RandomGenerator::new(RandomStrategy::SystemRandom, [0u8; 32]);
     //initialize
     let g1 = icicle_g1_generator();
@@ -1112,15 +1112,12 @@ pub fn test_compute3() {
         verify3(&g1, &g2, &prev_x, &prev_y, &cur_xy, &cur_x, &cur_y, &proof2_x, &proof2_y),
         true,
     );
-    prev_xy = cur_xy;
-    prev_x = cur_x;
-    prev_y = cur_y;
 }
 
 pub fn compute5(
     rng: &mut RandomGenerator,
     g1: &G1serde,
-    g2: &G2serde,
+    _g2: &G2serde,
     prev_alphaxy: &Vec<G1serde>,
     prev_xy: &Vec<G1serde>,
     prev_alphax: &Vec<G1serde>,
@@ -1337,7 +1334,7 @@ fn get_alphaxy_index(h: usize, i: usize, k: usize, len_x: usize, len_y: usize) -
 }
 
 #[test]
-pub fn test_compute5() {
+fn test_compute5() {
     let rng = &mut RandomGenerator::new(RandomStrategy::SystemRandom, [0u8; 32]);
     //initialize
     let g1 = icicle_g1_generator();
@@ -1505,7 +1502,7 @@ fn compute_powers(x_r: ScalarField, len_x: usize) -> Vec<ScalarField> {
 }
 
 #[test]
-pub fn test_consistent_case1() {
+fn test_consistent_case1() {
     let rng = &mut RandomGenerator::new(RandomStrategy::SystemRandom, [0u8; 32]);
     // a1*c2 == b1*c1
     let g1_gen = icicle_g1_generator();
@@ -1525,7 +1522,7 @@ pub fn test_consistent_case1() {
 }
 
 #[test]
-pub fn test_consistent_case3() {
+fn test_consistent_case3() {
     let rng = &mut RandomGenerator::new(RandomStrategy::SystemRandom, [0u8; 32]);
     let g1_gen = icicle_g1_generator();
     let g2_gen = icicle_g2_generator();
@@ -1551,7 +1548,7 @@ pub fn test_consistent_case3() {
 }
 
 #[test]
-pub fn test_compute1() {
+fn test_compute1() {
     let rng = &mut RandomGenerator::new(RandomStrategy::SystemRandom, [0u8; 32]);
     //initialize
     let g1 = &icicle_g1_generator();
@@ -1590,7 +1587,7 @@ pub fn test_compute1() {
 }
 
 #[test]
-pub fn test_invs() {
+fn test_invs() {
     let g2 = &icicle_g2_generator();
     let sc = ScalarField::from_u32(3);
     let scInv = sc.inv();
@@ -1609,14 +1606,12 @@ pub fn test_invs() {
 }
 
 #[test]
-pub fn test_compute2() {
+fn test_compute2() {
     let rng = &mut RandomGenerator::new(RandomStrategy::SystemRandom, [0u8; 32]);
     let s_max: usize = 16;
 
     let g1 = &icicle_g1_generator();
     let g2 = &icicle_g2_generator();
-
-    let x = vec![ScalarField::one(); s_max];
 
     let v = [34u8; 64];
     let mut prev_x_serial = SerialSerde::new(*g1, *g2, s_max);
@@ -1639,7 +1634,7 @@ pub fn test_compute2() {
     );
 }
 #[test]
-pub fn test_consistent_case4() {
+fn test_consistent_case4() {
     let rng = &mut RandomGenerator::new(RandomStrategy::SystemRandom, [0u8; 32]);
     let g1_gen = icicle_g1_generator();
     let g2_gen = icicle_g2_generator();
@@ -1671,7 +1666,7 @@ pub fn test_consistent_case4() {
 }
 
 #[test]
-pub fn test_same_ratio() {
+fn test_same_ratio() {
     let g1_gen = icicle_g1_generator();
     let g2_gen = icicle_g2_generator();
 
@@ -1687,7 +1682,7 @@ pub fn test_same_ratio() {
     assert_eq!(result, true)
 }
 #[test]
-pub fn test_pok() {
+fn test_pok() {
     let g1 = icicle_g1_generator();
 
     let tau = Tau::gen();
@@ -1700,7 +1695,7 @@ pub fn test_pok() {
 }
 
 #[test]
-pub fn test_ro() {
+fn test_ro() {
     let g1_gen = icicle_g1_generator();
     let v = [99u8; 64];
     let out1 = ro(&g1_gen, &v);

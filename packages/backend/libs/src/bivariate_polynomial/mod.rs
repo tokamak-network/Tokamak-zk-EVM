@@ -957,10 +957,6 @@ where
     where
         Self: Sized;
 
-    // // Methods to add or subtract a monomial in-place.
-    // fn add_monomial_inplace(&mut self, monomial_coeff: &Self::Field, monomial: u64);
-    // fn sub_monomial_inplace(&mut self, monomial_coeff: &Self::Field, monomial: u64);
-
     // Method to shift coefficient indicies. The same effect as multiplying a monomial X^iY^j.
     fn mul_monomial(&self, x_exponent: usize, y_exponent: usize) -> Self;
 
@@ -975,12 +971,6 @@ where
         blocks_raw: &mut Vec<Vec<Self::Field>>,
     );
 
-    // // Methods to return new polynomials containing only the even or odd terms.
-    // fn even_x(&self) -> Self;
-    // fn even_y(&self) -> Self;
-    // fn odd_y(&self) -> Self;
-    // fn odd_y(&self) -> Self;
-
     // Method to evaluate the polynomial at a given domain point.
     fn eval_x(&self, x: &Self::Field) -> Self;
 
@@ -989,18 +979,8 @@ where
 
     fn eval(&self, x: &Self::Field, y: &Self::Field) -> Self::Field;
 
-    // // Method to evaluate the polynomial over a domain and store the results.
-    // fn eval_on_domain<D_x: HostOrDeviceSlice<Self::Field> + ?Sized, D_y: HostOrDeviceSlice<Self::Field> + ?Sized, E: HostOrDeviceSlice<Self::Field> + ?Sized>(
-    //     &self,
-    //     domain_x: &D_x,
-    //     domain_y: &D_y,
-    //     evals: &mut E,
-    // );
-
     // Method to retrieve a coefficient at a specific index.
     fn get_coeff(&self, idx_x: u64, idx_y: u64) -> Self::Field;
-    // fn get_nof_coeffs_x(&self) -> u64;
-    // fn get_nof_coeffs_y(&self) -> u64;
 
     // Method to retrieve a univariate polynomial of x as the coefficient of the 'idx_y'-th power of y.
     fn get_univariate_polynomial_x(&self, idx_y: u64) -> Self;
@@ -1050,29 +1030,6 @@ where
 impl BivariatePolynomial for DensePolynomialExt {
     type Field = ScalarField;
     type FieldConfig = ScalarCfg;
-
-    // fn update_degree(&mut self) {
-    //     // find X degree
-    //     let mut x_deg: i64 = -1;
-    //     let mut y_deg: i64 = -1;
-    //     for i in (0..self.x_size).rev() {
-    //         let sub_poly = self.get_univariate_polynomial_y(i as u64);
-    //         if sub_poly.poly.degree() >= 0 {
-    //             x_deg = i as i64;
-    //             break;
-    //         }
-    //     }
-    //     for i in (0..self.y_size).rev() {
-    //         let sub_poly = self.get_univariate_polynomial_x(i as u64);
-    //         if sub_poly.poly.degree() >= 0 {
-    //             y_deg = i as i64;
-    //             break;
-    //         }
-    //     }
-
-    //     self.x_degree = x_deg;
-    //     self.y_degree = y_deg;
-    // }
 
     fn _biNTT<In, Out>(
         in_mat: &In,
