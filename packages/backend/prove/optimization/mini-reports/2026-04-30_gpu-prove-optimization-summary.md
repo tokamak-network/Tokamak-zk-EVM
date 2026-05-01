@@ -729,4 +729,16 @@ The current accepted CUDA baseline is `timing.remote.no-output-optimize-size.cud
 - pure vanishing division total: `1.338748 s`
 - polynomial combination total: `8.465146 s`
 
+## Current Local CPU Timing
+
+`timing.local.cpu.current.json` measures the same current code on the local CPU fallback path. The run confirmed that no CUDA backend was loaded locally and that the timing test completed successfully on CPU.
+
+| artifact | total wall | init | prove0 | prove2 | prove4 | poly | encode |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `timing.local.cpu.s0s1-pow-cache.json` | 57.162002 s | 5.425999 s | 12.109660 s | 19.893836 s | 15.942229 s | 20.606543 s | 26.388774 s |
+| `timing.local.cpu.current.json` | 45.698497 s | 5.206907 s | 10.091608 s | 13.371695 s | 13.330191 s | 13.548598 s | 24.330398 s |
+| `timing.remote.no-output-optimize-size.repeat.cuda.json` | 21.081848 s | 0.723311 s | 4.029981 s | 7.269874 s | 7.371985 s | 13.188352 s | 1.268546 s |
+
+Compared with the earlier local CPU `s0_s1` cache run, the current local CPU measurement is `11.463505 s` faster overall. The largest local CPU movement is in `poly` time (`20.606543 s` to `13.548598 s`), while encode remains CPU-bound (`24.330398 s`). Compared with the current CUDA repeat run, local CPU total wall time is `2.168x` slower and encode is `19.180x` slower, but polynomial totals are close (`13.548598 s` local CPU vs `13.188352 s` CUDA).
+
 Future optimization should continue to focus on `DensePolynomialExt` wrapper-level costs rather than more algebraic polynomial-multiplication reduction. The next higher-value targets are reducing remaining y-alignment resize cost, reducing intermediate-polynomial materialization, and revisiting monomial-shift paths. Pure MSM encoding and pure vanishing division are not the dominant costs under the strict timing view.
