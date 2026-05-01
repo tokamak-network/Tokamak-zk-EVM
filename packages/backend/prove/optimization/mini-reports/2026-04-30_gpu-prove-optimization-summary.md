@@ -275,6 +275,20 @@ This diagnostic points to a more precise next target: construct polynomial-combi
 
 ## Failed Or Rejected Changes
 
+The experiments below were either rolled back from the branch or kept only as diagnostic artifacts. They should not be treated as accepted optimization baselines.
+
+| experiment | artifact or commit | decision |
+| --- | --- | --- |
+| host round-trip / small memory movement | no retained artifact | rejected by project direction |
+| fused polynomial linear combination | `timing.remote.fused-poly-lc.cuda.json` | rolled back |
+| generic `lagrange_K0_XY` replacement | included in `timing.remote.special-poly-mul.cuda.json` | excluded from accepted special-form products |
+| host-loop special multiplication helpers | `timing.remote.special-poly-mul-lite.cuda.json` | removed |
+| existing-API special multiplication rollback target | `timing.remote.existing-api-special-poly-mul.cuda.json` | rolled back |
+| batch encode | `timing.remote.batch-encode*.cuda.json` | rolled back |
+| add/sub size-equal fast paths | `timing.remote.addsub-fastpath.cuda.json` | rolled back |
+| complete conservative degree bounds | commit `821c79b2`, reverted by `a9256318` | rolled back |
+| resize and final-size accumulator pre-sizing | commit `fd6b0c2e`, reverted by `3a88a310` | rolled back |
+
 1. **Host round-trip and small memory-movement optimizations were not adopted.**
 
    These changes were rejected by project direction: optimization should be limited to logic changes rather than small memory-transfer techniques. The branch was restored away from that line of work.
@@ -387,6 +401,56 @@ This diagnostic points to a more precise next target: construct polynomial-combi
    | detail scaling | 0.807468 s | 0.789332 s | -0.018135 s |
 
    The result indicates that this path does not reduce the dominant cost. The likely bottleneck is the number of ICICLE add/sub operations and intermediate polynomial constructions, not the Rust-side branch that cloned operands before checking dimensions. The code change was rolled back and the timing artifact is kept only as an experiment record.
+
+8. **Complete conservative degree bounds were tested and rolled back.**
+
+   The experiment removed runtime `optimize_size` use from prove encode/division paths, made `optimize_size()` a compatibility no-op, and propagated conservative theoretical degree upper bounds through scalar operations, add/sub, multiplication, monomial shifts, `div_by_vanishing_opt`, and `div_by_ruffini`. It also set known theoretical degrees for fixed vanishing polynomials such as `t_n`, `t_mi`, and `t_smax`.
+
+   The intent was to remove exact degree scans and shrink decisions from hot polynomial arithmetic. The prove timing test passed locally and on the remote CUDA host, but the CUDA measurement did not improve against the `timing.remote.special-form-products.cuda.json` baseline:
+
+   | metric | special-form baseline | conservative-degree | delta |
+   | --- | ---: | ---: | ---: |
+   | total wall | 26.709146 s | 26.825371 s | +0.116225 s |
+   | category `poly` | 18.653591 s | 18.698461 s | +0.044871 s |
+   | pure MSM encode | 1.270636 s | 1.262955 s | -0.007681 s |
+   | `poly.combine` | 14.007280 s | 14.024680 s | +0.017400 s |
+   | `div_by_vanishing_opt` | 1.315135 s | 1.316781 s | +0.001646 s |
+   | `div_by_ruffini` | 1.540679 s | 1.576574 s | +0.035894 s |
+   | detail addition | 7.076283 s | 7.077973 s | +0.001690 s |
+   | detail multiplication | 4.914589 s | 4.933451 s | +0.018862 s |
+   | detail scaling | 0.807468 s | 0.808720 s | +0.001253 s |
+
+   Interpretation:
+
+   - exact degree scans and `optimize_size` were visible inside generic multiplication, but removing them globally did not reduce end-to-end prove time;
+   - conservative degree bounds can slightly increase downstream work;
+   - the change was reverted by `a9256318`.
+
+9. **Resize and final-size accumulator pre-sizing were tested and rolled back.**
+
+   This experiment applied the resize-related ideas in one batch:
+
+   - `resize()` copied only the active degree rectangle when degree metadata permitted it;
+   - `resize()` used a contiguous copy fast path when the row stride was unchanged;
+   - `Add`, `Sub`, and `AddAssign` avoided cloning or resizing operands that already matched the target dimensions;
+   - `AddAssign` resized `self` directly instead of cloning it into a temporary accumulator;
+   - `poly_comb!` materialized all scaled terms, computed final target dimensions, resized each term to that target once, and then accumulated.
+
+   Result against `timing.remote.special-form-products.cuda.json`:
+
+   | metric | baseline | resize-accumulator | delta |
+   | --- | ---: | ---: | ---: |
+   | total wall | 26.709146 s | 26.750981 s | +0.041835 s |
+   | category `poly` | 18.653591 s | 18.738748 s | +0.085157 s |
+   | pure MSM encode | 1.270636 s | 1.287827 s | +0.017191 s |
+   | `poly.combine` | 14.007280 s | 14.028294 s | +0.021014 s |
+   | `div_by_vanishing_opt` | 1.315135 s | 1.308149 s | -0.006986 s |
+   | `div_by_ruffini` | 1.540679 s | 1.589633 s | +0.048954 s |
+   | detail addition | 7.076283 s | 2.750574 s | -4.325709 s |
+   | detail multiplication | 4.914589 s | 4.923092 s | +0.008503 s |
+   | detail scaling | 0.807468 s | 0.520132 s | -0.287336 s |
+
+   The detail-level addition time dropped sharply, but `poly.combine` did not improve. The pre-sizing rewrite moved resize work out of the `AddAssign` detail span and into term preparation inside the same `poly.combine.*` scope. This confirmed that the resize work must be removed, not merely moved. The change was reverted by `3a88a310`.
 
 ## Current Accepted Baseline
 
