@@ -70,7 +70,9 @@ The largest strict polynomial-combination sites in this run are:
 | `poly.combine.prove4.LHS_zk2` | 1.204088 s |
 | `poly.combine.prove4.Pi_A` | 0.912939 s |
 
-## Successful Changes
+## Optimization Results
+
+This section records both accepted changes and follow-up experiments that were later rejected. Rejected entries are kept here because several later timing artifacts were measured on top of those experimental stacks and need their status stated explicitly.
 
 1. **Sparse uvwXY generation reduced the CUDA init bottleneck substantially.**
 
@@ -203,16 +205,16 @@ The largest strict polynomial-combination sites in this run are:
 
    This result shifts the next optimization target from generic multiplication count to wrapper-level addition, shift, scaling, and intermediate-polynomial creation costs.
 
-7. **Row-wise no-resize add/sub was accepted.**
+7. **Row-wise no-resize add/sub was tested, then rejected.**
 
    `DensePolynomialExt` addition and subtraction previously resized both operands to a common two-dimensional rectangle, flattened the resized coefficients, and then called one ICICLE vector operation. Internal line timing showed that the ICICLE add/sub calls themselves were tiny, while operand resizing dominated the `addition` detail total.
 
-   The accepted change avoids full 2D operand resize when dimensions differ:
+   The tested change avoided full 2D operand resize when dimensions differ:
 
    - if both operands already have the same row stride (`y_size`), it calls the underlying ICICLE polynomial add/sub directly;
    - otherwise, it copies each operand once, allocates the final output shape, and performs ICICLE vector add/sub over row prefixes while copying or negating row tails as needed.
 
-   This keeps arithmetic on ICICLE vector operations and removes the expensive wrapper-level full-rectangle resize from mismatched-shape add/sub sites.
+   The intended effect was to keep arithmetic on ICICLE vector operations and remove the expensive wrapper-level full-rectangle resize from mismatched-shape add/sub sites.
 
    Measurement against `timing.remote.special-form-products.cuda.json`:
 
@@ -227,7 +229,7 @@ The largest strict polynomial-combination sites in this run are:
    | detail scaling | 0.807468 s | 0.683432 s | -0.124036 s |
    | `prove4.total` | 9.519266 s | 7.999111 s | -1.520156 s |
 
-   New row-wise detail events in the accepted run:
+   New row-wise detail events in the experimental run:
 
    | detail operation | time |
    | --- | ---: |
@@ -240,13 +242,13 @@ The largest strict polynomial-combination sites in this run are:
    | `sub_rowwise_construct_result` | 0.000817 s |
    | `sub_same_stride_icicle_sub` | 0.009495 s |
 
-   The row-wise vector operations still take several seconds in aggregate, but they replace an even more expensive resize-heavy add/sub path. This is the first accepted `DensePolynomialExt` wrapper-level optimization after the special-form product work.
+   The row-wise vector operations still take several seconds in aggregate, but the run appeared to replace an even more expensive resize-heavy add/sub path. A later direct comparison showed that the add/sub fast path did not provide a reliable end-to-end speedup and could slow the prover, so this path was reverted.
 
-8. **Transpose/y-align add-sub strategy was accepted.**
+8. **Transpose/y-align add-sub strategy was tested, then rejected.**
 
-   The row-wise implementation still had a bad case when `x_size` matched but `y_size` differed. In that shape, the output can be computed more efficiently by transposing both operands, using the same-`y_size` ICICLE polynomial add/sub path, and transposing the result back. For shapes where both `x_size` and `y_size` differ, the accepted implementation aligns only `y_size` to the larger row stride, then uses the same-`y_size` direct path instead of issuing row-prefix vector operations for every row.
+   The row-wise implementation still had a bad case when `x_size` matched but `y_size` differed. In that shape, the output can be computed more efficiently by transposing both operands, using the same-`y_size` ICICLE polynomial add/sub path, and transposing the result back. For shapes where both `x_size` and `y_size` differ, the tested implementation aligns only `y_size` to the larger row stride, then uses the same-`y_size` direct path instead of issuing row-prefix vector operations for every row.
 
-   The final strategy is:
+   The tested strategy was:
 
    - same `y_size`: keep the direct ICICLE polynomial add/sub path;
    - same `x_size`, different `y_size`: transpose inputs, use the direct path, transpose output back;
@@ -280,6 +282,8 @@ The largest strict polynomial-combination sites in this run are:
    | `prove2.total` | 9.086046 s | 8.212712 s | -0.873335 s |
    | `prove4.total` | 7.999111 s | 7.409432 s | -0.589679 s |
 
+   Follow-up work found that this apparent improvement was not a reliable accepted optimization. After the fast path was re-applied on top of the final verified code, local release prove completed but release verify initially returned `false`. The correctness failure came from the `Sub` path using ICICLE polynomial subtraction on mismatched univariate coefficient lengths. ICICLE's default polynomial backend attempts zero-extended subtraction, but in the `b`-longer-than-`a` branch it writes the tail result to `res_mem_p` instead of `res_mem_p + min_op_size`, overwriting the prefix. Wrapping subtraction as `lhs + (-rhs)` restored release verify, but the user's direct timing comparison showed that the add/sub fast path still slowed execution. The whole add/sub fast path was therefore reverted.
+
 9. **Column-batch biNTT was accepted.**
 
    The previous `_biNTT` implementation performed the second axis by transposing the `x_size x y_size` matrix, running another row-batched 1D NTT, and transposing back. A diagnostic CUDA benchmark showed that ICICLE `columns_batch = true` is correct and much faster for the large 2D shape used by the prover. The production implementation now keeps the Y-row NTT, then runs the X-axis NTT directly as a column batch.
@@ -287,6 +291,8 @@ The largest strict polynomial-combination sites in this run are:
    The first full-prove attempt with unconditional column batching aborted inside the CUDA backend because ICICLE does not support column batching for every NTT size. In particular, single-column or single-row bivariate shapes appear in setup/prove helper paths. The accepted implementation therefore uses direct 1D NTT fast paths when `x_size == 1` or `y_size == 1`, and uses column batching only for real 2D transforms.
 
    Measurement against `timing.remote.transpose-y-align-add.cuda.json`:
+
+   Note: this timing was taken on top of the later-rejected add/sub fast-path stack. The column-batch `_biNTT` code itself remains accepted, but this artifact should be read as a historical measurement, not as an exact timing for the current branch state.
 
    | metric | transpose/y-align | column-batch biNTT | delta |
    | --- | ---: | ---: | ---: |
@@ -310,6 +316,8 @@ The largest strict polynomial-combination sites in this run are:
    `Add`, `Sub`, and `AddAssign` outputs already used conservative output dimensions and did not call `optimize_size()`. Generic polynomial multiplication was the remaining arithmetic path that shrank its output immediately after `from_rou_evals`. The accepted change removes that output `optimize_size()` call and keeps the full interpolation shape, matching the ICICLE-style behavior of not shrinking arithmetic results automatically.
 
    Measurement against `timing.remote.bintt-column-batch-production.cuda.json`:
+
+   Note: this timing was also taken before the add/sub fast-path family was rejected and reverted. The generic multiplication output-shrink removal remains accepted, but this artifact is not an exact final-baseline measurement for the current branch.
 
    | metric | column-batch biNTT | no output optimize-size | delta |
    | --- | ---: | ---: | ---: |
@@ -524,6 +532,7 @@ The experiments below were either rolled back from the branch or kept only as di
 | existing-API special multiplication rollback target | `timing.remote.existing-api-special-poly-mul.cuda.json` | rolled back |
 | batch encode | `timing.remote.batch-encode*.cuda.json` | rolled back |
 | add/sub size-equal fast paths | `timing.remote.addsub-fastpath.cuda.json` | rolled back |
+| DPE mismatched-shape add/sub fast path | `timing.remote.rowwise-add.cuda.json`, `timing.remote.transpose-y-align-add.cuda.json`, commits `b3f2cb3a`, `d8286b18`, `2d603672` | rejected and reverted |
 | complete conservative degree bounds | commit `821c79b2`, reverted by `a9256318` | rolled back |
 | resize and final-size accumulator pre-sizing | commit `fd6b0c2e`, reverted by `3a88a310` | rolled back |
 | y-align-only add/sub for all y-mismatched shapes | `timing.remote.y-align-add.cuda.json` | rejected |
@@ -714,11 +723,36 @@ The experiments below were either rolled back from the branch or kept only as di
    | `prove2.total` | 8.212712 s | 8.536624 s | +0.323912 s |
    | `prove4.total` | 7.409432 s | 7.484501 s | +0.075070 s |
 
-   The experiment was reverted. The accepted rule remains: same-y direct, x-same/y-mismatch transpose, and both-mismatch y-align.
+   The experiment was reverted. A later follow-up rejected the broader add/sub fast-path family as well, so the current code uses the original full-resize add/sub implementation.
+
+11. **DPE mismatched-shape add/sub fast path was rejected after follow-up correctness and timing checks.**
+
+   The row-wise and transpose/y-align add/sub variants initially looked promising in CUDA timing artifacts, but they were not kept as accepted optimizations. The final follow-up sequence was:
+
+   - commit `b3f2cb3a` re-applied the original DPE add/sub fast path;
+   - release prove completed, but release verify returned `false`;
+   - commit `d8286b18` added an ignored coefficient-reference diagnostic test that exposed the smallest failing case as `lhs=1x1`, `rhs=1x2`, operation `sub`;
+   - ICICLE source inspection found the cause in `DefaultPolynomialBackend::add_sub(..., false)`: when the right-hand polynomial is longer, the tail `0 - b_tail` is written to `res_mem_p` instead of `res_mem_p + min_op_size`, overwriting the prefix;
+   - commit `2d603672` changed DPE subtraction to route through `lhs + (-rhs)`, and release verify returned `true`;
+   - direct timing comparison showed the add/sub fast path slowed execution despite the correctness workaround.
+
+   The fast-path family was then removed by revert commits `69527399`, `5580f5c1`, and `3173756d`. The current branch therefore keeps the original full-resize add/sub implementation. This also means `timing.remote.rowwise-add.cuda.json` and `timing.remote.transpose-y-align-add.cuda.json` should be read as rejected experiment artifacts, not accepted baselines.
 
 ## Current Accepted Baseline
 
-The current accepted CUDA baseline is `timing.remote.no-output-optimize-size.cuda.json`:
+After rejecting and reverting the DPE add/sub fast path, there is no final remote CUDA timing artifact in this report that exactly matches the current code. The latest accepted code keeps:
+
+- sparse uvwXY generation;
+- binary `.r1cs` sparse preload;
+- `s0/s1` power-cache construction;
+- coefficient-domain `div_by_vanishing_opt`;
+- algebraic polynomial-combination rewrites;
+- accepted special-form products;
+- column-batch `_biNTT`;
+- removal of generic multiplication output `optimize_size()`;
+- original full-resize add/sub.
+
+The last remote artifact before the add/sub rejection was `timing.remote.no-output-optimize-size.cuda.json`, but it was measured on top of the now-rejected add/sub fast path and should not be treated as the current accepted baseline:
 
 - total wall: `20.911589 s`
 - init: `0.717426 s`
@@ -739,6 +773,6 @@ The current accepted CUDA baseline is `timing.remote.no-output-optimize-size.cud
 | `timing.local.cpu.current.json` | 45.698497 s | 5.206907 s | 10.091608 s | 13.371695 s | 13.330191 s | 13.548598 s | 24.330398 s |
 | `timing.remote.no-output-optimize-size.repeat.cuda.json` | 21.081848 s | 0.723311 s | 4.029981 s | 7.269874 s | 7.371985 s | 13.188352 s | 1.268546 s |
 
-Compared with the earlier local CPU `s0_s1` cache run, the current local CPU measurement is `11.463505 s` faster overall. The largest local CPU movement is in `poly` time (`20.606543 s` to `13.548598 s`), while encode remains CPU-bound (`24.330398 s`). Compared with the current CUDA repeat run, local CPU total wall time is `2.168x` slower and encode is `19.180x` slower, but polynomial totals are close (`13.548598 s` local CPU vs `13.188352 s` CUDA).
+Compared with the earlier local CPU `s0_s1` cache run, the current local CPU measurement is `11.463505 s` faster overall. The largest local CPU movement is in `poly` time (`20.606543 s` to `13.548598 s`), while encode remains CPU-bound (`24.330398 s`). The CUDA repeat artifact is useful only as scale context because it was measured before the add/sub fast-path rejection. Against that historical CUDA repeat run, local CPU total wall time is `2.168x` slower and encode is `19.180x` slower, but polynomial totals are close (`13.548598 s` local CPU vs `13.188352 s` CUDA).
 
-Future optimization should continue to focus on `DensePolynomialExt` wrapper-level costs rather than more algebraic polynomial-multiplication reduction. The next higher-value targets are reducing remaining y-alignment resize cost, reducing intermediate-polynomial materialization, and revisiting monomial-shift paths. Pure MSM encoding and pure vanishing division are not the dominant costs under the strict timing view.
+Future optimization should continue to focus on `DensePolynomialExt` wrapper-level costs rather than more algebraic polynomial-multiplication reduction. The add/sub fast-path family should not be reintroduced without a new correctness proof and an end-to-end timing win. The next higher-value targets are reducing intermediate-polynomial materialization and revisiting monomial-shift paths. Pure MSM encoding and pure vanishing division are not the dominant costs under the strict timing view.
