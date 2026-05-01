@@ -22,6 +22,8 @@ export interface RuntimeState {
   packageVersion: string;
   platform: CliPlatform;
   installedAt: string;
+  subcircuitLibraryPackage?: string;
+  subcircuitLibraryVersion?: string;
 }
 
 export interface RuntimeContext {
@@ -100,6 +102,11 @@ interface IcicleManifest {
   assets: Record<string, IcicleAsset>;
 }
 
+interface NpmPackageJson {
+  name?: string;
+  version?: string;
+}
+
 interface DownloadRequestDefinition {
   headers?: Record<string, string>;
   url: string;
@@ -110,6 +117,7 @@ interface CargoMetadata {
 }
 
 const BACKEND_BINARY_NAMES = ['preprocess', 'prove', 'verify'] as const;
+const SUBCIRCUIT_LIBRARY_PACKAGE = '@tokamak-zk-evm/subcircuit-library';
 
 const CACHE_DIR_ENV = 'TOKAMAK_ZKEVM_CLI_CACHE_DIR';
 const DOCKER_ENVIRONMENT_ENV = 'TOKAMAK_ZKEVM_CLI_DOCKER_ENVIRONMENT';
@@ -470,6 +478,13 @@ export function runtimePaths(context: RuntimeContext) {
   const proveOutputDir = path.join(resourceDir, 'prove', 'output');
   const binaryDir = path.join(context.runtimeDir, 'bin');
   const icicleLibDir = path.join(context.runtimeDir, 'backend-lib', 'icicle', 'lib');
+  const subcircuitLibraryInstallDir = path.join(context.runtimeDir, 'subcircuit-library');
+  const subcircuitLibraryPackageDir = path.join(
+    subcircuitLibraryInstallDir,
+    'node_modules',
+    '@tokamak-zk-evm',
+    'subcircuit-library',
+  );
   return {
     resourceDir,
     setupOutputDir,
@@ -478,6 +493,10 @@ export function runtimePaths(context: RuntimeContext) {
     proveOutputDir,
     binaryDir,
     icicleLibDir,
+    subcircuitLibraryInstallDir,
+    subcircuitLibraryPackageDir,
+    subcircuitLibraryDir: path.join(subcircuitLibraryPackageDir, 'subcircuits', 'library'),
+    subcircuitLibraryPackageJson: path.join(subcircuitLibraryPackageDir, 'package.json'),
     preprocessBinary: path.join(binaryDir, 'preprocess'),
     proveBinary: path.join(binaryDir, 'prove'),
     verifyBinary: path.join(binaryDir, 'verify'),
@@ -1040,6 +1059,36 @@ async function copyBuiltBackendBinaries(
     const sourcePath = path.join(backendReleaseDir, binaryName);
     await fs.access(sourcePath);
     await fs.copyFile(sourcePath, path.join(paths.binaryDir, binaryName));
+  }
+}
+
+async function installSubcircuitLibrary(context: RuntimeContext, verbose: boolean): Promise<void> {
+  const paths = runtimePaths(context);
+  await emptyDir(paths.subcircuitLibraryInstallDir);
+  await runCommand(
+    'npm',
+    [
+      'install',
+      '--prefix',
+      paths.subcircuitLibraryInstallDir,
+      '--omit=dev',
+      '--ignore-scripts',
+      '--no-audit',
+      '--no-fund',
+      `${SUBCIRCUIT_LIBRARY_PACKAGE}@${context.packageVersion}`,
+    ],
+    { verbose },
+  );
+  await fs.access(paths.subcircuitLibraryDir);
+  await fs.access(paths.subcircuitLibraryPackageJson);
+  const packageJson = await readJsonFile<NpmPackageJson>(paths.subcircuitLibraryPackageJson);
+  if (packageJson.name !== SUBCIRCUIT_LIBRARY_PACKAGE) {
+    throw new Error(`Installed subcircuit library package name is ${packageJson.name ?? '<missing>'}.`);
+  }
+  if (packageJson.version !== context.packageVersion) {
+    throw new Error(
+      `Installed subcircuit library version ${packageJson.version ?? '<missing>'} does not match tokamak-cli version ${context.packageVersion}.`,
+    );
   }
 }
 
@@ -1840,7 +1889,13 @@ async function runTrustedSetup(context: RuntimeContext, verbose: boolean): Promi
   await fs.access(paths.trustedSetupBinary);
   await runCommand(
     paths.trustedSetupBinary,
-    ['--output', paths.setupOutputDir, '--fixed-tau'],
+    [
+      '--subcircuit-library',
+      paths.subcircuitLibraryDir,
+      '--output',
+      paths.setupOutputDir,
+      '--fixed-tau',
+    ],
     {
       env: backendEnvironment(context),
       verbose,
@@ -1935,6 +1990,8 @@ async function installDockerRuntime(options: InstallOptions): Promise<RuntimeCon
     packageVersion: context.packageVersion,
     platform: context.platform,
     installedAt: bootstrap.createdAt,
+    subcircuitLibraryPackage: SUBCIRCUIT_LIBRARY_PACKAGE,
+    subcircuitLibraryVersion: context.packageVersion,
   });
   return context;
 }
@@ -1950,6 +2007,7 @@ export async function installRuntime(options: InstallOptions): Promise<RuntimeCo
 
   logVerbose(options.verbose, `Using vendored backend ${backendRoot}`);
   await emptyDir(context.runtimeDir);
+  await installSubcircuitLibrary(context, options.verbose);
   const backendReleaseDir = await buildBackendReleaseBinaries(backendRoot, options);
   logVerbose(options.verbose, `Using backend release output ${backendReleaseDir}`);
   await copyBuiltBackendBinaries(context, backendReleaseDir, options);
@@ -1969,6 +2027,8 @@ export async function installRuntime(options: InstallOptions): Promise<RuntimeCo
     packageVersion: context.packageVersion,
     platform: context.platform,
     installedAt: new Date().toISOString(),
+    subcircuitLibraryPackage: SUBCIRCUIT_LIBRARY_PACKAGE,
+    subcircuitLibraryVersion: context.packageVersion,
   };
   await writeRuntimeState(context, state);
   return context;

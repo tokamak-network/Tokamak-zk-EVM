@@ -41,7 +41,13 @@ interface ParsedArgs {
 }
 
 type RuntimePaths = ReturnType<typeof runtimePaths>;
-type RuntimeDirectoryKey = 'setupOutputDir' | 'synthOutputDir' | 'preprocessOutputDir' | 'proveOutputDir';
+type RuntimeDirectoryKey =
+  | 'setupOutputDir'
+  | 'synthOutputDir'
+  | 'preprocessOutputDir'
+  | 'proveOutputDir'
+  | 'subcircuitLibraryDir'
+  | 'subcircuitLibraryPackageDir';
 
 interface RuntimeFileRef {
   directory: RuntimeDirectoryKey;
@@ -85,12 +91,14 @@ const VERIFY_INPUT_RULES = [
 ] as const satisfies readonly StageInputSyncRuleTemplate[];
 
 const PREPROCESS_REQUIRED_FILES = [
+  { directory: 'subcircuitLibraryDir', filename: 'subcircuitInfo.json' },
   { directory: 'setupOutputDir', filename: 'sigma_preprocess.rkyv' },
   { directory: 'synthOutputDir', filename: 'permutation.json' },
   { directory: 'synthOutputDir', filename: 'instance.json' },
 ] as const satisfies readonly RuntimeFileRef[];
 
 const PROVE_REQUIRED_FILES = [
+  { directory: 'subcircuitLibraryDir', filename: 'subcircuitInfo.json' },
   { directory: 'setupOutputDir', filename: 'combined_sigma.rkyv' },
   { directory: 'synthOutputDir', filename: 'instance.json' },
   { directory: 'synthOutputDir', filename: 'permutation.json' },
@@ -98,11 +106,17 @@ const PROVE_REQUIRED_FILES = [
 ] as const satisfies readonly RuntimeFileRef[];
 
 const VERIFY_REQUIRED_FILES = [
+  { directory: 'subcircuitLibraryDir', filename: 'subcircuitInfo.json' },
   { directory: 'setupOutputDir', filename: 'sigma_verify.json' },
   { directory: 'preprocessOutputDir', filename: 'preprocess.json' },
   { directory: 'proveOutputDir', filename: 'proof.json' },
   { directory: 'synthOutputDir', filename: 'instance.json' },
 ] as const satisfies readonly RuntimeFileRef[];
+
+interface PackageJson {
+  name?: string;
+  version?: string;
+}
 
 const PROOF_BUNDLE_REQUIRED_FILES = [
   { directory: 'synthOutputDir', filename: 'instance.json' },
@@ -120,6 +134,7 @@ function printUsage(): void {
 Commands:
   --install [--trusted-setup] [--no-setup] [--docker]
       Build the local Tokamak zk-EVM runtime from the packaged backend workspace and prepare local resources
+      Install @tokamak-zk-evm/subcircuit-library at the same version as tokamak-cli
       By default setup artifacts are installed from the published CRS archive
       Use --trusted-setup to generate setup artifacts locally with the trusted-setup binary
       Use --no-setup to skip setup artifact provisioning
@@ -532,6 +547,8 @@ function resolveStageInputRules(
 
 function backendOutputArgs(paths: RuntimePaths, outputDir: string): string[] {
   return [
+    '--subcircuit-library',
+    paths.subcircuitLibraryDir,
     '--crs',
     paths.setupOutputDir,
     '--synthesizer-stat',
@@ -543,6 +560,8 @@ function backendOutputArgs(paths: RuntimePaths, outputDir: string): string[] {
 
 function backendVerifyArgs(paths: RuntimePaths): string[] {
   return [
+    '--subcircuit-library',
+    paths.subcircuitLibraryDir,
     '--crs',
     paths.setupOutputDir,
     '--synthesizer-stat',
@@ -597,6 +616,24 @@ function getLastNonEmptyLine(content: string): string | undefined {
     .at(-1);
 }
 
+async function readPackageJson(filePath: string): Promise<PackageJson> {
+  return JSON.parse(await fs.readFile(filePath, 'utf8')) as PackageJson;
+}
+
+async function checkSubcircuitLibrary(context: RuntimeContext, paths: RuntimePaths): Promise<void> {
+  await ensureFile(path.join(paths.subcircuitLibraryDir, 'subcircuitInfo.json'));
+  const packageJson = await readPackageJson(paths.subcircuitLibraryPackageJson);
+  if (packageJson.name !== '@tokamak-zk-evm/subcircuit-library') {
+    err(`Subcircuit library package name mismatch: ${packageJson.name ?? '<missing>'}`);
+  }
+  if (packageJson.version !== context.packageVersion) {
+    err(
+      `Subcircuit library version ${packageJson.version ?? '<missing>'} does not match tokamak-cli version ${context.packageVersion}.`,
+    );
+  }
+  ok(`subcircuit-library version: ${packageJson.version}`);
+}
+
 async function extractProofBundle(context: RuntimeContext, outputPathRaw: string, verbose: boolean): Promise<void> {
   const paths = runtimePaths(context);
   const outputPath = resolveUserPath(outputPathRaw);
@@ -648,6 +685,7 @@ async function runDoctor(verbose: boolean): Promise<void> {
     err(`Runtime not installed. Run \`${installCommand}\` first.`);
   }
   const paths = runtimePaths(context);
+  await checkSubcircuitLibrary(context, paths);
   const backendBinaries = [
     ['preprocess', paths.preprocessBinary],
     ['prove', paths.proveBinary],
