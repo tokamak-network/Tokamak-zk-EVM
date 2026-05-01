@@ -274,6 +274,133 @@ mod tests {
     }
 
     #[test]
+    fn test_add_mismatched_y_size() {
+        let lhs_coeffs = vec![
+            ScalarField::from_u32(1),
+            ScalarField::from_u32(2),
+            ScalarField::from_u32(3),
+            ScalarField::from_u32(4),
+        ];
+        let rhs_coeffs = vec![
+            ScalarField::from_u32(10),
+            ScalarField::from_u32(20),
+            ScalarField::from_u32(30),
+            ScalarField::from_u32(40),
+        ];
+        let lhs = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&lhs_coeffs), 2, 2);
+        let rhs = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&rhs_coeffs), 1, 4);
+
+        let result = &lhs + &rhs;
+
+        assert_eq!(result.x_size, 2);
+        assert_eq!(result.y_size, 4);
+        assert_eq!(result.get_coeff(0, 0), ScalarField::from_u32(11));
+        assert_eq!(result.get_coeff(0, 1), ScalarField::from_u32(22));
+        assert_eq!(result.get_coeff(0, 2), ScalarField::from_u32(30));
+        assert_eq!(result.get_coeff(0, 3), ScalarField::from_u32(40));
+        assert_eq!(result.get_coeff(1, 0), ScalarField::from_u32(3));
+        assert_eq!(result.get_coeff(1, 1), ScalarField::from_u32(4));
+        assert_eq!(result.get_coeff(1, 2), ScalarField::zero());
+        assert_eq!(result.get_coeff(1, 3), ScalarField::zero());
+    }
+
+    #[test]
+    fn test_sub_mismatched_y_size() {
+        let lhs_coeffs = vec![
+            ScalarField::from_u32(1),
+            ScalarField::from_u32(2),
+            ScalarField::from_u32(3),
+            ScalarField::from_u32(4),
+        ];
+        let rhs_coeffs = vec![
+            ScalarField::from_u32(10),
+            ScalarField::from_u32(20),
+            ScalarField::from_u32(30),
+            ScalarField::from_u32(40),
+        ];
+        let lhs = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&lhs_coeffs), 2, 2);
+        let rhs = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&rhs_coeffs), 1, 4);
+
+        let result = &lhs - &rhs;
+
+        assert_eq!(result.x_size, 2);
+        assert_eq!(result.y_size, 4);
+        assert_eq!(
+            result.get_coeff(0, 0),
+            ScalarField::from_u32(1) - ScalarField::from_u32(10)
+        );
+        assert_eq!(
+            result.get_coeff(0, 1),
+            ScalarField::from_u32(2) - ScalarField::from_u32(20)
+        );
+        assert_eq!(
+            result.get_coeff(0, 2),
+            ScalarField::zero() - ScalarField::from_u32(30)
+        );
+        assert_eq!(
+            result.get_coeff(0, 3),
+            ScalarField::zero() - ScalarField::from_u32(40)
+        );
+        assert_eq!(result.get_coeff(1, 0), ScalarField::from_u32(3));
+        assert_eq!(result.get_coeff(1, 1), ScalarField::from_u32(4));
+        assert_eq!(result.get_coeff(1, 2), ScalarField::zero());
+        assert_eq!(result.get_coeff(1, 3), ScalarField::zero());
+    }
+
+    #[test]
+    fn test_add_assign_mismatched_y_size() {
+        let lhs_coeffs = vec![
+            ScalarField::from_u32(1),
+            ScalarField::from_u32(2),
+            ScalarField::from_u32(3),
+            ScalarField::from_u32(4),
+        ];
+        let rhs_coeffs = vec![
+            ScalarField::from_u32(10),
+            ScalarField::from_u32(20),
+            ScalarField::from_u32(30),
+            ScalarField::from_u32(40),
+        ];
+        let mut lhs = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&lhs_coeffs), 2, 2);
+        let rhs = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&rhs_coeffs), 1, 4);
+
+        lhs += &rhs;
+
+        assert_eq!(lhs.x_size, 2);
+        assert_eq!(lhs.y_size, 4);
+        assert_eq!(lhs.get_coeff(0, 0), ScalarField::from_u32(11));
+        assert_eq!(lhs.get_coeff(0, 1), ScalarField::from_u32(22));
+        assert_eq!(lhs.get_coeff(0, 2), ScalarField::from_u32(30));
+        assert_eq!(lhs.get_coeff(0, 3), ScalarField::from_u32(40));
+        assert_eq!(lhs.get_coeff(1, 0), ScalarField::from_u32(3));
+        assert_eq!(lhs.get_coeff(1, 1), ScalarField::from_u32(4));
+        assert_eq!(lhs.get_coeff(1, 2), ScalarField::zero());
+        assert_eq!(lhs.get_coeff(1, 3), ScalarField::zero());
+    }
+
+    #[test]
+    fn test_add_mismatched_x_size_same_y_size() {
+        let lhs_coeffs = vec![
+            ScalarField::from_u32(1),
+            ScalarField::from_u32(2),
+            ScalarField::from_u32(3),
+            ScalarField::from_u32(4),
+        ];
+        let rhs_coeffs = vec![ScalarField::from_u32(10), ScalarField::from_u32(20)];
+        let lhs = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&lhs_coeffs), 2, 2);
+        let rhs = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&rhs_coeffs), 1, 2);
+
+        let result = &lhs + &rhs;
+
+        assert_eq!(result.x_size, 2);
+        assert_eq!(result.y_size, 2);
+        assert_eq!(result.get_coeff(0, 0), ScalarField::from_u32(11));
+        assert_eq!(result.get_coeff(0, 1), ScalarField::from_u32(22));
+        assert_eq!(result.get_coeff(1, 0), ScalarField::from_u32(3));
+        assert_eq!(result.get_coeff(1, 1), ScalarField::from_u32(4));
+    }
+
+    #[test]
     fn test_mul_scalar() {
         // pass
         let x_size = 2usize.pow(10);

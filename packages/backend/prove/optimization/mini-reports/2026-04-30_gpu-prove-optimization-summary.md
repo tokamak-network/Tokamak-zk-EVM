@@ -22,6 +22,7 @@ This report summarizes the CUDA prove optimization experiments performed on the 
 | `timing.remote.strict.cuda.json` | 28.598577 s | 0.739194 s | 9.985713 s | 0.281175 s | 0.055986 s |
 | `timing.remote.poly-comb-algebraic.cuda.json` | 27.490122 s | 0.734930 s | 9.541593 s | 0.286616 s | 0.055128 s |
 | `timing.remote.special-form-products.cuda.json` | 26.709146 s | 0.740477 s | 9.519266 s | 0.284122 s | 0.054744 s |
+| `timing.remote.rowwise-add.cuda.json` | 24.682780 s | 0.748638 s | 7.999111 s | 0.287435 s | 0.056796 s |
 
 ## Timing Semantics Correction
 
@@ -194,6 +195,45 @@ The largest strict polynomial-combination sites in this run are:
    | `prove4.LHS_zk2` | 1.211318 s | 0.982824 s | -0.228493 s |
 
    This result shifts the next optimization target from generic multiplication count to wrapper-level addition, shift, scaling, and intermediate-polynomial creation costs.
+
+7. **Row-wise no-resize add/sub was accepted.**
+
+   `DensePolynomialExt` addition and subtraction previously resized both operands to a common two-dimensional rectangle, flattened the resized coefficients, and then called one ICICLE vector operation. Internal line timing showed that the ICICLE add/sub calls themselves were tiny, while operand resizing dominated the `addition` detail total.
+
+   The accepted change avoids full 2D operand resize when dimensions differ:
+
+   - if both operands already have the same row stride (`y_size`), it calls the underlying ICICLE polynomial add/sub directly;
+   - otherwise, it copies each operand once, allocates the final output shape, and performs ICICLE vector add/sub over row prefixes while copying or negating row tails as needed.
+
+   This keeps arithmetic on ICICLE vector operations and removes the expensive wrapper-level full-rectangle resize from mismatched-shape add/sub sites.
+
+   Measurement against `timing.remote.special-form-products.cuda.json`:
+
+   | metric | special-form baseline | row-wise add/sub | delta |
+   | --- | ---: | ---: | ---: |
+   | total wall | 26.709146 s | 24.682780 s | -2.026365 s |
+   | category `poly` | 18.653591 s | 16.793361 s | -1.860230 s |
+   | pure MSM encode | 1.270636 s | 1.278846 s | +0.008210 s |
+   | `poly.combine` | 14.007280 s | 12.193201 s | -1.814079 s |
+   | detail addition | 7.076283 s | 5.256315 s | -1.819968 s |
+   | detail multiplication | 4.914589 s | 5.020921 s | +0.106332 s |
+   | detail scaling | 0.807468 s | 0.683432 s | -0.124036 s |
+   | `prove4.total` | 9.519266 s | 7.999111 s | -1.520156 s |
+
+   New row-wise detail events in the accepted run:
+
+   | detail operation | time |
+   | --- | ---: |
+   | `add_rowwise_vec_ops` | 4.423844 s |
+   | `add_rowwise_copy_inputs` | 0.081618 s |
+   | `add_rowwise_construct_result` | 0.031205 s |
+   | `add_same_stride_icicle_add` | 0.054487 s |
+   | `sub_rowwise_vec_ops` | 0.243792 s |
+   | `sub_rowwise_copy_inputs` | 0.004000 s |
+   | `sub_rowwise_construct_result` | 0.000817 s |
+   | `sub_same_stride_icicle_sub` | 0.009495 s |
+
+   The row-wise vector operations still take several seconds in aggregate, but they replace an even more expensive resize-heavy add/sub path. This is the first accepted `DensePolynomialExt` wrapper-level optimization after the special-form product work.
 
 ## Diagnostic Timing
 
@@ -454,15 +494,15 @@ The experiments below were either rolled back from the branch or kept only as di
 
 ## Current Accepted Baseline
 
-The current accepted CUDA baseline is `timing.remote.special-form-products.cuda.json`:
+The current accepted CUDA baseline is `timing.remote.rowwise-add.cuda.json`:
 
-- total wall: `26.709146 s`
-- init: `0.740477 s`
-- prove4: `9.519266 s`
-- uvwXY: `0.284122 s`
-- s0/s1: `0.054744 s`
-- pure MSM encode total: `1.270636 s`
-- pure vanishing division total: `1.315135 s`
-- polynomial combination total: `14.007280 s`
+- total wall: `24.682780 s`
+- init: `0.748638 s`
+- prove4: `7.999111 s`
+- uvwXY: `0.287435 s`
+- s0/s1: `0.056796 s`
+- pure MSM encode total: `1.278846 s`
+- pure vanishing division total: `1.334533 s`
+- polynomial combination total: `12.193201 s`
 
-Future optimization should focus on `DensePolynomialExt` wrapper-level costs rather than more algebraic polynomial-multiplication reduction. The next higher-value targets are addition/subtraction fast paths, monomial-shift/intermediate reduction, and more accurate degree metadata. Pure MSM encoding and pure vanishing division are not the dominant costs under the strict timing view.
+Future optimization should continue to focus on `DensePolynomialExt` wrapper-level costs rather than more algebraic polynomial-multiplication reduction. The next higher-value targets are reducing row-wise add/sub vector-op count, reducing intermediate-polynomial materialization, and revisiting monomial-shift paths. Pure MSM encoding and pure vanishing division are not the dominant costs under the strict timing view.

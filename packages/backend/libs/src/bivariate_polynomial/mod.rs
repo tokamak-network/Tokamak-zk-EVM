@@ -125,6 +125,165 @@ impl DensePolynomialExt {
         }
         return false;
     }
+
+    fn add_sub_no_resize(lhs: &Self, rhs: &Self, add: bool) -> Self {
+        let target_x_size = cmp::max(lhs.x_size, rhs.x_size);
+        let target_y_size = cmp::max(lhs.y_size, rhs.y_size);
+
+        if lhs.y_size == rhs.y_size {
+            #[cfg(feature = "timing")]
+            let step_start = Instant::now();
+            let lhs_ext = lhs.clone();
+            let rhs_ext = rhs.clone();
+            let out_poly = if add {
+                &lhs_ext.poly + &rhs_ext.poly
+            } else {
+                &lhs_ext.poly - &rhs_ext.poly
+            };
+            #[cfg(feature = "timing")]
+            record_detail_step(
+                if add {
+                    "add_same_stride_icicle_add"
+                } else {
+                    "sub_same_stride_icicle_sub"
+                },
+                step_start,
+                "target",
+                vec![target_x_size, target_y_size],
+            );
+            return DensePolynomialExt {
+                poly: out_poly,
+                x_degree: target_x_size as i64 - 1,
+                y_degree: target_y_size as i64 - 1,
+                x_size: target_x_size,
+                y_size: target_y_size,
+            };
+        }
+
+        #[cfg(feature = "timing")]
+        let step_start = Instant::now();
+        let mut lhs_coeffs =
+            DeviceVec::<ScalarField>::device_malloc(lhs.x_size * lhs.y_size).unwrap();
+        let mut rhs_coeffs =
+            DeviceVec::<ScalarField>::device_malloc(rhs.x_size * rhs.y_size).unwrap();
+        lhs.copy_coeffs(0, &mut lhs_coeffs);
+        rhs.copy_coeffs(0, &mut rhs_coeffs);
+        #[cfg(feature = "timing")]
+        record_detail_step(
+            if add {
+                "add_rowwise_copy_inputs"
+            } else {
+                "sub_rowwise_copy_inputs"
+            },
+            step_start,
+            "lhs_rhs",
+            vec![lhs.x_size, lhs.y_size, rhs.x_size, rhs.y_size],
+        );
+
+        #[cfg(feature = "timing")]
+        let step_start = Instant::now();
+        let mut out_coeffs =
+            DeviceVec::<ScalarField>::device_malloc(target_x_size * target_y_size).unwrap();
+        out_coeffs.memset(0, target_x_size * target_y_size).unwrap();
+
+        let cfg_vec_ops = VecOpsConfig::default();
+        let zero = [ScalarField::zero()];
+        let zero_slice = HostSlice::from_slice(&zero);
+
+        for row in 0..target_x_size {
+            let out_start = row * target_y_size;
+            let lhs_has_row = row < lhs.x_size;
+            let rhs_has_row = row < rhs.x_size;
+
+            match (lhs_has_row, rhs_has_row) {
+                (true, true) => {
+                    let lhs_start = row * lhs.y_size;
+                    let rhs_start = row * rhs.y_size;
+                    let common_y = cmp::min(lhs.y_size, rhs.y_size);
+
+                    if add {
+                        ScalarCfg::add(
+                            &lhs_coeffs[lhs_start..lhs_start + common_y],
+                            &rhs_coeffs[rhs_start..rhs_start + common_y],
+                            &mut out_coeffs[out_start..out_start + common_y],
+                            &cfg_vec_ops,
+                        )
+                        .unwrap();
+                    } else {
+                        ScalarCfg::sub(
+                            &lhs_coeffs[lhs_start..lhs_start + common_y],
+                            &rhs_coeffs[rhs_start..rhs_start + common_y],
+                            &mut out_coeffs[out_start..out_start + common_y],
+                            &cfg_vec_ops,
+                        )
+                        .unwrap();
+                    }
+
+                    if lhs.y_size > common_y {
+                        out_coeffs[out_start + common_y..out_start + lhs.y_size]
+                            .copy(&lhs_coeffs[lhs_start + common_y..lhs_start + lhs.y_size])
+                            .unwrap();
+                    }
+
+                    if rhs.y_size > common_y {
+                        let out_tail =
+                            &mut out_coeffs[out_start + common_y..out_start + rhs.y_size];
+                        let rhs_tail = &rhs_coeffs[rhs_start + common_y..rhs_start + rhs.y_size];
+                        if add {
+                            out_tail.copy(rhs_tail).unwrap();
+                        } else {
+                            ScalarCfg::scalar_sub(zero_slice, rhs_tail, out_tail, &cfg_vec_ops)
+                                .unwrap();
+                        }
+                    }
+                }
+                (true, false) => {
+                    let lhs_start = row * lhs.y_size;
+                    out_coeffs[out_start..out_start + lhs.y_size]
+                        .copy(&lhs_coeffs[lhs_start..lhs_start + lhs.y_size])
+                        .unwrap();
+                }
+                (false, true) => {
+                    let rhs_start = row * rhs.y_size;
+                    let out_row = &mut out_coeffs[out_start..out_start + rhs.y_size];
+                    let rhs_row = &rhs_coeffs[rhs_start..rhs_start + rhs.y_size];
+                    if add {
+                        out_row.copy(rhs_row).unwrap();
+                    } else {
+                        ScalarCfg::scalar_sub(zero_slice, rhs_row, out_row, &cfg_vec_ops).unwrap();
+                    }
+                }
+                (false, false) => {}
+            }
+        }
+        #[cfg(feature = "timing")]
+        record_detail_step(
+            if add {
+                "add_rowwise_vec_ops"
+            } else {
+                "sub_rowwise_vec_ops"
+            },
+            step_start,
+            "target",
+            vec![target_x_size, target_y_size],
+        );
+
+        #[cfg(feature = "timing")]
+        let step_start = Instant::now();
+        let out = DensePolynomialExt::from_coeffs(&out_coeffs, target_x_size, target_y_size);
+        #[cfg(feature = "timing")]
+        record_detail_step(
+            if add {
+                "add_rowwise_construct_result"
+            } else {
+                "sub_rowwise_construct_result"
+            },
+            step_start,
+            "target",
+            vec![target_x_size, target_y_size],
+        );
+        out
+    }
 }
 
 // impl Drop for DensePolynomialExt {
@@ -154,6 +313,19 @@ impl Add for &DensePolynomialExt {
     fn add(self: Self, rhs: Self) -> Self::Output {
         #[cfg(feature = "timing")]
         let timing_start = Instant::now();
+        if self.x_size != rhs.x_size || self.y_size != rhs.y_size {
+            let out = DensePolynomialExt::add_sub_no_resize(self, rhs, true);
+            #[cfg(feature = "timing")]
+            record_detail(
+                "addition",
+                timing_start.elapsed(),
+                vec![SizeInfo {
+                    label: "result",
+                    dims: vec![out.x_size, out.y_size],
+                }],
+            );
+            return out;
+        }
         #[cfg(feature = "timing")]
         let step_start = Instant::now();
         let mut lhs_ext = self.clone();
@@ -226,6 +398,24 @@ impl AddAssign<&DensePolynomialExt> for DensePolynomialExt {
     fn add_assign(&mut self, rhs: &DensePolynomialExt) {
         #[cfg(feature = "timing")]
         let timing_start = Instant::now();
+        if self.x_size != rhs.x_size || self.y_size != rhs.y_size {
+            let out = DensePolynomialExt::add_sub_no_resize(self, rhs, true);
+            self.poly = out.poly;
+            self.x_size = out.x_size;
+            self.y_size = out.y_size;
+            self.x_degree = out.x_degree;
+            self.y_degree = out.y_degree;
+            #[cfg(feature = "timing")]
+            record_detail(
+                "addition",
+                timing_start.elapsed(),
+                vec![SizeInfo {
+                    label: "result",
+                    dims: vec![self.x_size, self.y_size],
+                }],
+            );
+            return;
+        }
         #[cfg(feature = "timing")]
         let step_start = Instant::now();
         let mut lhs_ext = self.clone();
@@ -294,6 +484,19 @@ impl Sub for &DensePolynomialExt {
     fn sub(self: Self, rhs: Self) -> Self::Output {
         #[cfg(feature = "timing")]
         let timing_start = Instant::now();
+        if self.x_size != rhs.x_size || self.y_size != rhs.y_size {
+            let out = DensePolynomialExt::add_sub_no_resize(self, rhs, false);
+            #[cfg(feature = "timing")]
+            record_detail(
+                "addition",
+                timing_start.elapsed(),
+                vec![SizeInfo {
+                    label: "result",
+                    dims: vec![out.x_size, out.y_size],
+                }],
+            );
+            return out;
+        }
         #[cfg(feature = "timing")]
         let step_start = Instant::now();
         let mut lhs_ext = self.clone();
