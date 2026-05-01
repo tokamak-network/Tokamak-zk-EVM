@@ -43,6 +43,7 @@ cd "$PWD/packages/backend"
 All `mpc-setup` builds build the local `../frontend/qap-compiler` package during the Cargo build
 and use that local subcircuit library output at runtime. `mpc-setup` does not accept
 `--subcircuit-library`.
+The setup flow consumes binary R1CS constraint files from the prepared library's `r1cs/` directory.
 
 ```bash
 cargo run --release --bin native_mpc_setup -- \

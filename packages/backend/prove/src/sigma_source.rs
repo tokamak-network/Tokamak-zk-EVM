@@ -54,6 +54,15 @@ impl<'a> Sigma1Handle<'a> {
         self.0.encode_poly(poly, params)
     }
 
+    pub fn encode_poly_timed(
+        &self,
+        poly: &mut DensePolynomialExt,
+        params: &SetupParams,
+        timing_name: &'static str,
+    ) -> G1serde {
+        self.0.encode_poly_timed(poly, params, timing_name)
+    }
+
     pub fn encode_O_pub_free(
         &self,
         placement_variables: &[PlacementVariables],

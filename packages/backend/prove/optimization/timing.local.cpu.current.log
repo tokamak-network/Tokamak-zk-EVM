@@ -1,0 +1,49 @@
+warning: virtual workspace defaulting to `resolver = "1"` despite one or more workspace members being on edition 2021 which implies `resolver = "2"`
+note: to keep the current resolver, specify `workspace.resolver = "1"` in the workspace root's manifest
+note: to use the edition 2021 resolver, specify `workspace.resolver = "2"` in the workspace root's manifest
+note: for more details see https://doc.rust-lang.org/cargo/reference/resolver.html#resolver-versions
+warning: /Users/jehyuk/Documents/repo/Tokamak-zk-EVM/packages/backend/setup/mpc-setup/Cargo.toml: version requirement `5.0.0+20220225` for dependency `google-drive3` includes semver metadata which will be ignored, removing the metadata is recommended to avoid confusion
+    Finished `release` profile [optimized] target(s) in 0.27s
+     Running optimization/tests/timing.rs (target/release/deps/timing-9d6488fcb0d1cb1a)
+
+running 1 test
+[INFO] Failed to load backend from any known directory.
+GPU is not available, falling back to CPU only
+Using sparse R1CS uvwXY generation.
+📊 Subcircuit uses: 13 unique, 166 total
+  📋 Subcircuit 0 used 1 times
+  📋 Subcircuit 1 used 1 times
+  📋 Subcircuit 2 used 1 times
+  📋 Subcircuit 3 used 1 times
+  📋 Subcircuit 4 used 1 times
+  📋 Subcircuit 5 used 88 times
+  📋 Subcircuit 6 used 16 times
+  📋 Subcircuit 7 used 2 times
+  📋 Subcircuit 9 used 2 times
+  📋 Subcircuit 10 used 13 times
+  📋 Subcircuit 11 used 4 times
+  📋 Subcircuit 12 used 1 times
+  📋 Subcircuit 13 used 35 times
+🔄 Starting binding computation (MSMs)...
+test timing_prove_stages ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 45.70s
+
+       47.27 real       371.25 user        21.57 sys
+          8771747840  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+             1010389  page reclaims
+               52500  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   1  signals received
+                1094  voluntary context switches
+             2372505  involuntary context switches
+          1596687521  instructions retired
+           605681869  cycles elapsed
+            60719656  peak memory footprint

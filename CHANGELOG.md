@@ -8,6 +8,39 @@ The format is based on Keep a Changelog.
 
 ## Unreleased
 
+## [2.0.16] - 2026-05-01
+
+### Repository
+
+- Synchronized the release version to `2.0.16` across the CLI, subcircuit library, synthesizer packages, and backend workspace.
+
+### CLI
+
+- Bumped `@tokamak-zk-evm/cli` to `2.0.16`.
+- Updated the CLI package to consume `@tokamak-zk-evm/synthesizer-node` through the synchronized `^2.0.16` dependency range.
+- Bundled the updated `2.0.16` backend runtime used by `--install`, `--preprocess`, `--prove`, and `--verify`; CLI command behavior is otherwise unchanged.
+
+### Subcircuit Library
+
+- Bumped `@tokamak-zk-evm/subcircuit-library` to `2.0.16`.
+
+### Synthesizer
+
+- Bumped `@tokamak-zk-evm/synthesizer-node` and `@tokamak-zk-evm/synthesizer-web` to `2.0.16`.
+- Updated both synthesizer packages to consume `@tokamak-zk-evm/subcircuit-library` through the synchronized `^2.0.16` dependency range.
+
+### Backend Workspace
+
+- Bumped the backend Rust workspace version to `2.0.16`.
+- Pruned unused embedded subcircuit-library build-support metadata and compatibility helpers while keeping release backend subcircuit snapshots internal to the backend build.
+- Switched setup and prove R1CS loading from generated JSON constraint files to binary `.r1cs` artifacts, including binary header validation and sparse row scanning.
+- Optimized prove initialization by using sparse uvwXY generation, binary R1CS preload, and cached permutation power tables.
+- Optimized prover polynomial work with coefficient-domain vanishing division, algebraic polynomial-combination rewrites, cached cross-stage terms, and special-form polynomial products.
+- Optimized bivariate NTTs by using ICICLE column-batch transforms for real 2D shapes and direct 1D fast paths for single-axis shapes.
+- Removed generic polynomial multiplication output shrinking after interpolation to avoid repeated size-optimization overhead.
+- Fixed the `prove0` `B` zero-knowledge vanishing term to use the private-input domain exponent `l_D - l`.
+- Expanded backend timing instrumentation and refreshed CUDA prove optimization reports and artifacts.
+
 ## [2.0.15] - 2026-04-30
 
 ### Repository

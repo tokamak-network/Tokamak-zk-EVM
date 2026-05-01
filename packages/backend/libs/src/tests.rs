@@ -1,16 +1,9 @@
 use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
-use icicle_core::traits::{Arithmetic, FieldConfig, FieldImpl, GenerateRandom};
-use icicle_runtime::memory::{HostOrDeviceSlice, HostSlice};
-use std::cmp;
+use icicle_core::traits::{FieldImpl, GenerateRandom};
+use icicle_runtime::memory::HostSlice;
 
 use super::vector_operations::*;
-use icicle_bls12_381::polynomials::DensePolynomial;
-use icicle_core::ntt::{self, NTTDir};
-use icicle_core::polynomials::UnivariatePolynomial;
-use icicle_core::vec_ops::{VecOps, VecOpsConfig};
-use icicle_runtime::memory::{DeviceSlice, DeviceVec};
-use rayon::prelude::*;
-use std::ops::{Add, AddAssign, Mul, Neg, Sub};
+use icicle_core::vec_ops::VecOps;
 
 // Assuming the implementation of DensePolynomialExt and BivariatePolynomial is already available
 // This mod tests can be placed in a separate file
@@ -20,7 +13,7 @@ mod msm_vs_rayon_tests {
     use super::*;
     use crate::group_structures::G1serde;
     use crate::iotools::{from_coef_vec_to_g1serde_vec, from_coef_vec_to_g1serde_vec_msm};
-    use icicle_bls12_381::curve::{CurveCfg, G1Affine, G1Projective, ScalarCfg, ScalarField};
+    use icicle_bls12_381::curve::{CurveCfg, G1Affine, ScalarCfg, ScalarField};
     use icicle_core::curve::Curve;
 
     #[test]
@@ -56,14 +49,15 @@ mod tests {
     use icicle_core::ntt;
     use icicle_core::traits::Arithmetic;
     use icicle_core::vec_ops::VecOpsConfig;
-    use icicle_runtime::memory::DeviceVec;
+    use icicle_runtime::memory::{DeviceVec, HostOrDeviceSlice};
+    use std::env;
+    use std::time::{Duration, Instant};
 
     use super::*;
     use crate::bivariate_polynomial::{
         init_ntt_domain_for_size, BivariatePolynomial, DensePolynomialExt, DivByVanishingCache,
     };
-    use crate::vector_operations::*;
-
+    use crate::utils::check_device;
     // Helper function: Create a simple 2D polynomial
     fn create_simple_polynomial() -> DensePolynomialExt {
         // Simple 2x2 polynomial: 1 + 2x + 3y + 4xy (coefficient matrix: [[1, 3], [2, 4]])
@@ -74,36 +68,6 @@ mod tests {
             ScalarField::from_u32(4), // xy coefficient
         ];
         DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs), 2, 2)
-    }
-
-    fn create_larger_polynomial() -> DensePolynomialExt {
-        // Create a 4x4 polynomial with random coefficients
-        let size = 16; // 4x4
-        let coeffs = ScalarCfg::generate_random(size);
-        DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs), 4, 4)
-    }
-
-    // Create a univariate polynomial in x
-    fn create_univariate_x_polynomial() -> DensePolynomialExt {
-        // Polynomial in x: 1 + 2x + 3x^2
-        let coeffs = vec![
-            ScalarField::from_u32(1),
-            ScalarField::from_u32(2),
-            ScalarField::from_u32(3),
-            ScalarField::from_u32(0),
-        ];
-        DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs), 4, 1)
-    }
-
-    // Create a univariate polynomial in y
-    fn create_univariate_y_polynomial() -> DensePolynomialExt {
-        // Polynomial in y: 1 + 2y + 3y^2
-        let mut coeffs = vec![ScalarField::from_u32(0); 16];
-        coeffs[0] = ScalarField::from_u32(1); // Constant
-        coeffs[4] = ScalarField::from_u32(2); // y
-        coeffs[8] = ScalarField::from_u32(3); // y^2
-
-        DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs), 4, 4)
     }
 
     fn init_bi_ntt_domain(x_size: usize, y_size: usize) {
@@ -271,6 +235,473 @@ mod tests {
             result.get_coeff(1, 1),
             ScalarField::from_u32(4) - ScalarField::from_u32(3)
         );
+    }
+
+    #[test]
+    fn test_add_mismatched_y_size() {
+        let lhs_coeffs = vec![
+            ScalarField::from_u32(1),
+            ScalarField::from_u32(2),
+            ScalarField::from_u32(3),
+            ScalarField::from_u32(4),
+        ];
+        let rhs_coeffs = vec![
+            ScalarField::from_u32(10),
+            ScalarField::from_u32(20),
+            ScalarField::from_u32(30),
+            ScalarField::from_u32(40),
+        ];
+        let lhs = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&lhs_coeffs), 2, 2);
+        let rhs = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&rhs_coeffs), 1, 4);
+
+        let result = &lhs + &rhs;
+
+        assert_eq!(result.x_size, 2);
+        assert_eq!(result.y_size, 4);
+        assert_eq!(result.get_coeff(0, 0), ScalarField::from_u32(11));
+        assert_eq!(result.get_coeff(0, 1), ScalarField::from_u32(22));
+        assert_eq!(result.get_coeff(0, 2), ScalarField::from_u32(30));
+        assert_eq!(result.get_coeff(0, 3), ScalarField::from_u32(40));
+        assert_eq!(result.get_coeff(1, 0), ScalarField::from_u32(3));
+        assert_eq!(result.get_coeff(1, 1), ScalarField::from_u32(4));
+        assert_eq!(result.get_coeff(1, 2), ScalarField::zero());
+        assert_eq!(result.get_coeff(1, 3), ScalarField::zero());
+    }
+
+    #[test]
+    fn test_sub_mismatched_y_size() {
+        let lhs_coeffs = vec![
+            ScalarField::from_u32(1),
+            ScalarField::from_u32(2),
+            ScalarField::from_u32(3),
+            ScalarField::from_u32(4),
+        ];
+        let rhs_coeffs = vec![
+            ScalarField::from_u32(10),
+            ScalarField::from_u32(20),
+            ScalarField::from_u32(30),
+            ScalarField::from_u32(40),
+        ];
+        let lhs = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&lhs_coeffs), 2, 2);
+        let rhs = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&rhs_coeffs), 1, 4);
+
+        let result = &lhs - &rhs;
+
+        assert_eq!(result.x_size, 2);
+        assert_eq!(result.y_size, 4);
+        assert_eq!(
+            result.get_coeff(0, 0),
+            ScalarField::from_u32(1) - ScalarField::from_u32(10)
+        );
+        assert_eq!(
+            result.get_coeff(0, 1),
+            ScalarField::from_u32(2) - ScalarField::from_u32(20)
+        );
+        assert_eq!(
+            result.get_coeff(0, 2),
+            ScalarField::zero() - ScalarField::from_u32(30)
+        );
+        assert_eq!(
+            result.get_coeff(0, 3),
+            ScalarField::zero() - ScalarField::from_u32(40)
+        );
+        assert_eq!(result.get_coeff(1, 0), ScalarField::from_u32(3));
+        assert_eq!(result.get_coeff(1, 1), ScalarField::from_u32(4));
+        assert_eq!(result.get_coeff(1, 2), ScalarField::zero());
+        assert_eq!(result.get_coeff(1, 3), ScalarField::zero());
+    }
+
+    #[test]
+    fn test_add_assign_mismatched_y_size() {
+        let lhs_coeffs = vec![
+            ScalarField::from_u32(1),
+            ScalarField::from_u32(2),
+            ScalarField::from_u32(3),
+            ScalarField::from_u32(4),
+        ];
+        let rhs_coeffs = vec![
+            ScalarField::from_u32(10),
+            ScalarField::from_u32(20),
+            ScalarField::from_u32(30),
+            ScalarField::from_u32(40),
+        ];
+        let mut lhs = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&lhs_coeffs), 2, 2);
+        let rhs = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&rhs_coeffs), 1, 4);
+
+        lhs += &rhs;
+
+        assert_eq!(lhs.x_size, 2);
+        assert_eq!(lhs.y_size, 4);
+        assert_eq!(lhs.get_coeff(0, 0), ScalarField::from_u32(11));
+        assert_eq!(lhs.get_coeff(0, 1), ScalarField::from_u32(22));
+        assert_eq!(lhs.get_coeff(0, 2), ScalarField::from_u32(30));
+        assert_eq!(lhs.get_coeff(0, 3), ScalarField::from_u32(40));
+        assert_eq!(lhs.get_coeff(1, 0), ScalarField::from_u32(3));
+        assert_eq!(lhs.get_coeff(1, 1), ScalarField::from_u32(4));
+        assert_eq!(lhs.get_coeff(1, 2), ScalarField::zero());
+        assert_eq!(lhs.get_coeff(1, 3), ScalarField::zero());
+    }
+
+    #[test]
+    fn test_add_mismatched_x_size_same_y_size() {
+        let lhs_coeffs = vec![
+            ScalarField::from_u32(1),
+            ScalarField::from_u32(2),
+            ScalarField::from_u32(3),
+            ScalarField::from_u32(4),
+        ];
+        let rhs_coeffs = vec![ScalarField::from_u32(10), ScalarField::from_u32(20)];
+        let lhs = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&lhs_coeffs), 2, 2);
+        let rhs = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&rhs_coeffs), 1, 2);
+
+        let result = &lhs + &rhs;
+
+        assert_eq!(result.x_size, 2);
+        assert_eq!(result.y_size, 2);
+        assert_eq!(result.get_coeff(0, 0), ScalarField::from_u32(11));
+        assert_eq!(result.get_coeff(0, 1), ScalarField::from_u32(22));
+        assert_eq!(result.get_coeff(1, 0), ScalarField::from_u32(3));
+        assert_eq!(result.get_coeff(1, 1), ScalarField::from_u32(4));
+    }
+
+    #[test]
+    fn test_add_same_x_size_mismatched_y_size() {
+        let lhs_coeffs = vec![
+            ScalarField::from_u32(1),
+            ScalarField::from_u32(2),
+            ScalarField::from_u32(3),
+            ScalarField::from_u32(4),
+        ];
+        let rhs_coeffs = vec![
+            ScalarField::from_u32(10),
+            ScalarField::from_u32(20),
+            ScalarField::from_u32(30),
+            ScalarField::from_u32(40),
+            ScalarField::from_u32(50),
+            ScalarField::from_u32(60),
+            ScalarField::from_u32(70),
+            ScalarField::from_u32(80),
+        ];
+        let lhs = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&lhs_coeffs), 2, 2);
+        let rhs = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&rhs_coeffs), 2, 4);
+
+        let result = &lhs + &rhs;
+
+        assert_eq!(result.x_size, 2);
+        assert_eq!(result.y_size, 4);
+        assert_eq!(result.get_coeff(0, 0), ScalarField::from_u32(11));
+        assert_eq!(result.get_coeff(0, 1), ScalarField::from_u32(22));
+        assert_eq!(result.get_coeff(0, 2), ScalarField::from_u32(30));
+        assert_eq!(result.get_coeff(0, 3), ScalarField::from_u32(40));
+        assert_eq!(result.get_coeff(1, 0), ScalarField::from_u32(53));
+        assert_eq!(result.get_coeff(1, 1), ScalarField::from_u32(64));
+        assert_eq!(result.get_coeff(1, 2), ScalarField::from_u32(70));
+        assert_eq!(result.get_coeff(1, 3), ScalarField::from_u32(80));
+    }
+
+    fn bench_env_usize(name: &str, default: usize) -> usize {
+        env::var(name)
+            .ok()
+            .and_then(|value| value.parse::<usize>().ok())
+            .unwrap_or(default)
+    }
+
+    fn bench_poly(x_size: usize, y_size: usize) -> DensePolynomialExt {
+        let coeffs = ScalarCfg::generate_random(x_size * y_size);
+        DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs), x_size, y_size)
+    }
+
+    fn percentile(sorted: &[Duration], numerator: usize, denominator: usize) -> Duration {
+        let idx = sorted.len().saturating_sub(1).saturating_mul(numerator) / denominator;
+        sorted[idx]
+    }
+
+    fn print_bench_stats(label: &str, samples: &[Duration]) {
+        let mut sorted = samples.to_vec();
+        sorted.sort();
+        let total: Duration = sorted.iter().copied().sum();
+        let mean = total.as_secs_f64() / sorted.len() as f64;
+        let min = sorted[0].as_secs_f64();
+        let median = percentile(&sorted, 1, 2).as_secs_f64();
+        let p95 = percentile(&sorted, 95, 100).as_secs_f64();
+        let max = sorted[sorted.len() - 1].as_secs_f64();
+
+        println!(
+            "DPE_ADD_PATH_BENCH label={} samples={} mean_s={:.9} median_s={:.9} p95_s={:.9} min_s={:.9} max_s={:.9}",
+            label,
+            sorted.len(),
+            mean,
+            median,
+            p95,
+            min,
+            max
+        );
+    }
+
+    fn measure_binary_op<F>(label: &str, samples: usize, warmup: usize, mut op: F)
+    where
+        F: FnMut() -> DensePolynomialExt,
+    {
+        for _ in 0..warmup {
+            let result = op();
+            std::hint::black_box((result.x_size, result.y_size));
+        }
+
+        let mut durations = Vec::with_capacity(samples);
+        for _ in 0..samples {
+            let start = Instant::now();
+            let result = op();
+            let elapsed = start.elapsed();
+            std::hint::black_box((result.x_size, result.y_size));
+            durations.push(elapsed);
+        }
+
+        print_bench_stats(label, &durations);
+    }
+
+    #[test]
+    #[ignore]
+    fn bench_add_sub_no_resize_paths() {
+        let device = check_device();
+        let samples = bench_env_usize("DPE_ADD_PATH_BENCH_SAMPLES", 120);
+        let warmup = bench_env_usize("DPE_ADD_PATH_BENCH_WARMUP", 20);
+        let lhs_x = bench_env_usize("DPE_ADD_PATH_BENCH_LHS_X", 4096);
+        let lhs_y = bench_env_usize("DPE_ADD_PATH_BENCH_LHS_Y", 256);
+        let same_y_rhs_x = bench_env_usize("DPE_ADD_PATH_BENCH_SAME_Y_RHS_X", lhs_x / 2);
+        let x_same_y_mismatch_rhs_x =
+            bench_env_usize("DPE_ADD_PATH_BENCH_X_SAME_Y_MISMATCH_RHS_X", lhs_x);
+        let x_same_y_mismatch_rhs_y =
+            bench_env_usize("DPE_ADD_PATH_BENCH_X_SAME_Y_MISMATCH_RHS_Y", lhs_y / 2);
+        let both_mismatch_rhs_x =
+            bench_env_usize("DPE_ADD_PATH_BENCH_BOTH_MISMATCH_RHS_X", lhs_x / 2);
+        let both_mismatch_rhs_y =
+            bench_env_usize("DPE_ADD_PATH_BENCH_BOTH_MISMATCH_RHS_Y", lhs_y / 2);
+
+        println!(
+            "DPE_ADD_PATH_BENCH_CONFIG device={} samples={} warmup={} lhs={}x{} same_y_rhs={}x{} x_same_y_mismatch_rhs={}x{} both_mismatch_rhs={}x{}",
+            device,
+            samples,
+            warmup,
+            lhs_x,
+            lhs_y,
+            same_y_rhs_x,
+            lhs_y,
+            x_same_y_mismatch_rhs_x,
+            x_same_y_mismatch_rhs_y,
+            both_mismatch_rhs_x,
+            both_mismatch_rhs_y
+        );
+
+        let lhs = bench_poly(lhs_x, lhs_y);
+        let same_y_rhs = bench_poly(same_y_rhs_x, lhs_y);
+        let x_same_y_mismatch_rhs = bench_poly(x_same_y_mismatch_rhs_x, x_same_y_mismatch_rhs_y);
+        let both_mismatch_rhs = bench_poly(both_mismatch_rhs_x, both_mismatch_rhs_y);
+
+        measure_binary_op("same_y_add", samples, warmup, || &lhs + &same_y_rhs);
+        measure_binary_op("same_y_sub", samples, warmup, || &lhs - &same_y_rhs);
+        measure_binary_op("x_same_y_mismatch_add", samples, warmup, || {
+            &lhs + &x_same_y_mismatch_rhs
+        });
+        measure_binary_op("x_same_y_mismatch_sub", samples, warmup, || {
+            &lhs - &x_same_y_mismatch_rhs
+        });
+        measure_binary_op("both_mismatch_add", samples, warmup, || {
+            &lhs + &both_mismatch_rhs
+        });
+        measure_binary_op("both_mismatch_sub", samples, warmup, || {
+            &lhs - &both_mismatch_rhs
+        });
+    }
+
+    fn bintt_transpose_device(
+        input: &DeviceVec<ScalarField>,
+        x_size: usize,
+        y_size: usize,
+        dir: ntt::NTTDir,
+        coset_x: Option<&ScalarField>,
+        coset_y: Option<&ScalarField>,
+    ) -> DeviceVec<ScalarField> {
+        let size = x_size * y_size;
+        let mut cfg = ntt::NTTConfig::<ScalarField>::default();
+        let vec_ops_cfg = VecOpsConfig::default();
+
+        let mut out_y = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+        cfg.batch_size = x_size as i32;
+        cfg.columns_batch = false;
+        cfg.coset_gen = coset_y.copied().unwrap_or(ScalarField::one());
+        ntt::ntt(input, dir, &cfg, &mut out_y).unwrap();
+
+        let mut out_y_tr = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+        ScalarCfg::transpose(
+            &out_y,
+            x_size as u32,
+            y_size as u32,
+            &mut out_y_tr,
+            &vec_ops_cfg,
+        )
+        .unwrap();
+
+        cfg.batch_size = y_size as i32;
+        cfg.columns_batch = false;
+        cfg.coset_gen = coset_x.copied().unwrap_or(ScalarField::one());
+        let mut out_x_tr = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+        ntt::ntt(&out_y_tr, dir, &cfg, &mut out_x_tr).unwrap();
+
+        let mut out = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+        ScalarCfg::transpose(
+            &out_x_tr,
+            y_size as u32,
+            x_size as u32,
+            &mut out,
+            &vec_ops_cfg,
+        )
+        .unwrap();
+        out
+    }
+
+    fn bintt_column_batch_device(
+        input: &DeviceVec<ScalarField>,
+        x_size: usize,
+        y_size: usize,
+        dir: ntt::NTTDir,
+        coset_x: Option<&ScalarField>,
+        coset_y: Option<&ScalarField>,
+    ) -> DeviceVec<ScalarField> {
+        let size = x_size * y_size;
+        let mut cfg = ntt::NTTConfig::<ScalarField>::default();
+
+        let mut out_y = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+        cfg.batch_size = x_size as i32;
+        cfg.columns_batch = false;
+        cfg.coset_gen = coset_y.copied().unwrap_or(ScalarField::one());
+        ntt::ntt(input, dir, &cfg, &mut out_y).unwrap();
+
+        let mut out = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+        cfg.batch_size = y_size as i32;
+        cfg.columns_batch = true;
+        cfg.coset_gen = coset_x.copied().unwrap_or(ScalarField::one());
+        ntt::ntt(&out_y, dir, &cfg, &mut out).unwrap();
+        out
+    }
+
+    fn device_vec_from_host(values: &[ScalarField]) -> DeviceVec<ScalarField> {
+        let mut out = DeviceVec::<ScalarField>::device_malloc(values.len()).unwrap();
+        out.copy_from_host(HostSlice::from_slice(values)).unwrap();
+        out
+    }
+
+    fn device_vec_to_host(values: &DeviceVec<ScalarField>) -> Vec<ScalarField> {
+        let mut out = vec![ScalarField::zero(); values.len()];
+        values
+            .copy_to_host(HostSlice::from_mut_slice(&mut out))
+            .unwrap();
+        out
+    }
+
+    fn count_mismatches(lhs: &[ScalarField], rhs: &[ScalarField]) -> usize {
+        lhs.iter().zip(rhs.iter()).filter(|(a, b)| *a != *b).count()
+    }
+
+    #[test]
+    #[ignore]
+    fn bench_bintt_column_batch_candidate() {
+        let device = check_device();
+        let samples = bench_env_usize("DPE_BINTT_COLUMN_BATCH_SAMPLES", 60);
+        let warmup = bench_env_usize("DPE_BINTT_COLUMN_BATCH_WARMUP", 10);
+        let bench_x = bench_env_usize("DPE_BINTT_COLUMN_BATCH_X", 4096);
+        let bench_y = bench_env_usize("DPE_BINTT_COLUMN_BATCH_Y", 256);
+
+        for (x_size, y_size) in [(16usize, 8usize), (64usize, 32usize), (bench_x, bench_y)] {
+            init_bi_ntt_domain(x_size, y_size);
+            let input = ScalarCfg::generate_random(x_size * y_size);
+            let input_device = device_vec_from_host(&input);
+            let coset_x = random_nonzero_scalar();
+            let coset_y = random_nonzero_scalar();
+
+            for (label, cx, cy) in [
+                ("plain", None, None),
+                ("coset", Some(&coset_x), Some(&coset_y)),
+            ] {
+                for (dir_label, dir) in [
+                    ("forward", ntt::NTTDir::kForward),
+                    ("inverse", ntt::NTTDir::kInverse),
+                ] {
+                    let reference =
+                        bintt_transpose_device(&input_device, x_size, y_size, dir, cx, cy);
+                    let candidate =
+                        bintt_column_batch_device(&input_device, x_size, y_size, dir, cx, cy);
+                    let reference_host = device_vec_to_host(&reference);
+                    let candidate_host = device_vec_to_host(&candidate);
+                    let mismatches = count_mismatches(&reference_host, &candidate_host);
+                    println!(
+                        "BINTT_COLUMN_BATCH_CHECK device={} shape={}x{} mode={} dir={} mismatches={}",
+                        device, x_size, y_size, label, dir_label, mismatches
+                    );
+                    assert_eq!(mismatches, 0);
+                }
+            }
+        }
+
+        init_bi_ntt_domain(bench_x, bench_y);
+        let input = ScalarCfg::generate_random(bench_x * bench_y);
+        let input_device = device_vec_from_host(&input);
+
+        let mut transpose_samples = Vec::with_capacity(samples);
+        let mut column_batch_samples = Vec::with_capacity(samples);
+
+        for _ in 0..warmup {
+            let out = bintt_transpose_device(
+                &input_device,
+                bench_x,
+                bench_y,
+                ntt::NTTDir::kForward,
+                None,
+                None,
+            );
+            std::hint::black_box(out.len());
+            let out = bintt_column_batch_device(
+                &input_device,
+                bench_x,
+                bench_y,
+                ntt::NTTDir::kForward,
+                None,
+                None,
+            );
+            std::hint::black_box(out.len());
+        }
+
+        for _ in 0..samples {
+            let start = Instant::now();
+            let out = bintt_transpose_device(
+                &input_device,
+                bench_x,
+                bench_y,
+                ntt::NTTDir::kForward,
+                None,
+                None,
+            );
+            std::hint::black_box(out.len());
+            transpose_samples.push(start.elapsed());
+
+            let start = Instant::now();
+            let out = bintt_column_batch_device(
+                &input_device,
+                bench_x,
+                bench_y,
+                ntt::NTTDir::kForward,
+                None,
+                None,
+            );
+            std::hint::black_box(out.len());
+            column_batch_samples.push(start.elapsed());
+        }
+
+        println!(
+            "BINTT_COLUMN_BATCH_CONFIG device={} samples={} warmup={} bench_shape={}x{}",
+            device, samples, warmup, bench_x, bench_y
+        );
+        print_bench_stats("bintt_transpose_forward", &transpose_samples);
+        print_bench_stats("bintt_column_batch_forward", &column_batch_samples);
     }
 
     #[test]
@@ -789,13 +1220,7 @@ mod tests {
         let c = 32;
         let d = 16;
         let (mut p, t_x, t_y) = make_vanishing_instance(2 * c, 2 * d, c, d);
-        let mut cache = DivByVanishingCache {
-            denom_x_eval_inv: Box::new([]),
-            denom_y_eval_inv: Box::new([]),
-            denom_x_axis_inv: Box::new([]),
-            denom_y_axis_inv: Box::new([]),
-        };
-        let (mut q_x_found, mut q_y_found) = p.div_by_vanishing_opt(c as i64, d as i64, &mut cache);
+        let (mut q_x_found, mut q_y_found) = p.div_by_vanishing_opt(c as i64, d as i64);
         q_x_found.optimize_size();
         q_y_found.optimize_size();
         let p_reconstruct = &(&q_x_found * &t_x) + &(&q_y_found * &t_y);
@@ -825,14 +1250,7 @@ mod tests {
         q_y_base.optimize_size();
 
         let mut p_opt = p.clone();
-        let mut cache_opt = DivByVanishingCache {
-            denom_x_eval_inv: Box::new([]),
-            denom_y_eval_inv: Box::new([]),
-            denom_x_axis_inv: Box::new([]),
-            denom_y_axis_inv: Box::new([]),
-        };
-        let (mut q_x_opt, mut q_y_opt) =
-            p_opt.div_by_vanishing_opt(c as i64, d as i64, &mut cache_opt);
+        let (mut q_x_opt, mut q_y_opt) = p_opt.div_by_vanishing_opt(c as i64, d as i64);
         q_x_opt.optimize_size();
         q_y_opt.optimize_size();
 
@@ -1009,9 +1427,7 @@ mod tests {
 #[cfg(test)]
 mod tests_vectors {
     use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
-    use icicle_core::traits::{Arithmetic, FieldConfig, FieldImpl, GenerateRandom};
-    use icicle_runtime::memory::{HostOrDeviceSlice, HostSlice};
-    use std::cmp;
+    use icicle_core::traits::{FieldImpl, GenerateRandom};
 
     use crate::vector_operations::*;
 
@@ -1153,13 +1569,10 @@ mod tests_vectors {
 }
 
 mod tests_iotools {
-    use crate::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
     use crate::group_structures::G1serde;
-    use crate::iotools::{
-        from_coef_vec_to_g1serde_vec, gen_g1serde_vec_of_xy_monomials, scaled_outer_product_1d,
-    };
+    use crate::iotools::{gen_g1serde_vec_of_xy_monomials, scaled_outer_product_1d};
     use crate::vector_operations::extend_monomial_vec;
-    use icicle_bls12_381::curve::{CurveCfg, G1Affine, ScalarCfg, ScalarField};
+    use icicle_bls12_381::curve::{CurveCfg, ScalarCfg, ScalarField};
     use icicle_core::curve::Curve;
     use icicle_core::traits::{FieldImpl, GenerateRandom};
 

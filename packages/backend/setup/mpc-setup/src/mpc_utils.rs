@@ -124,11 +124,11 @@ pub fn eval_langrange_bases(x_g1: &Vec<G1serde>, x_evaled_vec: &mut Vec<G1serde>
         *out = result;
     });
 }
-// TODO update to accumulator [x^0,X^1,...x^len_x-1]
+#[cfg(test)]
 fn compute_powers(x_r: ScalarField, len_x: usize) -> Vec<ScalarField> {
     let mut x_powers: Vec<ScalarField> = Vec::with_capacity(len_x);
     let mut current_power = ScalarField::one();
-    for i in 0..len_x {
+    for _ in 0..len_x {
         x_powers.push(current_power);
         current_power = current_power.mul(x_r);
     }

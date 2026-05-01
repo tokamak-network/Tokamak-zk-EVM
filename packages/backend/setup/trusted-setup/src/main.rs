@@ -130,10 +130,11 @@ fn main() {
         gen_evaled_lagrange_bases(&tau.x, n, &mut x_evaled_lagrange_vec);
         for i in 0..s_d {
             println!("Processing subcircuit id {}", i);
-            let r1cs_path = PathBuf::from(paths.qap_path).join(format!("json/subcircuit{i}.json"));
+            let r1cs_path = PathBuf::from(paths.qap_path).join(format!("r1cs/subcircuit{i}.r1cs"));
 
             let compact_r1cs =
-                SubcircuitR1CS::from_path(r1cs_path, &setup_params, &subcircuit_infos[i]).unwrap();
+                SubcircuitR1CS::from_r1cs_path(r1cs_path, &setup_params, &subcircuit_infos[i])
+                    .unwrap();
             let o_evaled = from_r1cs_to_evaled_qap_mixture(
                 &compact_r1cs,
                 &setup_params,
@@ -245,11 +246,11 @@ fn main() {
         println!("Checked: xy_powers");
         let placement_variables_path =
             PathBuf::from(paths.synthesizer_path).join("placementVariables.json");
-        let mut placement_variables =
+        let placement_variables =
             PlacementVariables::read_box_from_json(placement_variables_path).unwrap();
 
         let instance_path = PathBuf::from(paths.synthesizer_path).join("instance.json");
-        let mut public_instance = Instance::read_from_json(instance_path).unwrap();
+        let public_instance = Instance::read_from_json(instance_path).unwrap();
         let mut a_free_X = public_instance.gen_a_free_X(&setup_params);
         let mut bXY = gen_bXY(&placement_variables, &subcircuit_infos, &setup_params);
         let (mut uXY, mut vXY, mut wXY) = read_R1CS_gen_uvwXY(
@@ -263,7 +264,7 @@ fn main() {
             .sigma_1
             .encode_O_pub_fix(&public_instance.a_pub_function, &setup_params);
         let a_encoding = a_free_encoding;
-        let mut b_encoding = sigma.sigma_1.encode_poly(&mut bXY, &setup_params);
+        let b_encoding = sigma.sigma_1.encode_poly(&mut bXY, &setup_params);
         let u_encoding = sigma.sigma_1.encode_poly(&mut uXY, &setup_params);
         let v_encoding = sigma.sigma_1.encode_poly(&mut vXY, &setup_params);
         let w_encoding = sigma.sigma_1.encode_poly(&mut wXY, &setup_params);

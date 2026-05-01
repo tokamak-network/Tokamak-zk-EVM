@@ -41,7 +41,11 @@ interface ParsedArgs {
 }
 
 type RuntimePaths = ReturnType<typeof runtimePaths>;
-type RuntimeDirectoryKey = 'setupOutputDir' | 'synthOutputDir' | 'preprocessOutputDir' | 'proveOutputDir';
+type RuntimeDirectoryKey =
+  | 'setupOutputDir'
+  | 'synthOutputDir'
+  | 'preprocessOutputDir'
+  | 'proveOutputDir';
 
 interface RuntimeFileRef {
   directory: RuntimeDirectoryKey;

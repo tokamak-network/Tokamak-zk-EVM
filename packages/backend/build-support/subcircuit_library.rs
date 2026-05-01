@@ -28,12 +28,12 @@ const DIGEST_LIBRARY_FILES: &[&str] = &[
     "subcircuitInfo.json",
 ];
 
-pub struct ResolvedSubcircuitLibrary {
-    pub version: String,
-    pub integrity: String,
-    pub source_digest: String,
-    pub snapshot_dir: PathBuf,
-    pub release_dir: PathBuf,
+struct ResolvedSubcircuitLibrary {
+    version: String,
+    integrity: String,
+    source_digest: String,
+    snapshot_dir: PathBuf,
+    release_dir: PathBuf,
 }
 
 pub fn configure_embedded_release_subcircuit_library(out_dir: &Path) -> io::Result<()> {
@@ -91,47 +91,6 @@ pub fn configure_local_subcircuit_library_for_mpc_setup(
             library.library_dir.to_string_lossy()
         ),
     )
-}
-
-pub fn prepare_release_subcircuit_library() -> io::Result<Option<ResolvedSubcircuitLibrary>> {
-    if env::var("PROFILE").ok().as_deref() != Some("release") {
-        return Ok(None);
-    }
-
-    let release_dir = release_dir_from_out_dir()?;
-    let snapshot_root = release_dir.join(SNAPSHOT_ROOT_DIR);
-    fs::create_dir_all(&snapshot_root)?;
-
-    let lock_path = snapshot_root.join(".lock");
-    let _guard = acquire_lock(&lock_path)?;
-    let info_path = snapshot_root.join(SNAPSHOT_INFO_FILE);
-    let npm_view = npm_view_latest()?;
-
-    if let Some(existing) = try_read_snapshot(&info_path, &release_dir, &npm_view)? {
-        return Ok(Some(existing));
-    }
-
-    let unpack_root = snapshot_root.join(format!(
-        "{}-{}",
-        sanitize(&npm_view.version),
-        short_hash(&npm_view.integrity)
-    ));
-    let snapshot_dir = unpack_root.join(SNAPSHOT_LIBRARY_DIR);
-    let constants_path = constants_path_for_library_dir(&snapshot_dir)?;
-
-    if !constants_path.exists() || !snapshot_dir.exists() {
-        fetch_and_unpack_snapshot(&snapshot_root, &unpack_root, &npm_view.version)?;
-    }
-
-    let snapshot = ResolvedSubcircuitLibrary {
-        version: npm_view.version,
-        integrity: npm_view.integrity,
-        source_digest: digest_subcircuit_source(&constants_path, &snapshot_dir)?,
-        snapshot_dir,
-        release_dir,
-    };
-    write_snapshot_info(&info_path, &snapshot)?;
-    Ok(Some(snapshot))
 }
 
 struct LocalSubcircuitLibrary {
@@ -208,7 +167,48 @@ fn prepare_local_subcircuit_library() -> io::Result<LocalSubcircuitLibrary> {
     })
 }
 
-pub fn emit_build_metadata(
+fn prepare_release_subcircuit_library() -> io::Result<Option<ResolvedSubcircuitLibrary>> {
+    if env::var("PROFILE").ok().as_deref() != Some("release") {
+        return Ok(None);
+    }
+
+    let release_dir = release_dir_from_out_dir()?;
+    let snapshot_root = release_dir.join(SNAPSHOT_ROOT_DIR);
+    fs::create_dir_all(&snapshot_root)?;
+
+    let lock_path = snapshot_root.join(".lock");
+    let _guard = acquire_lock(&lock_path)?;
+    let info_path = snapshot_root.join(SNAPSHOT_INFO_FILE);
+    let npm_view = npm_view_latest()?;
+
+    if let Some(existing) = try_read_snapshot(&info_path, &release_dir, &npm_view)? {
+        return Ok(Some(existing));
+    }
+
+    let unpack_root = snapshot_root.join(format!(
+        "{}-{}",
+        sanitize(&npm_view.version),
+        short_hash(&npm_view.integrity)
+    ));
+    let snapshot_dir = unpack_root.join(SNAPSHOT_LIBRARY_DIR);
+    let constants_path = constants_path_for_library_dir(&snapshot_dir)?;
+
+    if !constants_path.exists() || !snapshot_dir.exists() {
+        fetch_and_unpack_snapshot(&snapshot_root, &unpack_root, &npm_view.version)?;
+    }
+
+    let snapshot = ResolvedSubcircuitLibrary {
+        version: npm_view.version,
+        integrity: npm_view.integrity,
+        source_digest: digest_subcircuit_source(&constants_path, &snapshot_dir)?,
+        snapshot_dir,
+        release_dir,
+    };
+    write_snapshot_info(&info_path, &snapshot)?;
+    Ok(Some(snapshot))
+}
+
+fn emit_build_metadata(
     snapshot: &ResolvedSubcircuitLibrary,
     current_package_name: &str,
     current_package_version: &str,
@@ -272,7 +272,7 @@ fn emit_local_build_metadata(
     )
 }
 
-pub fn generate_embedded_module(
+fn generate_embedded_module(
     snapshot: &ResolvedSubcircuitLibrary,
     out_dir: &Path,
 ) -> io::Result<()> {
@@ -281,14 +281,8 @@ pub fn generate_embedded_module(
     files.sort();
 
     let mut generated = String::new();
-    generated.push_str("pub const SUBCIRCUIT_LIBRARY_PACKAGE_NAME: &str = ");
-    generated.push_str(&format!("{:?};\n", PACKAGE_NAME));
     generated.push_str("pub const SUBCIRCUIT_LIBRARY_BUILD_VERSION: &str = ");
     generated.push_str(&format!("{:?};\n", snapshot.version));
-    generated.push_str("pub const SUBCIRCUIT_LIBRARY_DECLARED_RANGE: &str = ");
-    generated.push_str(&format!("{:?};\n", DECLARED_RANGE));
-    generated.push_str("pub const SUBCIRCUIT_LIBRARY_RUNTIME_MODE: &str = ");
-    generated.push_str(&format!("{:?};\n", RUNTIME_MODE));
     generated.push_str("pub const SUBCIRCUIT_LIBRARY_INTEGRITY: &str = ");
     generated.push_str(&format!("{:?};\n", snapshot.integrity));
     generated.push_str(
@@ -318,13 +312,10 @@ pub fn generate_embedded_module(
     fs::write(out_dir.join("embedded_subcircuit_library.rs"), generated)
 }
 
-pub fn write_stub_embedded_module(out_dir: &Path) -> io::Result<()> {
+fn write_stub_embedded_module(out_dir: &Path) -> io::Result<()> {
     fs::write(
         out_dir.join("embedded_subcircuit_library.rs"),
-        "pub const SUBCIRCUIT_LIBRARY_PACKAGE_NAME: &str = \"@tokamak-zk-evm/subcircuit-library\";\n\
-         pub const SUBCIRCUIT_LIBRARY_BUILD_VERSION: &str = \"\";\n\
-         pub const SUBCIRCUIT_LIBRARY_DECLARED_RANGE: &str = \"\";\n\
-         pub const SUBCIRCUIT_LIBRARY_RUNTIME_MODE: &str = \"\";\n\
+        "pub const SUBCIRCUIT_LIBRARY_BUILD_VERSION: &str = \"\";\n\
          pub const SUBCIRCUIT_LIBRARY_INTEGRITY: &str = \"\";\n\
          #[derive(Clone, Copy)]\n\
          pub struct EmbeddedSubcircuitLibraryFile {\n\
@@ -333,12 +324,6 @@ pub fn write_stub_embedded_module(out_dir: &Path) -> io::Result<()> {
          }\n\
          pub static EMBEDDED_SUBCIRCUIT_LIBRARY_FILES: &[EmbeddedSubcircuitLibraryFile] = &[];\n",
     )
-}
-
-#[derive(Clone)]
-struct NpmView {
-    version: String,
-    integrity: String,
 }
 
 fn release_dir_from_out_dir() -> io::Result<PathBuf> {
@@ -546,6 +531,12 @@ fn run_command(command: &mut Command, description: &str) -> io::Result<()> {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     )))
+}
+
+#[derive(Clone)]
+struct NpmView {
+    version: String,
+    integrity: String,
 }
 
 fn npm_view_latest() -> io::Result<NpmView> {
@@ -786,6 +777,19 @@ fn digest_bytes(hash: &mut u64, bytes: &[u8]) {
     }
 }
 
+fn sanitize(input: &str) -> String {
+    input
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '.' || ch == '-' {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect()
+}
+
 fn short_hash(input: &str) -> String {
     let mut out = String::new();
     for ch in input.chars() {
@@ -801,19 +805,6 @@ fn short_hash(input: &str) -> String {
     } else {
         out
     }
-}
-
-fn sanitize(input: &str) -> String {
-    input
-        .chars()
-        .map(|ch| {
-            if ch.is_ascii_alphanumeric() || ch == '.' || ch == '-' {
-                ch
-            } else {
-                '_'
-            }
-        })
-        .collect()
 }
 
 fn try_read_snapshot(

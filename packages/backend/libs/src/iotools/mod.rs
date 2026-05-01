@@ -6,7 +6,9 @@ use crate::group_structures::{
     Sigma2, SigmaPreprocess, SigmaVerify,
 };
 use crate::polynomial_structures::{from_subcircuit_to_QAP, QAP};
-use crate::utils::{check_device, check_gpu};
+#[cfg(feature = "timing")]
+use crate::timing::{record as record_timing, SizeInfo};
+use crate::utils::check_gpu;
 use crate::vector_operations::transpose_inplace;
 use icicle_bls12_381::curve::{
     BaseField, G1Affine, G1Projective, G2Affine, G2BaseField, ScalarField,
@@ -25,17 +27,18 @@ use rayon::iter::{
 use super::vector_operations::*;
 
 use hex::decode_to_slice;
-use num_bigint::BigUint;
 use serde::de::{Deserializer, Error, Visitor};
 use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize};
 use serde_json::to_writer_pretty;
 use sha2::{Digest, Sha256};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fs::{self, File};
-use std::io::{self, BufReader, BufWriter, Write};
+use std::io::{self, BufReader, BufWriter, Read, Write};
 use std::ops::Deref;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Instant;
 use std::{env, fmt};
 
 #[macro_export]
@@ -420,20 +423,28 @@ impl Permutation {
     ) -> (DensePolynomialExt, DensePolynomialExt) {
         let omega_m_i = ntt::get_root_of_unity::<ScalarField>(m_i as u64);
         let omega_s_max = ntt::get_root_of_unity::<ScalarField>(s_max as u64);
+        let mut x_powers = vec![ScalarField::one(); m_i];
+        for row_idx in 1..m_i {
+            x_powers[row_idx] = x_powers[row_idx - 1] * omega_m_i;
+        }
+        let mut y_powers = vec![ScalarField::one(); s_max];
+        for col_idx in 1..s_max {
+            y_powers[col_idx] = y_powers[col_idx - 1] * omega_s_max;
+        }
+
         let mut s0_evals_vec = vec![ScalarField::zero(); m_i * s_max];
         let mut s1_evals_vec = vec![ScalarField::zero(); m_i * s_max];
-        // Initialization
         for row_idx in 0..m_i {
+            let row_start = row_idx * s_max;
             for col_idx in 0..s_max {
-                s0_evals_vec[row_idx * s_max + col_idx] = omega_m_i.pow(row_idx);
-                s1_evals_vec[row_idx * s_max + col_idx] = omega_s_max.pow(col_idx);
+                s0_evals_vec[row_start + col_idx] = x_powers[row_idx];
+                s1_evals_vec[row_start + col_idx] = y_powers[col_idx];
             }
         }
-        // Reflecting the actual values
-        for i in 0..perm_raw.len() {
-            let idx = perm_raw[i].row * s_max + perm_raw[i].col;
-            s0_evals_vec[idx] = omega_m_i.pow(perm_raw[i].X);
-            s1_evals_vec[idx] = omega_s_max.pow(perm_raw[i].Y);
+        for perm in perm_raw.iter() {
+            let idx = perm.row * s_max + perm.col;
+            s0_evals_vec[idx] = x_powers[perm.X];
+            s1_evals_vec[idx] = y_powers[perm.Y];
         }
         let s0_evals = HostSlice::from_slice(&s0_evals_vec);
         let s1_evals = HostSlice::from_slice(&s1_evals_vec);
@@ -478,35 +489,6 @@ pub fn read_global_wire_list_as_boxed_boxed_numbers(
     Ok(boxed_matrix)
 }
 
-#[derive(Debug, Deserialize)]
-struct Constraints {
-    constraints: Vec<Vec<HashMap<usize, String>>>,
-}
-
-impl_read_from_json!(Constraints);
-
-impl Constraints {
-    fn convert_values_to_hex(constraints: &mut Self) {
-        for constraint_group in constraints.constraints.iter_mut() {
-            for hashmap in constraint_group.iter_mut() {
-                for (_, value) in hashmap.iter_mut() {
-                    if let Ok(num) = value.parse::<BigUint>() {
-                        let hex = format!("{:X}", num);
-                        *value = if hex.len() % 2 == 1 {
-                            let mut s = String::with_capacity(hex.len() + 1);
-                            s.push('0');
-                            s.push_str(&hex);
-                            s
-                        } else {
-                            hex
-                        };
-                    }
-                }
-            }
-        }
-    }
-}
-
 pub struct SubcircuitR1CS {
     pub A_compact_col_mat: Vec<ScalarField>,
     pub B_compact_col_mat: Vec<ScalarField>,
@@ -520,70 +502,270 @@ pub struct SubcircuitR1CS {
     pub C_sparse_rows: Vec<Vec<(usize, ScalarField)>>,
 }
 
+struct R1csBinary {
+    data: Vec<u8>,
+    constraints_offset: usize,
+    constraints_size: usize,
+    field_size: usize,
+    n_wires: usize,
+    n_constraints: usize,
+}
+
+impl R1csBinary {
+    fn read(path: PathBuf) -> io::Result<Self> {
+        let mut file = File::open(path)?;
+        let mut data = Vec::new();
+        file.read_to_end(&mut data)?;
+
+        let mut offset = 0usize;
+        let magic = read_bytes(&data, &mut offset, 4)?;
+        if magic != b"r1cs" {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "invalid R1CS magic",
+            ));
+        }
+        let version = read_u32_le(&data, &mut offset)?;
+        if version != 1 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("unsupported R1CS version {version}"),
+            ));
+        }
+        let section_count = read_u32_le(&data, &mut offset)? as usize;
+
+        let mut header_offset = None;
+        let mut header_size = 0usize;
+        let mut constraints_offset = None;
+        let mut constraints_size = 0usize;
+
+        for _ in 0..section_count {
+            let section_type = read_u32_le(&data, &mut offset)?;
+            let section_size = read_u64_le(&data, &mut offset)? as usize;
+            let section_offset = offset;
+            let section_end = section_offset.checked_add(section_size).ok_or_else(|| {
+                io::Error::new(io::ErrorKind::InvalidData, "R1CS section size overflow")
+            })?;
+            if section_end > data.len() {
+                return Err(io::Error::new(
+                    io::ErrorKind::UnexpectedEof,
+                    "R1CS section extends past end of file",
+                ));
+            }
+
+            match section_type {
+                1 => {
+                    header_offset = Some(section_offset);
+                    header_size = section_size;
+                }
+                2 => {
+                    constraints_offset = Some(section_offset);
+                    constraints_size = section_size;
+                }
+                _ => {}
+            }
+            offset = section_end;
+        }
+
+        let header_offset = header_offset.ok_or_else(|| {
+            io::Error::new(io::ErrorKind::InvalidData, "missing R1CS header section")
+        })?;
+        let constraints_offset = constraints_offset.ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                "missing R1CS constraints section",
+            )
+        })?;
+
+        let header_end = header_offset + header_size;
+        let mut header_cursor = header_offset;
+        let field_size = read_u32_le(&data, &mut header_cursor)? as usize;
+        if field_size == 0 || field_size % 8 != 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("invalid R1CS field size {field_size}"),
+            ));
+        }
+        let _prime = read_bytes(&data, &mut header_cursor, field_size)?;
+        let n_wires = read_u32_le(&data, &mut header_cursor)? as usize;
+        let _n_pub_out = read_u32_le(&data, &mut header_cursor)?;
+        let _n_pub_in = read_u32_le(&data, &mut header_cursor)?;
+        let _n_prv_in = read_u32_le(&data, &mut header_cursor)?;
+        let _n_labels = read_u64_le(&data, &mut header_cursor)?;
+        let n_constraints = read_u32_le(&data, &mut header_cursor)? as usize;
+        if header_cursor > header_end {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "R1CS header extends past section end",
+            ));
+        }
+
+        Ok(Self {
+            data,
+            constraints_offset,
+            constraints_size,
+            field_size,
+            n_wires,
+            n_constraints,
+        })
+    }
+
+    fn scan_constraints<F>(&self, mut visit: F) -> io::Result<()>
+    where
+        F: FnMut(usize, usize, ScalarField, usize),
+    {
+        let mut offset = self.constraints_offset;
+        let constraints_end = self.constraints_offset + self.constraints_size;
+
+        for row_idx in 0..self.n_constraints {
+            for matrix_idx in 0..3 {
+                let entry_count = read_u32_le(&self.data, &mut offset)? as usize;
+                for _ in 0..entry_count {
+                    let wire_idx = read_u32_le(&self.data, &mut offset)? as usize;
+                    if wire_idx >= self.n_wires {
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidData,
+                            format!("R1CS wire index {wire_idx} exceeds nWires {}", self.n_wires),
+                        ));
+                    }
+                    let coeff_bytes = read_bytes(&self.data, &mut offset, self.field_size)?;
+                    let coeff = ScalarField::from_bytes_le(coeff_bytes);
+                    visit(matrix_idx, wire_idx, coeff, row_idx);
+                }
+            }
+        }
+
+        if offset != constraints_end {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "R1CS constraints section has {} trailing bytes",
+                    constraints_end.saturating_sub(offset)
+                ),
+            ));
+        }
+
+        Ok(())
+    }
+}
+
+fn read_bytes<'a>(data: &'a [u8], offset: &mut usize, len: usize) -> io::Result<&'a [u8]> {
+    let end = offset
+        .checked_add(len)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "R1CS offset overflow"))?;
+    if end > data.len() {
+        return Err(io::Error::new(
+            io::ErrorKind::UnexpectedEof,
+            "unexpected end of R1CS file",
+        ));
+    }
+    let out = &data[*offset..end];
+    *offset = end;
+    Ok(out)
+}
+
+fn read_u32_le(data: &[u8], offset: &mut usize) -> io::Result<u32> {
+    let bytes = read_bytes(data, offset, 4)?;
+    Ok(u32::from_le_bytes(bytes.try_into().unwrap()))
+}
+
+fn read_u64_le(data: &[u8], offset: &mut usize) -> io::Result<u64> {
+    let bytes = read_bytes(data, offset, 8)?;
+    Ok(u64::from_le_bytes(bytes.try_into().unwrap()))
+}
+
 impl SubcircuitR1CS {
-    pub fn from_path(
+    pub fn from_r1cs_path(
         path: PathBuf,
         setup_params: &SetupParams,
         subcircuit_info: &SubcircuitInfo,
     ) -> io::Result<Self> {
-        Self::from_path_with_mode(path, setup_params, subcircuit_info, true)
+        Self::from_r1cs_with_mode(path, setup_params, subcircuit_info, true, false)
     }
 
-    pub fn from_path_compact_only(
+    pub fn from_r1cs_sparse_only(
         path: PathBuf,
         setup_params: &SetupParams,
         subcircuit_info: &SubcircuitInfo,
     ) -> io::Result<Self> {
-        Self::from_path_with_mode(path, setup_params, subcircuit_info, false)
+        Self::from_r1cs_with_mode(path, setup_params, subcircuit_info, false, true)
     }
 
-    fn from_path_with_mode(
+    fn from_r1cs_with_mode(
         path: PathBuf,
         setup_params: &SetupParams,
         subcircuit_info: &SubcircuitInfo,
+        include_compact_matrices: bool,
         include_sparse_rows: bool,
     ) -> io::Result<Self> {
-        let mut constraints = Constraints::read_from_json(path)?;
-        Constraints::convert_values_to_hex(&mut constraints);
+        let phase_profile = env::var("TOKAMAK_UVWXY_PHASE_PROFILE").ok().as_deref() == Some("1");
+        let total_start = phase_profile.then(Instant::now);
 
-        let mut A_active_wire_indices_set = HashSet::<usize>::new();
-        let mut B_active_wire_indices_set = HashSet::<usize>::new();
-        let mut C_active_wire_indices_set = HashSet::<usize>::new();
-
-        for const_idx in 0..subcircuit_info.Nconsts {
-            let constraint = &constraints.constraints[const_idx];
-            // 각 constraint의 키들을 active set에 확장(재할당 없이)
-            A_active_wire_indices_set.extend(constraint[0].keys().copied());
-            B_active_wire_indices_set.extend(constraint[1].keys().copied());
-            C_active_wire_indices_set.extend(constraint[2].keys().copied());
+        let read_binary_start = phase_profile.then(Instant::now);
+        let binary = R1csBinary::read(path)?;
+        if let Some(start) = read_binary_start {
+            print_r1cs_binary_phase(
+                subcircuit_info.id,
+                "read_binary",
+                start.elapsed().as_nanos(),
+            );
         }
 
-        let mut A_active_wire_indices: Vec<usize> =
-            A_active_wire_indices_set.iter().map(|&idx| idx).collect();
-        A_active_wire_indices.sort();
-        let mut B_active_wire_indices: Vec<usize> =
-            B_active_wire_indices_set.iter().map(|&idx| idx).collect();
-        B_active_wire_indices.sort();
-        let mut C_active_wire_indices: Vec<usize> =
-            C_active_wire_indices_set.iter().map(|&idx| idx).collect();
-        C_active_wire_indices.sort();
-
-        let n = setup_params.n; // used as the number of rows.
-        if n < subcircuit_info.Nconsts {
+        if binary.n_wires != subcircuit_info.Nwires {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "R1CS nWires mismatch for subcircuit {}: binary={}, info={}",
+                    subcircuit_info.id, binary.n_wires, subcircuit_info.Nwires
+                ),
+            ));
+        }
+        if binary.n_constraints != subcircuit_info.Nconsts {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "R1CS nConstraints mismatch for subcircuit {}: binary={}, info={}",
+                    subcircuit_info.id, binary.n_constraints, subcircuit_info.Nconsts
+                ),
+            ));
+        }
+        if setup_params.n < subcircuit_info.Nconsts {
             panic!("n is smaller than the actual number of constraints.");
         }
-        // used as the numbers of columns (different by the R1CS matrices).
-        let A_len = A_active_wire_indices.len();
-        let B_len = B_active_wire_indices.len();
-        let C_len = C_active_wire_indices.len();
-        if A_len > subcircuit_info.Nwires
-            || B_len > subcircuit_info.Nwires
-            || C_len > subcircuit_info.Nwires
-        {
-            panic!("Incorrectly counted number of wires.");
+
+        let active_wire_scan_start = phase_profile.then(Instant::now);
+        let mut active_sets = [
+            HashSet::<usize>::new(),
+            HashSet::<usize>::new(),
+            HashSet::<usize>::new(),
+        ];
+        binary.scan_constraints(|matrix_idx, wire_idx, _coeff, _row_idx| {
+            active_sets[matrix_idx].insert(wire_idx);
+        })?;
+        if let Some(start) = active_wire_scan_start {
+            print_r1cs_binary_phase(
+                subcircuit_info.id,
+                "active_wire_scan",
+                start.elapsed().as_nanos(),
+            );
         }
 
-        // Build compact index maps for sparse rows (local wire idx -> compact idx)
+        let active_wire_sort_start = phase_profile.then(Instant::now);
+        let mut A_active_wire_indices: Vec<usize> = active_sets[0].iter().copied().collect();
+        let mut B_active_wire_indices: Vec<usize> = active_sets[1].iter().copied().collect();
+        let mut C_active_wire_indices: Vec<usize> = active_sets[2].iter().copied().collect();
+        A_active_wire_indices.sort_unstable();
+        B_active_wire_indices.sort_unstable();
+        C_active_wire_indices.sort_unstable();
+        if let Some(start) = active_wire_sort_start {
+            print_r1cs_binary_phase(
+                subcircuit_info.id,
+                "active_wire_sort",
+                start.elapsed().as_nanos(),
+            );
+        }
+
+        let index_map_start = phase_profile.then(Instant::now);
         let mut a_index_map = vec![usize::MAX; subcircuit_info.Nwires];
         for (i, &wire_idx) in A_active_wire_indices.iter().enumerate() {
             a_index_map[wire_idx] = i;
@@ -596,86 +778,101 @@ impl SubcircuitR1CS {
         for (i, &wire_idx) in C_active_wire_indices.iter().enumerate() {
             c_index_map[wire_idx] = i;
         }
+        let index_maps = [a_index_map, b_index_map, c_index_map];
+        if let Some(start) = index_map_start {
+            print_r1cs_binary_phase(
+                subcircuit_info.id,
+                "compact_index_maps",
+                start.elapsed().as_nanos(),
+            );
+        }
 
-        // Each of a_mat_vec, b_mat_vec, and c_mat_vec is, respectively, not a matrix but just a vector of vectors (of irregular lengths).
-        let mut A_compact_col_mat = vec![ScalarField::zero(); n * A_len];
-        let mut B_compact_col_mat = vec![ScalarField::zero(); n * B_len];
-        let mut C_compact_col_mat = vec![ScalarField::zero(); n * C_len];
-
-        // Sparse rows are only needed by CPU evaluation paths outside phase2_prepare.
-        let mut A_sparse_rows: Vec<Vec<(usize, ScalarField)>> = if include_sparse_rows {
-            vec![Vec::new(); n]
+        let alloc_sparse_start = phase_profile.then(Instant::now);
+        let n = setup_params.n;
+        let A_len = A_active_wire_indices.len();
+        let B_len = B_active_wire_indices.len();
+        let C_len = C_active_wire_indices.len();
+        let mut A_compact_col_mat = if include_compact_matrices {
+            vec![ScalarField::zero(); n * A_len]
         } else {
             Vec::new()
         };
-        let mut B_sparse_rows: Vec<Vec<(usize, ScalarField)>> = if include_sparse_rows {
-            vec![Vec::new(); n]
+        let mut B_compact_col_mat = if include_compact_matrices {
+            vec![ScalarField::zero(); n * B_len]
         } else {
             Vec::new()
         };
-        let mut C_sparse_rows: Vec<Vec<(usize, ScalarField)>> = if include_sparse_rows {
-            vec![Vec::new(); n]
+        let mut C_compact_col_mat = if include_compact_matrices {
+            vec![ScalarField::zero(); n * C_len]
         } else {
             Vec::new()
         };
+        let mut sparse_rows = if include_sparse_rows {
+            [
+                vec![Vec::new(); n],
+                vec![Vec::new(); n],
+                vec![Vec::new(); n],
+            ]
+        } else {
+            [Vec::new(), Vec::new(), Vec::new()]
+        };
+        if let Some(start) = alloc_sparse_start {
+            print_r1cs_binary_phase(
+                subcircuit_info.id,
+                "alloc_sparse_rows",
+                start.elapsed().as_nanos(),
+            );
+        }
 
-        for row_idx in 0..subcircuit_info.Nconsts {
-            let constraint = &constraints.constraints[row_idx];
-            let a_constraint = &constraint[0];
-            let b_constraint = &constraint[1];
-            let c_constraint = &constraint[2];
-
-            for col_idx in 0..A_len {
-                if let Some(hex_val) = a_constraint.get(&A_active_wire_indices[col_idx]) {
-                    let idx = A_len * row_idx + col_idx;
-                    A_compact_col_mat[idx] = ScalarField::from_hex(hex_val);
-                }
-            }
-
-            for col_idx in 0..B_len {
-                if let Some(hex_val) = b_constraint.get(&B_active_wire_indices[col_idx]) {
-                    let idx = B_len * row_idx + col_idx;
-                    B_compact_col_mat[idx] = ScalarField::from_hex(hex_val);
-                }
-            }
-
-            for col_idx in 0..C_len {
-                if let Some(hex_val) = c_constraint.get(&C_active_wire_indices[col_idx]) {
-                    let idx = C_len * row_idx + col_idx;
-                    C_compact_col_mat[idx] = ScalarField::from_hex(hex_val);
-                }
-            }
-
-            if include_sparse_rows {
-                // Build sparse rows from original constraints for CPU evaluation paths.
-                for (local_idx, hex_val) in a_constraint.iter() {
-                    let compact_idx = a_index_map[*local_idx];
-                    if compact_idx != usize::MAX {
-                        A_sparse_rows[row_idx].push((compact_idx, ScalarField::from_hex(hex_val)));
+        let fill_sparse_start = phase_profile.then(Instant::now);
+        binary.scan_constraints(|matrix_idx, wire_idx, coeff, row_idx| {
+            let compact_idx = index_maps[matrix_idx][wire_idx];
+            if compact_idx != usize::MAX {
+                if include_compact_matrices {
+                    match matrix_idx {
+                        0 => A_compact_col_mat[A_len * row_idx + compact_idx] = coeff,
+                        1 => B_compact_col_mat[B_len * row_idx + compact_idx] = coeff,
+                        2 => C_compact_col_mat[C_len * row_idx + compact_idx] = coeff,
+                        _ => unreachable!(),
                     }
                 }
-                for (local_idx, hex_val) in b_constraint.iter() {
-                    let compact_idx = b_index_map[*local_idx];
-                    if compact_idx != usize::MAX {
-                        B_sparse_rows[row_idx].push((compact_idx, ScalarField::from_hex(hex_val)));
-                    }
+                if include_sparse_rows {
+                    sparse_rows[matrix_idx][row_idx].push((compact_idx, coeff));
                 }
-                for (local_idx, hex_val) in c_constraint.iter() {
-                    let compact_idx = c_index_map[*local_idx];
-                    if compact_idx != usize::MAX {
-                        C_sparse_rows[row_idx].push((compact_idx, ScalarField::from_hex(hex_val)));
-                    }
+            }
+        })?;
+        if include_sparse_rows {
+            for matrix_rows in sparse_rows.iter_mut() {
+                for row in matrix_rows.iter_mut() {
+                    row.sort_unstable_by_key(|(compact_idx, _)| *compact_idx);
                 }
-                A_sparse_rows[row_idx].sort_unstable_by_key(|(compact_idx, _)| *compact_idx);
-                B_sparse_rows[row_idx].sort_unstable_by_key(|(compact_idx, _)| *compact_idx);
-                C_sparse_rows[row_idx].sort_unstable_by_key(|(compact_idx, _)| *compact_idx);
             }
         }
-        // IMPORTANT: A, B, C matrices are of size A_len-by-n, B_len-by-n, and C_len-by-n, respectively.
-        // They must be transposed before being converted into bivariate polynomials.
-        transpose_inplace(&mut A_compact_col_mat, n, A_len);
-        transpose_inplace(&mut B_compact_col_mat, n, B_len);
-        transpose_inplace(&mut C_compact_col_mat, n, C_len);
+        if let Some(start) = fill_sparse_start {
+            print_r1cs_binary_phase(
+                subcircuit_info.id,
+                "fill_sparse_rows",
+                start.elapsed().as_nanos(),
+            );
+        }
+
+        if include_compact_matrices {
+            let transpose_compact_start = phase_profile.then(Instant::now);
+            transpose_inplace(&mut A_compact_col_mat, n, A_len);
+            transpose_inplace(&mut B_compact_col_mat, n, B_len);
+            transpose_inplace(&mut C_compact_col_mat, n, C_len);
+            if let Some(start) = transpose_compact_start {
+                print_r1cs_binary_phase(
+                    subcircuit_info.id,
+                    "transpose_compact",
+                    start.elapsed().as_nanos(),
+                );
+            }
+        }
+
+        if let Some(start) = total_start {
+            print_r1cs_binary_phase(subcircuit_info.id, "total", start.elapsed().as_nanos());
+        }
 
         Ok(Self {
             A_compact_col_mat,
@@ -684,11 +881,15 @@ impl SubcircuitR1CS {
             A_active_wires: A_active_wire_indices,
             B_active_wires: B_active_wire_indices,
             C_active_wires: C_active_wire_indices,
-            A_sparse_rows,
-            B_sparse_rows,
-            C_sparse_rows,
+            A_sparse_rows: std::mem::take(&mut sparse_rows[0]),
+            B_sparse_rows: std::mem::take(&mut sparse_rows[1]),
+            C_sparse_rows: std::mem::take(&mut sparse_rows[2]),
         })
     }
+}
+
+fn print_r1cs_binary_phase(subcircuit_id: usize, name: &str, nanos: u128) {
+    println!("r1cs_binary.phase subcircuit={subcircuit_id} name={name} nanos={nanos}");
 }
 
 impl QAP {
@@ -712,9 +913,10 @@ impl QAP {
         for i in 0..s_d {
             println!("Processing subcircuit id {}", i);
 
-            let r1cs_path = qap_path.join(format!("json/subcircuit{i}.json"));
+            let r1cs_path = qap_path.join(format!("r1cs/subcircuit{i}.r1cs"));
             let compact_r1cs =
-                SubcircuitR1CS::from_path(r1cs_path, &setup_params, &subcircuit_infos[i]).unwrap();
+                SubcircuitR1CS::from_r1cs_path(r1cs_path, &setup_params, &subcircuit_infos[i])
+                    .unwrap();
             let (u_j_X_local, v_j_X_local, w_j_X_local) =
                 from_subcircuit_to_QAP(&compact_r1cs, &setup_params, &subcircuit_infos[i]);
 
@@ -1088,13 +1290,21 @@ pub fn read_R1CS_gen_uvwXY(
     subcircuit_infos: &Box<[SubcircuitInfo]>,
     setup_params: &SetupParams,
 ) -> (DensePolynomialExt, DensePolynomialExt, DensePolynomialExt) {
+    let phase_profile = env::var("TOKAMAK_UVWXY_PHASE_PROFILE").ok().as_deref() == Some("1");
+    let uvwxy_total_start = phase_profile.then(Instant::now);
+
     let n = setup_params.n;
     let s_max = setup_params.s_max;
 
+    let alloc_start = phase_profile.then(Instant::now);
     let mut u_eval = vec![ScalarField::zero(); s_max * n];
     let mut v_eval = vec![ScalarField::zero(); s_max * n];
     let mut w_eval = vec![ScalarField::zero(); s_max * n];
+    if let Some(start) = alloc_start {
+        print_uvwxy_phase("alloc_eval_buffers", start.elapsed().as_nanos());
+    }
 
+    let usage_scan_start = phase_profile.then(Instant::now);
     if placement_variables.len() > s_max {
         panic!("placement_variables length exceeds s_max.");
     }
@@ -1112,135 +1322,51 @@ pub fn read_R1CS_gen_uvwXY(
         unique_ids.insert(subcircuit_id);
         indices_by_subcircuit[subcircuit_id].push(i);
     }
+    if let Some(start) = usage_scan_start {
+        print_uvwxy_phase("usage_scan", start.elapsed().as_nanos());
+    }
 
     // Preload all unique subcircuit R1CS (no incremental cache)
+    let r1cs_preload_start = phase_profile.then(Instant::now);
     let mut r1cs_by_id: Vec<Option<SubcircuitR1CS>> =
         (0..subcircuit_infos.len()).map(|_| None).collect();
     for &subcircuit_id in unique_ids.iter() {
-        let r1cs_path =
-            PathBuf::from(qap_path).join(format!("json/subcircuit{subcircuit_id}.json")); // TODO: use bincode instead.
-        let loaded_r1cs =
-            SubcircuitR1CS::from_path(r1cs_path, &setup_params, &subcircuit_infos[subcircuit_id])
-                .unwrap();
+        let binary_r1cs_path =
+            PathBuf::from(qap_path).join(format!("r1cs/subcircuit{subcircuit_id}.r1cs"));
+        let loaded_r1cs = SubcircuitR1CS::from_r1cs_sparse_only(
+            binary_r1cs_path.clone(),
+            &setup_params,
+            &subcircuit_infos[subcircuit_id],
+        )
+        .unwrap_or_else(|err| {
+            panic!(
+                "failed to load required binary R1CS file {}: {err}",
+                binary_r1cs_path.display()
+            )
+        });
         r1cs_by_id[subcircuit_id] = Some(loaded_r1cs);
     }
-
-    let use_gpu = check_gpu();
-    use rayon::prelude::*;
-
-    if use_gpu {
-        // GPU path: batch matmul per subcircuit, parallelize only LHS prep
-        check_device();
-
-        for (subcircuit_id, indices) in indices_by_subcircuit.iter().enumerate() {
-            if indices.is_empty() {
-                continue;
-            }
-            let compact_r1cs = r1cs_by_id[subcircuit_id]
-                .as_ref()
-                .expect("R1CS for subcircuit id must be preloaded.");
-            let m = indices.len();
-
-            let d_a = compact_r1cs.A_active_wires.len();
-            if d_a > 0 {
-                let mut lhs_a = vec![ScalarField::zero(); m * d_a];
-                lhs_a.par_chunks_mut(d_a).zip(indices.par_iter()).for_each(
-                    |(row, &placement_idx)| {
-                        let variables = &placement_variables[placement_idx].variables;
-                        fill_row_from_active_wires(variables, &compact_r1cs.A_active_wires, row);
-                    },
-                );
-
-                let mut res_a = vec![ScalarField::zero(); m * n];
-                matrix_matrix_mul_auto_tiled(
-                    &lhs_a,
-                    &compact_r1cs.A_compact_col_mat,
-                    m,
-                    d_a,
-                    n,
-                    &mut res_a,
-                );
-                for (row_idx, &placement_idx) in indices.iter().enumerate() {
-                    let src = &res_a[row_idx * n..(row_idx + 1) * n];
-                    u_eval[placement_idx * n..(placement_idx + 1) * n].copy_from_slice(src);
-                }
-            }
-
-            let d_b = compact_r1cs.B_active_wires.len();
-            if d_b > 0 {
-                let mut lhs_b = vec![ScalarField::zero(); m * d_b];
-                lhs_b.par_chunks_mut(d_b).zip(indices.par_iter()).for_each(
-                    |(row, &placement_idx)| {
-                        let variables = &placement_variables[placement_idx].variables;
-                        fill_row_from_active_wires(variables, &compact_r1cs.B_active_wires, row);
-                    },
-                );
-
-                let mut res_b = vec![ScalarField::zero(); m * n];
-                matrix_matrix_mul_auto_tiled(
-                    &lhs_b,
-                    &compact_r1cs.B_compact_col_mat,
-                    m,
-                    d_b,
-                    n,
-                    &mut res_b,
-                );
-                for (row_idx, &placement_idx) in indices.iter().enumerate() {
-                    let src = &res_b[row_idx * n..(row_idx + 1) * n];
-                    v_eval[placement_idx * n..(placement_idx + 1) * n].copy_from_slice(src);
-                }
-            }
-
-            let d_c = compact_r1cs.C_active_wires.len();
-            if d_c > 0 {
-                let mut lhs_c = vec![ScalarField::zero(); m * d_c];
-                lhs_c.par_chunks_mut(d_c).zip(indices.par_iter()).for_each(
-                    |(row, &placement_idx)| {
-                        let variables = &placement_variables[placement_idx].variables;
-                        fill_row_from_active_wires(variables, &compact_r1cs.C_active_wires, row);
-                    },
-                );
-
-                let mut res_c = vec![ScalarField::zero(); m * n];
-                matrix_matrix_mul_auto_tiled(
-                    &lhs_c,
-                    &compact_r1cs.C_compact_col_mat,
-                    m,
-                    d_c,
-                    n,
-                    &mut res_c,
-                );
-                for (row_idx, &placement_idx) in indices.iter().enumerate() {
-                    let src = &res_c[row_idx * n..(row_idx + 1) * n];
-                    w_eval[placement_idx * n..(placement_idx + 1) * n].copy_from_slice(src);
-                }
-            }
-        }
-    } else {
-        // CPU path: sparse rows evaluation (no dense matmul)
-        u_eval
-            .par_chunks_mut(n)
-            .zip(v_eval.par_chunks_mut(n))
-            .zip(w_eval.par_chunks_mut(n))
-            .zip(placement_variables.par_iter())
-            .for_each(|(((u_chunk, v_chunk), w_chunk), placement)| {
-                let subcircuit_id = placement.subcircuitId;
-                let compact_r1cs = r1cs_by_id[subcircuit_id]
-                    .as_ref()
-                    .expect("R1CS for subcircuit id must be preloaded.");
-                let variables = &placement.variables;
-
-                let d_vec_a = build_d_vec(variables, &compact_r1cs.A_active_wires);
-                let d_vec_b = build_d_vec(variables, &compact_r1cs.B_active_wires);
-                let d_vec_c = build_d_vec(variables, &compact_r1cs.C_active_wires);
-
-                eval_sparse_rows(&d_vec_a, &compact_r1cs.A_sparse_rows, u_chunk);
-                eval_sparse_rows(&d_vec_b, &compact_r1cs.B_sparse_rows, v_chunk);
-                eval_sparse_rows(&d_vec_c, &compact_r1cs.C_sparse_rows, w_chunk);
-            });
+    if let Some(start) = r1cs_preload_start {
+        print_uvwxy_phase("r1cs_preload_sparse", start.elapsed().as_nanos());
     }
 
-    // Report usage statistics
+    println!("Using sparse R1CS uvwXY generation.");
+
+    let sparse_eval_start = phase_profile.then(Instant::now);
+    eval_uvwxy_sparse_rows(
+        placement_variables,
+        &r1cs_by_id,
+        &usage_counts,
+        n,
+        &mut u_eval,
+        &mut v_eval,
+        &mut w_eval,
+    );
+    if let Some(start) = sparse_eval_start {
+        print_uvwxy_phase("sparse_eval_cpu_rayon", start.elapsed().as_nanos());
+    }
+
+    let usage_report_start = phase_profile.then(Instant::now);
     let unique_subcircuits = unique_ids.len();
     let total_subcircuit_uses = placement_variables.len();
     println!(
@@ -1252,15 +1378,162 @@ pub fn read_R1CS_gen_uvwXY(
             println!("  📋 Subcircuit {} used {} times", subcircuit_id, count);
         }
     }
+    if let Some(start) = usage_report_start {
+        print_uvwxy_phase("usage_report_stdout", start.elapsed().as_nanos());
+    }
 
+    let transpose_start = phase_profile.then(Instant::now);
     transpose_inplace(&mut u_eval, s_max, n);
     transpose_inplace(&mut v_eval, s_max, n);
     transpose_inplace(&mut w_eval, s_max, n);
+    if let Some(start) = transpose_start {
+        print_uvwxy_phase("transpose_cpu", start.elapsed().as_nanos());
+    }
 
-    return (
-        DensePolynomialExt::from_rou_evals(HostSlice::from_slice(&u_eval), n, s_max, None, None),
-        DensePolynomialExt::from_rou_evals(HostSlice::from_slice(&v_eval), n, s_max, None, None),
-        DensePolynomialExt::from_rou_evals(HostSlice::from_slice(&w_eval), n, s_max, None, None),
+    let from_rou_evals_start = phase_profile.then(Instant::now);
+    let uXY =
+        DensePolynomialExt::from_rou_evals(HostSlice::from_slice(&u_eval), n, s_max, None, None);
+    let vXY =
+        DensePolynomialExt::from_rou_evals(HostSlice::from_slice(&v_eval), n, s_max, None, None);
+    let wXY =
+        DensePolynomialExt::from_rou_evals(HostSlice::from_slice(&w_eval), n, s_max, None, None);
+    if let Some(start) = from_rou_evals_start {
+        print_uvwxy_phase("from_rou_evals_gpu_icicle", start.elapsed().as_nanos());
+    }
+
+    let cleanup_start = phase_profile.then(Instant::now);
+    drop(u_eval);
+    drop(v_eval);
+    drop(w_eval);
+    drop(r1cs_by_id);
+    drop(indices_by_subcircuit);
+    drop(unique_ids);
+    drop(usage_counts);
+    if let Some(start) = cleanup_start {
+        print_uvwxy_phase("cleanup_local_buffers", start.elapsed().as_nanos());
+    }
+    if let Some(start) = uvwxy_total_start {
+        print_uvwxy_phase("uvwxy_total_function", start.elapsed().as_nanos());
+    }
+
+    return (uXY, vXY, wXY);
+}
+
+fn print_uvwxy_phase(name: &str, nanos: u128) {
+    println!("uvwXY.phase name={name} nanos={nanos}");
+}
+
+fn eval_uvwxy_sparse_rows(
+    placement_variables: &Box<[PlacementVariables]>,
+    r1cs_by_id: &[Option<SubcircuitR1CS>],
+    usage_counts: &[usize],
+    n: usize,
+    u_eval: &mut [ScalarField],
+    v_eval: &mut [ScalarField],
+    w_eval: &mut [ScalarField],
+) {
+    use rayon::prelude::*;
+
+    let profile_timers =
+        (env::var("TOKAMAK_UVWXY_PROFILE").ok().as_deref() == Some("1")).then(|| {
+            (
+                (0..r1cs_by_id.len())
+                    .map(|_| AtomicU64::new(0))
+                    .collect::<Vec<_>>(),
+                (0..r1cs_by_id.len())
+                    .map(|_| AtomicU64::new(0))
+                    .collect::<Vec<_>>(),
+                (0..r1cs_by_id.len())
+                    .map(|_| AtomicU64::new(0))
+                    .collect::<Vec<_>>(),
+            )
+        });
+
+    u_eval
+        .par_chunks_mut(n)
+        .zip(v_eval.par_chunks_mut(n))
+        .zip(w_eval.par_chunks_mut(n))
+        .zip(placement_variables.par_iter())
+        .for_each(|(((u_chunk, v_chunk), w_chunk), placement)| {
+            let subcircuit_id = placement.subcircuitId;
+            let compact_r1cs = r1cs_by_id[subcircuit_id]
+                .as_ref()
+                .expect("R1CS for subcircuit id must be preloaded.");
+            let variables = &placement.variables;
+
+            let a_start = profile_timers.as_ref().map(|_| Instant::now());
+            let d_vec_a = build_d_vec(variables, &compact_r1cs.A_active_wires);
+            eval_sparse_rows(&d_vec_a, &compact_r1cs.A_sparse_rows, u_chunk);
+            if let Some(start) = a_start {
+                profile_timers.as_ref().unwrap().0[subcircuit_id]
+                    .fetch_add(start.elapsed().as_nanos() as u64, Ordering::Relaxed);
+            }
+
+            let b_start = profile_timers.as_ref().map(|_| Instant::now());
+            let d_vec_b = build_d_vec(variables, &compact_r1cs.B_active_wires);
+            eval_sparse_rows(&d_vec_b, &compact_r1cs.B_sparse_rows, v_chunk);
+            if let Some(start) = b_start {
+                profile_timers.as_ref().unwrap().1[subcircuit_id]
+                    .fetch_add(start.elapsed().as_nanos() as u64, Ordering::Relaxed);
+            }
+
+            let c_start = profile_timers.as_ref().map(|_| Instant::now());
+            let d_vec_c = build_d_vec(variables, &compact_r1cs.C_active_wires);
+            eval_sparse_rows(&d_vec_c, &compact_r1cs.C_sparse_rows, w_chunk);
+            if let Some(start) = c_start {
+                profile_timers.as_ref().unwrap().2[subcircuit_id]
+                    .fetch_add(start.elapsed().as_nanos() as u64, Ordering::Relaxed);
+            }
+        });
+
+    if let Some((a_nanos, b_nanos, c_nanos)) = profile_timers {
+        for (subcircuit_id, compact_r1cs) in r1cs_by_id.iter().enumerate() {
+            let Some(compact_r1cs) = compact_r1cs.as_ref() else {
+                continue;
+            };
+            if usage_counts[subcircuit_id] == 0 {
+                continue;
+            }
+            print_uvwxy_profile_row(
+                subcircuit_id,
+                "A",
+                usage_counts[subcircuit_id],
+                compact_r1cs.A_active_wires.len(),
+                &compact_r1cs.A_sparse_rows,
+                a_nanos[subcircuit_id].load(Ordering::Relaxed),
+            );
+            print_uvwxy_profile_row(
+                subcircuit_id,
+                "B",
+                usage_counts[subcircuit_id],
+                compact_r1cs.B_active_wires.len(),
+                &compact_r1cs.B_sparse_rows,
+                b_nanos[subcircuit_id].load(Ordering::Relaxed),
+            );
+            print_uvwxy_profile_row(
+                subcircuit_id,
+                "C",
+                usage_counts[subcircuit_id],
+                compact_r1cs.C_active_wires.len(),
+                &compact_r1cs.C_sparse_rows,
+                c_nanos[subcircuit_id].load(Ordering::Relaxed),
+            );
+        }
+    }
+}
+
+fn print_uvwxy_profile_row(
+    subcircuit_id: usize,
+    matrix: &str,
+    uses: usize,
+    active_wires: usize,
+    rows: &[Vec<(usize, ScalarField)>],
+    nanos: u64,
+) {
+    let nonzero_rows = rows.iter().filter(|row| !row.is_empty()).count();
+    let entries: usize = rows.iter().map(Vec::len).sum();
+    println!(
+        "uvwXY.profile subcircuit={subcircuit_id} matrix={matrix} uses={uses} active_wires={active_wires} nonzero_rows={nonzero_rows} entries={entries} nanos={nanos}"
     );
 }
 
@@ -1302,20 +1575,6 @@ fn _from_r1cs_to_eval_slice(
 
         let n = eval_slice.len();
         matrix_matrix_mul(&d_vec, compact_mat, 1, d_len_A, n, eval_slice);
-    }
-}
-
-fn fill_row_from_active_wires(
-    variables: &Box<[HexString]>,
-    active_wires: &Vec<usize>,
-    row: &mut [ScalarField],
-) {
-    if row.len() != active_wires.len() {
-        panic!("Incorrect row length for active wires.");
-    }
-    for (i, &local_idx) in active_wires.iter().enumerate() {
-        let hex_str = &variables[local_idx];
-        row[i] = ScalarField::from_hex(&hex_str.0);
     }
 }
 
@@ -1776,6 +2035,15 @@ fn encode_poly_from_xy_powers(
     params: &SetupParams,
     xy_powers: &[ArchivedG1SerdeRkyv],
 ) -> G1serde {
+    encode_poly_from_xy_powers_with_timing(poly, params, xy_powers, None)
+}
+
+fn encode_poly_from_xy_powers_with_timing(
+    poly: &mut DensePolynomialExt,
+    params: &SetupParams,
+    xy_powers: &[ArchivedG1SerdeRkyv],
+    _timing_name: Option<&'static str>,
+) -> G1serde {
     poly.optimize_size();
     let x_size = poly.x_size;
     let y_size = poly.y_size;
@@ -1820,6 +2088,8 @@ fn encode_poly_from_xy_powers(
     };
 
     let mut msm_res = vec![G1Projective::zero(); 1];
+    #[cfg(feature = "timing")]
+    let msm_start = Instant::now();
     msm::msm(
         HostSlice::from_slice(&poly_coeffs_vec_compact),
         HostSlice::from_slice(&rs_unpacked),
@@ -1827,12 +2097,38 @@ fn encode_poly_from_xy_powers(
         HostSlice::from_mut_slice(&mut msm_res),
     )
     .unwrap();
+    #[cfg(feature = "timing")]
+    if let Some(name) = _timing_name {
+        record_timing(
+            name,
+            "encode",
+            msm_start.elapsed(),
+            vec![SizeInfo {
+                label: "msm",
+                dims: vec![target_x_size, target_y_size],
+            }],
+        );
+    }
     G1serde(G1Affine::from(msm_res[0]))
 }
 
 impl ArchivedSigma1Rkyv {
     pub fn encode_poly(&self, poly: &mut DensePolynomialExt, params: &SetupParams) -> G1serde {
         encode_poly_from_xy_powers(poly, params, self.xy_powers.as_slice())
+    }
+
+    pub fn encode_poly_timed(
+        &self,
+        poly: &mut DensePolynomialExt,
+        params: &SetupParams,
+        timing_name: &'static str,
+    ) -> G1serde {
+        encode_poly_from_xy_powers_with_timing(
+            poly,
+            params,
+            self.xy_powers.as_slice(),
+            Some(timing_name),
+        )
     }
 
     pub fn encode_O_pub_fix(
@@ -1920,6 +2216,20 @@ impl ArchivedSigma1Rkyv {
 impl ArchivedPartialSigma1Rkyv {
     pub fn encode_poly(&self, poly: &mut DensePolynomialExt, params: &SetupParams) -> G1serde {
         encode_poly_from_xy_powers(poly, params, self.xy_powers.as_slice())
+    }
+
+    pub fn encode_poly_timed(
+        &self,
+        poly: &mut DensePolynomialExt,
+        params: &SetupParams,
+        timing_name: &'static str,
+    ) -> G1serde {
+        encode_poly_from_xy_powers_with_timing(
+            poly,
+            params,
+            self.xy_powers.as_slice(),
+            Some(timing_name),
+        )
     }
 
     pub fn encode_O_pub_fix(

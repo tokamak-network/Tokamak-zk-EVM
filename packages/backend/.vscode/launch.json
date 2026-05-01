@@ -17,6 +17,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },  
@@ -40,6 +41,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },  
@@ -65,6 +67,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },  
@@ -87,6 +90,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
@@ -109,6 +113,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
@@ -133,6 +138,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
@@ -148,8 +154,6 @@
       },
       "program": "${cargo:program}",
       "args": [
-        "--subcircuit-library",
-        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "--crs",
         "${workspaceFolder}/setup/output",
         "--synthesizer-stat",
@@ -159,6 +163,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
@@ -183,6 +188,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
@@ -198,6 +204,8 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
+        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "--crs",
         "${workspaceFolder}/setup/output",
         "--synthesizer-stat",
@@ -207,6 +215,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
@@ -233,6 +242,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
@@ -254,7 +264,8 @@
         "PROVE_SYNTHESIZER_PATH": "${workspaceFolder}/../frontend/synthesizer/outputs",
         "PROVE_SETUP_PATH": "${workspaceFolder}/setup/output",
         "PROVE_OUT_PATH": "${workspaceFolder}/prove/output",
-        "TIMING_OUT": "${workspaceFolder}/prove/output/timing.release.json",
+        "TIMING_OUT": "${workspaceFolder}/prove/optimization/timing.release.json",
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
@@ -271,6 +282,8 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
+        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "--crs",
         "${workspaceFolder}/setup/output",
         "--synthesizer-stat",
@@ -282,6 +295,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
@@ -310,6 +324,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
@@ -338,6 +353,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },

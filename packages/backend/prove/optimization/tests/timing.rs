@@ -1,13 +1,42 @@
+#[cfg(feature = "timing")]
 use std::collections::BTreeMap;
+#[cfg(feature = "timing")]
 use std::env;
+#[cfg(feature = "timing")]
 use std::fs;
+#[cfg(feature = "timing")]
 use std::path::PathBuf;
+#[cfg(feature = "timing")]
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
+#[cfg(feature = "timing")]
+use libs::utils::check_device;
+#[cfg(feature = "timing")]
 use prove::{ProveInputPaths, Prover, TranscriptManager};
 
 #[cfg(feature = "timing")]
 use prove::timing;
+
+#[cfg(feature = "timing")]
+fn take_all_timing_events() -> Vec<timing::TimingEvent> {
+    let mut events = timing::take_events();
+    events.extend(libs::timing::take_events().into_iter().map(|event| {
+        timing::TimingEvent {
+            name: event.name,
+            category: event.category,
+            nanos: event.nanos,
+            sizes: event
+                .sizes
+                .into_iter()
+                .map(|size| timing::SizeInfo {
+                    label: size.label,
+                    dims: size.dims,
+                })
+                .collect(),
+        }
+    }));
+    events
+}
 
 #[cfg(feature = "timing")]
 #[derive(serde::Serialize)]
@@ -18,12 +47,13 @@ struct StageSummary {
 }
 
 #[cfg(feature = "timing")]
+#[allow(non_snake_case)]
 #[derive(serde::Serialize)]
 struct SetupParamsSummary {
+    l_free: usize,
     l: usize,
     l_user_out: usize,
     l_user: usize,
-    l_block: usize,
     l_D: usize,
     m_D: usize,
     n: usize,
@@ -41,6 +71,7 @@ struct TimingReport {
     events: Vec<timing::TimingEvent>,
 }
 
+#[cfg(feature = "timing")]
 fn read_env(name: &str) -> Option<String> {
     env::var(name)
         .ok()
@@ -85,15 +116,17 @@ fn timing_prove_stages() {
         output_path: &output_path,
     };
 
+    check_device();
     timing::reset();
+    libs::timing::reset();
     let wall_start = Instant::now();
 
     let (mut prover, _binding) = Prover::init(&paths);
     let setup_params = SetupParamsSummary {
+        l_free: prover.setup_params.l_free,
         l: prover.setup_params.l,
         l_user_out: prover.setup_params.l_user_out,
         l_user: prover.setup_params.l_user,
-        l_block: prover.setup_params.l_block,
         l_D: prover.setup_params.l_D,
         m_D: prover.setup_params.m_D,
         n: prover.setup_params.n,
@@ -117,7 +150,7 @@ fn timing_prove_stages() {
     let (_proof4, _proof4_test) = prover.prove4(&proof3, &thetas, kappa0, chi, zeta, kappa1);
 
     let total_wall_ms = wall_start.elapsed().as_secs_f64() * 1000.0;
-    let events = timing::take_events();
+    let events = take_all_timing_events();
 
     let mut summary: BTreeMap<String, StageSummary> = BTreeMap::new();
     for event in &events {
@@ -133,7 +166,7 @@ fn timing_prove_stages() {
                 .name
                 .split('.')
                 .next()
-                .unwrap_or(event.name)
+                .unwrap_or(&event.name)
                 .to_string()
         });
         let entry = summary.entry(stage).or_insert(StageSummary {
@@ -142,7 +175,7 @@ fn timing_prove_stages() {
             encode_ms: 0.0,
         });
         let ms = event.nanos as f64 / 1_000_000.0;
-        match event.category {
+        match event.category.as_str() {
             "poly" => entry.poly_ms += ms,
             "encode" => entry.encode_ms += ms,
             _ => {}

@@ -65,8 +65,8 @@ fn bench_matrix_matrix_mul(c: &mut Criterion) {
     let m = 1 << 10;
     let n = 1 << 10;
     let l = 5;
-    let mut lhs_mat = vec![ScalarField::zero(); m * n];
-    let mut rhs_mat = vec![ScalarField::zero(); n * l];
+    let lhs_mat = vec![ScalarField::zero(); m * n];
+    let rhs_mat = vec![ScalarField::zero(); n * l];
     let mut res_mat = vec![ScalarField::zero(); m * l];
 
     c.bench_function("matrix_matrix_mul_original", |b| {

@@ -634,7 +634,7 @@ fn process_prepare(config: &Phase2PrepareConfig, _is_gpu_enabled: bool) -> Sigma
             subcircuit_idx + 1,
             subcircuit_infos.len()
         );
-        let r1cs_path = qap_path.join(format!("json/subcircuit{subcircuit_idx}.json"));
+        let r1cs_path = qap_path.join(format!("r1cs/subcircuit{subcircuit_idx}.r1cs"));
         let coeff_view = load_coeff_view(
             &r1cs_path,
             &setup_params,
@@ -930,7 +930,7 @@ fn load_coeff_view(
     ntt_workspace: &mut NttWorkspace,
 ) -> SubcircuitCoeffView {
     let compact_r1cs =
-        SubcircuitR1CS::from_path(source_path.to_path_buf(), setup_params, subcircuit_info)
+        SubcircuitR1CS::from_r1cs_path(source_path.to_path_buf(), setup_params, subcircuit_info)
             .unwrap();
     let coeff_view = SubcircuitCoeffView::from_compact_r1cs(
         &compact_r1cs,
