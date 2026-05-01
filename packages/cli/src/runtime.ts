@@ -22,8 +22,6 @@ export interface RuntimeState {
   packageVersion: string;
   platform: CliPlatform;
   installedAt: string;
-  subcircuitLibraryPackage?: string;
-  subcircuitLibraryVersion?: string;
 }
 
 export interface RuntimeContext {
@@ -1990,8 +1988,6 @@ async function installDockerRuntime(options: InstallOptions): Promise<RuntimeCon
     packageVersion: context.packageVersion,
     platform: context.platform,
     installedAt: bootstrap.createdAt,
-    subcircuitLibraryPackage: SUBCIRCUIT_LIBRARY_PACKAGE,
-    subcircuitLibraryVersion: context.packageVersion,
   });
   return context;
 }
@@ -2027,8 +2023,6 @@ export async function installRuntime(options: InstallOptions): Promise<RuntimeCo
     packageVersion: context.packageVersion,
     platform: context.platform,
     installedAt: new Date().toISOString(),
-    subcircuitLibraryPackage: SUBCIRCUIT_LIBRARY_PACKAGE,
-    subcircuitLibraryVersion: context.packageVersion,
   };
   await writeRuntimeState(context, state);
   return context;

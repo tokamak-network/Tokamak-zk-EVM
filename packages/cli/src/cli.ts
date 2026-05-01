@@ -46,8 +46,7 @@ type RuntimeDirectoryKey =
   | 'synthOutputDir'
   | 'preprocessOutputDir'
   | 'proveOutputDir'
-  | 'subcircuitLibraryDir'
-  | 'subcircuitLibraryPackageDir';
+  | 'subcircuitLibraryDir';
 
 interface RuntimeFileRef {
   directory: RuntimeDirectoryKey;
