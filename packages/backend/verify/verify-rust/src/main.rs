@@ -30,7 +30,7 @@ struct Config {
 
 fn main() {
     let config = Config::parse();
-    let qap_path = resolve_subcircuit_library_path(config.subcircuit_library.as_deref())
+    let qap_path = resolve_subcircuit_library_path(&config.subcircuit_library.subcircuit_library)
         .to_string_lossy()
         .into_owned();
 

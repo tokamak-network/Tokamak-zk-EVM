@@ -46,7 +46,7 @@ struct Config {
 
 fn main() {
     let config = Config::parse();
-    let qap_path = resolve_subcircuit_library_path(config.subcircuit_library.as_deref())
+    let qap_path = resolve_subcircuit_library_path(&config.subcircuit_library.subcircuit_library)
         .to_string_lossy()
         .into_owned();
 
@@ -130,10 +130,11 @@ fn main() {
         gen_evaled_lagrange_bases(&tau.x, n, &mut x_evaled_lagrange_vec);
         for i in 0..s_d {
             println!("Processing subcircuit id {}", i);
-            let r1cs_path = PathBuf::from(paths.qap_path).join(format!("json/subcircuit{i}.json"));
+            let r1cs_path = PathBuf::from(paths.qap_path).join(format!("r1cs/subcircuit{i}.r1cs"));
 
             let compact_r1cs =
-                SubcircuitR1CS::from_path(r1cs_path, &setup_params, &subcircuit_infos[i]).unwrap();
+                SubcircuitR1CS::from_r1cs_path(r1cs_path, &setup_params, &subcircuit_infos[i])
+                    .unwrap();
             let o_evaled = from_r1cs_to_evaled_qap_mixture(
                 &compact_r1cs,
                 &setup_params,

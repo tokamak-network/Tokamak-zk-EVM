@@ -49,6 +49,3 @@ webbrowser = "1.0"
 [features]
 default = []
 testing-mode = ["libs/testing-mode"]
-
-[build-dependencies]
-serde_json = { workspace = true }

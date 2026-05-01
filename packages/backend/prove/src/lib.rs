@@ -603,16 +603,6 @@ impl Prover {
         );
 
         let witness: Witness = {
-            // // Load subcircuit library R1CS
-            // println!("Loading subcircuits...");
-            // let mut compact_library_R1CS: Vec<SubcircuitR1CS> = Vec::new();
-            // for i in 0..s_d {
-            //     println!("Loading subcircuit id {}", i);
-            //     let r1cs_path: String = format!("json/subcircuit{i}.json");
-            //     let compact_r1cs = SubcircuitR1CS::from_path(&r1cs_path, &setup_params, &subcircuit_infos[i]).unwrap();
-            //     compact_library_R1CS.push(compact_r1cs);
-            // }
-
             // Parsing the variables
             let bXY = crate::time_block!(
                 "init.build.witness.bXY",
@@ -631,7 +621,7 @@ impl Prover {
                     dims: vec![n, s_max]
                 },],
                 {
-                    read_R1CS_gen_uvwXY_r1cs_only(
+                    read_R1CS_gen_uvwXY(
                         &paths.qap_path,
                         &placement_variables,
                         &subcircuit_infos,

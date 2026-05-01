@@ -1,9 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::drive_upload::{
-    preflight_drive_upload, publish_output_archive, validate_release_build_metadata,
-};
+use crate::drive_upload::{preflight_drive_upload, publish_output_archive};
 use libs::iotools::SetupParams;
 
 pub mod phase1_initialize;
@@ -63,7 +61,6 @@ pub fn run_native_mpc_setup(config: &NativeMpcSetupConfig) {
 }
 
 pub fn run_dusk_backed_mpc_setup(config: &DuskBackedMpcSetupConfig) {
-    validate_release_build_metadata().expect("dusk-backed release metadata validation failed");
     let upload_config = preflight_drive_upload().expect("dusk-backed upload preflight failed");
     ensure_directory(&config.output);
     ensure_directory(&config.intermediate);

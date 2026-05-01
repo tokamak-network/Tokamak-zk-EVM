@@ -38,6 +38,3 @@ harness = false
 default = []
 testing-mode = []
 timing = []
-
-[build-dependencies]
-serde_json = { workspace = true }

@@ -27,6 +27,3 @@ timing = ["libs/timing"]
 [[test]]
 name = "timing"
 path = "optimization/tests/timing.rs"
-
-[build-dependencies]
-serde_json = { workspace = true }

@@ -6,8 +6,7 @@
 - `dusk_backed_mpc_setup`
 
 Both binaries are thin CLI wrappers. The ceremony logic lives in library flow modules under
-[`src/flows`](./src/flows), and the Cargo build prepares the local qap-compiler subcircuit library
-instead of accepting a runtime path argument.
+[`src/flows`](./src/flows), and both wrappers require a runtime subcircuit library path.
 
 ## Overview
 
@@ -40,12 +39,12 @@ cd "$PWD/packages/backend"
 
 ## Native Mode
 
-All `mpc-setup` builds build the local `../frontend/qap-compiler` package during the Cargo build
-and use that local subcircuit library output at runtime. `mpc-setup` does not accept
-`--subcircuit-library`.
+All `mpc-setup` builds require an explicit subcircuit library path at runtime. The backend reads
+only binary R1CS files from `<PATH>/r1cs/subcircuit*.r1cs`.
 
 ```bash
 cargo run --release --bin native_mpc_setup -- \
+  --subcircuit-library ../frontend/qap-compiler/subcircuits/library \
   --intermediate ./setup/mpc-setup/output/native.intermediate \
   --output ./setup/mpc-setup/output/native.final
 ```
@@ -64,6 +63,7 @@ native phase-1 initialization scalar uses internal randomness when testing mode 
 
 ```bash
 cargo run --release --bin dusk_backed_mpc_setup -- \
+  --subcircuit-library ../frontend/qap-compiler/subcircuits/library \
   --intermediate ./setup/mpc-setup/output/dusk.intermediate \
   --output ./setup/mpc-setup/output/dusk.final
 ```
@@ -82,19 +82,17 @@ In dusk-backed mode:
 - preflight fails if the target Drive folder already contains a CRS archive for the current backend version
 - after setup succeeds, the wrapper zips the final `--output` artifacts and uploads the archive to
   the configured Google Drive folder
-- the uploaded zip also includes `build-metadata-mpc-setup.json`
 - after upload, the wrapper grants the uploaded archive `anyone with the link = viewer`
 - after upload, the wrapper explicitly allows viewers and commenters to download, print, and copy
   the uploaded archive
 - upload is only allowed in release builds
-- before uploading, the wrapper validates that `build-metadata-mpc-setup.json` matches the running
-  `mpc-setup` binary version and uses `runtimeMode = bundled`
 - the output archive name always includes the backend version and CRS generation timestamp
 
 Non-release example:
 
 ```bash
 cargo run -p mpc-setup --bin dusk_backed_mpc_setup -- \
+  --subcircuit-library ../frontend/qap-compiler/subcircuits/library \
   --intermediate ./setup/mpc-setup/output/dusk.intermediate \
   --output ./setup/mpc-setup/output/dusk.final
 ```
@@ -135,6 +133,7 @@ Native:
 
 ```bash
 cargo run --release --features testing-mode --bin native_mpc_setup -- \
+  --subcircuit-library ../frontend/qap-compiler/subcircuits/library \
   --intermediate ./setup/mpc-setup/output/native-testing.intermediate \
   --output ./setup/mpc-setup/output/native-testing.final
 ```
@@ -143,6 +142,7 @@ Dusk-backed:
 
 ```bash
 cargo run --release --features testing-mode --bin dusk_backed_mpc_setup -- \
+  --subcircuit-library ../frontend/qap-compiler/subcircuits/library \
   --intermediate ./setup/mpc-setup/output/dusk-testing.intermediate \
   --output ./setup/mpc-setup/output/dusk-testing.final
 ```
@@ -166,14 +166,6 @@ The final output directory contains only:
 - `crs_provenance.json`
 
 This matches the trusted-setup artifact set, with the additional provenance manifest.
-
-For release builds, Cargo also emits `build-metadata-mpc-setup.json` into
-`packages/backend/target/release/`. The release-only Google Drive publication path refuses to
-publish unless that metadata file exists and matches:
-
-- `packageName == "mpc-setup"`
-- `packageVersion == env!("CARGO_PKG_VERSION")`
-- `dependencies.subcircuitLibrary.runtimeMode == "bundled"`
 
 ## CRS Provenance
 
