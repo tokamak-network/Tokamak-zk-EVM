@@ -31,19 +31,10 @@ use sigma_source::SigmaHolder;
 
 macro_rules! poly_comb {
         (($c:expr, $p:expr), $(($rest_c:expr, $rest_p:expr)),+ $(,)?) => {{
-            let mut terms = Vec::<DensePolynomialExt>::new();
-            terms.push(&$p * &$c);
+            let mut acc = &$p * &$c;
             $(
-                terms.push(&$rest_p * &$rest_c);
+                acc += &(&$rest_p * &$rest_c);
             )+
-            let target_x_size = terms.iter().map(|term| term.x_size).max().unwrap();
-            let target_y_size = terms.iter().map(|term| term.y_size).max().unwrap();
-            let mut acc = terms.remove(0);
-            acc.resize(target_x_size, target_y_size);
-            for mut term in terms {
-                term.resize(target_x_size, target_y_size);
-                acc += &term;
-            }
             acc
         }};
     }

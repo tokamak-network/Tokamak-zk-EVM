@@ -388,40 +388,6 @@ This diagnostic points to a more precise next target: construct polynomial-combi
 
    The result indicates that this path does not reduce the dominant cost. The likely bottleneck is the number of ICICLE add/sub operations and intermediate polynomial constructions, not the Rust-side branch that cloned operands before checking dimensions. The code change was rolled back and the timing artifact is kept only as an experiment record.
 
-8. **Resize and final-size accumulator pre-sizing were tested.**
-
-   The experiment applied several resize-related changes together:
-
-   - `resize()` copies only the active degree rectangle when degree metadata permits it;
-   - `resize()` uses a contiguous copy fast path when row stride is unchanged;
-   - `Add`, `Sub`, and `AddAssign` avoid cloning or resizing operands that already match the target dimensions;
-   - `AddAssign` resizes `self` directly instead of cloning it into a temporary accumulator;
-   - `poly_comb!` materializes all scaled terms, computes final target dimensions, resizes each term to that target once, and then accumulates.
-
-   Artifact:
-
-   ```text
-   timing.remote.resize-accumulator.cuda.json
-   ```
-
-   Result against `timing.remote.special-form-products.cuda.json`:
-
-   | metric | baseline | resize-accumulator | delta |
-   | --- | ---: | ---: | ---: |
-   | total wall | 26.709146 s | 26.750981 s | +0.041835 s |
-   | category `poly` | 18.653591 s | 18.738748 s | +0.085157 s |
-   | pure MSM encode | 1.270636 s | 1.287827 s | +0.017191 s |
-   | `poly.combine` | 14.007280 s | 14.028294 s | +0.021014 s |
-   | `div_by_vanishing_opt` | 1.315135 s | 1.308149 s | -0.006986 s |
-   | `div_by_ruffini` | 1.540679 s | 1.589633 s | +0.048954 s |
-   | detail addition | 7.076283 s | 2.750574 s | -4.325709 s |
-   | detail multiplication | 4.914589 s | 4.923092 s | +0.008503 s |
-   | detail scaling | 0.807468 s | 0.520132 s | -0.287336 s |
-
-   The detail-level addition time dropped sharply, but the overall `poly.combine` time did not. The final-size `poly_comb!` rewrite moved resize work out of the `AddAssign` detail span and into term preparation inside the same `poly.combine.*` scope. This is not a real end-to-end optimization.
-
-   The experiment is useful evidence, but it should not replace the accepted performance baseline. The next viable direction is a true final-size accumulator that writes scaled terms into one output polynomial without materializing each resized term as a separate `DensePolynomialExt`.
-
 ## Current Accepted Baseline
 
 The current accepted CUDA baseline is `timing.remote.special-form-products.cuda.json`:
