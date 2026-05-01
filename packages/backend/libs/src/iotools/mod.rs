@@ -1497,6 +1497,37 @@ pub fn read_R1CS_gen_uvwXY(
     subcircuit_infos: &Box<[SubcircuitInfo]>,
     setup_params: &SetupParams,
 ) -> (DensePolynomialExt, DensePolynomialExt, DensePolynomialExt) {
+    read_R1CS_gen_uvwXY_with_mode(
+        qap_path,
+        placement_variables,
+        subcircuit_infos,
+        setup_params,
+        false,
+    )
+}
+
+pub fn read_R1CS_gen_uvwXY_r1cs_only(
+    qap_path: &str,
+    placement_variables: &Box<[PlacementVariables]>,
+    subcircuit_infos: &Box<[SubcircuitInfo]>,
+    setup_params: &SetupParams,
+) -> (DensePolynomialExt, DensePolynomialExt, DensePolynomialExt) {
+    read_R1CS_gen_uvwXY_with_mode(
+        qap_path,
+        placement_variables,
+        subcircuit_infos,
+        setup_params,
+        true,
+    )
+}
+
+fn read_R1CS_gen_uvwXY_with_mode(
+    qap_path: &str,
+    placement_variables: &Box<[PlacementVariables]>,
+    subcircuit_infos: &Box<[SubcircuitInfo]>,
+    setup_params: &SetupParams,
+    r1cs_only: bool,
+) -> (DensePolynomialExt, DensePolynomialExt, DensePolynomialExt) {
     let phase_profile = env::var("TOKAMAK_UVWXY_PHASE_PROFILE").ok().as_deref() == Some("1");
     let uvwxy_total_start = phase_profile.then(Instant::now);
 
@@ -1540,7 +1571,19 @@ pub fn read_R1CS_gen_uvwXY(
     for &subcircuit_id in unique_ids.iter() {
         let binary_r1cs_path =
             PathBuf::from(qap_path).join(format!("r1cs/subcircuit{subcircuit_id}.r1cs"));
-        let loaded_r1cs = if binary_r1cs_path.exists() {
+        let loaded_r1cs = if r1cs_only {
+            SubcircuitR1CS::from_r1cs_sparse_only(
+                binary_r1cs_path.clone(),
+                &setup_params,
+                &subcircuit_infos[subcircuit_id],
+            )
+            .unwrap_or_else(|err| {
+                panic!(
+                    "failed to load required binary R1CS file {}: {err}",
+                    binary_r1cs_path.display()
+                )
+            })
+        } else if binary_r1cs_path.exists() {
             SubcircuitR1CS::from_r1cs_sparse_only(
                 binary_r1cs_path,
                 &setup_params,

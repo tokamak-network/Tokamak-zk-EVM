@@ -181,6 +181,8 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
+        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "--crs",
         "${workspaceFolder}/setup/output",
         "--synthesizer-stat",

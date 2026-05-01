@@ -631,7 +631,7 @@ impl Prover {
                     dims: vec![n, s_max]
                 },],
                 {
-                    read_R1CS_gen_uvwXY(
+                    read_R1CS_gen_uvwXY_r1cs_only(
                         &paths.qap_path,
                         &placement_variables,
                         &subcircuit_infos,
