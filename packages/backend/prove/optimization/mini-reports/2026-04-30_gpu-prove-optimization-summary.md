@@ -353,6 +353,30 @@ Top internal scalar multiplication costs:
 
 This diagnostic points to a more precise next target: construct polynomial-combination outputs at their final dimensions, avoiding chained resize-heavy add/sub operations. Replacing ICICLE add/sub or the field multiplication primitive itself is unlikely to help.
 
+### Column-batch biNTT candidate
+
+`timing.remote.bintt-column-batch.cuda.log` is a diagnostic unit benchmark for replacing the manual transpose-based second axis in `_biNTT` with ICICLE `columns_batch = true`.
+
+The current `_biNTT` flow is:
+
+- batched 1D NTT along Y rows;
+- transpose `x_size x y_size` to `y_size x x_size`;
+- batched 1D NTT along X rows of the transposed matrix;
+- transpose back.
+
+The candidate flow keeps the first Y-row NTT, then runs the X-axis NTT directly with `columns_batch = true`, removing both transposes.
+
+Correctness was checked on remote CUDA against the current transpose implementation for shapes `16x8`, `64x32`, and `4096x256`; for each shape it tested plain and coset modes, both forward and inverse directions. All checks had `mismatches=0`.
+
+The forward `4096x256` CUDA benchmark result was:
+
+| implementation | mean | median | p95 |
+| --- | ---: | ---: | ---: |
+| transpose-based `_biNTT` | 0.008201 s | 0.008196 s | 0.008240 s |
+| column-batch candidate | 0.001880 s | 0.001877 s | 0.001894 s |
+
+This is a strong candidate for the next production change, but it is not applied in the accepted baseline yet. The current accepted CUDA baseline remains `timing.remote.transpose-y-align-add.cuda.json`.
+
 ## Failed Or Rejected Changes
 
 The experiments below were either rolled back from the branch or kept only as diagnostic artifacts. They should not be treated as accepted optimization baselines.

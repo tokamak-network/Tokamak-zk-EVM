@@ -552,6 +552,197 @@ mod tests {
         });
     }
 
+    fn bintt_transpose_device(
+        input: &DeviceVec<ScalarField>,
+        x_size: usize,
+        y_size: usize,
+        dir: ntt::NTTDir,
+        coset_x: Option<&ScalarField>,
+        coset_y: Option<&ScalarField>,
+    ) -> DeviceVec<ScalarField> {
+        let size = x_size * y_size;
+        let mut cfg = ntt::NTTConfig::<ScalarField>::default();
+        let vec_ops_cfg = VecOpsConfig::default();
+
+        let mut out_y = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+        cfg.batch_size = x_size as i32;
+        cfg.columns_batch = false;
+        cfg.coset_gen = coset_y.copied().unwrap_or(ScalarField::one());
+        ntt::ntt(input, dir, &cfg, &mut out_y).unwrap();
+
+        let mut out_y_tr = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+        ScalarCfg::transpose(
+            &out_y,
+            x_size as u32,
+            y_size as u32,
+            &mut out_y_tr,
+            &vec_ops_cfg,
+        )
+        .unwrap();
+
+        cfg.batch_size = y_size as i32;
+        cfg.columns_batch = false;
+        cfg.coset_gen = coset_x.copied().unwrap_or(ScalarField::one());
+        let mut out_x_tr = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+        ntt::ntt(&out_y_tr, dir, &cfg, &mut out_x_tr).unwrap();
+
+        let mut out = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+        ScalarCfg::transpose(
+            &out_x_tr,
+            y_size as u32,
+            x_size as u32,
+            &mut out,
+            &vec_ops_cfg,
+        )
+        .unwrap();
+        out
+    }
+
+    fn bintt_column_batch_device(
+        input: &DeviceVec<ScalarField>,
+        x_size: usize,
+        y_size: usize,
+        dir: ntt::NTTDir,
+        coset_x: Option<&ScalarField>,
+        coset_y: Option<&ScalarField>,
+    ) -> DeviceVec<ScalarField> {
+        let size = x_size * y_size;
+        let mut cfg = ntt::NTTConfig::<ScalarField>::default();
+
+        let mut out_y = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+        cfg.batch_size = x_size as i32;
+        cfg.columns_batch = false;
+        cfg.coset_gen = coset_y.copied().unwrap_or(ScalarField::one());
+        ntt::ntt(input, dir, &cfg, &mut out_y).unwrap();
+
+        let mut out = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+        cfg.batch_size = y_size as i32;
+        cfg.columns_batch = true;
+        cfg.coset_gen = coset_x.copied().unwrap_or(ScalarField::one());
+        ntt::ntt(&out_y, dir, &cfg, &mut out).unwrap();
+        out
+    }
+
+    fn device_vec_from_host(values: &[ScalarField]) -> DeviceVec<ScalarField> {
+        let mut out = DeviceVec::<ScalarField>::device_malloc(values.len()).unwrap();
+        out.copy_from_host(HostSlice::from_slice(values)).unwrap();
+        out
+    }
+
+    fn device_vec_to_host(values: &DeviceVec<ScalarField>) -> Vec<ScalarField> {
+        let mut out = vec![ScalarField::zero(); values.len()];
+        values
+            .copy_to_host(HostSlice::from_mut_slice(&mut out))
+            .unwrap();
+        out
+    }
+
+    fn count_mismatches(lhs: &[ScalarField], rhs: &[ScalarField]) -> usize {
+        lhs.iter().zip(rhs.iter()).filter(|(a, b)| *a != *b).count()
+    }
+
+    #[test]
+    #[ignore]
+    fn bench_bintt_column_batch_candidate() {
+        let device = check_device();
+        let samples = bench_env_usize("DPE_BINTT_COLUMN_BATCH_SAMPLES", 60);
+        let warmup = bench_env_usize("DPE_BINTT_COLUMN_BATCH_WARMUP", 10);
+        let bench_x = bench_env_usize("DPE_BINTT_COLUMN_BATCH_X", 4096);
+        let bench_y = bench_env_usize("DPE_BINTT_COLUMN_BATCH_Y", 256);
+
+        for (x_size, y_size) in [(16usize, 8usize), (64usize, 32usize), (bench_x, bench_y)] {
+            init_bi_ntt_domain(x_size, y_size);
+            let input = ScalarCfg::generate_random(x_size * y_size);
+            let input_device = device_vec_from_host(&input);
+            let coset_x = random_nonzero_scalar();
+            let coset_y = random_nonzero_scalar();
+
+            for (label, cx, cy) in [
+                ("plain", None, None),
+                ("coset", Some(&coset_x), Some(&coset_y)),
+            ] {
+                for (dir_label, dir) in [
+                    ("forward", ntt::NTTDir::kForward),
+                    ("inverse", ntt::NTTDir::kInverse),
+                ] {
+                    let reference =
+                        bintt_transpose_device(&input_device, x_size, y_size, dir, cx, cy);
+                    let candidate =
+                        bintt_column_batch_device(&input_device, x_size, y_size, dir, cx, cy);
+                    let reference_host = device_vec_to_host(&reference);
+                    let candidate_host = device_vec_to_host(&candidate);
+                    let mismatches = count_mismatches(&reference_host, &candidate_host);
+                    println!(
+                        "BINTT_COLUMN_BATCH_CHECK device={} shape={}x{} mode={} dir={} mismatches={}",
+                        device, x_size, y_size, label, dir_label, mismatches
+                    );
+                    assert_eq!(mismatches, 0);
+                }
+            }
+        }
+
+        init_bi_ntt_domain(bench_x, bench_y);
+        let input = ScalarCfg::generate_random(bench_x * bench_y);
+        let input_device = device_vec_from_host(&input);
+
+        let mut transpose_samples = Vec::with_capacity(samples);
+        let mut column_batch_samples = Vec::with_capacity(samples);
+
+        for _ in 0..warmup {
+            let out = bintt_transpose_device(
+                &input_device,
+                bench_x,
+                bench_y,
+                ntt::NTTDir::kForward,
+                None,
+                None,
+            );
+            std::hint::black_box(out.len());
+            let out = bintt_column_batch_device(
+                &input_device,
+                bench_x,
+                bench_y,
+                ntt::NTTDir::kForward,
+                None,
+                None,
+            );
+            std::hint::black_box(out.len());
+        }
+
+        for _ in 0..samples {
+            let start = Instant::now();
+            let out = bintt_transpose_device(
+                &input_device,
+                bench_x,
+                bench_y,
+                ntt::NTTDir::kForward,
+                None,
+                None,
+            );
+            std::hint::black_box(out.len());
+            transpose_samples.push(start.elapsed());
+
+            let start = Instant::now();
+            let out = bintt_column_batch_device(
+                &input_device,
+                bench_x,
+                bench_y,
+                ntt::NTTDir::kForward,
+                None,
+                None,
+            );
+            std::hint::black_box(out.len());
+            column_batch_samples.push(start.elapsed());
+        }
+
+        println!(
+            "BINTT_COLUMN_BATCH_CONFIG device={} samples={} warmup={} bench_shape={}x{}",
+            device, samples, warmup, bench_x, bench_y
+        );
+        print_bench_stats("bintt_transpose_forward", &transpose_samples);
+        print_bench_stats("bintt_column_batch_forward", &column_batch_samples);
+    }
+
     #[test]
     fn test_mul_scalar() {
         // pass
