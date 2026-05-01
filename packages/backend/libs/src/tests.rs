@@ -57,11 +57,14 @@ mod tests {
     use icicle_core::traits::Arithmetic;
     use icicle_core::vec_ops::VecOpsConfig;
     use icicle_runtime::memory::DeviceVec;
+    use std::env;
+    use std::time::{Duration, Instant};
 
     use super::*;
     use crate::bivariate_polynomial::{
         init_ntt_domain_for_size, BivariatePolynomial, DensePolynomialExt, DivByVanishingCache,
     };
+    use crate::utils::check_device;
     use crate::vector_operations::*;
 
     // Helper function: Create a simple 2D polynomial
@@ -398,6 +401,105 @@ mod tests {
         assert_eq!(result.get_coeff(0, 1), ScalarField::from_u32(22));
         assert_eq!(result.get_coeff(1, 0), ScalarField::from_u32(3));
         assert_eq!(result.get_coeff(1, 1), ScalarField::from_u32(4));
+    }
+
+    fn bench_env_usize(name: &str, default: usize) -> usize {
+        env::var(name)
+            .ok()
+            .and_then(|value| value.parse::<usize>().ok())
+            .unwrap_or(default)
+    }
+
+    fn bench_poly(x_size: usize, y_size: usize) -> DensePolynomialExt {
+        let coeffs = ScalarCfg::generate_random(x_size * y_size);
+        DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs), x_size, y_size)
+    }
+
+    fn percentile(sorted: &[Duration], numerator: usize, denominator: usize) -> Duration {
+        let idx = sorted.len().saturating_sub(1).saturating_mul(numerator) / denominator;
+        sorted[idx]
+    }
+
+    fn print_bench_stats(label: &str, samples: &[Duration]) {
+        let mut sorted = samples.to_vec();
+        sorted.sort();
+        let total: Duration = sorted.iter().copied().sum();
+        let mean = total.as_secs_f64() / sorted.len() as f64;
+        let min = sorted[0].as_secs_f64();
+        let median = percentile(&sorted, 1, 2).as_secs_f64();
+        let p95 = percentile(&sorted, 95, 100).as_secs_f64();
+        let max = sorted[sorted.len() - 1].as_secs_f64();
+
+        println!(
+            "DPE_ADD_PATH_BENCH label={} samples={} mean_s={:.9} median_s={:.9} p95_s={:.9} min_s={:.9} max_s={:.9}",
+            label,
+            sorted.len(),
+            mean,
+            median,
+            p95,
+            min,
+            max
+        );
+    }
+
+    fn measure_binary_op<F>(label: &str, samples: usize, warmup: usize, mut op: F)
+    where
+        F: FnMut() -> DensePolynomialExt,
+    {
+        for _ in 0..warmup {
+            let result = op();
+            std::hint::black_box((result.x_size, result.y_size));
+        }
+
+        let mut durations = Vec::with_capacity(samples);
+        for _ in 0..samples {
+            let start = Instant::now();
+            let result = op();
+            let elapsed = start.elapsed();
+            std::hint::black_box((result.x_size, result.y_size));
+            durations.push(elapsed);
+        }
+
+        print_bench_stats(label, &durations);
+    }
+
+    #[test]
+    #[ignore]
+    fn bench_add_sub_no_resize_paths() {
+        let device = check_device();
+        let samples = bench_env_usize("DPE_ADD_PATH_BENCH_SAMPLES", 120);
+        let warmup = bench_env_usize("DPE_ADD_PATH_BENCH_WARMUP", 20);
+        let lhs_x = bench_env_usize("DPE_ADD_PATH_BENCH_LHS_X", 4096);
+        let lhs_y = bench_env_usize("DPE_ADD_PATH_BENCH_LHS_Y", 256);
+        let same_y_rhs_x = bench_env_usize("DPE_ADD_PATH_BENCH_SAME_Y_RHS_X", lhs_x / 2);
+        let mismatch_y_rhs_x = bench_env_usize("DPE_ADD_PATH_BENCH_MISMATCH_Y_RHS_X", lhs_x);
+        let mismatch_y_rhs_y = bench_env_usize("DPE_ADD_PATH_BENCH_MISMATCH_Y_RHS_Y", lhs_y / 2);
+
+        println!(
+            "DPE_ADD_PATH_BENCH_CONFIG device={} samples={} warmup={} lhs={}x{} same_y_rhs={}x{} mismatch_y_rhs={}x{}",
+            device,
+            samples,
+            warmup,
+            lhs_x,
+            lhs_y,
+            same_y_rhs_x,
+            lhs_y,
+            mismatch_y_rhs_x,
+            mismatch_y_rhs_y
+        );
+
+        let lhs = bench_poly(lhs_x, lhs_y);
+        let same_y_rhs = bench_poly(same_y_rhs_x, lhs_y);
+        let mismatch_y_rhs = bench_poly(mismatch_y_rhs_x, mismatch_y_rhs_y);
+
+        measure_binary_op("same_y_add", samples, warmup, || &lhs + &same_y_rhs);
+        measure_binary_op("same_y_sub", samples, warmup, || &lhs - &same_y_rhs);
+        measure_binary_op("mismatched_y_add", samples, warmup, || {
+            &lhs + &mismatch_y_rhs
+        });
+        measure_binary_op("mismatched_y_sub", samples, warmup, || {
+            &lhs - &mismatch_y_rhs
+        });
     }
 
     #[test]
