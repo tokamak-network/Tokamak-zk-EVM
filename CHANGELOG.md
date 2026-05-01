@@ -18,6 +18,7 @@ The format is based on Keep a Changelog.
 
 - Bumped `@tokamak-zk-evm/cli` to `2.0.16`.
 - Updated the CLI package to consume `@tokamak-zk-evm/synthesizer-node` through the synchronized `^2.0.16` dependency range.
+- Included the updated backend runtime with the prover, setup, preprocess, and verify changes listed below.
 
 ### Subcircuit Library
 
@@ -31,6 +32,12 @@ The format is based on Keep a Changelog.
 ### Backend Workspace
 
 - Bumped the backend Rust workspace version to `2.0.16`.
+- Changed backend binaries to use explicit subcircuit-library paths instead of release build-time embedded subcircuit snapshots.
+- Switched setup and prove R1CS loading from generated JSON constraint files to binary `.r1cs` artifacts with sparse row scanning.
+- Optimized prove initialization by using sparse uvwXY generation, binary R1CS preload, and cached permutation power tables.
+- Optimized prover polynomial work with coefficient-domain vanishing division, algebraic polynomial-combination rewrites, special-form polynomial products, column-batch bivariate NTT, and removal of generic multiplication output shrinking.
+- Fixed the `prove0` `B` zero-knowledge vanishing term to use the private-input domain exponent `l_D - l`.
+- Added backend timing instrumentation and optimization reports for CUDA prove performance analysis.
 
 ## [2.0.15] - 2026-04-30
 
