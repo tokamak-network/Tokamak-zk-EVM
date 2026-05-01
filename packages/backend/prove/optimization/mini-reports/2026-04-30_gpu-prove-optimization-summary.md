@@ -24,6 +24,7 @@ This report summarizes the CUDA prove optimization experiments performed on the 
 | `timing.remote.special-form-products.cuda.json` | 26.709146 s | 0.740477 s | 9.519266 s | 0.284122 s | 0.054744 s |
 | `timing.remote.rowwise-add.cuda.json` | 24.682780 s | 0.748638 s | 7.999111 s | 0.287435 s | 0.056796 s |
 | `timing.remote.transpose-y-align-add.cuda.json` | 22.142922 s | 0.757955 s | 7.409432 s | 0.297708 s | 0.057173 s |
+| `timing.remote.bintt-column-batch-production.cuda.json` | 21.487536 s | 0.715252 s | 7.328582 s | 0.275076 s | 0.043481 s |
 | `timing.remote.y-align-add.cuda.json` | 22.598682 s | 0.745924 s | 7.484501 s | 0.287162 s | 0.055599 s |
 
 ## Timing Semantics Correction
@@ -275,6 +276,31 @@ The largest strict polynomial-combination sites in this run are:
    | `prove2.total` | 9.086046 s | 8.212712 s | -0.873335 s |
    | `prove4.total` | 7.999111 s | 7.409432 s | -0.589679 s |
 
+9. **Column-batch biNTT was accepted.**
+
+   The previous `_biNTT` implementation performed the second axis by transposing the `x_size x y_size` matrix, running another row-batched 1D NTT, and transposing back. A diagnostic CUDA benchmark showed that ICICLE `columns_batch = true` is correct and much faster for the large 2D shape used by the prover. The production implementation now keeps the Y-row NTT, then runs the X-axis NTT directly as a column batch.
+
+   The first full-prove attempt with unconditional column batching aborted inside the CUDA backend because ICICLE does not support column batching for every NTT size. In particular, single-column or single-row bivariate shapes appear in setup/prove helper paths. The accepted implementation therefore uses direct 1D NTT fast paths when `x_size == 1` or `y_size == 1`, and uses column batching only for real 2D transforms.
+
+   Measurement against `timing.remote.transpose-y-align-add.cuda.json`:
+
+   | metric | transpose/y-align | column-batch biNTT | delta |
+   | --- | ---: | ---: | ---: |
+   | total wall | 22.142922 s | 21.487536 s | -0.655386 s |
+   | category `poly` | 14.249268 s | 13.641895 s | -0.607373 s |
+   | pure MSM encode | 1.264790 s | 1.264034 s | -0.000756 s |
+   | `poly.combine` | 9.620149 s | 9.033003 s | -0.587145 s |
+   | `poly.to_rou_evals` | 0.079667 s | 0.071223 s | -0.008444 s |
+   | `poly.from_rou_evals` | 0.014748 s | 0.010319 s | -0.004429 s |
+   | `mul_lhs_to_rou_evals` | 0.993592 s | 0.785126 s | -0.208465 s |
+   | `mul_rhs_to_rou_evals` | 1.004486 s | 0.790217 s | -0.214269 s |
+   | `mul_from_rou_evals` | 0.325149 s | 0.112401 s | -0.212748 s |
+   | `prove0.total` | 4.106111 s | 4.044442 s | -0.061669 s |
+   | `prove2.total` | 8.212712 s | 7.737301 s | -0.475411 s |
+   | `prove4.total` | 7.409432 s | 7.328582 s | -0.080850 s |
+
+   The improvement is concentrated where generic multiplication calls convert bivariate polynomials to and from roots-of-unity evaluations. This matches the expected effect of removing the two transpose operations inside each 2D NTT.
+
 ## Diagnostic Timing
 
 ### Polynomial-combination detail timing
@@ -375,7 +401,7 @@ The forward `4096x256` CUDA benchmark result was:
 | transpose-based `_biNTT` | 0.008201 s | 0.008196 s | 0.008240 s |
 | column-batch candidate | 0.001880 s | 0.001877 s | 0.001894 s |
 
-This is a strong candidate for the next production change, but it is not applied in the accepted baseline yet. The current accepted CUDA baseline remains `timing.remote.transpose-y-align-add.cuda.json`.
+This diagnostic was promoted to production after adding safe 1D fast paths for `x_size == 1` and `y_size == 1`. The accepted production artifact is `timing.remote.bintt-column-batch-production.cuda.json`.
 
 ## Failed Or Rejected Changes
 
@@ -584,15 +610,15 @@ The experiments below were either rolled back from the branch or kept only as di
 
 ## Current Accepted Baseline
 
-The current accepted CUDA baseline is `timing.remote.transpose-y-align-add.cuda.json`:
+The current accepted CUDA baseline is `timing.remote.bintt-column-batch-production.cuda.json`:
 
-- total wall: `22.142922 s`
-- init: `0.757955 s`
-- prove4: `7.409432 s`
-- uvwXY: `0.297708 s`
-- s0/s1: `0.057173 s`
-- pure MSM encode total: `1.264790 s`
-- pure vanishing division total: `1.335131 s`
-- polynomial combination total: `9.620149 s`
+- total wall: `21.487536 s`
+- init: `0.715252 s`
+- prove4: `7.328582 s`
+- uvwXY: `0.275076 s`
+- s0/s1: `0.043481 s`
+- pure MSM encode total: `1.264034 s`
+- pure vanishing division total: `1.337674 s`
+- polynomial combination total: `9.033003 s`
 
 Future optimization should continue to focus on `DensePolynomialExt` wrapper-level costs rather than more algebraic polynomial-multiplication reduction. The next higher-value targets are reducing remaining y-alignment resize cost, reducing intermediate-polynomial materialization, and revisiting monomial-shift paths. Pure MSM encoding and pure vanishing division are not the dominant costs under the strict timing view.

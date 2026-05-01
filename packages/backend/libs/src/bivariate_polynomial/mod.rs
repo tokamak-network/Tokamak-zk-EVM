@@ -1302,43 +1302,34 @@ impl BivariatePolynomial for DensePolynomialExt {
         }
 
         let mut cfg = ntt::NTTConfig::<Self::Field>::default();
-        let vec_ops_cfg = VecOpsConfig::default();
+        if x_size == 1 {
+            cfg.batch_size = 1;
+            cfg.columns_batch = false;
+            cfg.coset_gen = coset_gen_y.copied().unwrap_or(Self::Field::one());
+            ntt::ntt(in_mat, dir, &cfg, out_mat).unwrap();
+            return;
+        }
+        if y_size == 1 {
+            cfg.batch_size = 1;
+            cfg.columns_batch = false;
+            cfg.coset_gen = coset_gen_x.copied().unwrap_or(Self::Field::one());
+            ntt::ntt(in_mat, dir, &cfg, out_mat).unwrap();
+            return;
+        }
 
         {
-            // IFFT along Y coeffs
+            // NTT along Y rows.
             let mut out_y = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
             cfg.batch_size = x_size as i32;
             cfg.columns_batch = false;
             cfg.coset_gen = coset_gen_y.copied().unwrap_or(Self::Field::one());
             ntt::ntt(in_mat, dir, &cfg, &mut out_y).unwrap();
 
-            // IFFT along X coeffs (GPU does not work with columns_batch == true, so we manually transpose the matrix)
-            let mut out_y_tr = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
-            Self::FieldConfig::transpose(
-                &out_y,
-                x_size as u32,
-                y_size as u32,
-                &mut out_y_tr,
-                &vec_ops_cfg,
-            )
-            .unwrap();
-            drop(out_y);
-
+            // NTT along X columns.
             cfg.batch_size = y_size as i32;
-            cfg.columns_batch = false;
+            cfg.columns_batch = true;
             cfg.coset_gen = coset_gen_x.copied().unwrap_or(Self::Field::one());
-            let mut out_x_tr = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
-            ntt::ntt(&out_y_tr, dir, &cfg, &mut out_x_tr).unwrap();
-            drop(out_y_tr);
-
-            Self::FieldConfig::transpose(
-                &out_x_tr,
-                y_size as u32,
-                x_size as u32,
-                out_mat,
-                &vec_ops_cfg,
-            )
-            .unwrap();
+            ntt::ntt(&out_y, dir, &cfg, out_mat).unwrap();
         }
     }
 
