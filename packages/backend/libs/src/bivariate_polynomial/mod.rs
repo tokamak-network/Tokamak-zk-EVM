@@ -127,53 +127,84 @@ impl DensePolynomialExt {
     }
 
     fn add_sub_no_resize(lhs: &Self, rhs: &Self, add: bool) -> Self {
-        let target_x_size = cmp::max(lhs.x_size, rhs.x_size);
-        let target_y_size = cmp::max(lhs.y_size, rhs.y_size);
-
         if lhs.y_size == rhs.y_size {
-            #[cfg(feature = "timing")]
-            let step_start = Instant::now();
-            let lhs_ext = lhs.clone();
-            let rhs_ext = rhs.clone();
-            let out_poly = if add {
-                &lhs_ext.poly + &rhs_ext.poly
-            } else {
-                &lhs_ext.poly - &rhs_ext.poly
-            };
-            #[cfg(feature = "timing")]
-            record_detail_step(
-                if add {
-                    "add_same_stride_icicle_add"
-                } else {
-                    "sub_same_stride_icicle_sub"
-                },
-                step_start,
-                "target",
-                vec![target_x_size, target_y_size],
-            );
-            return DensePolynomialExt {
-                poly: out_poly,
-                x_degree: target_x_size as i64 - 1,
-                y_degree: target_y_size as i64 - 1,
-                x_size: target_x_size,
-                y_size: target_y_size,
-            };
+            return Self::add_sub_same_stride(lhs, rhs, add, if add { "add" } else { "sub" });
         }
+
+        if lhs.x_size == rhs.x_size {
+            return Self::add_sub_via_transpose(lhs, rhs, add);
+        }
+
+        Self::add_sub_y_aligned(lhs, rhs, add)
+    }
+
+    fn add_sub_same_stride(lhs: &Self, rhs: &Self, add: bool, timing_prefix: &'static str) -> Self {
+        #[cfg(not(feature = "timing"))]
+        let _ = timing_prefix;
+        let target_x_size = cmp::max(lhs.x_size, rhs.x_size);
+        let target_y_size = lhs.y_size;
 
         #[cfg(feature = "timing")]
         let step_start = Instant::now();
-        let mut lhs_coeffs =
-            DeviceVec::<ScalarField>::device_malloc(lhs.x_size * lhs.y_size).unwrap();
-        let mut rhs_coeffs =
-            DeviceVec::<ScalarField>::device_malloc(rhs.x_size * rhs.y_size).unwrap();
-        lhs.copy_coeffs(0, &mut lhs_coeffs);
-        rhs.copy_coeffs(0, &mut rhs_coeffs);
+        let lhs_ext = lhs.clone();
+        let rhs_ext = rhs.clone();
+        let out_poly = if add {
+            &lhs_ext.poly + &rhs_ext.poly
+        } else {
+            &lhs_ext.poly - &rhs_ext.poly
+        };
+        #[cfg(feature = "timing")]
+        record_detail_step(
+            match (timing_prefix, add) {
+                ("transpose", true) => "add_transpose_same_stride_icicle_add",
+                ("transpose", false) => "sub_transpose_same_stride_icicle_sub",
+                ("y_align", true) => "add_y_align_same_stride_icicle_add",
+                ("y_align", false) => "sub_y_align_same_stride_icicle_sub",
+                (_, true) => "add_same_stride_icicle_add",
+                (_, false) => "sub_same_stride_icicle_sub",
+            },
+            step_start,
+            "target",
+            vec![target_x_size, target_y_size],
+        );
+
+        DensePolynomialExt {
+            poly: out_poly,
+            x_degree: target_x_size as i64 - 1,
+            y_degree: target_y_size as i64 - 1,
+            x_size: target_x_size,
+            y_size: target_y_size,
+        }
+    }
+
+    fn transpose_coeffs(&self) -> Self {
+        let size = self.x_size * self.y_size;
+        let mut coeffs = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+        let mut transposed = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+        self.copy_coeffs(0, &mut coeffs);
+        ScalarCfg::transpose(
+            &coeffs,
+            self.x_size as u32,
+            self.y_size as u32,
+            &mut transposed,
+            &VecOpsConfig::default(),
+        )
+        .unwrap();
+
+        DensePolynomialExt::from_coeffs(&transposed, self.y_size, self.x_size)
+    }
+
+    fn add_sub_via_transpose(lhs: &Self, rhs: &Self, add: bool) -> Self {
+        #[cfg(feature = "timing")]
+        let step_start = Instant::now();
+        let lhs_t = lhs.transpose_coeffs();
+        let rhs_t = rhs.transpose_coeffs();
         #[cfg(feature = "timing")]
         record_detail_step(
             if add {
-                "add_rowwise_copy_inputs"
+                "add_transpose_inputs"
             } else {
-                "sub_rowwise_copy_inputs"
+                "sub_transpose_inputs"
             },
             step_start,
             "lhs_rhs",
@@ -182,107 +213,62 @@ impl DensePolynomialExt {
 
         #[cfg(feature = "timing")]
         let step_start = Instant::now();
-        let mut out_coeffs =
-            DeviceVec::<ScalarField>::device_malloc(target_x_size * target_y_size).unwrap();
-        out_coeffs.memset(0, target_x_size * target_y_size).unwrap();
-
-        let cfg_vec_ops = VecOpsConfig::default();
-        let zero = [ScalarField::zero()];
-        let zero_slice = HostSlice::from_slice(&zero);
-
-        for row in 0..target_x_size {
-            let out_start = row * target_y_size;
-            let lhs_has_row = row < lhs.x_size;
-            let rhs_has_row = row < rhs.x_size;
-
-            match (lhs_has_row, rhs_has_row) {
-                (true, true) => {
-                    let lhs_start = row * lhs.y_size;
-                    let rhs_start = row * rhs.y_size;
-                    let common_y = cmp::min(lhs.y_size, rhs.y_size);
-
-                    if add {
-                        ScalarCfg::add(
-                            &lhs_coeffs[lhs_start..lhs_start + common_y],
-                            &rhs_coeffs[rhs_start..rhs_start + common_y],
-                            &mut out_coeffs[out_start..out_start + common_y],
-                            &cfg_vec_ops,
-                        )
-                        .unwrap();
-                    } else {
-                        ScalarCfg::sub(
-                            &lhs_coeffs[lhs_start..lhs_start + common_y],
-                            &rhs_coeffs[rhs_start..rhs_start + common_y],
-                            &mut out_coeffs[out_start..out_start + common_y],
-                            &cfg_vec_ops,
-                        )
-                        .unwrap();
-                    }
-
-                    if lhs.y_size > common_y {
-                        out_coeffs[out_start + common_y..out_start + lhs.y_size]
-                            .copy(&lhs_coeffs[lhs_start + common_y..lhs_start + lhs.y_size])
-                            .unwrap();
-                    }
-
-                    if rhs.y_size > common_y {
-                        let out_tail =
-                            &mut out_coeffs[out_start + common_y..out_start + rhs.y_size];
-                        let rhs_tail = &rhs_coeffs[rhs_start + common_y..rhs_start + rhs.y_size];
-                        if add {
-                            out_tail.copy(rhs_tail).unwrap();
-                        } else {
-                            ScalarCfg::scalar_sub(zero_slice, rhs_tail, out_tail, &cfg_vec_ops)
-                                .unwrap();
-                        }
-                    }
-                }
-                (true, false) => {
-                    let lhs_start = row * lhs.y_size;
-                    out_coeffs[out_start..out_start + lhs.y_size]
-                        .copy(&lhs_coeffs[lhs_start..lhs_start + lhs.y_size])
-                        .unwrap();
-                }
-                (false, true) => {
-                    let rhs_start = row * rhs.y_size;
-                    let out_row = &mut out_coeffs[out_start..out_start + rhs.y_size];
-                    let rhs_row = &rhs_coeffs[rhs_start..rhs_start + rhs.y_size];
-                    if add {
-                        out_row.copy(rhs_row).unwrap();
-                    } else {
-                        ScalarCfg::scalar_sub(zero_slice, rhs_row, out_row, &cfg_vec_ops).unwrap();
-                    }
-                }
-                (false, false) => {}
-            }
-        }
+        let out_t = Self::add_sub_same_stride(&lhs_t, &rhs_t, add, "transpose");
         #[cfg(feature = "timing")]
         record_detail_step(
             if add {
-                "add_rowwise_vec_ops"
+                "add_transpose_add_sub"
             } else {
-                "sub_rowwise_vec_ops"
+                "sub_transpose_add_sub"
             },
             step_start,
-            "target",
-            vec![target_x_size, target_y_size],
+            "transposed_target",
+            vec![out_t.x_size, out_t.y_size],
         );
 
         #[cfg(feature = "timing")]
         let step_start = Instant::now();
-        let out = DensePolynomialExt::from_coeffs(&out_coeffs, target_x_size, target_y_size);
+        let out = out_t.transpose_coeffs();
         #[cfg(feature = "timing")]
         record_detail_step(
             if add {
-                "add_rowwise_construct_result"
+                "add_transpose_output"
             } else {
-                "sub_rowwise_construct_result"
+                "sub_transpose_output"
             },
             step_start,
             "target",
-            vec![target_x_size, target_y_size],
+            vec![out.x_size, out.y_size],
         );
         out
+    }
+
+    fn add_sub_y_aligned(lhs: &Self, rhs: &Self, add: bool) -> Self {
+        let target_y_size = cmp::max(lhs.y_size, rhs.y_size);
+
+        #[cfg(feature = "timing")]
+        let step_start = Instant::now();
+        let mut lhs_ext = lhs.clone();
+        let mut rhs_ext = rhs.clone();
+        if lhs_ext.y_size != target_y_size {
+            lhs_ext.resize(lhs_ext.x_size, target_y_size);
+        }
+        if rhs_ext.y_size != target_y_size {
+            rhs_ext.resize(rhs_ext.x_size, target_y_size);
+        }
+        #[cfg(feature = "timing")]
+        record_detail_step(
+            if add {
+                "add_y_align_resize"
+            } else {
+                "sub_y_align_resize"
+            },
+            step_start,
+            "target_y",
+            vec![target_y_size],
+        );
+
+        Self::add_sub_same_stride(&lhs_ext, &rhs_ext, add, "y_align")
     }
 }
 

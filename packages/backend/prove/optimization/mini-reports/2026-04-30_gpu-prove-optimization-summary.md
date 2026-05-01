@@ -23,6 +23,7 @@ This report summarizes the CUDA prove optimization experiments performed on the 
 | `timing.remote.poly-comb-algebraic.cuda.json` | 27.490122 s | 0.734930 s | 9.541593 s | 0.286616 s | 0.055128 s |
 | `timing.remote.special-form-products.cuda.json` | 26.709146 s | 0.740477 s | 9.519266 s | 0.284122 s | 0.054744 s |
 | `timing.remote.rowwise-add.cuda.json` | 24.682780 s | 0.748638 s | 7.999111 s | 0.287435 s | 0.056796 s |
+| `timing.remote.transpose-y-align-add.cuda.json` | 22.142922 s | 0.757955 s | 7.409432 s | 0.297708 s | 0.057173 s |
 
 ## Timing Semantics Correction
 
@@ -234,6 +235,44 @@ The largest strict polynomial-combination sites in this run are:
    | `sub_same_stride_icicle_sub` | 0.009495 s |
 
    The row-wise vector operations still take several seconds in aggregate, but they replace an even more expensive resize-heavy add/sub path. This is the first accepted `DensePolynomialExt` wrapper-level optimization after the special-form product work.
+
+8. **Transpose/y-align add-sub strategy was accepted.**
+
+   The row-wise implementation still had a bad case when `x_size` matched but `y_size` differed. In that shape, the output can be computed more efficiently by transposing both operands, using the same-`y_size` ICICLE polynomial add/sub path, and transposing the result back. For shapes where both `x_size` and `y_size` differ, the accepted implementation aligns only `y_size` to the larger row stride, then uses the same-`y_size` direct path instead of issuing row-prefix vector operations for every row.
+
+   The final strategy is:
+
+   - same `y_size`: keep the direct ICICLE polynomial add/sub path;
+   - same `x_size`, different `y_size`: transpose inputs, use the direct path, transpose output back;
+   - both dimensions differ: align only `y_size`, then use the direct path.
+
+   A 120-sample CUDA unit benchmark with `lhs=4096x256`, `same_y_rhs=2048x256`, `x_same_y_mismatch_rhs=4096x128`, and `both_mismatch_rhs=2048x128` produced:
+
+   | case | mean | median | p95 |
+   | --- | ---: | ---: | ---: |
+   | same-y add | 0.001287 s | 0.001286 s | 0.001293 s |
+   | same-y sub | 0.001286 s | 0.001286 s | 0.001291 s |
+   | x-same/y-mismatch add | 0.015625 s | 0.015623 s | 0.015641 s |
+   | x-same/y-mismatch sub | 0.015629 s | 0.015625 s | 0.015650 s |
+   | both-mismatch add | 0.006631 s | 0.006614 s | 0.006722 s |
+   | both-mismatch sub | 0.006602 s | 0.006591 s | 0.006691 s |
+
+   The previous row-wise benchmark measured the x-same/y-mismatch case at about `0.092494 s` for add and `0.092209 s` for sub, so transpose reduces that isolated path by roughly `6x`.
+
+   Measurement against `timing.remote.rowwise-add.cuda.json`:
+
+   | metric | row-wise add/sub | transpose/y-align | delta |
+   | --- | ---: | ---: | ---: |
+   | total wall | 24.682780 s | 22.142922 s | -2.539858 s |
+   | category `poly` | 16.793361 s | 14.249268 s | -2.544092 s |
+   | pure MSM encode | 1.278846 s | 1.264790 s | -0.014056 s |
+   | `poly.combine` | 12.193201 s | 9.620149 s | -2.573053 s |
+   | `poly.add` | 0.573025 s | 0.567460 s | -0.005566 s |
+   | `div_by_ruffini` | 1.539355 s | 1.553265 s | +0.013910 s |
+   | `div_by_vanishing_opt` | 1.334533 s | 1.335131 s | +0.000598 s |
+   | `prove0.total` | 5.186830 s | 4.106111 s | -1.080720 s |
+   | `prove2.total` | 9.086046 s | 8.212712 s | -0.873335 s |
+   | `prove4.total` | 7.999111 s | 7.409432 s | -0.589679 s |
 
 ## Diagnostic Timing
 
@@ -494,15 +533,15 @@ The experiments below were either rolled back from the branch or kept only as di
 
 ## Current Accepted Baseline
 
-The current accepted CUDA baseline is `timing.remote.rowwise-add.cuda.json`:
+The current accepted CUDA baseline is `timing.remote.transpose-y-align-add.cuda.json`:
 
-- total wall: `24.682780 s`
-- init: `0.748638 s`
-- prove4: `7.999111 s`
-- uvwXY: `0.287435 s`
-- s0/s1: `0.056796 s`
-- pure MSM encode total: `1.278846 s`
-- pure vanishing division total: `1.334533 s`
-- polynomial combination total: `12.193201 s`
+- total wall: `22.142922 s`
+- init: `0.757955 s`
+- prove4: `7.409432 s`
+- uvwXY: `0.297708 s`
+- s0/s1: `0.057173 s`
+- pure MSM encode total: `1.264790 s`
+- pure vanishing division total: `1.335131 s`
+- polynomial combination total: `9.620149 s`
 
-Future optimization should continue to focus on `DensePolynomialExt` wrapper-level costs rather than more algebraic polynomial-multiplication reduction. The next higher-value targets are reducing row-wise add/sub vector-op count, reducing intermediate-polynomial materialization, and revisiting monomial-shift paths. Pure MSM encoding and pure vanishing division are not the dominant costs under the strict timing view.
+Future optimization should continue to focus on `DensePolynomialExt` wrapper-level costs rather than more algebraic polynomial-multiplication reduction. The next higher-value targets are reducing remaining y-alignment resize cost, reducing intermediate-polynomial materialization, and revisiting monomial-shift paths. Pure MSM encoding and pure vanishing division are not the dominant costs under the strict timing view.

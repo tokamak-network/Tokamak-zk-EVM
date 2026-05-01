@@ -403,6 +403,41 @@ mod tests {
         assert_eq!(result.get_coeff(1, 1), ScalarField::from_u32(4));
     }
 
+    #[test]
+    fn test_add_same_x_size_mismatched_y_size() {
+        let lhs_coeffs = vec![
+            ScalarField::from_u32(1),
+            ScalarField::from_u32(2),
+            ScalarField::from_u32(3),
+            ScalarField::from_u32(4),
+        ];
+        let rhs_coeffs = vec![
+            ScalarField::from_u32(10),
+            ScalarField::from_u32(20),
+            ScalarField::from_u32(30),
+            ScalarField::from_u32(40),
+            ScalarField::from_u32(50),
+            ScalarField::from_u32(60),
+            ScalarField::from_u32(70),
+            ScalarField::from_u32(80),
+        ];
+        let lhs = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&lhs_coeffs), 2, 2);
+        let rhs = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&rhs_coeffs), 2, 4);
+
+        let result = &lhs + &rhs;
+
+        assert_eq!(result.x_size, 2);
+        assert_eq!(result.y_size, 4);
+        assert_eq!(result.get_coeff(0, 0), ScalarField::from_u32(11));
+        assert_eq!(result.get_coeff(0, 1), ScalarField::from_u32(22));
+        assert_eq!(result.get_coeff(0, 2), ScalarField::from_u32(30));
+        assert_eq!(result.get_coeff(0, 3), ScalarField::from_u32(40));
+        assert_eq!(result.get_coeff(1, 0), ScalarField::from_u32(53));
+        assert_eq!(result.get_coeff(1, 1), ScalarField::from_u32(64));
+        assert_eq!(result.get_coeff(1, 2), ScalarField::from_u32(70));
+        assert_eq!(result.get_coeff(1, 3), ScalarField::from_u32(80));
+    }
+
     fn bench_env_usize(name: &str, default: usize) -> usize {
         env::var(name)
             .ok()
@@ -472,11 +507,17 @@ mod tests {
         let lhs_x = bench_env_usize("DPE_ADD_PATH_BENCH_LHS_X", 4096);
         let lhs_y = bench_env_usize("DPE_ADD_PATH_BENCH_LHS_Y", 256);
         let same_y_rhs_x = bench_env_usize("DPE_ADD_PATH_BENCH_SAME_Y_RHS_X", lhs_x / 2);
-        let mismatch_y_rhs_x = bench_env_usize("DPE_ADD_PATH_BENCH_MISMATCH_Y_RHS_X", lhs_x);
-        let mismatch_y_rhs_y = bench_env_usize("DPE_ADD_PATH_BENCH_MISMATCH_Y_RHS_Y", lhs_y / 2);
+        let x_same_y_mismatch_rhs_x =
+            bench_env_usize("DPE_ADD_PATH_BENCH_X_SAME_Y_MISMATCH_RHS_X", lhs_x);
+        let x_same_y_mismatch_rhs_y =
+            bench_env_usize("DPE_ADD_PATH_BENCH_X_SAME_Y_MISMATCH_RHS_Y", lhs_y / 2);
+        let both_mismatch_rhs_x =
+            bench_env_usize("DPE_ADD_PATH_BENCH_BOTH_MISMATCH_RHS_X", lhs_x / 2);
+        let both_mismatch_rhs_y =
+            bench_env_usize("DPE_ADD_PATH_BENCH_BOTH_MISMATCH_RHS_Y", lhs_y / 2);
 
         println!(
-            "DPE_ADD_PATH_BENCH_CONFIG device={} samples={} warmup={} lhs={}x{} same_y_rhs={}x{} mismatch_y_rhs={}x{}",
+            "DPE_ADD_PATH_BENCH_CONFIG device={} samples={} warmup={} lhs={}x{} same_y_rhs={}x{} x_same_y_mismatch_rhs={}x{} both_mismatch_rhs={}x{}",
             device,
             samples,
             warmup,
@@ -484,21 +525,30 @@ mod tests {
             lhs_y,
             same_y_rhs_x,
             lhs_y,
-            mismatch_y_rhs_x,
-            mismatch_y_rhs_y
+            x_same_y_mismatch_rhs_x,
+            x_same_y_mismatch_rhs_y,
+            both_mismatch_rhs_x,
+            both_mismatch_rhs_y
         );
 
         let lhs = bench_poly(lhs_x, lhs_y);
         let same_y_rhs = bench_poly(same_y_rhs_x, lhs_y);
-        let mismatch_y_rhs = bench_poly(mismatch_y_rhs_x, mismatch_y_rhs_y);
+        let x_same_y_mismatch_rhs = bench_poly(x_same_y_mismatch_rhs_x, x_same_y_mismatch_rhs_y);
+        let both_mismatch_rhs = bench_poly(both_mismatch_rhs_x, both_mismatch_rhs_y);
 
         measure_binary_op("same_y_add", samples, warmup, || &lhs + &same_y_rhs);
         measure_binary_op("same_y_sub", samples, warmup, || &lhs - &same_y_rhs);
-        measure_binary_op("mismatched_y_add", samples, warmup, || {
-            &lhs + &mismatch_y_rhs
+        measure_binary_op("x_same_y_mismatch_add", samples, warmup, || {
+            &lhs + &x_same_y_mismatch_rhs
         });
-        measure_binary_op("mismatched_y_sub", samples, warmup, || {
-            &lhs - &mismatch_y_rhs
+        measure_binary_op("x_same_y_mismatch_sub", samples, warmup, || {
+            &lhs - &x_same_y_mismatch_rhs
+        });
+        measure_binary_op("both_mismatch_add", samples, warmup, || {
+            &lhs + &both_mismatch_rhs
+        });
+        measure_binary_op("both_mismatch_sub", samples, warmup, || {
+            &lhs - &both_mismatch_rhs
         });
     }
 
