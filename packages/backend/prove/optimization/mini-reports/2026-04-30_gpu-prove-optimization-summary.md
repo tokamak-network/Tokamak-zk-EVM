@@ -10,6 +10,8 @@ This report summarizes the CUDA prove optimization experiments performed on the 
 | --- | ---: | ---: | ---: | ---: | ---: |
 | `timing.remote.cuda.json` | 62.418158 s | 32.020607 s | 9.923205 s | 30.420833 s | 1.198673 s |
 | `timing.remote.hybrid-sparse-uvw.cuda.json` | 39.731573 s | 8.815259 s | 10.106856 s | 7.209468 s | 1.204926 s |
+| `timing.remote.hybrid-sparse-uvw.profile.cuda.json` | 39.811035 s | 8.908786 s | 10.165279 s | 7.297586 s | 1.203952 s |
+| `timing.remote.uvwxy-phases.cuda.json` | 39.401807 s | 8.638872 s | 10.131624 s | 7.042534 s | 1.203305 s |
 | `timing.remote.r1cs-binary-sparse.cuda.json` | 32.728363 s | 1.889289 s | 10.128410 s | 0.282576 s | 1.206917 s |
 | `timing.remote.s0s1-pow-cache.cuda.json` | 31.712050 s | 0.748165 s | 10.152243 s | 0.286227 s | 0.057586 s |
 | `timing.remote.fused-poly-lc.cuda.json` | 32.072216 s | 0.736439 s | 10.430511 s | 0.288673 s | 0.054418 s |
@@ -303,6 +305,74 @@ The largest strict polynomial-combination sites in this run are:
 
 ## Diagnostic Timing
 
+### Early baseline and scope notes
+
+`timing.release.json` is an older local release-mode timing artifact from before the CUDA optimization sequence. It uses a smaller setup (`n = 2048`, `l = 512`, `l_D = 2560`) than the current optimization benchmark (`n = 4096`, `l = 728`, `l_D = 4824`), so it is not included in the main comparable reference table. It remains useful only as historical context for the earlier CPU-oriented prove work.
+
+The first comparable CUDA baseline for this sequence is `timing.remote.cuda.json`, and the first comparable local CPU baseline is `timing.local.cpu.json`.
+
+| artifact | setup | total wall | primary use |
+| --- | --- | ---: | --- |
+| `timing.release.json` | smaller historical setup | 27.908515 s | historical CPU/release context only |
+| `timing.local.cpu.json` | current setup | 65.271813 s | current local CPU baseline |
+| `timing.remote.cuda.json` | current setup | 62.418158 s | first current CUDA baseline |
+
+### uvwXY and R1CS preload diagnostics
+
+The sparse uvwXY work had a separate diagnostic phase before the `.r1cs` binary sparse loader was implemented. `timing.remote.hybrid-sparse-uvw.profile.cuda.json` and `timing.remote.uvwxy-phases.cuda.json` were diagnostic runs on top of the sparse uvwXY code. They should not be treated as separate accepted optimization steps; they explain why the next accepted change targeted R1CS loading rather than sparse evaluation or ICICLE interpolation.
+
+`timing.remote.uvwxy-phases.cuda.json` broke `init.build.witness.uvwXY = 7.042533877 s` into explicit phases:
+
+| uvwXY phase group | time |
+| --- | ---: |
+| `r1cs_preload_json_compact` | 6.596908019 s |
+| CPU/Rayon sparse evaluation | 0.126869271 s |
+| CPU transpose | 0.065818675 s |
+| GPU/ICICLE `from_rou_evals` for U/V/W | 0.039413306 s |
+| cleanup local buffers | 0.180513704 s |
+| function total | 7.042530659 s |
+
+The same run then split `r1cs_preload_json_compact` by subcircuit construction step:
+
+| R1CS preload phase | time |
+| --- | ---: |
+| `read_from_json` | 0.022028089 s |
+| `convert_values_to_hex` | 0.020732468 s |
+| `alloc_compact_sparse` | 1.869133011 s |
+| `fill_compact_sparse` | 0.973896956 s |
+| `transpose_compact` | 3.700983068 s |
+| per-subcircuit total sum | 6.592061085 s |
+
+This showed that JSON parsing and decimal-to-hex conversion were not the bottleneck. The bottleneck was legacy compact dense/sparse matrix allocation and transpose work. That finding led directly to the accepted binary `.r1cs` sparse preload in `timing.remote.r1cs-binary-sparse.cuda.json`, where `r1cs_preload_sparse` dropped to `0.013192856 s`.
+
+### DPE add/sub path microbenchmarks
+
+The add/sub shape-handling work used three CUDA microbenchmark logs before and after full prove timing:
+
+| artifact | purpose |
+| --- | --- |
+| `timing.remote.dpe-add-paths.cuda.log` | measured direct same-`y_size` add/sub versus the original mismatched-`y_size` path |
+| `timing.remote.dpe-add-paths-transpose.cuda.log` | measured the accepted transpose strategy for same-`x_size`, different-`y_size` operands |
+| `timing.remote.dpe-add-paths-y-align.cuda.log` | measured the rejected y-align-only alternative |
+
+The initial microbenchmark showed why the generic mismatched-`y_size` path was worth replacing:
+
+| case | mean |
+| --- | ---: |
+| same-y add | 0.001285442 s |
+| same-y sub | 0.001285515 s |
+| mismatched-y add | 0.092493581 s |
+| mismatched-y sub | 0.092209181 s |
+
+The transpose strategy was then selected because it was faster for the same-`x_size`, different-`y_size` case, while y-align-only was faster only for the both-mismatched case and lost in full prove timing:
+
+| case | transpose strategy mean | y-align-only mean |
+| --- | ---: | ---: |
+| x-same/y-mismatch add | 0.015624757 s | 0.021704167 s |
+| x-same/y-mismatch sub | 0.015628761 s | 0.021765366 s |
+| both-mismatch add | 0.006631034 s | 0.005999017 s |
+| both-mismatch sub | 0.006602347 s | 0.005984769 s |
+
 ### Polynomial-combination detail timing
 
 `timing.remote.poly-comb-detail.cuda.json` is a diagnostic run on top of the accepted algebraic-combination code. It adds nested `poly_detail` events while a `poly.combine.*` span is active. These detail events are excluded from the normal `poly` totals to avoid double-counting, and the run should not be used as the accepted performance baseline because the additional timing records add measurement overhead.
@@ -409,7 +479,7 @@ The experiments below were either rolled back from the branch or kept only as di
 
 | experiment | artifact or commit | decision |
 | --- | --- | --- |
-| host round-trip / small memory movement | no retained artifact | rejected by project direction |
+| host round-trip / small memory movement | commit `87ef98b4`, reverted by `34ff57f5` | rejected by project direction |
 | fused polynomial linear combination | `timing.remote.fused-poly-lc.cuda.json` | rolled back |
 | generic `lagrange_K0_XY` replacement | included in `timing.remote.special-poly-mul.cuda.json` | excluded from accepted special-form products |
 | host-loop special multiplication helpers | `timing.remote.special-poly-mul-lite.cuda.json` | removed |
@@ -422,7 +492,7 @@ The experiments below were either rolled back from the branch or kept only as di
 
 1. **Host round-trip and small memory-movement optimizations were not adopted.**
 
-   These changes were rejected by project direction: optimization should be limited to logic changes rather than small memory-transfer techniques. The branch was restored away from that line of work.
+   Commit `87ef98b4` tested avoiding a host round-trip in the polynomial eval NTT input path and produced a removed diagnostic artifact, `timing.remote.hybrid-sparse-uvw.device-copy.cuda.json`. The measured total was `39.084502 s`, compared with nearby sparse-uvw CUDA runs around `39.4-39.8 s`, but the change was outside the accepted optimization direction. The project direction for this pass was to prefer logic changes over small memory-transfer techniques, so the experiment was reverted by `34ff57f5` and the artifact was removed from the current tree.
 
 2. **Broad fused polynomial linear combination was tested and rejected.**
 
