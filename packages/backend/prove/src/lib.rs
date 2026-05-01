@@ -39,6 +39,84 @@ macro_rules! poly_comb {
         }};
     }
 
+fn low_degree_x_times_vanishing(coeffs: &[ScalarField], exponent: usize) -> DensePolynomialExt {
+    assert!(exponent > 0);
+    let x_size = (exponent + coeffs.len()).next_power_of_two();
+    let mut out = vec![ScalarField::zero(); x_size];
+    for (idx, coeff) in coeffs.iter().enumerate() {
+        out[idx] = out[idx] - *coeff;
+        out[idx + exponent] = out[idx + exponent] + *coeff;
+    }
+    DensePolynomialExt::from_coeffs(HostSlice::from_slice(&out), x_size, 1)
+}
+
+fn low_degree_y_times_vanishing(coeffs: &[ScalarField], exponent: usize) -> DensePolynomialExt {
+    assert!(exponent > 0);
+    let y_size = (exponent + coeffs.len()).next_power_of_two();
+    let mut out = vec![ScalarField::zero(); y_size];
+    for (idx, coeff) in coeffs.iter().enumerate() {
+        out[idx] = out[idx] - *coeff;
+        out[idx + exponent] = out[idx + exponent] + *coeff;
+    }
+    DensePolynomialExt::from_coeffs(HostSlice::from_slice(&out), 1, y_size)
+}
+
+fn mul_by_x_minus_one(poly: &DensePolynomialExt) -> DensePolynomialExt {
+    let shifted = poly.mul_monomial(1, 0);
+    &shifted - poly
+}
+
+fn mul_by_one_minus_x(poly: &DensePolynomialExt) -> DensePolynomialExt {
+    let shifted = poly.mul_monomial(1, 0);
+    poly - &shifted
+}
+
+fn mul_by_linear_x(poly: &DensePolynomialExt, coeffs: &[ScalarField]) -> DensePolynomialExt {
+    assert_eq!(coeffs.len(), 2);
+    let base = poly * &coeffs[0];
+    let shifted = poly.mul_monomial(1, 0);
+    let shifted_scaled = &shifted * &coeffs[1];
+    &base + &shifted_scaled
+}
+
+fn mul_by_linear_y(poly: &DensePolynomialExt, coeffs: &[ScalarField]) -> DensePolynomialExt {
+    assert_eq!(coeffs.len(), 2);
+    let base = poly * &coeffs[0];
+    let shifted = poly.mul_monomial(0, 1);
+    let shifted_scaled = &shifted * &coeffs[1];
+    &base + &shifted_scaled
+}
+
+fn mul_by_sparse_const_x_y(
+    poly: &DensePolynomialExt,
+    constant: &ScalarField,
+    x_coeff: &ScalarField,
+    y_coeff: &ScalarField,
+) -> DensePolynomialExt {
+    let base = poly * constant;
+    let shifted_x = poly.mul_monomial(1, 0);
+    let shifted_x_scaled = &shifted_x * x_coeff;
+    let shifted_y = poly.mul_monomial(0, 1);
+    let shifted_y_scaled = &shifted_y * y_coeff;
+    let partial = &base + &shifted_x_scaled;
+    &partial + &shifted_y_scaled
+}
+
+fn mul_by_term9(
+    poly: &DensePolynomialExt,
+    rB_X: &[ScalarField],
+    rB_Y: &[ScalarField],
+    t_mi_eval: &ScalarField,
+    t_smax_eval: &ScalarField,
+) -> DensePolynomialExt {
+    assert_eq!(rB_X.len(), 2);
+    assert_eq!(rB_Y.len(), 2);
+    let constant = (*t_mi_eval * rB_X[0]) + (*t_smax_eval * rB_Y[0]);
+    let x_coeff = *t_mi_eval * rB_X[1];
+    let y_coeff = *t_smax_eval * rB_Y[1];
+    mul_by_sparse_const_x_y(poly, &constant, &x_coeff, &y_coeff)
+}
+
 #[cfg(feature = "timing")]
 #[macro_export]
 macro_rules! time_block {
@@ -1202,7 +1280,11 @@ impl Prover {
                 {
                     // Original expression:
                     // W = wXY + rW_X * t_n + rW_Y * t_smax.
-                    let W_zk = &(&rW_X * &self.instance.t_n) + &(&rW_Y * &self.instance.t_smax);
+                    let rW_X_t_n =
+                        low_degree_x_times_vanishing(&self.mixer.rW_X, self.setup_params.n);
+                    let rW_Y_t_smax =
+                        low_degree_y_times_vanishing(&self.mixer.rW_Y, self.setup_params.s_max);
+                    let W_zk = &rW_X_t_n + &rW_Y_t_smax;
                     self.cache.w_zk = Some(W_zk.clone());
                     &self.witness.wXY + &W_zk
                 }
@@ -1299,16 +1381,6 @@ impl Prover {
         drop(rW_Y);
 
         let B = {
-            let rB_X = DensePolynomialExt::from_coeffs(
-                HostSlice::from_slice(&self.mixer.rB_X),
-                self.mixer.rB_X.len(),
-                1,
-            );
-            let rB_Y = DensePolynomialExt::from_coeffs(
-                HostSlice::from_slice(&self.mixer.rB_Y),
-                1,
-                self.mixer.rB_Y.len(),
-            );
             let mut BXY = crate::time_block!(
                 "poly.combine.prove0.B",
                 "poly",
@@ -1319,8 +1391,13 @@ impl Prover {
                 {
                     // Original expression:
                     // B = bXY + rB_X * t_mi + rB_Y * t_smax.
-                    let term_B_zk =
-                        &(&rB_X * &self.instance.t_mi) + &(&rB_Y * &self.instance.t_smax);
+                    let rB_X_t_mi = low_degree_x_times_vanishing(
+                        &self.mixer.rB_X,
+                        self.setup_params.l_D - self.setup_params.l,
+                    );
+                    let rB_Y_t_smax =
+                        low_degree_y_times_vanishing(&self.mixer.rB_Y, self.setup_params.s_max);
+                    let term_B_zk = &rB_X_t_mi + &rB_Y_t_smax;
                     self.cache.term_b_zk = Some(term_B_zk.clone());
                     &self.witness.bXY + &term_B_zk
                 }
@@ -1684,7 +1761,7 @@ impl Prover {
                 // Original expression:
                 // p2XY = (X - 1) * (r_gXY - r_omegaX * fXY).
                 let p2_input = &r_gXY - &(&r_omegaX * &fXY);
-                let p2XY = &(&X_mono - &ScalarField::one()) * &p2_input;
+                let p2XY = mul_by_x_minus_one(&p2_input);
                 let p3XY = &lagrange_K0_XY * &(&r_gXY - &(&r_omegaX_omegaY * &fXY));
 
                 poly_comb!(
@@ -1733,11 +1810,6 @@ impl Prover {
         drop(fXY);
 
         let Q_CX: G1serde = {
-            let rB_X = DensePolynomialExt::from_coeffs(
-                HostSlice::from_slice(&self.mixer.rB_X),
-                self.mixer.rB_X.len(),
-                1,
-            );
             let mut Q_CX_XY = crate::time_block!(
                 "poly.combine.prove2.Q_CX",
                 "poly",
@@ -1751,13 +1823,15 @@ impl Prover {
                     // and
                     // (rB_X * K0) * r_D2 + (rR_X * K0) * g_D.
                     // Factor the common left polynomial in each branch.
-                    let d1_comb = &(&rB_X * &r_D1) + &(&self.mixer.rR_X * &g_D);
-                    let d2_comb = &(&rB_X * &r_D2) + &(&self.mixer.rR_X * &g_D);
-                    let x_minus_one = &X_mono - &ScalarField::one();
+                    let rB_X_r_D1 = mul_by_linear_x(&r_D1, &self.mixer.rB_X);
+                    let rB_X_r_D2 = mul_by_linear_x(&r_D2, &self.mixer.rB_X);
+                    let d1_comb = &rB_X_r_D1 + &(&self.mixer.rR_X * &g_D);
+                    let d2_comb = &rB_X_r_D2 + &(&self.mixer.rR_X * &g_D);
+                    let x_minus_one_d1_comb = mul_by_x_minus_one(&d1_comb);
                     poly_comb!(
                         (ScalarField::one(), self.quotients.q2XY),
                         (self.mixer.rR_X, lagrange_KL_XY),
-                        (kappa0, &x_minus_one * &d1_comb),
+                        (kappa0, x_minus_one_d1_comb),
                         (kappa0_sq, &lagrange_K0_XY * &d2_comb)
                     )
                 }
@@ -1780,11 +1854,6 @@ impl Prover {
         };
 
         let Q_CY: G1serde = {
-            let rB_Y = DensePolynomialExt::from_coeffs(
-                HostSlice::from_slice(&self.mixer.rB_Y),
-                1,
-                self.mixer.rB_Y.len(),
-            );
             let mut Q_CY_XY = crate::time_block!(
                 "poly.combine.prove2.Q_CY",
                 "poly",
@@ -1798,13 +1867,15 @@ impl Prover {
                     // and
                     // (rB_Y * K0) * r_D2 + (rR_Y * K0) * g_D.
                     // Factor the common left polynomial in each branch.
-                    let d1_comb = &(&rB_Y * &r_D1) + &(&self.mixer.rR_Y * &g_D);
-                    let d2_comb = &(&rB_Y * &r_D2) + &(&self.mixer.rR_Y * &g_D);
-                    let x_minus_one = &X_mono - &ScalarField::one();
+                    let rB_Y_r_D1 = mul_by_linear_y(&r_D1, &self.mixer.rB_Y);
+                    let rB_Y_r_D2 = mul_by_linear_y(&r_D2, &self.mixer.rB_Y);
+                    let d1_comb = &rB_Y_r_D1 + &(&self.mixer.rR_Y * &g_D);
+                    let d2_comb = &rB_Y_r_D2 + &(&self.mixer.rR_Y * &g_D);
+                    let x_minus_one_d1_comb = mul_by_x_minus_one(&d1_comb);
                     poly_comb!(
                         (ScalarField::one(), self.quotients.q3XY),
                         (self.mixer.rR_Y, lagrange_KL_XY),
-                        (kappa0, &x_minus_one * &d1_comb),
+                        (kappa0, x_minus_one_d1_comb),
                         (kappa0_sq, &lagrange_K0_XY * &d2_comb)
                     )
                 }
@@ -1983,7 +2054,11 @@ impl Prover {
                 let W_zk = self.cache.w_zk.clone().unwrap_or_else(|| {
                     // Fallback for non-standard call order. Original cached expression:
                     // W_zk = rW_X * t_n + rW_Y * t_smax.
-                    &(&rW_X * &self.instance.t_n) + &(&rW_Y * &self.instance.t_smax)
+                    let rW_X_t_n =
+                        low_degree_x_times_vanishing(&self.mixer.rW_X, self.setup_params.n);
+                    let rW_Y_t_smax =
+                        low_degree_y_times_vanishing(&self.mixer.rW_Y, self.setup_params.s_max);
+                    &rW_X_t_n + &rW_Y_t_smax
                 });
 
                 let VXY = crate::time_block!(
@@ -2510,43 +2585,23 @@ impl Prover {
                     },],
                     { r_D2.eval(&chi, &zeta) }
                 );
-                let (term9, term_B_zk) = {
-                    let rB_X = DensePolynomialExt::from_coeffs(
-                        HostSlice::from_slice(&self.mixer.rB_X),
-                        self.mixer.rB_X.len(),
-                        1,
-                    );
-                    let rB_Y = DensePolynomialExt::from_coeffs(
-                        HostSlice::from_slice(&self.mixer.rB_Y),
-                        1,
-                        self.mixer.rB_Y.len(),
-                    );
-                    let term9 = crate::time_block!(
-                        "poly.combine.prove4.term9",
+                let term_B_zk = self.cache.term_b_zk.clone().unwrap_or_else(|| {
+                    crate::time_block!(
+                        "poly.combine.prove4.term_B_zk",
                         "poly",
                         vec![crate::timing::SizeInfo {
                             label: "rB",
                             dims: vec![m_i, s_max]
                         },],
-                        { &(&t_mi_eval * &rB_X) + &(&t_s_max_eval * &rB_Y) }
-                    );
-                    let term_B_zk = self.cache.term_b_zk.clone().unwrap_or_else(|| {
-                        crate::time_block!(
-                            "poly.combine.prove4.term_B_zk",
-                            "poly",
-                            vec![crate::timing::SizeInfo {
-                                label: "rB",
-                                dims: vec![m_i, s_max]
-                            },],
-                            {
-                                // Fallback for non-standard call order. Original expression:
-                                // term_B_zk = rB_X * t_mi + rB_Y * t_smax.
-                                &(&rB_X * &self.instance.t_mi) + &(&rB_Y * &self.instance.t_smax)
-                            }
-                        )
-                    });
-                    (term9, term_B_zk)
-                };
+                        {
+                            // Fallback for non-standard call order. Original expression:
+                            // term_B_zk = rB_X * t_mi + rB_Y * t_smax.
+                            let rB_X_t_mi = low_degree_x_times_vanishing(&self.mixer.rB_X, m_i);
+                            let rB_Y_t_smax = low_degree_y_times_vanishing(&self.mixer.rB_Y, s_max);
+                            &rB_X_t_mi + &rB_Y_t_smax
+                        }
+                    )
+                });
                 let g_minus_f = crate::time_block!(
                     "poly.add.prove4.g_minus_f",
                     "poly",
@@ -2577,10 +2632,20 @@ impl Prover {
                         {
                             // Original expression:
                             // (1 - X) * (r_D1 * term9) + (chi - X) * term10.
+                            // Use chi - X = (1 - X) + (chi - 1).
+                            let r_D1_term9 = mul_by_term9(
+                                &r_D1,
+                                &self.mixer.rB_X,
+                                &self.mixer.rB_Y,
+                                &t_mi_eval,
+                                &t_s_max_eval,
+                            );
+                            let r_d1_term9_plus_term10 = &r_D1_term9 + &term10;
+                            let one_minus_x_times = mul_by_one_minus_x(&r_d1_term9_plus_term10);
                             poly_comb!(
                                 ((chi - ScalarField::one()) * r_D1_eval, term_B_zk),
-                                (&ScalarField::one() - &X_mono, &r_D1 * &term9),
-                                (term10, (&chi - &X_mono))
+                                (ScalarField::one(), one_minus_x_times),
+                                (chi - ScalarField::one(), term10)
                             )
                         }
                     ),
@@ -2594,10 +2659,22 @@ impl Prover {
                         {
                             // Original expression:
                             // (K0 * r_D2) * (-term9) + term10 * (K0_eval - K0).
+                            // Factor K0 after expanding the scalar part.
+                            let r_D2_term9 = mul_by_term9(
+                                &r_D2,
+                                &self.mixer.rB_X,
+                                &self.mixer.rB_Y,
+                                &t_mi_eval,
+                                &t_s_max_eval,
+                            );
+                            let r_d2_term9_plus_term10 = &r_D2_term9 + &term10;
                             poly_comb!(
                                 (lagrange_K0_eval * r_D2_eval, term_B_zk),
-                                (&lagrange_K0_XY * &r_D2, -&term9),
-                                (term10, &lagrange_K0_eval - &lagrange_K0_XY)
+                                (lagrange_K0_eval, term10),
+                                (
+                                    ScalarField::zero() - ScalarField::one(),
+                                    &lagrange_K0_XY * &r_d2_term9_plus_term10
+                                )
                             )
                         }
                     ),
