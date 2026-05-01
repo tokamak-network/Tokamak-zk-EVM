@@ -17,6 +17,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },  
@@ -40,6 +41,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },  
@@ -65,6 +67,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },  
@@ -87,6 +90,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
@@ -109,6 +113,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
@@ -133,6 +138,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
@@ -159,6 +165,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
@@ -183,6 +190,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
@@ -207,6 +215,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
@@ -233,6 +242,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
@@ -283,6 +293,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
@@ -311,6 +322,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
@@ -339,6 +351,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
