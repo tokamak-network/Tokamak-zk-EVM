@@ -455,9 +455,86 @@ impl Sub for &DensePolynomialExt {
     type Output = DensePolynomialExt;
 
     fn sub(self: Self, rhs: Self) -> Self::Output {
-        let minus_one = ScalarField::zero() - ScalarField::one();
-        let neg_rhs = rhs * &minus_one;
-        self + &neg_rhs
+        #[cfg(feature = "timing")]
+        let timing_start = Instant::now();
+        if self.x_size != rhs.x_size || self.y_size != rhs.y_size {
+            let out = DensePolynomialExt::add_sub_no_resize(self, rhs, false);
+            #[cfg(feature = "timing")]
+            record_detail(
+                "addition",
+                timing_start.elapsed(),
+                vec![SizeInfo {
+                    label: "result",
+                    dims: vec![out.x_size, out.y_size],
+                }],
+            );
+            return out;
+        }
+        #[cfg(feature = "timing")]
+        let step_start = Instant::now();
+        let mut lhs_ext = self.clone();
+        let mut rhs_ext = rhs.clone();
+        #[cfg(feature = "timing")]
+        record_detail_step(
+            "sub_clone_operands",
+            step_start,
+            "lhs_rhs",
+            vec![self.x_size, self.y_size, rhs.x_size, rhs.y_size],
+        );
+        if self.x_size != rhs.x_size || self.y_size != rhs.y_size {
+            #[cfg(feature = "timing")]
+            let step_start = Instant::now();
+            let target_x_size = cmp::max(self.x_size, rhs.x_size);
+            let target_y_size = cmp::max(self.y_size, rhs.y_size);
+            lhs_ext.resize(target_x_size, target_y_size);
+            rhs_ext.resize(target_x_size, target_y_size);
+            #[cfg(feature = "timing")]
+            record_detail_step(
+                "sub_resize_operands",
+                step_start,
+                "target",
+                vec![target_x_size, target_y_size],
+            );
+        }
+        #[cfg(feature = "timing")]
+        let step_start = Instant::now();
+        let out_poly = &lhs_ext.poly - &rhs_ext.poly;
+        #[cfg(feature = "timing")]
+        record_detail_step(
+            "sub_icicle_sub",
+            step_start,
+            "operands",
+            vec![lhs_ext.x_size, lhs_ext.y_size],
+        );
+        #[cfg(feature = "timing")]
+        let step_start = Instant::now();
+        let x_size = lhs_ext.x_size;
+        let y_size = lhs_ext.y_size;
+        //let (x_degree, y_degree) = DensePolynomialExt::find_degree(&out_poly, x_size, y_size);
+        let out = DensePolynomialExt {
+            poly: out_poly,
+            x_degree: x_size as i64 - 1,
+            y_degree: y_size as i64 - 1,
+            x_size,
+            y_size,
+        };
+        #[cfg(feature = "timing")]
+        record_detail_step(
+            "sub_construct_result",
+            step_start,
+            "result",
+            vec![out.x_size, out.y_size],
+        );
+        #[cfg(feature = "timing")]
+        record_detail(
+            "addition",
+            timing_start.elapsed(),
+            vec![SizeInfo {
+                label: "result",
+                dims: vec![out.x_size, out.y_size],
+            }],
+        );
+        out
     }
 }
 
