@@ -27,6 +27,7 @@ This report summarizes the CUDA prove optimization experiments performed on the 
 | `timing.remote.rowwise-add.cuda.json` | 24.682780 s | 0.748638 s | 7.999111 s | 0.287435 s | 0.056796 s |
 | `timing.remote.transpose-y-align-add.cuda.json` | 22.142922 s | 0.757955 s | 7.409432 s | 0.297708 s | 0.057173 s |
 | `timing.remote.bintt-column-batch-production.cuda.json` | 21.487536 s | 0.715252 s | 7.328582 s | 0.275076 s | 0.043481 s |
+| `timing.remote.no-output-optimize-size.cuda.json` | 20.911589 s | 0.717426 s | 7.280403 s | 0.277400 s | 0.042705 s |
 | `timing.remote.y-align-add.cuda.json` | 22.598682 s | 0.745924 s | 7.484501 s | 0.287162 s | 0.055599 s |
 
 ## Timing Semantics Correction
@@ -302,6 +303,30 @@ The largest strict polynomial-combination sites in this run are:
    | `prove4.total` | 7.409432 s | 7.328582 s | -0.080850 s |
 
    The improvement is concentrated where generic multiplication calls convert bivariate polynomials to and from roots-of-unity evaluations. This matches the expected effect of removing the two transpose operations inside each 2D NTT.
+
+10. **Generic multiplication output shrinking was removed.**
+
+   `Add`, `Sub`, and `AddAssign` outputs already used conservative output dimensions and did not call `optimize_size()`. Generic polynomial multiplication was the remaining arithmetic path that shrank its output immediately after `from_rou_evals`. The accepted change removes that output `optimize_size()` call and keeps the full interpolation shape, matching the ICICLE-style behavior of not shrinking arithmetic results automatically.
+
+   Measurement against `timing.remote.bintt-column-batch-production.cuda.json`:
+
+   | metric | column-batch biNTT | no output optimize-size | delta |
+   | --- | ---: | ---: | ---: |
+   | total wall | 21.487536 s | 20.911589 s | -0.575947 s |
+   | category `poly` | 13.641895 s | 13.057018 s | -0.584877 s |
+   | pure MSM encode | 1.264034 s | 1.266938 s | +0.002904 s |
+   | `poly.combine` | 9.033003 s | 8.465146 s | -0.567858 s |
+   | `poly.add` | 0.572248 s | 0.572200 s | -0.000048 s |
+   | `poly.mul` | 0.007065 s | 0.007091 s | +0.000026 s |
+   | `div_by_vanishing_opt` | 1.337674 s | 1.338748 s | +0.001074 s |
+   | `div_by_ruffini` | 1.531538 s | 1.512296 s | -0.019242 s |
+   | detail `mul_optimize_size` | 0.613358 s | 0.000000 s | -0.613358 s |
+   | detail `multiplication` | 4.377008 s | 3.768690 s | -0.608318 s |
+   | detail `addition` | 2.587236 s | 2.608616 s | +0.021380 s |
+   | `prove2.total` | 7.737301 s | 7.241461 s | -0.495840 s |
+   | `prove4.total` | 7.328582 s | 7.280403 s | -0.048179 s |
+
+   The expected downside, larger downstream arithmetic due to unshrunk multiplication outputs, did not materialize in this benchmark. The small increase in addition detail time was far smaller than the removed output shrink cost.
 
 ## Diagnostic Timing
 
@@ -680,15 +705,15 @@ The experiments below were either rolled back from the branch or kept only as di
 
 ## Current Accepted Baseline
 
-The current accepted CUDA baseline is `timing.remote.bintt-column-batch-production.cuda.json`:
+The current accepted CUDA baseline is `timing.remote.no-output-optimize-size.cuda.json`:
 
-- total wall: `21.487536 s`
-- init: `0.715252 s`
-- prove4: `7.328582 s`
-- uvwXY: `0.275076 s`
-- s0/s1: `0.043481 s`
-- pure MSM encode total: `1.264034 s`
-- pure vanishing division total: `1.337674 s`
-- polynomial combination total: `9.033003 s`
+- total wall: `20.911589 s`
+- init: `0.717426 s`
+- prove4: `7.280403 s`
+- uvwXY: `0.277400 s`
+- s0/s1: `0.042705 s`
+- pure MSM encode total: `1.266938 s`
+- pure vanishing division total: `1.338748 s`
+- polynomial combination total: `8.465146 s`
 
 Future optimization should continue to focus on `DensePolynomialExt` wrapper-level costs rather than more algebraic polynomial-multiplication reduction. The next higher-value targets are reducing remaining y-alignment resize cost, reducing intermediate-polynomial materialization, and revisiting monomial-shift paths. Pure MSM encoding and pure vanishing division are not the dominant costs under the strict timing view.

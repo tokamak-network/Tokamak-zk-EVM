@@ -1846,23 +1846,13 @@ impl BivariatePolynomial for DensePolynomialExt {
 
         #[cfg(feature = "timing")]
         let step_start = Instant::now();
-        let mut res = DensePolynomialExt::from_rou_evals(&out_evals, x_size, y_size, None, None);
+        let res = DensePolynomialExt::from_rou_evals(&out_evals, x_size, y_size, None, None);
         #[cfg(feature = "timing")]
         record_detail_step(
             "mul_from_rou_evals",
             step_start,
             "result",
             vec![x_size, y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
-        res.optimize_size();
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "mul_optimize_size",
-            step_start,
-            "result",
-            vec![res.x_size, res.y_size],
         );
         return res;
     }
