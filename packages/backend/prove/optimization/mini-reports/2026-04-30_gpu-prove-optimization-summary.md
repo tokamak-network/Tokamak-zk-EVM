@@ -28,6 +28,7 @@ This report summarizes the CUDA prove optimization experiments performed on the 
 | `timing.remote.transpose-y-align-add.cuda.json` | 22.142922 s | 0.757955 s | 7.409432 s | 0.297708 s | 0.057173 s |
 | `timing.remote.bintt-column-batch-production.cuda.json` | 21.487536 s | 0.715252 s | 7.328582 s | 0.275076 s | 0.043481 s |
 | `timing.remote.no-output-optimize-size.cuda.json` | 20.911589 s | 0.717426 s | 7.280403 s | 0.277400 s | 0.042705 s |
+| `timing.remote.no-output-optimize-size.repeat.cuda.json` | 21.081848 s | 0.723620 s | 7.371985 s | 0.279887 s | 0.042796 s |
 | `timing.remote.y-align-add.cuda.json` | 22.598682 s | 0.745924 s | 7.484501 s | 0.287162 s | 0.055599 s |
 
 ## Timing Semantics Correction
@@ -327,6 +328,18 @@ The largest strict polynomial-combination sites in this run are:
    | `prove4.total` | 7.328582 s | 7.280403 s | -0.048179 s |
 
    The expected downside, larger downstream arithmetic due to unshrunk multiplication outputs, did not materialize in this benchmark. The small increase in addition detail time was far smaller than the removed output shrink cost.
+
+   A repeat CUDA run, `timing.remote.no-output-optimize-size.repeat.cuda.json`, kept the same direction:
+
+   | metric | column-batch biNTT | first run | repeat run |
+   | --- | ---: | ---: | ---: |
+   | total wall | 21.487536 s | 20.911589 s | 21.081848 s |
+   | `poly.combine` | 9.033003 s | 8.465146 s | 8.482803 s |
+   | detail `mul_optimize_size` | 0.613358 s | 0.000000 s | 0.000000 s |
+   | detail `multiplication` | 4.377008 s | 3.768690 s | 3.791241 s |
+   | detail `addition` | 2.587236 s | 2.608616 s | 2.609731 s |
+
+   The total-wall improvement has normal run-to-run variation (`-0.575947 s` in the first run and `-0.405688 s` in the repeat), but the targeted measurement is stable: the removed `mul_optimize_size` span is about `0.613 s`, and the multiplication-detail total remains about `0.586-0.608 s` lower than the column-batch baseline.
 
 ## Diagnostic Timing
 
