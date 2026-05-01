@@ -5,9 +5,7 @@ mod subcircuit_library;
 use std::io;
 
 fn main() -> io::Result<()> {
-    let out_dir = std::path::PathBuf::from(std::env::var("OUT_DIR").map_err(io::Error::other)?);
-    subcircuit_library::configure_local_subcircuit_library_for_mpc_setup(
-        &out_dir,
+    subcircuit_library::configure_release_subcircuit_library_metadata(
         env!("CARGO_PKG_NAME"),
         env!("CARGO_PKG_VERSION"),
     )?;

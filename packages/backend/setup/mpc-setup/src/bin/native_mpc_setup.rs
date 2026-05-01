@@ -24,7 +24,7 @@ struct Config {
 
 fn main() {
     let config = Config::parse();
-    let qap_path = resolve_subcircuit_library_path(LOCAL_SUBCIRCUIT_LIBRARY_PATH)
+    let qap_path = resolve_subcircuit_library_path(Some(LOCAL_SUBCIRCUIT_LIBRARY_PATH))
         .to_string_lossy()
         .into_owned();
     run_native_mpc_setup(&NativeMpcSetupConfig {
