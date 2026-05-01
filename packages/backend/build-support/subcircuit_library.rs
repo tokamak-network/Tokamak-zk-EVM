@@ -28,12 +28,12 @@ const DIGEST_LIBRARY_FILES: &[&str] = &[
     "subcircuitInfo.json",
 ];
 
-pub struct ResolvedSubcircuitLibrary {
-    pub version: String,
-    pub integrity: String,
-    pub source_digest: String,
-    pub snapshot_dir: PathBuf,
-    pub release_dir: PathBuf,
+struct ResolvedSubcircuitLibrary {
+    version: String,
+    integrity: String,
+    source_digest: String,
+    snapshot_dir: PathBuf,
+    release_dir: PathBuf,
 }
 
 pub fn configure_embedded_release_subcircuit_library(out_dir: &Path) -> io::Result<()> {
@@ -167,7 +167,7 @@ fn prepare_local_subcircuit_library() -> io::Result<LocalSubcircuitLibrary> {
     })
 }
 
-pub fn prepare_release_subcircuit_library() -> io::Result<Option<ResolvedSubcircuitLibrary>> {
+fn prepare_release_subcircuit_library() -> io::Result<Option<ResolvedSubcircuitLibrary>> {
     if env::var("PROFILE").ok().as_deref() != Some("release") {
         return Ok(None);
     }
@@ -208,7 +208,7 @@ pub fn prepare_release_subcircuit_library() -> io::Result<Option<ResolvedSubcirc
     Ok(Some(snapshot))
 }
 
-pub fn emit_build_metadata(
+fn emit_build_metadata(
     snapshot: &ResolvedSubcircuitLibrary,
     current_package_name: &str,
     current_package_version: &str,
@@ -272,7 +272,7 @@ fn emit_local_build_metadata(
     )
 }
 
-pub fn generate_embedded_module(
+fn generate_embedded_module(
     snapshot: &ResolvedSubcircuitLibrary,
     out_dir: &Path,
 ) -> io::Result<()> {
@@ -281,14 +281,8 @@ pub fn generate_embedded_module(
     files.sort();
 
     let mut generated = String::new();
-    generated.push_str("pub const SUBCIRCUIT_LIBRARY_PACKAGE_NAME: &str = ");
-    generated.push_str(&format!("{PACKAGE_NAME:?};\n"));
     generated.push_str("pub const SUBCIRCUIT_LIBRARY_BUILD_VERSION: &str = ");
     generated.push_str(&format!("{:?};\n", snapshot.version));
-    generated.push_str("pub const SUBCIRCUIT_LIBRARY_DECLARED_RANGE: &str = ");
-    generated.push_str(&format!("{DECLARED_RANGE:?};\n"));
-    generated.push_str("pub const SUBCIRCUIT_LIBRARY_RUNTIME_MODE: &str = ");
-    generated.push_str(&format!("{RUNTIME_MODE:?};\n"));
     generated.push_str("pub const SUBCIRCUIT_LIBRARY_INTEGRITY: &str = ");
     generated.push_str(&format!("{:?};\n", snapshot.integrity));
     generated.push_str(
@@ -318,13 +312,10 @@ pub fn generate_embedded_module(
     fs::write(out_dir.join("embedded_subcircuit_library.rs"), generated)
 }
 
-pub fn write_stub_embedded_module(out_dir: &Path) -> io::Result<()> {
+fn write_stub_embedded_module(out_dir: &Path) -> io::Result<()> {
     fs::write(
         out_dir.join("embedded_subcircuit_library.rs"),
-        "pub const SUBCIRCUIT_LIBRARY_PACKAGE_NAME: &str = \"@tokamak-zk-evm/subcircuit-library\";\n\
-         pub const SUBCIRCUIT_LIBRARY_BUILD_VERSION: &str = \"\";\n\
-         pub const SUBCIRCUIT_LIBRARY_DECLARED_RANGE: &str = \"\";\n\
-         pub const SUBCIRCUIT_LIBRARY_RUNTIME_MODE: &str = \"\";\n\
+        "pub const SUBCIRCUIT_LIBRARY_BUILD_VERSION: &str = \"\";\n\
          pub const SUBCIRCUIT_LIBRARY_INTEGRITY: &str = \"\";\n\
          #[derive(Clone, Copy)]\n\
          pub struct EmbeddedSubcircuitLibraryFile {\n\

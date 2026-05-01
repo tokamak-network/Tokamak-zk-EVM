@@ -1,4 +1,3 @@
-#[allow(dead_code)]
 #[path = "../../build-support/subcircuit_library.rs"]
 mod subcircuit_library;
 

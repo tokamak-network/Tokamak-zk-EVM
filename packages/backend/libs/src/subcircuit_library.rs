@@ -24,11 +24,7 @@ pub struct SubcircuitLibraryArg {
 
 #[cfg(tokamak_embedded_subcircuit_library)]
 #[derive(Args, Debug, Clone, Default)]
-pub struct SubcircuitLibraryArg {
-    /// Optional external subcircuit library directory. Release binaries use the embedded library when omitted.
-    #[arg(long, value_name = "PATH")]
-    pub subcircuit_library: Option<String>,
-}
+pub struct SubcircuitLibraryArg {}
 
 impl SubcircuitLibraryArg {
     #[cfg(not(tokamak_embedded_subcircuit_library))]
@@ -38,7 +34,7 @@ impl SubcircuitLibraryArg {
 
     #[cfg(tokamak_embedded_subcircuit_library)]
     pub fn as_deref(&self) -> Option<&str> {
-        self.subcircuit_library.as_deref()
+        None
     }
 }
 
