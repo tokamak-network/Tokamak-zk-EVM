@@ -710,7 +710,7 @@ fn compute2_temp(
     let len_x = prev_x.len_g1();
 
     // Precompute the powers of x_r efficiently
-    let mut x_powers = compute_powers(x_r, len_x);
+    let x_powers = compute_powers(x_r, len_x);
     let cur_x = prev_x.mul(&x_powers);
     (
         cur_x,
@@ -734,7 +734,7 @@ fn compute2_tempi(
     let len_x = prev_x.len();
 
     // Precompute the powers of x_r efficiently
-    let mut x_powers = compute_powers(x_r, len_x);
+    let x_powers = compute_powers(x_r, len_x);
     let cur_x: Vec<PairSerde> = prev_x
         .par_iter()
         .zip(x_powers.par_iter())
@@ -1485,11 +1485,11 @@ pub fn ro(a: &G1serde, v: &[u8]) -> G2serde {
     hash_to_g2(h.result().as_ref())
 }
 
-fn vector_product(a: &Vec<ScalarField>, b: &Vec<ScalarField>) -> Vec<ScalarField> {
+fn vector_product(a: &[ScalarField], b: &[ScalarField]) -> Vec<ScalarField> {
     let mut result: Vec<ScalarField> = Vec::with_capacity(a.len() * b.len());
-    for i in 0..a.len() {
-        for j in 0..b.len() {
-            result.push(a[i].mul(b[j]));
+    for &lhs in a {
+        for &rhs in b {
+            result.push(lhs.mul(rhs));
         }
     }
     result
@@ -1497,7 +1497,7 @@ fn vector_product(a: &Vec<ScalarField>, b: &Vec<ScalarField>) -> Vec<ScalarField
 fn compute_powers(x_r: ScalarField, len_x: usize) -> Vec<ScalarField> {
     let mut x_powers: Vec<ScalarField> = Vec::with_capacity(len_x);
     let mut current_power = ScalarField::one();
-    for i in 0..len_x {
+    for _ in 0..len_x {
         current_power = current_power.mul(x_r);
         x_powers.push(current_power);
     }
@@ -1707,5 +1707,3 @@ pub fn test_ro() {
     let out2 = ro(&g1_gen, &v);
     assert_eq!(out1.0, out2.0)
 }
-
-fn main() {}

@@ -1,7 +1,4 @@
-use ark_bls12_381::{
-    G1Affine as ArkG1Affine, G1Projective as ArkG1Projective, G2Affine as ArkG2Affine,
-    G2Projective as ArkG2Projective,
-};
+use ark_bls12_381::{G1Affine as ArkG1Affine, G2Affine as ArkG2Affine};
 use ark_ec::AffineRepr;
 use ark_ff::{BigInteger, Field, PrimeField};
 use ark_serialize::CanonicalDeserializeWithFlags;
@@ -11,8 +8,7 @@ use blake2::crypto_mac::generic_array::typenum::U64;
 use blake2::crypto_mac::generic_array::GenericArray;
 use blake2::{Blake2b, Digest};
 use icicle_bls12_381::curve::{
-    G1Affine as IcicleG1Affine, G1Projective as IcicleG1Projective, G2Affine as IcicleG2Affine,
-    G2Projective as IcicleG2Projective, ScalarField,
+    G1Affine as IcicleG1Affine, G2Affine as IcicleG2Affine, ScalarField,
 };
 use icicle_core::traits::FieldImpl;
 use libs::group_structures::{icicle_g1_affine_to_ark, icicle_g2_affine_to_ark, G1serde, G2serde};
@@ -23,6 +19,7 @@ use rayon::prelude::*;
 use std::io::{Cursor, Write};
 use std::ops::Mul;
 
+#[cfg(test)]
 fn ark_to_icicle_g1_affine_points(ark_affine: &[ArkG1Affine]) -> Vec<IcicleG1Affine> {
     ark_affine
         .par_iter()
@@ -32,6 +29,7 @@ fn ark_to_icicle_g1_affine_points(ark_affine: &[ArkG1Affine]) -> Vec<IcicleG1Aff
         })
         .collect()
 }
+#[cfg(test)]
 fn ark_to_icicle_g2_affine_points(ark_affine: &[ArkG2Affine]) -> Vec<IcicleG2Affine> {
     ark_affine
         .par_iter()
@@ -62,11 +60,7 @@ pub fn test_conversions() {
     assert_eq!(g1.0, icicle_g1);
 
     let ark_g2 = ArkG2Affine::generator();
-    let icicle_g2 = IcicleG2Affine {
-        x: from_ark(&ark_g2.x),
-        y: from_ark(&ark_g2.y),
-    };
-    //ark_to_icicle_g2_affine_points(&[ark_g2])[0];
+    let icicle_g2 = ark_to_icicle_g2_affine_points(&[ark_g2])[0];
     let g2 = icicle_g2_generator();
     assert_eq!(g2.0, icicle_g2);
 }
@@ -207,40 +201,6 @@ pub fn hash_to_g2_compressed(digest: &[u8]) -> [u8; 96] {
     let mut out = [0u8; 96];
     out.copy_from_slice(&buf);
     out
-}
-
-fn ark_to_icicle_g1projective_points(
-    ark_projective: &[ArkG1Projective],
-) -> Vec<IcicleG1Projective> {
-    ark_projective
-        .par_iter()
-        .map(|ark| {
-            let proj_x = ark.x * ark.z;
-            let proj_z = ark.z * ark.z * ark.z;
-            IcicleG1Projective {
-                x: from_ark(&proj_x),
-                y: from_ark(&ark.y),
-                z: from_ark(&proj_z),
-            }
-        })
-        .collect()
-}
-
-fn ark_to_icicle_g2projective_points(
-    ark_projective: &[ArkG2Projective],
-) -> Vec<IcicleG2Projective> {
-    ark_projective
-        .par_iter()
-        .map(|ark| {
-            let proj_x = ark.x * ark.z;
-            let proj_z = ark.z * ark.z * ark.z;
-            IcicleG2Projective {
-                x: from_ark(&proj_x),
-                y: from_ark(&ark.y),
-                z: from_ark(&proj_z),
-            }
-        })
-        .collect()
 }
 
 #[test]

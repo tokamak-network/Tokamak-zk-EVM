@@ -282,13 +282,13 @@ pub fn generate_embedded_module(
 
     let mut generated = String::new();
     generated.push_str("pub const SUBCIRCUIT_LIBRARY_PACKAGE_NAME: &str = ");
-    generated.push_str(&format!("{:?};\n", PACKAGE_NAME));
+    generated.push_str(&format!("{PACKAGE_NAME:?};\n"));
     generated.push_str("pub const SUBCIRCUIT_LIBRARY_BUILD_VERSION: &str = ");
     generated.push_str(&format!("{:?};\n", snapshot.version));
     generated.push_str("pub const SUBCIRCUIT_LIBRARY_DECLARED_RANGE: &str = ");
-    generated.push_str(&format!("{:?};\n", DECLARED_RANGE));
+    generated.push_str(&format!("{DECLARED_RANGE:?};\n"));
     generated.push_str("pub const SUBCIRCUIT_LIBRARY_RUNTIME_MODE: &str = ");
-    generated.push_str(&format!("{:?};\n", RUNTIME_MODE));
+    generated.push_str(&format!("{RUNTIME_MODE:?};\n"));
     generated.push_str("pub const SUBCIRCUIT_LIBRARY_INTEGRITY: &str = ");
     generated.push_str(&format!("{:?};\n", snapshot.integrity));
     generated.push_str(

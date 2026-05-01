@@ -1,16 +1,9 @@
 use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
-use icicle_core::traits::{Arithmetic, FieldConfig, FieldImpl, GenerateRandom};
-use icicle_runtime::memory::{HostOrDeviceSlice, HostSlice};
-use std::cmp;
+use icicle_core::traits::{FieldImpl, GenerateRandom};
+use icicle_runtime::memory::HostSlice;
 
 use super::vector_operations::*;
-use icicle_bls12_381::polynomials::DensePolynomial;
-use icicle_core::ntt::{self, NTTDir};
-use icicle_core::polynomials::UnivariatePolynomial;
-use icicle_core::vec_ops::{VecOps, VecOpsConfig};
-use icicle_runtime::memory::{DeviceSlice, DeviceVec};
-use rayon::prelude::*;
-use std::ops::{Add, AddAssign, Mul, Neg, Sub};
+use icicle_core::vec_ops::VecOps;
 
 // Assuming the implementation of DensePolynomialExt and BivariatePolynomial is already available
 // This mod tests can be placed in a separate file
@@ -20,7 +13,7 @@ mod msm_vs_rayon_tests {
     use super::*;
     use crate::group_structures::G1serde;
     use crate::iotools::{from_coef_vec_to_g1serde_vec, from_coef_vec_to_g1serde_vec_msm};
-    use icicle_bls12_381::curve::{CurveCfg, G1Affine, G1Projective, ScalarCfg, ScalarField};
+    use icicle_bls12_381::curve::{CurveCfg, G1Affine, ScalarCfg, ScalarField};
     use icicle_core::curve::Curve;
 
     #[test]
@@ -56,7 +49,7 @@ mod tests {
     use icicle_core::ntt;
     use icicle_core::traits::Arithmetic;
     use icicle_core::vec_ops::VecOpsConfig;
-    use icicle_runtime::memory::DeviceVec;
+    use icicle_runtime::memory::{DeviceVec, HostOrDeviceSlice};
     use std::env;
     use std::time::{Duration, Instant};
 
@@ -65,8 +58,6 @@ mod tests {
         init_ntt_domain_for_size, BivariatePolynomial, DensePolynomialExt, DivByVanishingCache,
     };
     use crate::utils::check_device;
-    use crate::vector_operations::*;
-
     // Helper function: Create a simple 2D polynomial
     fn create_simple_polynomial() -> DensePolynomialExt {
         // Simple 2x2 polynomial: 1 + 2x + 3y + 4xy (coefficient matrix: [[1, 3], [2, 4]])
@@ -77,36 +68,6 @@ mod tests {
             ScalarField::from_u32(4), // xy coefficient
         ];
         DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs), 2, 2)
-    }
-
-    fn create_larger_polynomial() -> DensePolynomialExt {
-        // Create a 4x4 polynomial with random coefficients
-        let size = 16; // 4x4
-        let coeffs = ScalarCfg::generate_random(size);
-        DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs), 4, 4)
-    }
-
-    // Create a univariate polynomial in x
-    fn create_univariate_x_polynomial() -> DensePolynomialExt {
-        // Polynomial in x: 1 + 2x + 3x^2
-        let coeffs = vec![
-            ScalarField::from_u32(1),
-            ScalarField::from_u32(2),
-            ScalarField::from_u32(3),
-            ScalarField::from_u32(0),
-        ];
-        DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs), 4, 1)
-    }
-
-    // Create a univariate polynomial in y
-    fn create_univariate_y_polynomial() -> DensePolynomialExt {
-        // Polynomial in y: 1 + 2y + 3y^2
-        let mut coeffs = vec![ScalarField::from_u32(0); 16];
-        coeffs[0] = ScalarField::from_u32(1); // Constant
-        coeffs[4] = ScalarField::from_u32(2); // y
-        coeffs[8] = ScalarField::from_u32(3); // y^2
-
-        DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs), 4, 4)
     }
 
     fn init_bi_ntt_domain(x_size: usize, y_size: usize) {
@@ -1479,9 +1440,7 @@ mod tests {
 #[cfg(test)]
 mod tests_vectors {
     use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
-    use icicle_core::traits::{Arithmetic, FieldConfig, FieldImpl, GenerateRandom};
-    use icicle_runtime::memory::{HostOrDeviceSlice, HostSlice};
-    use std::cmp;
+    use icicle_core::traits::{FieldImpl, GenerateRandom};
 
     use crate::vector_operations::*;
 
@@ -1623,13 +1582,10 @@ mod tests_vectors {
 }
 
 mod tests_iotools {
-    use crate::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
     use crate::group_structures::G1serde;
-    use crate::iotools::{
-        from_coef_vec_to_g1serde_vec, gen_g1serde_vec_of_xy_monomials, scaled_outer_product_1d,
-    };
+    use crate::iotools::{gen_g1serde_vec_of_xy_monomials, scaled_outer_product_1d};
     use crate::vector_operations::extend_monomial_vec;
-    use icicle_bls12_381::curve::{CurveCfg, G1Affine, ScalarCfg, ScalarField};
+    use icicle_bls12_381::curve::{CurveCfg, ScalarCfg, ScalarField};
     use icicle_core::curve::Curve;
     use icicle_core::traits::{FieldImpl, GenerateRandom};
 

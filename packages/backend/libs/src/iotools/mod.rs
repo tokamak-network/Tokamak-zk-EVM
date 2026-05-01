@@ -2255,7 +2255,7 @@ fn encode_poly_from_xy_powers_with_timing(
     poly: &mut DensePolynomialExt,
     params: &SetupParams,
     xy_powers: &[ArchivedG1SerdeRkyv],
-    timing_name: Option<&'static str>,
+    _timing_name: Option<&'static str>,
 ) -> G1serde {
     poly.optimize_size();
     let x_size = poly.x_size;
@@ -2311,7 +2311,7 @@ fn encode_poly_from_xy_powers_with_timing(
     )
     .unwrap();
     #[cfg(feature = "timing")]
-    if let Some(name) = timing_name {
+    if let Some(name) = _timing_name {
         record_timing(
             name,
             "encode",

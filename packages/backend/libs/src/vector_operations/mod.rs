@@ -113,8 +113,8 @@ pub fn inner_product_two_vecs(lhs_vec: &[ScalarField], rhs_vec: &[ScalarField]) 
     let mut mul_res_vec = vec![ScalarField::zero(); len];
     let mul_res_buff = HostSlice::from_mut_slice(&mut mul_res_vec);
     ScalarCfg::mul(
-        HostSlice::from_slice(&lhs_vec),
-        HostSlice::from_slice(&rhs_vec),
+        HostSlice::from_slice(lhs_vec),
+        HostSlice::from_slice(rhs_vec),
         mul_res_buff,
         &vec_ops_cfg,
     )
@@ -122,14 +122,9 @@ pub fn inner_product_two_vecs(lhs_vec: &[ScalarField], rhs_vec: &[ScalarField]) 
     let mut res_vec = vec![ScalarField::zero()];
     let res = HostSlice::from_mut_slice(&mut res_vec);
     ScalarCfg::sum(mul_res_buff, res, &vec_ops_cfg).unwrap();
-    return res_vec[0];
+    res_vec[0]
 }
-fn _repeat_extend(v: &mut Vec<ScalarField>, n: usize) {
-    let original = v.clone();
-    for _ in 1..n {
-        v.extend(original.iter().cloned());
-    }
-}
+
 pub fn transpose_inplace(a_vec: &mut [ScalarField], row_size: usize, col_size: usize) {
     if a_vec.len() != row_size * col_size {
         panic!("Error in transpose")
@@ -138,7 +133,7 @@ pub fn transpose_inplace(a_vec: &mut [ScalarField], row_size: usize, col_size: u
         return;
     }
     let vec_ops_cfg = VecOpsConfig::default();
-    let a = HostSlice::from_slice(&a_vec);
+    let a = HostSlice::from_slice(a_vec);
     let mut res_vec = vec![ScalarField::zero(); row_size * col_size];
     let res = HostSlice::from_mut_slice(&mut res_vec);
     ScalarCfg::transpose(a, row_size as u32, col_size as u32, res, &vec_ops_cfg).unwrap();
@@ -179,11 +174,6 @@ fn transpose_device_inplace_checked(
     )?;
     a_vec.copy(&res_vec)?;
     Ok(())
-}
-
-// TODO: benchmark this with a naive approach
-fn _repeat_extend_device(v: &DeviceSlice<ScalarField>, n: usize) -> DeviceVec<ScalarField> {
-    _repeat_extend_device_checked(v, n).unwrap()
 }
 
 fn _repeat_extend_device_checked(
@@ -554,7 +544,7 @@ fn required_tiled_matmul_bytes(m: usize, n: usize, tile_cols: usize) -> u128 {
     let scalar_bytes = size_of::<ScalarField>() as u128;
     let fixed_elements = 2 * m * n;
     let rhs_elements = 2 * n * tile_cols;
-    let expanded_elements = (7 * m * n * tile_cols + 1) / 2;
+    let expanded_elements = (7 * m * n * tile_cols).div_ceil(2);
     scalar_bytes * (fixed_elements + rhs_elements + expanded_elements)
 }
 
@@ -573,7 +563,7 @@ pub fn outer_product_two_vecs(
     // let vec_ops_cfg = VecOpsConfig::default();
     let min_len = std::cmp::min(row_len, col_len);
     let max_len = std::cmp::max(row_len, col_len);
-    let max_col = if max_len == row_len { true } else { false };
+    let max_col = max_len == row_len;
 
     let base_vec = if max_col { col_vec } else { row_vec };
 
@@ -605,7 +595,7 @@ pub fn outer_product_two_vecs_rayon(
     let vec_ops_cfg = VecOpsConfig::default();
     let min_len = std::cmp::min(row_len, col_len);
     let max_len = std::cmp::max(row_len, col_len);
-    let max_dir = if max_len == row_len { true } else { false };
+    let max_dir = max_len == row_len;
 
     let base_vec = if max_dir { row_vec } else { col_vec };
 
@@ -613,7 +603,6 @@ pub fn outer_product_two_vecs_rayon(
 
     res_untransposed
         .chunks_mut(max_len)
-        .into_iter()
         .enumerate()
         .for_each(|(ind, chunk)| {
             let scaler = if max_dir { col_vec[ind] } else { row_vec[ind] };
@@ -622,7 +611,7 @@ pub fn outer_product_two_vecs_rayon(
 
             ScalarCfg::mul(
                 HostSlice::from_slice(&scaler_vec),
-                HostSlice::from_slice(&base_vec),
+                HostSlice::from_slice(base_vec),
                 HostSlice::from_mut_slice(&mut res_vec),
                 &vec_ops_cfg,
             )
@@ -679,7 +668,7 @@ where
         res_coeffs_vec[target_col_size * i..target_col_size * i + each_col_size]
             .copy_from_slice(&mat[curr_col_size * i..curr_col_size * i + each_col_size]);
     }
-    return res_coeffs_vec;
+    res_coeffs_vec
 }
 
 pub fn scaled_outer_product(
@@ -721,7 +710,7 @@ pub fn gen_monomial_matrix(
     let vec_ops_cfg = VecOpsConfig::default();
     let min_len = std::cmp::min(x_size, y_size);
     let max_len = std::cmp::max(x_size, y_size);
-    let max_dir = if max_len == x_size { true } else { false };
+    let max_dir = max_len == x_size;
     let mut base_row_vec = vec![ScalarField::one(); max_len];
     for ind in 1..max_len {
         if max_dir {

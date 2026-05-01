@@ -63,10 +63,10 @@ fn _find_size_as_twopower(target_x_size: usize, target_y_size: usize) -> (usize,
     }
     let mut new_x_size = target_x_size;
     let mut new_y_size = target_y_size;
-    if target_x_size.is_power_of_two() == false {
+    if !target_x_size.is_power_of_two() {
         new_x_size = 1 << (usize::BITS - target_x_size.leading_zeros());
     }
-    if target_y_size.is_power_of_two() == false {
+    if !target_y_size.is_power_of_two() {
         new_y_size = 1 << (usize::BITS - target_y_size.leading_zeros());
     }
     (new_x_size, new_y_size)
@@ -120,10 +120,7 @@ impl DensePolynomialExt {
     }
     pub fn is_zero(&self) -> bool {
         let (x_degree, y_degree) = self.find_degree();
-        if x_degree == -1 && y_degree == -1 {
-            return true;
-        }
-        return false;
+        x_degree == -1 && y_degree == -1
     }
 
     fn add_sub_no_resize(lhs: &Self, rhs: &Self, add: bool) -> Self {
@@ -272,24 +269,14 @@ impl DensePolynomialExt {
     }
 }
 
-// impl Drop for DensePolynomialExt {
-//     fn drop(&mut self) {
-//         unsafe {
-//             delete(self.poly);
-//             delete(self.x_degree);
-//             delete(self.y_degree);
-//         }
-//     }
-// }
-
 impl Clone for DensePolynomialExt {
     fn clone(&self) -> Self {
         Self {
             poly: self.poly.clone(),
-            x_degree: self.x_degree.clone(),
-            y_degree: self.y_degree.clone(),
-            x_size: self.x_size.clone(),
-            y_size: self.y_size.clone(),
+            x_degree: self.x_degree,
+            y_degree: self.y_degree,
+            x_size: self.x_size,
+            y_size: self.y_size,
         }
     }
 }
@@ -1643,10 +1630,7 @@ impl BivariatePolynomial for DensePolynomialExt {
             return;
         }
         let new_size: usize = new_x_size * new_y_size;
-        let mut orig_coeffs_vec = Vec::<Self::Field>::with_capacity(self.x_size * self.y_size);
-        unsafe {
-            orig_coeffs_vec.set_len(self.x_size * self.y_size);
-        }
+        let mut orig_coeffs_vec = vec![Self::Field::zero(); self.x_size * self.y_size];
         let orig_coeffs = HostSlice::from_mut_slice(&mut orig_coeffs_vec);
         self.copy_coeffs(0, orig_coeffs);
 
@@ -1680,10 +1664,7 @@ impl BivariatePolynomial for DensePolynomialExt {
         if x_exponent == 0 && y_exponent == 0 {
             self.clone()
         } else {
-            let mut orig_coeffs_vec = Vec::<Self::Field>::with_capacity(self.x_size * self.y_size);
-            unsafe {
-                orig_coeffs_vec.set_len(self.x_size * self.y_size);
-            }
+            let mut orig_coeffs_vec = vec![Self::Field::zero(); self.x_size * self.y_size];
             let orig_coeffs = HostSlice::from_mut_slice(&mut orig_coeffs_vec);
             self.copy_coeffs(0, orig_coeffs);
 

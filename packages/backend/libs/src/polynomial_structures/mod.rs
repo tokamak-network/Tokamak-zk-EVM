@@ -59,34 +59,14 @@ pub fn from_subcircuit_to_QAP(
         w_j_X[idx_o] = w_j_poly;
     }
 
-    return (u_j_X, v_j_X, w_j_X);
+    (u_j_X, v_j_X, w_j_X)
 }
-
-// pub struct GlobalVariables {
-//     pub placementId: usize,
-//     pub globalIdx: Box<[usize]>,
-//     pub variables: Box<[String]>,
-//     pub instance: Box<[ScalarField]>,
-//     pub interface_wtns: Box<[Box<[ScalarField]>]>,
-//     pub interface_wtns: Box<[Box<[ScalarField]>]>,
-// }
-
-// impl GlobalVariables {
-//     pub fn from_placement_variables(local_var: PlacementVariables) -> io::Result<Self> {
-//         let abs_path = env::current_dir()?.join(path);
-//         let file = File::open(abs_path)?;
-//         let reader = BufReader::new(file);
-//         let data = from_reader(reader)?;
-//         Ok(data)
-//     }
-
-// // }
 
 macro_rules! define_gen_qapXY {
     ($func_name:ident, $mat_field:ident, $wires_field:ident) => {
         pub fn $func_name(
-            placement_variables: &Box<[PlacementVariables]>,
-            compact_library_R1CS: &Vec<SubcircuitR1CS>,
+            placement_variables: &[PlacementVariables],
+            compact_library_R1CS: &[SubcircuitR1CS],
             setup_params: &SetupParams,
         ) -> DensePolynomialExt {
             let s_d = setup_params.s_D;
@@ -122,95 +102,36 @@ macro_rules! define_gen_qapXY {
 }
 
 impl Instance {
-    // pub fn gen_a_pub_user_X(&self, setup_params: &SetupParams) -> DensePolynomialExt {
-    //     let l_user = setup_params.l_user;
-    //     let mut public_instance = vec![ScalarField::zero(); l_user];
-    //     for i in 0..l_user {
-    //         public_instance[i] = ScalarField::from_hex(&self.a_pub_user[i]);
-    //     }
-    //     return DensePolynomialExt::from_rou_evals(
-    //         HostSlice::from_slice(&public_instance),
-    //         l_user,
-    //         1,
-    //         None,
-    //         None
-    //     )
-    // }
-
     pub fn gen_a_free_X(&self, setup_params: &SetupParams) -> DensePolynomialExt {
         let l_free = setup_params.l_free;
         let l_user = setup_params.l_user;
         let m_block = l_free - l_user;
 
         let mut user_instance = vec![ScalarField::zero(); l_user];
-        for i in 0..l_user {
-            user_instance[i] = ScalarField::from_hex(&self.a_pub_user[i]);
+        for (i, value) in user_instance.iter_mut().enumerate().take(l_user) {
+            *value = ScalarField::from_hex(&self.a_pub_user[i]);
         }
 
         let mut block_instance = vec![ScalarField::zero(); m_block];
-        for i in 0..m_block {
-            block_instance[i] = ScalarField::from_hex(&self.a_pub_block[i]);
+        for (i, value) in block_instance.iter_mut().enumerate().take(m_block) {
+            *value = ScalarField::from_hex(&self.a_pub_block[i]);
         }
 
         let public_instance = [user_instance, block_instance].concat().into_boxed_slice();
 
-        return DensePolynomialExt::from_rou_evals(
+        DensePolynomialExt::from_rou_evals(
             HostSlice::from_slice(&public_instance),
             l_free,
             1,
             None,
             None,
-        );
+        )
     }
-
-    // pub fn gen_a_pub_env_X(&self, setup_params: &SetupParams) -> DensePolynomialExt {
-    //     let m_block = setup_params.l_block - setup_params.l_user;
-    //     let m_function = setup_params.l - setup_params.l_block;
-    //     let m_env = m_block + m_function;
-
-    //     let mut block_instance = vec![ScalarField::zero(); m_block];
-    //     for i in 0..m_block {
-    //         block_instance[i] = ScalarField::from_hex(&self.a_pub_block[i]);
-    //     }
-
-    //     let mut function_instance = vec![ScalarField::zero(); m_function];
-    //     for i in 0..m_function {
-    //         function_instance[i] = ScalarField::from_hex(&self.a_pub_function[i]);
-    //     }
-
-    //     let public_instance = [
-    //         block_instance,
-    //         function_instance,
-    //     ].concat().into_boxed_slice();
-
-    //     return DensePolynomialExt::from_rou_evals(
-    //         HostSlice::from_slice(&public_instance),
-    //         m_env,
-    //         1,
-    //         None,
-    //         None
-    //     )
-    // }
-
-    // pub fn gen_a_pub_function_X(&self, setup_params: &SetupParams) -> DensePolynomialExt {
-    //     let m_function = setup_params.l - setup_params.l_block;
-    //     let mut public_instance = vec![ScalarField::zero(); m_function];
-    //     for i in 0..m_function {
-    //         public_instance[i] = ScalarField::from_hex(&self.a_pub_function[i]);
-    //     }
-    //     return DensePolynomialExt::from_rou_evals(
-    //         HostSlice::from_slice(&public_instance),
-    //         m_function,
-    //         1,
-    //         None,
-    //         None
-    //     )
-    // }
 }
 
 pub fn gen_bXY(
-    placement_variables: &Box<[PlacementVariables]>,
-    subcircuit_infos: &Box<[SubcircuitInfo]>,
+    placement_variables: &[PlacementVariables],
+    subcircuit_infos: &[SubcircuitInfo],
     setup_params: &SetupParams,
 ) -> DensePolynomialExt {
     let l = setup_params.l;
@@ -218,27 +139,26 @@ pub fn gen_bXY(
     let s_max = setup_params.s_max;
     let m_i = l_d - l;
     let mut interface_witness = vec![ScalarField::zero(); m_i * s_max].into_boxed_slice();
-    for i in 0..placement_variables.len() {
-        let local_variables = &placement_variables[i].variables;
-        let global_idx_set = &subcircuit_infos[placement_variables[i].subcircuitId].flattenMap;
+    for (i, placement) in placement_variables.iter().enumerate() {
+        let local_variables = &placement.variables;
+        let global_idx_set = &subcircuit_infos[placement.subcircuitId].flattenMap;
         if local_variables.len() != global_idx_set.len() {
             panic!("Corrupted placement variables.")
         }
-        for j in 0..global_idx_set.len() {
-            let global_idx = global_idx_set[j];
-            let val_str: &str = &local_variables[j];
-            if global_idx >= l && global_idx < l_d && val_str != "0x0" {
-                interface_witness[(global_idx - l) * s_max + i] = ScalarField::from_hex(val_str);
+        for (&global_idx, val_str) in global_idx_set.iter().zip(local_variables.iter()) {
+            if global_idx >= l && global_idx < l_d && val_str.as_ref() != "0x0" {
+                interface_witness[(global_idx - l) * s_max + i] =
+                    ScalarField::from_hex(val_str.as_ref());
             }
         }
     }
-    return DensePolynomialExt::from_rou_evals(
+    DensePolynomialExt::from_rou_evals(
         HostSlice::from_slice(&interface_witness),
         m_i,
         s_max,
         None,
         None,
-    );
+    )
 }
 
 define_gen_qapXY!(gen_uXY, A_compact_col_mat, A_active_wires);
