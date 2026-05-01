@@ -1391,8 +1391,10 @@ impl Prover {
                 {
                     // Original expression:
                     // B = bXY + rB_X * t_mi + rB_Y * t_smax.
-                    let rB_X_t_mi =
-                        low_degree_x_times_vanishing(&self.mixer.rB_X, self.setup_params.l_D - 1);
+                    let rB_X_t_mi = low_degree_x_times_vanishing(
+                        &self.mixer.rB_X,
+                        self.setup_params.l_D - self.setup_params.l,
+                    );
                     let rB_Y_t_smax =
                         low_degree_y_times_vanishing(&self.mixer.rB_Y, self.setup_params.s_max);
                     let term_B_zk = &rB_X_t_mi + &rB_Y_t_smax;
