@@ -13,6 +13,8 @@ if (!targetVersion || !strictSemverPattern.test(targetVersion)) {
   process.exit(1);
 }
 
+const targetCompatibleBackendVersion = targetVersion.split('.').slice(0, 2).join('.');
+
 function readJson(relativePath) {
   return JSON.parse(fs.readFileSync(path.join(repoRoot, relativePath), 'utf8'));
 }
@@ -173,6 +175,10 @@ function updateSynthesizerPackageLock() {
 updatePackageVersion('package.json');
 updatePackageVersion('packages/cli/package.json', {
   '@tokamak-zk-evm/synthesizer-node': `^${targetVersion}`,
+});
+updateJson('packages/cli/package.json', manifest => {
+  manifest.tokamakZkEvm ??= {};
+  manifest.tokamakZkEvm.compatibleBackendVersion = targetCompatibleBackendVersion;
 });
 updatePackageVersion('packages/frontend/qap-compiler/package.json');
 updatePackageVersion('packages/frontend/qap-compiler/dist/package.json', {}, { optional: true });

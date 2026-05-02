@@ -8,6 +8,36 @@ The format is based on Keep a Changelog.
 
 ## Unreleased
 
+## [2.1.0] - 2026-05-02
+
+### Repository
+
+- Synchronized the release version to `2.1.0` across the CLI, subcircuit library, synthesizer packages, and backend workspace.
+- Updated `npm run version:sync` to also derive and write the CLI-compatible backend version from the synchronized `MAJOR.MINOR` release line.
+
+### CLI
+
+- Bumped `@tokamak-zk-evm/cli` to `2.1.0`.
+- Updated `packages/cli/package.json tokamakZkEvm.compatibleBackendVersion` to `2.1`.
+- Updated the CLI package to consume `@tokamak-zk-evm/synthesizer-node` through the synchronized `^2.1.0` dependency range.
+
+### Subcircuit Library
+
+- Bumped `@tokamak-zk-evm/subcircuit-library` to `2.1.0`.
+- Updated `tokamak-l2js` consumption to `0.1.4` and regenerated qap-compiler constants so `nMtDepth()` is `36`.
+- Updated `qap-compiler --reload-constants` to verify the local `tokamak-l2js` install against the npm registry latest version before syncing constants.
+
+### Synthesizer
+
+- Bumped `@tokamak-zk-evm/synthesizer-node` and `@tokamak-zk-evm/synthesizer-web` to `2.1.0`.
+- Updated both synthesizer packages to consume `@tokamak-zk-evm/subcircuit-library` through the synchronized `^2.1.0` dependency range.
+- Updated both synthesizer packages to consume `tokamak-l2js` through the `^0.1.4` dependency range.
+
+### Backend Workspace
+
+- Bumped the backend Rust workspace version to `2.1.0`.
+- Moved the proving compatibility line to `2.1` for the `MT_DEPTH=36` subcircuit configuration.
+
 ## [2.0.16] - 2026-05-01
 
 ### Repository
