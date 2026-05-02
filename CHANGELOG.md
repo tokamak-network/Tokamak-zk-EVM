@@ -32,6 +32,8 @@ The format is based on Keep a Changelog.
 - Bumped `@tokamak-zk-evm/synthesizer-node` and `@tokamak-zk-evm/synthesizer-web` to `2.1.0`.
 - Updated both synthesizer packages to consume `@tokamak-zk-evm/subcircuit-library` through the synchronized `^2.1.0` dependency range.
 - Updated both synthesizer packages to consume `tokamak-l2js` through the `^0.1.4` dependency range.
+- Refreshed private-state example fixtures with the current deployment contract addresses, bytecode, and transaction signatures.
+- Regenerated the L2StateChannel and private-state example state roots for the `MT_DEPTH=36` configuration.
 
 ### Backend Workspace
 
