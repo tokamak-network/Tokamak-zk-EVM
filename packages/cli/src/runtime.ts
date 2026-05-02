@@ -1621,6 +1621,55 @@ async function crsArchiveCacheMatches(
   }
 }
 
+async function findLatestCachedCrsArchive(
+  context: RuntimeContext,
+  verbose: boolean,
+): Promise<{ archivePath: string; archiveName: string } | null> {
+  const downloadDir = path.join(context.platformDir, 'downloads', 'crs');
+  let entries: string[];
+  try {
+    entries = await fs.readdir(downloadDir);
+  } catch {
+    return null;
+  }
+
+  const candidates = [];
+  for (const entry of entries) {
+    const parsedName = parseDriveArchiveName(entry);
+    if (parsedName?.compatibleBackendVersion !== context.compatibleBackendVersion) {
+      continue;
+    }
+
+    const archivePath = path.join(downloadDir, entry);
+    try {
+      const stats = await fs.stat(archivePath);
+      if (!stats.isFile()) {
+        continue;
+      }
+    } catch {
+      continue;
+    }
+
+    candidates.push({
+      archiveName: entry,
+      archivePath,
+      generatedAt: parsedName.generatedAt,
+    });
+  }
+
+  candidates.sort((left, right) => right.generatedAt.localeCompare(left.generatedAt));
+  const selected = candidates[0];
+  if (!selected) {
+    return null;
+  }
+
+  logVerbose(verbose, `Using cached CRS archive ${selected.archivePath}`);
+  return {
+    archiveName: selected.archiveName,
+    archivePath: selected.archivePath,
+  };
+}
+
 async function downloadLatestCrsArchive(
   context: RuntimeContext,
   selection: DriveArchiveSelection,
@@ -1786,11 +1835,15 @@ async function installDownloadedSetup(
   verbose: boolean,
 ): Promise<void> {
   const paths = runtimePaths(context);
-  const selection = await selectLatestDriveArchive(context.compatibleBackendVersion);
 
   const extractedDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tokamak-crs-extract-'));
   try {
-    const { archivePath, archiveName } = await downloadLatestCrsArchive(context, selection, verbose);
+    const { archivePath, archiveName } = await findLatestCachedCrsArchive(context, verbose)
+      ?? await downloadLatestCrsArchive(
+        context,
+        await selectLatestDriveArchive(context.compatibleBackendVersion),
+        verbose,
+      );
     await extractZipArchive(archivePath, extractedDir, verbose);
     const { mpcMetadataPath, provenancePath } = await validateDownloadedCrsVersions(
       extractedDir,
