@@ -6,6 +6,10 @@ The published package exposes consumer-facing subcircuit artifacts, metadata, wi
 
 Release notes are maintained in the [repository changelog](https://github.com/tokamak-network/Tokamak-zk-EVM/blob/main/CHANGELOG.md).
 
+## When to use this package
+
+Use `@tokamak-zk-evm/subcircuit-library` when you need the published prebuilt circuit artifacts consumed by Tokamak zk-EVM tooling: R1CS files, WASM witness-generation artifacts, JSON metadata, witness-generation helpers, and synced Circom constants.
+
 ## Installation
 
 ```shell

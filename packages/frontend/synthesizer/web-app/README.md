@@ -2,6 +2,10 @@
 
 `@tokamak-zk-evm/synthesizer-web` is the browser-facing package for running the Tokamak zk-EVM synthesizer from uploaded files or application-provided payload objects.
 
+## When to use this package
+
+Use `@tokamak-zk-evm/synthesizer-web` when you need a browser-facing synthesis API that accepts payload objects or uploaded files and uses bundled subcircuit-library assets at runtime.
+
 ## Install
 
 ```bash

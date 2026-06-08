@@ -4,6 +4,10 @@
 
 Release notes are maintained in the [repository changelog](https://github.com/tokamak-network/Tokamak-zk-EVM/blob/main/CHANGELOG.md).
 
+## When to use this package
+
+Use `@tokamak-zk-evm/cli` when you want the complete local Tokamak zk-EVM workflow from the command line: install the runtime, synthesize transaction inputs, preprocess circuit data, generate proofs, verify proofs, and extract proof bundles.
+
 Main commands:
 
 - `--install`

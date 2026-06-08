@@ -2,6 +2,10 @@
 
 `@tokamak-zk-evm/synthesizer-node` is the Node package for running the Tokamak zk-EVM synthesizer against JSON snapshot inputs.
 
+## When to use this package
+
+Use `@tokamak-zk-evm/synthesizer-node` when you want a file-based Node.js CLI that reads Tokamak L2 transaction replay JSON files from disk and writes synthesized JSON artifacts back to disk.
+
 ## Install
 
 ```bash
