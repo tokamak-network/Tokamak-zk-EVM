@@ -1,8 +1,27 @@
 # Tokamak-zk-EVM
 
-Tokamak zk-EVM is a tool that converts [TokamakL2JS](https://github.com/tokamak-network/TokamakL2JS) transactions into ZKPs.
+Tokamak zk-EVM is a monorepo for turning Tokamak Layer 2 transaction execution into zk-SNARK proof artifacts. It provides the command-line workflow, transaction Synthesizer packages, prebuilt subcircuit artifacts, and backend proving and verification code used by the Tokamak zk-EVM stack.
 
-[TokamakL2JS](https://github.com/tokamak-network/TokamakL2JS), which is a variant of [EthereumJS](https://github.com/ethereumjs/ethereumjs-monorepo), specifies a layer 2 protocol of Tokamak Network.
+[TokamakL2JS](https://github.com/tokamak-network/TokamakL2JS), which is a variant of [EthereumJS](https://github.com/ethereumjs/ethereumjs-monorepo), specifies the Tokamak Layer 2 transaction and state model consumed by this repository.
+
+## Package Chooser
+
+| Need | Install or read | Role |
+| --- | --- | --- |
+| Complete local workflow | [`@tokamak-zk-evm/cli`](./packages/cli/README.md) | Installs the local runtime and runs synthesize, preprocess, prove, verify, and proof extraction commands. |
+| File-based synthesis in Node.js | [`@tokamak-zk-evm/synthesizer-node`](./packages/frontend/synthesizer/node-cli/README.md) | Reads Tokamak L2 transaction replay JSON files from disk and writes synthesized JSON artifacts back to disk. |
+| Browser-facing synthesis APIs | [`@tokamak-zk-evm/synthesizer-web`](./packages/frontend/synthesizer/web-app/README.md) | Accepts payload objects or uploaded files and uses bundled subcircuit-library assets. |
+| Prebuilt circuit artifacts | [`@tokamak-zk-evm/subcircuit-library`](./packages/frontend/qap-compiler/README.md) | Publishes R1CS artifacts, WASM witness-generation artifacts, JSON metadata, and related subcircuit-library files. |
+
+## Canonical Documentation
+
+- [CLI package README](./packages/cli/README.md): local install, command usage, runtime requirements, and proof-flow commands.
+- [Synthesizer workspace README](./packages/frontend/synthesizer/README.md): Synthesizer package chooser, shared input model, shared output model, and runtime model.
+- [Synthesizer Node README](./packages/frontend/synthesizer/node-cli/README.md): file-based Node.js CLI usage.
+- [Synthesizer Web README](./packages/frontend/synthesizer/web-app/README.md): browser-style API usage.
+- [Subcircuit Library README](./packages/frontend/qap-compiler/README.md): published subcircuit artifact package contents and compatibility.
+- [llms.txt](./llms.txt): root LLM-readable map for repository and package documentation.
+- [CHANGELOG.md](./CHANGELOG.md): canonical release-note source for all npm-published packages in this monorepo.
 
 If you are interested in converting Ethereum transactions to ZKP, check out branch "[archive-airdrop-Sep25](https://github.com/tokamak-network/Tokamak-zk-EVM/tree/archive-airdrop-Sep25)" (incomplete development).
 
