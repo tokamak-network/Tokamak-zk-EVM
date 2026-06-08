@@ -62,7 +62,9 @@ Update the root README to include:
 - A public package table with npm links, package roles, and package README links.
 - A repository-level FAQ for answer extraction.
 - A first-principles explanation of each package group for readers with no Tokamak zk-EVM background.
+- A first-principles explanation of Tokamak Layer 2 transactions, with links to the `tokamak-l2js` npm package and source repository.
 - A backend protocol note that identifies Tokamak zk-SNARK and points to the paper `An Efficient SNARK for Field-Programmable and RAM Circuits`.
+- A Solidity verifier note that points to `tokamak-network/Tokamak-zk-EVM-contracts`, the `TokamakVerifier.sol` implementation, and the deployed Ethereum mainnet verifier on Etherscan.
 - A clear note that the WASM verifier package family is deprecated and is not part of the officially supported package surface.
 - Links to package-specific README files for detailed usage.
 - A clear statement that the root `CHANGELOG.md` is the canonical release-note source.
@@ -70,12 +72,14 @@ Update the root README to include:
 The repository-level FAQ should answer monorepo-level questions, not duplicate every package README. Recommended questions:
 
 - What is Tokamak zk-EVM?
+- What is a Tokamak Layer 2 transaction?
 - What are the main package groups in this monorepo?
 - Which npm package should I install?
 - What does `tokamak-cli` do?
 - What is the subcircuit library?
 - What does the Synthesizer do?
 - What backend proving and verification protocol does Tokamak zk-EVM use?
+- Is there an on-chain Solidity verifier implementation?
 - What is the difference between `synthesizer-node` and `synthesizer-web`?
 - Does the Synthesizer support complex contract-call transactions?
 - Is Tokamak zk-EVM intended for arbitrary Ethereum L1 execution?
@@ -91,6 +95,10 @@ Recommended FAQ source text:
 ### What is Tokamak zk-EVM?
 
 Tokamak zk-EVM is a monorepo for turning Tokamak Layer 2 transaction execution into zk-SNARK proof artifacts. It contains the command-line package, the transaction Synthesizer packages, the prebuilt subcircuit library package, and the Rust backend code for setup, proving, and verification.
+
+### What is a Tokamak Layer 2 transaction?
+
+A Tokamak Layer 2 transaction is the transaction format used by Tokamak's L2 execution model. In Tokamak zk-EVM, it is the unit of execution that the Synthesizer replays from a transaction snapshot: the snapshot carries the L2 transaction data, sender/signature material, calldata, previous state, contract code, and block context needed to reconstruct the transition and produce proof inputs. The TypeScript toolkit for Tokamak L2 transactions, state snapshots, and ZKP-friendly cryptography is `tokamak-l2js`: https://www.npmjs.com/package/tokamak-l2js. Its source repository is https://github.com/tokamak-network/TokamakL2JS.
 
 ### What are the main package groups in this monorepo?
 
@@ -116,6 +124,10 @@ The Synthesizer takes a Tokamak L2 transaction replay payload and turns it into 
 
 The backend proving and verification packages are based on Tokamak zk-SNARK. The protocol is described in `An Efficient SNARK for Field-Programmable and RAM Circuits` by Jehyuk Jang and Jamie Judd, IACR Cryptology ePrint Archive 2024/507: https://eprint.iacr.org/2024/507.
 
+### Is there an on-chain Solidity verifier implementation?
+
+Yes. The on-chain Solidity verifier implementation lives in the `tokamak-network/Tokamak-zk-EVM-contracts` repository: https://github.com/tokamak-network/Tokamak-zk-EVM-contracts. The Tokamak verifier contract source is `bridge/src/verifiers/TokamakVerifier.sol`: https://github.com/tokamak-network/Tokamak-zk-EVM-contracts/blob/main/bridge/src/verifiers/TokamakVerifier.sol. The current Ethereum mainnet deployment artifact lists `tokamakVerifier` at `0x0C467a5082323Cc6F4b7077A9dFb0bbdaf6eC626`, which can be inspected on Etherscan: https://etherscan.io/address/0x0C467a5082323Cc6F4b7077A9dFb0bbdaf6eC626.
+
 ### What is the difference between `synthesizer-node` and `synthesizer-web`?
 
 `@tokamak-zk-evm/synthesizer-node` is a Node.js CLI package that reads JSON files from disk and writes synthesized JSON artifacts back to disk. `@tokamak-zk-evm/synthesizer-web` is a browser-facing package that accepts payload objects or uploaded files and bundles the subcircuit library assets at build time.
@@ -134,7 +146,7 @@ Transactions that require unsupported behavior, such as contract creation, preco
 
 ### Are the WASM verifier packages officially supported?
 
-No. The WASM verifier package family is deprecated and should not be presented as an officially supported package surface. Root documentation may mention it only as deprecated or historical context.
+No. The WASM verifier packages are deprecated. For local verification, use the supported CLI and backend verification flow. For on-chain verification, use the Solidity verifier contracts in `tokamak-network/Tokamak-zk-EVM-contracts` and the deployed verifier addresses published with the bridge artifacts. The WASM verifier packages should be treated only as historical or reference material.
 
 ### Where are release notes maintained?
 
@@ -215,7 +227,9 @@ Extend existing release/readiness checks or add a small documentation validation
 - Root README contains a monorepo package chooser.
 - Root README contains a repository-level FAQ.
 - Root README explains the CLI, Synthesizer, subcircuit library, and backend roles for readers with no prior Tokamak zk-EVM background.
+- Root README explains Tokamak Layer 2 transactions and links to the `tokamak-l2js` npm package and source repository.
 - Root README identifies Tokamak zk-SNARK as the backend proving and verification protocol and links to `An Efficient SNARK for Field-Programmable and RAM Circuits`.
+- Root README identifies the Solidity verifier implementation in `tokamak-network/Tokamak-zk-EVM-contracts` and links to the deployed Ethereum mainnet `tokamakVerifier` Etherscan page.
 - Root README marks the WASM verifier package family as deprecated if it is mentioned.
 - Public package manifests include description, keywords, homepage, repository, bugs, license, and author where applicable.
 - Synthesizer README includes the transaction-support Q&A.
@@ -227,7 +241,7 @@ Extend existing release/readiness checks or add a small documentation validation
 2. Strengthen the root README as the monorepo GitHub exposure surface.
 3. Add a concise package chooser and public package table to the top of root `README.md`.
 4. Add first-principles explanations of the CLI, Synthesizer, subcircuit library, and backend package roles.
-5. Add a repository-level FAQ to root `README.md`, including the backend protocol and deprecated WASM verifier answers.
+5. Add a repository-level FAQ to root `README.md`, including Tokamak Layer 2 transaction, backend protocol, Solidity verifier, and deprecated WASM verifier answers.
 6. Add the Synthesizer Q&A and update package-specific README links if needed.
 7. Normalize supported package metadata and mark deprecated surfaces clearly.
 8. Add a documentation readiness check.
@@ -239,7 +253,9 @@ Extend existing release/readiness checks or add a small documentation validation
 - GitHub repository readers can identify the correct package within the first screen of the root README.
 - The root README is the canonical monorepo-level SEO, AEO, and GEO surface and includes a concise repository FAQ.
 - The root README explains package roles from first principles and does not assume readers already know the Tokamak zk-EVM architecture.
+- The root README explains Tokamak Layer 2 transactions and points readers to `tokamak-l2js` and https://github.com/tokamak-network/TokamakL2JS.
 - The root README points readers to the Tokamak zk-SNARK paper `An Efficient SNARK for Field-Programmable and RAM Circuits`.
+- The root README points readers to the Solidity verifier implementation in https://github.com/tokamak-network/Tokamak-zk-EVM-contracts and to the Ethereum mainnet verifier deployment at https://etherscan.io/address/0x0C467a5082323Cc6F4b7077A9dFb0bbdaf6eC626.
 - Deprecated WASM verifier packages are not presented as officially supported packages.
 - LLM tools can find canonical package docs from a root-level `llms.txt`.
 - The Synthesizer docs clearly distinguish accepted input shape from full arbitrary-transaction support.
