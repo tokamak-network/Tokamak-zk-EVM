@@ -173,9 +173,8 @@ Target files:
 Concrete implementation plan:
 
 1. Add a deprecation notice at the top of each WASM verifier Markdown document.
-   - Start with a direct user-facing sentence: `This package family is deprecated and is not an officially supported Tokamak zk-EVM package surface.`
-   - State that the content is retained only for historical or reference material.
-   - State that new integrations should not use these packages.
+   - Use the approved user-facing notice text below.
+   - Do not use maintainer-facing instructions or wording that assumes the reader is editing documentation rather than choosing a verification path.
 2. Add the supported replacement paths before any install or usage examples:
    - Local verification: use `@tokamak-zk-evm/cli` and the backend verification flow.
    - On-chain verification: use the Solidity verifier contracts in `tokamak-network/Tokamak-zk-EVM-contracts` and the published deployment artifacts.
@@ -195,6 +194,34 @@ Concrete implementation plan:
    - Confirm root README and root `llms.txt` still do not list WASM verifier packages as supported package surfaces.
    - Confirm `package.json` remains valid JSON.
    - Run `git diff --check`.
+
+Approved Markdown notice text:
+
+```md
+> Deprecated: The WASM verifier packages are no longer officially supported.
+>
+> This document is retained only as historical and reference material. Do not use the WASM verifier packages for new integrations. For local verification, use `@tokamak-zk-evm/cli` and the supported backend verification flow. For on-chain verification, use the Solidity verifier contracts in `tokamak-network/Tokamak-zk-EVM-contracts` and the published deployment artifacts.
+```
+
+Approved short notice for repeated sections:
+
+```md
+Deprecated historical example. New integrations should use `@tokamak-zk-evm/cli` for local verification or the Solidity verifier contracts for on-chain verification.
+```
+
+Approved `package.json` description:
+
+```json
+"description": "Deprecated historical WASM verifier package for Tokamak zk-EVM. Use @tokamak-zk-evm/cli for local verification or the Solidity verifier contracts for on-chain verification."
+```
+
+Forbidden wording in consumer-facing documentation:
+
+- Do not write maintainer instructions such as `should not be presented as an officially supported package surface`.
+- Do not describe the docs as if the target reader is the maintainer, the planner, or this task's reviewer.
+- Do not use ambiguous phrases such as `underdevelopment`, `future work`, or `not normalized as support` for this package family.
+- Do not imply that the WASM verifier packages are recommended, current, supported, or the preferred verification path.
+- Do not put install commands before the deprecation notice and replacement paths.
 
 ## Not Started
 
