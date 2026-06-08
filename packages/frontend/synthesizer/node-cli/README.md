@@ -36,6 +36,12 @@ synthesizer tokamak-ch-tx \
 
 These files must describe a complete synthesis payload for one transaction replay.
 
+## Transaction Support
+
+This package uses the shared Synthesizer transaction-support boundary. It is not limited to simple token or native transfers, but contract-call support depends on whether execution stays within the opcode set, call flows, storage/memory/log handling, and runtime model currently supported by Tokamak zk-EVM.
+
+For the full consumer-facing answer, see the workspace [transaction support FAQ](../README.md#transaction-support-faq).
+
 ## Output Files
 
 The CLI writes:
