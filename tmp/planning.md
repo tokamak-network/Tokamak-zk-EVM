@@ -12,13 +12,13 @@ The goal is to improve:
 
 ## Status Summary
 
-This document now separates the work into three states:
+This document tracks the repository exposure work in three states:
 
-- Completed: discovery, planning, and source-text work already finished in this planning artifact.
-- Started but incomplete: work that has draft material or partial analysis, but has not yet been implemented in the target repository documentation.
-- Not started: work that has not yet been implemented or materially started beyond being listed as a planned task.
+- Completed: work implemented in the repository, validated locally, or completed as source-text planning.
+- Started but incomplete: work that has partial implementation or partial validation remaining.
+- Not started: work listed in the plan but not yet materially started.
 
-Unless a completed item explicitly says that a target README, package manifest, or root file was changed, completion refers to planning work in this file only.
+Current status: all concrete repository documentation and metadata tasks in this plan have been implemented and validated locally with `npm run docs:check`.
 
 ## Completed
 
@@ -37,11 +37,28 @@ The current baseline has been assessed:
 - Package READMEs already provide install, usage, package role, runtime model, and common-question material.
 - `packages/frontend/synthesizer/llms.txt` exists and gives an LLM-readable map for the Synthesizer workspace.
 
+### Root README Exposure Upgrade
+
+The root `README.md` has been strengthened as the canonical GitHub SEO, AEO, and GEO surface for the monorepo.
+
+Implemented content:
+
+- A concise repository summary near the top of the root README.
+- A first-screen package chooser.
+- A public package table with package roles and package README links.
+- Canonical documentation links, including package README files, root `llms.txt`, and root `CHANGELOG.md`.
+- A repository-level FAQ based on Appendix A.
+- First-principles explanations of the CLI, Synthesizer, subcircuit library, and backend package groups.
+- A Tokamak Layer 2 transaction explanation with `tokamak-l2js` package and repository references.
+- A backend protocol note pointing to `An Efficient SNARK for Field-Programmable and RAM Circuits`.
+- A Solidity verifier note with the contracts repository, `TokamakVerifier.sol`, and Etherscan deployment links.
+- A user-facing note that the WASM verifier packages are deprecated.
+
 ### Root FAQ Source Text
 
-Repository-level FAQ source text has been drafted in this plan. It is not yet implemented in the root `README.md`.
+Repository-level FAQ source text has been drafted in this plan and implemented in the root `README.md`.
 
-The drafted FAQ covers:
+The implemented FAQ covers:
 
 - What Tokamak zk-EVM is.
 - What a Tokamak Layer 2 transaction is.
@@ -61,23 +78,25 @@ The drafted FAQ covers:
 
 The full draft is preserved in [Appendix A](#appendix-a-repository-faq-source-text).
 
-### Synthesizer Q&A Source Text
+### Synthesizer AEO Content
 
-The consumer-facing Synthesizer Q&A answer has been drafted in this plan. It is not yet implemented in `packages/frontend/synthesizer/README.md` or the package-specific Synthesizer README files.
+The consumer-facing Synthesizer Q&A answer has been drafted in this plan and implemented in `packages/frontend/synthesizer/README.md`.
 
-The drafted answer states:
+Implemented content:
 
 - The answer starts with `Partially, yes.`
 - The Synthesizer is not limited to simple native transfers or a hardcoded ERC20 transfer template.
 - Complex contract-call support depends on the execution staying within the supported opcode set, call flows, storage/memory/log handling, and runtime model.
 - Current strongest documented support cases are ERC20 transfer flows and private-state mint, transfer, and redeem flows.
 - Unsupported Ethereum behaviors are outside the consumer support claim because Tokamak zk-EVM is designed for Ethereum Layer 2 execution, not arbitrary Ethereum L1 execution.
+- `packages/frontend/synthesizer/node-cli/README.md` links to the shared workspace transaction-support FAQ.
+- `packages/frontend/synthesizer/web-app/README.md` links to the shared workspace transaction-support FAQ.
 
 The full draft is preserved in [Appendix B](#appendix-b-synthesizer-qa-source-text).
 
 ### External Reference Targets
 
-The key external reference targets have been identified for future README implementation:
+The key external reference targets have been identified and used in the root README implementation:
 
 - `tokamak-l2js` npm package: https://www.npmjs.com/package/tokamak-l2js
 - `tokamak-l2js` source repository: https://github.com/tokamak-network/TokamakL2JS
@@ -96,106 +115,162 @@ The documentation claims have been grounded in implementation facts already coll
 - The synthesizer explicitly rejects create messages and precompiled calls.
 - Example and test coverage is currently centered on ERC20 transfer and private-state mint, transfer, and redeem flows.
 
-## Started But Incomplete
-
-### Root README Exposure Upgrade
-
-Status: started through planning and FAQ source text, but not implemented in `README.md`.
-
-Remaining work:
-
-- Add a concise repository summary near the top of the root README.
-- Add a first-screen package chooser.
-- Add a public package table with npm links, package roles, and package README links.
-- Add the repository-level FAQ from Appendix A.
-- Add first-principles explanations of the CLI, Synthesizer, subcircuit library, and backend package groups.
-- Add the Tokamak Layer 2 transaction explanation and `tokamak-l2js` links.
-- Add the backend protocol note and the `An Efficient SNARK for Field-Programmable and RAM Circuits` link.
-- Add the Solidity verifier note, contracts repository link, `TokamakVerifier.sol` link, and Etherscan deployment link.
-- Add a user-facing note that the WASM verifier packages are deprecated.
-- Link to package-specific README files for detailed usage.
-- State that root `CHANGELOG.md` is the canonical release-note source.
-
-### Synthesizer AEO Content
-
-Status: started through the drafted answer in Appendix B, but not implemented in the Synthesizer README files.
-
-Remaining work:
-
-- Add the Q&A section to `packages/frontend/synthesizer/README.md`.
-- Add or cross-link the Q&A in `packages/frontend/synthesizer/node-cli/README.md`.
-- Add or cross-link the Q&A in `packages/frontend/synthesizer/web-app/README.md`.
-- Keep the root README summary shorter than the package README answer.
-- Ensure the answer does not overclaim arbitrary Ethereum transaction support.
-
 ### Package Metadata Normalization
 
-Status: inspected locally and against the npm registry on 2026-06-08. The four supported public packages all have the required metadata fields, and the npm-published metadata exposes the same required package information for version `2.1.0`. Npm may normalize repository URLs, for example by adding a `git+` prefix.
+The four supported public package manifests have the required exposure metadata fields:
+
+- `description`
+- `keywords`
+- `homepage`
+- `repository`
+- `bugs`
+- `license`
+- `author`
+
+Completed keyword normalization:
+
+- `packages/frontend/synthesizer/node-cli/package.json` includes `tokamak-zk-evm`.
+- `packages/frontend/synthesizer/web-app/package.json` includes `tokamak-zk-evm`.
+- `packages/frontend/synthesizer/web-app/package.json` uses the repository-standard `zk-EVM` spelling instead of `zkevm`.
+- Deprecated WASM verifier packages were not added to supported package lists.
 
 Inspection result:
 
-| Package | Required fields | Required manifest change | Keyword follow-up |
+| Package | Required fields | Required manifest change | Keyword result |
 | --- | --- | --- | --- |
-| `@tokamak-zk-evm/cli` | `description`, `keywords`, `homepage`, `repository.directory`, `bugs`, `license`, and `author` are present. | No required change. | No immediate keyword change. The current keywords are package-specific and include `tokamak-zk-evm`, `tokamak-network`, `prover`, `zk-EVM`, and `zk-SNARK`. |
-| `@tokamak-zk-evm/subcircuit-library` | `description`, `keywords`, `homepage`, `repository.directory`, `bugs`, `license`, and `author` are present. | No required change. | No immediate keyword change. The `wasm` keyword is appropriate here because this package publishes WASM witness-generation artifacts, not a verifier package surface. |
-| `@tokamak-zk-evm/synthesizer-node` | `description`, `keywords`, `homepage`, `repository.directory`, `bugs`, `license`, and `author` are present. | No required field-completeness change. | Consider adding `tokamak-zk-evm` for consistency with the CLI and subcircuit-library package. Do not add verifier/prover keywords because this package synthesizes circuit inputs rather than proving or verifying. |
-| `@tokamak-zk-evm/synthesizer-web` | `description`, `keywords`, `homepage`, `repository.directory`, `bugs`, `license`, and `author` are present. | No required field-completeness change. | Consider adding `tokamak-zk-evm` and normalizing `zkevm` to the same `zk-EVM` spelling used by the other public packages. Keep `browser` and `wasm` because they describe this package's browser-facing bundled-artifact model. |
-
-Concrete next plan:
-
-1. Make no changes to descriptions, homepages, repository metadata, bugs URLs, license, or author fields unless a later release changes package ownership or package locations.
-2. Apply only narrow keyword normalization to the Synthesizer packages:
-   - Add `tokamak-zk-evm` to `packages/frontend/synthesizer/node-cli/package.json`.
-   - Add `tokamak-zk-evm` to `packages/frontend/synthesizer/web-app/package.json`.
-   - Replace the `synthesizer-web` `zkevm` keyword with the repository-standard `zk-EVM` spelling.
-3. Do not add broad unrelated keywords such as `prover` or `verifier` to Synthesizer packages.
-4. Do not add deprecated WASM verifier package metadata to the supported package list.
-5. After any keyword edits, rerun local package metadata extraction and `npm pack --dry-run` for the changed packages if the package scripts allow it without rebuilding unrelated artifacts.
+| `@tokamak-zk-evm/cli` | `description`, `keywords`, `homepage`, `repository.directory`, `bugs`, `license`, and `author` are present. | No required change. | No keyword change was needed. The current keywords are package-specific and include `tokamak-zk-evm`, `tokamak-network`, `prover`, `zk-EVM`, and `zk-SNARK`. |
+| `@tokamak-zk-evm/subcircuit-library` | `description`, `keywords`, `homepage`, `repository.directory`, `bugs`, `license`, and `author` are present. | No required change. | No keyword change was needed. The `wasm` keyword is appropriate because this package publishes WASM witness-generation artifacts, not a verifier package surface. |
+| `@tokamak-zk-evm/synthesizer-node` | `description`, `keywords`, `homepage`, `repository.directory`, `bugs`, `license`, and `author` are present. | Keyword normalization completed. | `tokamak-zk-evm` was added. Broad unrelated `prover` or `verifier` keywords were not added. |
+| `@tokamak-zk-evm/synthesizer-web` | `description`, `keywords`, `homepage`, `repository.directory`, `bugs`, `license`, and `author` are present. | Keyword normalization completed. | `tokamak-zk-evm` was added and `zkevm` was normalized to `zk-EVM`. `browser` and `wasm` were retained because they describe this package's browser-facing bundled-artifact model. |
 
 ### Deprecated WASM Verifier Treatment
 
-Status: started through root-facing documentation, but not fully applied across the deprecated package documentation.
+The deprecated WASM verifier package family has been corrected so it is not presented as an active supported package surface.
 
-Current state:
+Implemented content:
 
-- Root README already answers that the WASM verifier packages are deprecated and should be treated only as historical or reference material.
+- Root README answers that the WASM verifier packages are deprecated and should be treated only as historical or reference material.
 - Root `llms.txt` does not list the WASM verifier packages as supported public packages.
-- `packages/backend/verify/verify-wasm/README.md`, `QUICK_START.md`, and `NPM_USAGE.md` still read like active user-facing package documentation.
-- `packages/backend/verify/verify-wasm/package.json` still has a normal package description and keywords that make it look like an active verifier package surface.
+- `packages/backend/verify/verify-wasm/README.md` starts with the approved deprecation notice.
+- `packages/backend/verify/verify-wasm/QUICK_START.md` starts with the approved deprecation notice.
+- `packages/backend/verify/verify-wasm/NPM_USAGE.md` starts with the approved deprecation notice.
+- Existing usage examples are retained only as historical or reference material.
+- `packages/backend/verify/verify-wasm/package.json` has a description that starts with `Deprecated`.
+- `packages/backend/verify/verify-wasm/package.json` includes `deprecated` and `historical` keywords.
 
-Target files:
+### Root `llms.txt`
 
-- `packages/backend/verify/verify-wasm/README.md`
-- `packages/backend/verify/verify-wasm/QUICK_START.md`
-- `packages/backend/verify/verify-wasm/NPM_USAGE.md`
-- `packages/backend/verify/verify-wasm/package.json`
+Root `llms.txt` has been added.
 
-Concrete implementation plan:
+Implemented content:
 
-1. Add a deprecation notice at the top of each WASM verifier Markdown document.
-   - Use the approved user-facing notice text below.
-   - Do not use maintainer-facing instructions or wording that assumes the reader is editing documentation rather than choosing a verification path.
-2. Add the supported replacement paths before any install or usage examples:
-   - Local verification: use `@tokamak-zk-evm/cli` and the backend verification flow.
-   - On-chain verification: use the Solidity verifier contracts in `tokamak-network/Tokamak-zk-EVM-contracts` and the published deployment artifacts.
-3. Demote existing install and usage examples in `README.md`, `QUICK_START.md`, and `NPM_USAGE.md`.
-   - Keep examples only under a section named `Historical Usage` or `Reference Usage`.
-   - Do not present `@tokamak-zk-evm/verify-wasm-web`, `@tokamak-zk-evm/verify-wasm-nodejs`, or `@tokamak-zk-evm/verify-wasm-bundler` as recommended packages.
-4. Update `packages/backend/verify/verify-wasm/package.json`.
-   - Change the description so it starts with `Deprecated`.
-   - Add `deprecated` and `historical` keywords if keyword edits are useful.
-   - Do not add this package to root `llms.txt`, root package chooser tables, or supported package lists.
-5. Preserve build scripts and source files unless a separate maintenance task explicitly asks to remove them.
-   - This task is a documentation and metadata exposure correction, not a code removal.
-   - Do not remove examples or scripts unless they are moved under historical/reference wording.
-6. Validation after implementation:
-   - `rg -n "verify-wasm|verify-wasm-web|verify-wasm-nodejs|verify-wasm-bundler|WASM verifier" README.md llms.txt packages/backend/verify/verify-wasm`
-   - Confirm every active-looking WASM verifier mention in Markdown is preceded by or contained under deprecated/historical/reference wording.
-   - Confirm root README and root `llms.txt` still do not list WASM verifier packages as supported package surfaces.
-   - Confirm `package.json` remains valid JSON.
-   - Run `git diff --check`.
+- `@tokamak-zk-evm/cli`
+- `@tokamak-zk-evm/subcircuit-library`
+- `@tokamak-zk-evm/synthesizer-node`
+- `@tokamak-zk-evm/synthesizer-web`
+- Root `README.md`
+- `packages/cli/README.md`
+- `packages/frontend/qap-compiler/README.md`
+- `packages/frontend/synthesizer/README.md`
+- `packages/frontend/synthesizer/node-cli/README.md`
+- `packages/frontend/synthesizer/web-app/README.md`
+- Root `CHANGELOG.md`
 
-Approved Markdown notice text:
+The root `llms.txt` does not present deprecated WASM verifier packages as officially supported packages.
+
+### Root README Opening Rewrite
+
+The compact first-screen summary has been added to the root `README.md`.
+
+Implemented content:
+
+- What the repository provides.
+- Which package to install for each consumer need.
+- Where each public package README lives.
+- A short note that release notes are centralized in the root changelog.
+
+### Package README "When To Use This Package" Blocks
+
+Package README "When to use this package" blocks have been added.
+
+Implemented package-level blocks:
+
+- CLI: install local runtime, synthesize, preprocess, prove, verify, extract proof.
+- Subcircuit library: prebuilt R1CS, WASM, JSON metadata, and witness-generation artifacts.
+- Synthesizer Node: file-based Node CLI that reads JSON snapshots and writes JSON artifacts.
+- Synthesizer Web: browser-facing API that consumes payload objects or uploaded files.
+
+### Documentation Readiness Check
+
+A documentation validation script has been added at `scripts/check-doc-readiness.mjs`, and the root `package.json` exposes it as `npm run docs:check`.
+
+Implemented checks:
+
+- Root `llms.txt` exists.
+- Package READMEs linked from `llms.txt` exist.
+- Root README contains a monorepo package chooser.
+- Root README contains a repository-level FAQ.
+- Root README explains the CLI, Synthesizer, subcircuit library, and backend roles for readers with no prior Tokamak zk-EVM background.
+- Root README explains Tokamak Layer 2 transactions and links to the `tokamak-l2js` npm package and source repository.
+- Root README identifies Tokamak zk-SNARK as the backend proving and verification protocol and links to `An Efficient SNARK for Field-Programmable and RAM Circuits`.
+- Root README identifies the Solidity verifier implementation in `tokamak-network/Tokamak-zk-EVM-contracts` and links to the deployed Ethereum mainnet `tokamakVerifier` Etherscan page.
+- Root README marks the WASM verifier package family as deprecated if it is mentioned.
+- Public package manifests include description, keywords, homepage, repository, bugs, license, and author where applicable.
+- Synthesizer README includes the transaction-support Q&A.
+- README links to the root changelog remain valid.
+
+### Final Link and Metadata Validation Run
+
+Local validation has been performed.
+
+Completed validation:
+
+- `npm run docs:check` passes.
+- `git diff --check` passes after implementation commits.
+- Root `llms.txt` local links resolve through the documentation readiness script.
+- Supported public package manifests expose the required metadata fields.
+- Deprecated WASM verifier language is not exposed as a supported package claim in root `README.md` or root `llms.txt`.
+
+## Started But Incomplete
+
+No implementation item from this plan is currently started but incomplete.
+
+Optional follow-up outside this plan:
+
+- Re-check live npm package pages after the next publish, because npm search and package-page exposure update only after publication.
+- Re-check GitHub repository topics and repository description if repository ownership, package names, or positioning changes.
+
+## Not Started
+
+No implementation item from this plan remains unstarted.
+
+## Implemented Order
+
+1. Added root `llms.txt`.
+2. Strengthened the root README as the monorepo GitHub exposure surface.
+3. Added a concise package chooser and public package table to the top of root `README.md`.
+4. Added first-principles explanations of the CLI, Synthesizer, subcircuit library, backend package roles, and Tokamak Layer 2 transactions.
+5. Added a repository-level FAQ to root `README.md`, including Tokamak Layer 2 transaction, backend protocol, Solidity verifier, and deprecated WASM verifier answers.
+6. Added the Synthesizer Q&A and package-specific README links.
+7. Normalized supported Synthesizer package metadata and marked deprecated WASM verifier surfaces clearly.
+8. Added a documentation readiness check.
+9. Ran documentation readiness validation.
+
+## Acceptance Criteria Status
+
+- Met: npm package manifests expose consistent package names, descriptions, keywords, homepage links, repository links, and issue links.
+- Met: GitHub repository readers can identify the correct package within the first screen of the root README.
+- Met: The root README is the canonical monorepo-level SEO, AEO, and GEO surface and includes a concise repository FAQ.
+- Met: The root README explains package roles from first principles and does not assume readers already know the Tokamak zk-EVM architecture.
+- Met: The root README explains Tokamak Layer 2 transactions and points readers to `tokamak-l2js` and https://github.com/tokamak-network/TokamakL2JS.
+- Met: The root README points readers to the Tokamak zk-SNARK paper `An Efficient SNARK for Field-Programmable and RAM Circuits`.
+- Met: The root README points readers to the Solidity verifier implementation in https://github.com/tokamak-network/Tokamak-zk-EVM-contracts and to the Ethereum mainnet verifier deployment at https://etherscan.io/address/0x0C467a5082323Cc6F4b7077A9dFb0bbdaf6eC626.
+- Met: Deprecated WASM verifier packages are not presented as officially supported packages.
+- Met: LLM tools can find canonical package docs from a root-level `llms.txt`.
+- Met: The Synthesizer docs clearly distinguish accepted input shape from full arbitrary-transaction support.
+- Met: The transaction-support Q&A is present in the Synthesizer documentation and does not overclaim current implementation coverage.
+
+## Preserved Deprecated WASM Verifier Wording
 
 ```md
 > Deprecated: The WASM verifier packages are no longer officially supported.
@@ -222,111 +297,6 @@ Forbidden wording in consumer-facing documentation:
 - Do not use ambiguous phrases such as `underdevelopment`, `future work`, or `not normalized as support` for this package family.
 - Do not imply that the WASM verifier packages are recommended, current, supported, or the preferred verification path.
 - Do not put install commands before the deprecation notice and replacement paths.
-
-## Not Started
-
-### Root `llms.txt`
-
-No root-level `llms.txt` exists yet.
-
-Required content:
-
-- `@tokamak-zk-evm/cli`
-- `@tokamak-zk-evm/subcircuit-library`
-- `@tokamak-zk-evm/synthesizer-node`
-- `@tokamak-zk-evm/synthesizer-web`
-
-Required canonical links:
-
-- root `README.md`
-- `packages/cli/README.md`
-- `packages/frontend/qap-compiler/README.md`
-- `packages/frontend/synthesizer/README.md`
-- `packages/frontend/synthesizer/node-cli/README.md`
-- `packages/frontend/synthesizer/web-app/README.md`
-- root `CHANGELOG.md`
-
-The root `llms.txt` must not present deprecated WASM verifier packages as officially supported packages.
-
-### Root README Opening Rewrite
-
-The compact first-screen summary has not been added.
-
-Required content:
-
-- What the repository provides.
-- Which package to install for each consumer need.
-- Where each public package README lives.
-- A short note that release notes are centralized in the root changelog.
-
-### Package README "When To Use This Package" Blocks
-
-The package README citation blocks have not been added.
-
-Required package-level blocks:
-
-- CLI: install local runtime, synthesize, preprocess, prove, verify, extract proof.
-- Subcircuit library: prebuilt R1CS, WASM, JSON metadata, and witness-generation artifacts.
-- Synthesizer Node: file-based Node CLI that reads JSON snapshots and writes JSON artifacts.
-- Synthesizer Web: browser-facing API that consumes payload objects or uploaded files.
-
-Deprecated WASM verifier docs, if retained, should be marked as deprecated and should not be presented as an official support surface.
-
-### Documentation Readiness Check
-
-No documentation validation script or release-readiness check has been added for this plan.
-
-Required checks:
-
-- Root `llms.txt` exists.
-- Package READMEs linked from `llms.txt` exist.
-- Root README contains a monorepo package chooser.
-- Root README contains a repository-level FAQ.
-- Root README explains the CLI, Synthesizer, subcircuit library, and backend roles for readers with no prior Tokamak zk-EVM background.
-- Root README explains Tokamak Layer 2 transactions and links to the `tokamak-l2js` npm package and source repository.
-- Root README identifies Tokamak zk-SNARK as the backend proving and verification protocol and links to `An Efficient SNARK for Field-Programmable and RAM Circuits`.
-- Root README identifies the Solidity verifier implementation in `tokamak-network/Tokamak-zk-EVM-contracts` and links to the deployed Ethereum mainnet `tokamakVerifier` Etherscan page.
-- Root README marks the WASM verifier package family as deprecated if it is mentioned.
-- Public package manifests include description, keywords, homepage, repository, bugs, license, and author where applicable.
-- Synthesizer README includes the transaction-support Q&A.
-- README links to the root changelog remain valid.
-
-### Final Link and Metadata Validation Run
-
-No final validation run has been performed because the implementation work has not been applied yet.
-
-Required validation:
-
-- Verify all README links.
-- Verify package metadata after any manifest changes.
-- Verify `llms.txt` links resolve to existing files.
-- Verify deprecated WASM verifier language is not exposed as a supported package claim.
-
-## Suggested Implementation Order
-
-1. Add root `llms.txt`.
-2. Strengthen the root README as the monorepo GitHub exposure surface.
-3. Add a concise package chooser and public package table to the top of root `README.md`.
-4. Add first-principles explanations of the CLI, Synthesizer, subcircuit library, backend package roles, and Tokamak Layer 2 transactions.
-5. Add a repository-level FAQ to root `README.md`, including Tokamak Layer 2 transaction, backend protocol, Solidity verifier, and deprecated WASM verifier answers.
-6. Add the Synthesizer Q&A and update package-specific README links if needed.
-7. Normalize supported package metadata and mark deprecated surfaces clearly.
-8. Add a documentation readiness check.
-9. Run link and package metadata validation.
-
-## Acceptance Criteria
-
-- npm package pages expose consistent package names, descriptions, keywords, homepage links, repository links, and issue links.
-- GitHub repository readers can identify the correct package within the first screen of the root README.
-- The root README is the canonical monorepo-level SEO, AEO, and GEO surface and includes a concise repository FAQ.
-- The root README explains package roles from first principles and does not assume readers already know the Tokamak zk-EVM architecture.
-- The root README explains Tokamak Layer 2 transactions and points readers to `tokamak-l2js` and https://github.com/tokamak-network/TokamakL2JS.
-- The root README points readers to the Tokamak zk-SNARK paper `An Efficient SNARK for Field-Programmable and RAM Circuits`.
-- The root README points readers to the Solidity verifier implementation in https://github.com/tokamak-network/Tokamak-zk-EVM-contracts and to the Ethereum mainnet verifier deployment at https://etherscan.io/address/0x0C467a5082323Cc6F4b7077A9dFb0bbdaf6eC626.
-- Deprecated WASM verifier packages are not presented as officially supported packages.
-- LLM tools can find canonical package docs from a root-level `llms.txt`.
-- The Synthesizer docs clearly distinguish accepted input shape from full arbitrary-transaction support.
-- The transaction-support Q&A is present in the Synthesizer documentation and does not overclaim current implementation coverage.
 
 ## Appendix A: Repository FAQ Source Text
 
