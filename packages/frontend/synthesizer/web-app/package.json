@@ -4,13 +4,14 @@
   "description": "Browser-facing Tokamak zk-EVM synthesizer package with bundled subcircuit library assets.",
   "keywords": [
     "ethereum",
-    "zkevm",
+    "zk-EVM",
     "zero-knowledge",
     "zk-SNARK",
     "browser",
     "wasm",
     "synthesizer",
     "tokamak",
+    "tokamak-zk-evm",
     "layer2",
     "tokamak-network"
   ],

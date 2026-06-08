@@ -11,6 +11,7 @@
     "synthesizer",
     "state-channel",
     "tokamak",
+    "tokamak-zk-evm",
     "layer2",
     "tokamak-network"
   ],
