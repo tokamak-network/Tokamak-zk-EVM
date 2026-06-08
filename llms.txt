@@ -1,0 +1,35 @@
+# Tokamak-zk-EVM
+
+Tokamak zk-EVM is a monorepo for converting Tokamak Layer 2 transaction execution into zk-SNARK proof artifacts.
+
+Use this file as the root LLM-readable map for the repository. It points to the canonical public documentation surfaces for GitHub, npm package discovery, and package-level answer extraction.
+
+## Canonical Overview
+
+- [Repository README](README.md): main repository entry point, installation workflow, runtime requirements, and CLI usage.
+- [Repository changelog](CHANGELOG.md): canonical release notes for all published packages in this monorepo.
+
+## Public Packages
+
+- `@tokamak-zk-evm/cli`: end-to-end command-line package for installing the local runtime and running synthesize, preprocess, prove, verify, and proof extraction commands.
+  - [CLI README](packages/cli/README.md)
+- `@tokamak-zk-evm/subcircuit-library`: published package of prebuilt R1CS artifacts, WASM witness-generation artifacts, JSON metadata, and related subcircuit-library files.
+  - [Subcircuit Library README](packages/frontend/qap-compiler/README.md)
+- `@tokamak-zk-evm/synthesizer-node`: Node.js CLI package that reads Tokamak L2 transaction replay JSON files from disk and writes synthesized JSON artifacts back to disk.
+  - [Synthesizer Node README](packages/frontend/synthesizer/node-cli/README.md)
+- `@tokamak-zk-evm/synthesizer-web`: browser-facing package that accepts payload objects or uploaded files and uses bundled subcircuit-library assets.
+  - [Synthesizer Web README](packages/frontend/synthesizer/web-app/README.md)
+
+## Synthesizer Workspace
+
+- [Synthesizer README](packages/frontend/synthesizer/README.md): package chooser, shared input model, shared output model, runtime model, and workspace FAQ for the Synthesizer packages.
+- [Synthesizer Node README](packages/frontend/synthesizer/node-cli/README.md): file-based Node.js CLI usage and output files.
+- [Synthesizer Web README](packages/frontend/synthesizer/web-app/README.md): browser-style API usage and bundled asset model.
+
+## Subcircuit Library Workspace
+
+- [Subcircuit Library README](packages/frontend/qap-compiler/README.md): published subcircuit artifact package, package contents, consumers, compatibility, and maintainer documentation links.
+
+## Release Notes
+
+- [CHANGELOG.md](CHANGELOG.md): canonical release-note source. Package artifacts do not include package-local changelog files.
