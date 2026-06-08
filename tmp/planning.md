@@ -76,6 +76,44 @@ The repository-level FAQ should answer monorepo-level questions, not duplicate e
 - Which features are intentionally scoped out because Tokamak zk-EVM targets Ethereum Layer 2 execution?
 - Where are release notes maintained?
 
+Recommended FAQ source text:
+
+```md
+## Repository FAQ
+
+### What is Tokamak zk-EVM?
+
+Tokamak zk-EVM is a monorepo for converting Tokamak Layer 2 transaction execution into zk-SNARK proof artifacts. It includes the CLI, Synthesizer packages, prebuilt subcircuit library package, backend proving and verification code, and WASM verifier packages.
+
+### Which npm package should I install?
+
+Use `@tokamak-zk-evm/cli` if you want the main end-to-end command-line flow for install, synthesize, preprocess, prove, verify, and proof extraction. Use `@tokamak-zk-evm/synthesizer-node` for file-based Node.js synthesis, `@tokamak-zk-evm/synthesizer-web` for browser-facing synthesis, and `@tokamak-zk-evm/subcircuit-library` when you need the published prebuilt subcircuit artifacts directly.
+
+### What does `tokamak-cli` do?
+
+`tokamak-cli` installs and prepares the local Tokamak zk-EVM runtime, runs synthesis from Tokamak L2 transaction snapshots, runs backend preprocessing and proving, verifies proof artifacts, and can extract proof bundles for later verification.
+
+### What is the difference between `synthesizer-node` and `synthesizer-web`?
+
+`@tokamak-zk-evm/synthesizer-node` is a Node.js CLI package that reads JSON files from disk and writes synthesized JSON artifacts back to disk. `@tokamak-zk-evm/synthesizer-web` is a browser-facing package that accepts payload objects or uploaded files and bundles the subcircuit library assets at build time.
+
+### Does the Synthesizer support complex contract-call transactions?
+
+Partially, yes. The Synthesizer is not limited to simple native transfers or a hardcoded ERC20 transfer template. It accepts a complete transaction replay payload, including transaction data, contract code, previous state, and block information, then follows the Tokamak L2/EVM execution path to produce circuit-ready artifacts. For complex contracts, the support boundary is feature-based rather than token-transfer-based: execution must stay within the currently supported opcode set and runtime model.
+
+### Is Tokamak zk-EVM intended for arbitrary Ethereum L1 execution?
+
+No. Tokamak zk-EVM is designed under the strict assumption that it is used in Ethereum Layer 2 execution. Features outside that target runtime model are intentionally excluded from the consumer support claim.
+
+### Which features are intentionally scoped out?
+
+Transactions that require unsupported behavior, such as contract creation, precompiled contracts, transient storage, blob opcodes, invalid/selfdestruct paths, or other unvalidated opcode/control-flow combinations, are outside the supported consumer claim. These limitations are intentional scope boundaries rather than underdevelopment or future work.
+
+### Where are release notes maintained?
+
+Release notes are maintained in the root `CHANGELOG.md`. Package artifacts do not include package-local changelog files; package READMEs link back to the root changelog as the canonical release-note source.
+```
+
 ### 3. Improve the root README opening
 
 Add a compact first-screen summary before the long installation flow:
