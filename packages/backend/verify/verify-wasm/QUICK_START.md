@@ -1,8 +1,12 @@
 # Verify-WASM Quick Start
 
-This guide gets the verifier running locally with the current API.
+> Deprecated: The WASM verifier packages are no longer officially supported.
+>
+> This document is retained only as historical and reference material. Do not use the WASM verifier packages for new integrations. For local verification, use `@tokamak-zk-evm/cli` and the supported backend verification flow. For on-chain verification, use the Solidity verifier contracts in `tokamak-network/Tokamak-zk-EVM-contracts` and the published deployment artifacts.
 
-## Prerequisites
+This guide is a historical quick-start reference for the deprecated WASM verifier package family.
+
+## Reference Prerequisites
 
 - Rust
 - `wasm-pack`
@@ -14,7 +18,7 @@ Install `wasm-pack` once:
 curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 ```
 
-## Build
+## Reference Build
 
 ```bash
 cd packages/backend/verify/verify-wasm
@@ -27,7 +31,7 @@ The build creates:
 - `pkg-node/`
 - `pkg/`
 
-## Browser Smoke Test
+## Reference Browser Smoke Test
 
 Start a local server:
 
@@ -41,7 +45,9 @@ Then open:
 http://localhost:8000/example-simple.html
 ```
 
-## Minimal Usage
+## Reference Minimal Usage
+
+Deprecated historical example. New integrations should use `@tokamak-zk-evm/cli` for local verification or the Solidity verifier contracts for on-chain verification.
 
 ```html
 <!DOCTYPE html>
@@ -68,7 +74,7 @@ http://localhost:8000/example-simple.html
 </html>
 ```
 
-## Input Contract
+## Reference Input Contract
 
 `Verifier` expects JSON strings:
 

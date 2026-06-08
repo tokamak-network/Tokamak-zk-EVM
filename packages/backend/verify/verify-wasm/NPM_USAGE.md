@@ -1,8 +1,12 @@
 # Verify-WASM NPM Usage
 
-This guide documents the published npm packages and the current JavaScript API.
+> Deprecated: The WASM verifier packages are no longer officially supported.
+>
+> This document is retained only as historical and reference material. Do not use the WASM verifier packages for new integrations. For local verification, use `@tokamak-zk-evm/cli` and the supported backend verification flow. For on-chain verification, use the Solidity verifier contracts in `tokamak-network/Tokamak-zk-EVM-contracts` and the published deployment artifacts.
 
-## Install
+This guide documents historical npm usage for the deprecated WASM verifier package family.
+
+## Historical Install
 
 ### Browser
 
@@ -22,9 +26,9 @@ npm install @tokamak-zk-evm/verify-wasm-nodejs
 npm install @tokamak-zk-evm/verify-wasm-bundler
 ```
 
-## Exported API
+## Reference Exported API
 
-All package variants expose the same `Verifier` class.
+The historical package variants exposed the same `Verifier` class.
 
 Constructor:
 
@@ -44,7 +48,9 @@ Methods:
 - `verify_snark()`
 - `free()`
 
-## Browser Example
+## Reference Browser Example
+
+Deprecated historical example. New integrations should use `@tokamak-zk-evm/cli` for local verification or the Solidity verifier contracts for on-chain verification.
 
 ```html
 <!DOCTYPE html>
@@ -71,7 +77,9 @@ Methods:
 </html>
 ```
 
-## Node.js Example
+## Reference Node.js Example
+
+Deprecated historical example. New integrations should use `@tokamak-zk-evm/cli` for local verification or the Solidity verifier contracts for on-chain verification.
 
 ```javascript
 import init, { Verifier } from '@tokamak-zk-evm/verify-wasm-nodejs';
@@ -92,7 +100,9 @@ console.log(ok);
 verifier.free();
 ```
 
-## Bundler Example
+## Reference Bundler Example
+
+Deprecated historical example. New integrations should use `@tokamak-zk-evm/cli` for local verification or the Solidity verifier contracts for on-chain verification.
 
 ```typescript
 import init, { Verifier } from '@tokamak-zk-evm/verify-wasm-bundler';
@@ -112,7 +122,9 @@ console.log(ok);
 verifier.free();
 ```
 
-## Keccak-Only Verification
+## Reference Keccak-Only Verification
+
+Deprecated historical example. New integrations should use `@tokamak-zk-evm/cli` for local verification or the Solidity verifier contracts for on-chain verification.
 
 For Keccak-only verification, omit the proof-related JSON strings:
 

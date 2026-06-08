@@ -1,14 +1,16 @@
 {
   "name": "@tokamak-network/zkevm-verify-wasm",
   "version": "0.1.0",
-  "description": "Tokamak zkEVM SNARK Verifier - WASM implementation for browsers and Node.js",
+  "description": "Deprecated historical WASM verifier package for Tokamak zk-EVM. Use @tokamak-zk-evm/cli for local verification or the Solidity verifier contracts for on-chain verification.",
   "keywords": [
     "tokamak",
     "zkevm",
     "snark",
     "verifier",
     "wasm",
-    "zero-knowledge"
+    "zero-knowledge",
+    "deprecated",
+    "historical"
   ],
   "author": "Tokamak Network",
   "license": "MIT",
