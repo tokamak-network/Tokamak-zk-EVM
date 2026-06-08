@@ -23,6 +23,7 @@ The main gaps are:
 
 - There is no root-level `llms.txt` for the whole repository and all public package surfaces.
 - The root README is long, and the package chooser is not the first thing an answer engine sees.
+- The root README does not currently provide a repository-level FAQ, even though the repository root is the primary GitHub discovery surface for this monorepo.
 - Some package metadata is less consistent across package families, especially the WASM verifier packages.
 - Synthesizer docs do not clearly state the practical transaction-support boundary between "arbitrary calldata accepted as input" and "arbitrary transaction behavior fully supported and validated."
 
@@ -51,7 +52,31 @@ The file should link only to canonical entry points:
 - `packages/backend/verify/verify-wasm/README.md`
 - root `CHANGELOG.md`
 
-### 2. Improve the root README opening
+### 2. Strengthen the monorepo root exposure surface
+
+Treat the repository root as the canonical GitHub SEO, AEO, and GEO surface for the monorepo. Package README files remain the detailed package-specific surfaces, but GitHub users and answer engines will usually encounter the root README first.
+
+Update the root README to include:
+
+- A concise repository summary.
+- A first-screen package chooser.
+- A public package table with npm links, package roles, and package README links.
+- A repository-level FAQ for answer extraction.
+- Links to package-specific README files for detailed usage.
+- A clear statement that the root `CHANGELOG.md` is the canonical release-note source.
+
+The repository-level FAQ should answer monorepo-level questions, not duplicate every package README. Recommended questions:
+
+- What is Tokamak zk-EVM?
+- Which npm package should I install?
+- What does `tokamak-cli` do?
+- What is the difference between `synthesizer-node` and `synthesizer-web`?
+- Does the Synthesizer support complex contract-call transactions?
+- Is Tokamak zk-EVM intended for arbitrary Ethereum L1 execution?
+- Which features are intentionally scoped out because Tokamak zk-EVM targets Ethereum Layer 2 execution?
+- Where are release notes maintained?
+
+### 3. Improve the root README opening
 
 Add a compact first-screen summary before the long installation flow:
 
@@ -62,7 +87,7 @@ Add a compact first-screen summary before the long installation flow:
 
 This should preserve the existing setup detail, but make the repository easier for GitHub search, npm-linked readers, and answer engines to summarize.
 
-### 3. Normalize npm package metadata
+### 4. Normalize npm package metadata
 
 Review package metadata for consistency:
 
@@ -70,7 +95,7 @@ Review package metadata for consistency:
 - Ensure every published package has a repository URL, repository directory where possible, homepage, bugs URL, license, and author.
 - Align source package metadata with the actual published package names for the WASM verifier package family.
 
-### 4. Strengthen Synthesizer AEO content
+### 5. Strengthen Synthesizer AEO content
 
 Add a consumer-facing Q&A section to the Synthesizer docs. The section should answer practical integration questions directly, without overstating support.
 
@@ -102,8 +127,9 @@ Supporting implementation facts to keep aligned with the docs:
 - The supported opcode list omits several behaviors, including contract creation and transient storage.
 - The synthesizer explicitly rejects create messages and precompiled calls.
 - Example and test coverage is currently centered on ERC20 transfer and private-state mint, transfer, and redeem flows.
+- The same support boundary should be summarized in the root README FAQ, with the package README holding the more detailed answer.
 
-### 5. Make package docs easier to cite
+### 6. Make package docs easier to cite
 
 For each public package README, add a short "When to use this package" block near the top:
 
@@ -115,12 +141,14 @@ For each public package README, add a short "When to use this package" block nea
 
 This improves answer-engine extraction without requiring structured website markup.
 
-### 6. Add validation checks for documentation discoverability
+### 7. Add validation checks for documentation discoverability
 
 Extend existing release/readiness checks or add a small documentation validation script that verifies:
 
 - Root `llms.txt` exists.
 - Package READMEs linked from `llms.txt` exist.
+- Root README contains a monorepo package chooser.
+- Root README contains a repository-level FAQ.
 - Public package manifests include description, keywords, homepage, repository, bugs, license, and author where applicable.
 - Synthesizer README includes the transaction-support Q&A.
 - README links to the root changelog remain valid.
@@ -128,16 +156,19 @@ Extend existing release/readiness checks or add a small documentation validation
 ## Suggested Implementation Order
 
 1. Add root `llms.txt`.
-2. Add a concise package chooser to the top of root `README.md`.
-3. Add the Synthesizer Q&A and update package-specific README links if needed.
-4. Normalize package metadata, especially the verifier package family.
-5. Add a documentation readiness check.
-6. Run link and package metadata validation.
+2. Strengthen the root README as the monorepo GitHub exposure surface.
+3. Add a concise package chooser and public package table to the top of root `README.md`.
+4. Add a repository-level FAQ to root `README.md`.
+5. Add the Synthesizer Q&A and update package-specific README links if needed.
+6. Normalize package metadata, especially the verifier package family.
+7. Add a documentation readiness check.
+8. Run link and package metadata validation.
 
 ## Acceptance Criteria
 
 - npm package pages expose consistent package names, descriptions, keywords, homepage links, repository links, and issue links.
 - GitHub repository readers can identify the correct package within the first screen of the root README.
+- The root README is the canonical monorepo-level SEO, AEO, and GEO surface and includes a concise repository FAQ.
 - LLM tools can find canonical package docs from a root-level `llms.txt`.
 - The Synthesizer docs clearly distinguish accepted input shape from full arbitrary-transaction support.
 - The transaction-support Q&A is present in the Synthesizer documentation and does not overclaim current implementation coverage.
