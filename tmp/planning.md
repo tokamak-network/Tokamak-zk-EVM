@@ -154,14 +154,47 @@ Concrete next plan:
 
 ### Deprecated WASM Verifier Treatment
 
-Status: started through planning language, but not applied across target documentation.
+Status: started through root-facing documentation, but not fully applied across the deprecated package documentation.
 
-Remaining work:
+Current state:
 
-- Remove deprecated WASM verifier packages from any root-level supported package list if such a list is added.
-- If the WASM verifier is mentioned in root or package docs, describe it only as deprecated, historical, or reference material.
-- Direct users to the supported CLI/backend verification flow for local verification.
-- Direct users to the Solidity verifier contracts and deployment artifacts for on-chain verification.
+- Root README already answers that the WASM verifier packages are deprecated and should be treated only as historical or reference material.
+- Root `llms.txt` does not list the WASM verifier packages as supported public packages.
+- `packages/backend/verify/verify-wasm/README.md`, `QUICK_START.md`, and `NPM_USAGE.md` still read like active user-facing package documentation.
+- `packages/backend/verify/verify-wasm/package.json` still has a normal package description and keywords that make it look like an active verifier package surface.
+
+Target files:
+
+- `packages/backend/verify/verify-wasm/README.md`
+- `packages/backend/verify/verify-wasm/QUICK_START.md`
+- `packages/backend/verify/verify-wasm/NPM_USAGE.md`
+- `packages/backend/verify/verify-wasm/package.json`
+
+Concrete implementation plan:
+
+1. Add a deprecation notice at the top of each WASM verifier Markdown document.
+   - Start with a direct user-facing sentence: `This package family is deprecated and is not an officially supported Tokamak zk-EVM package surface.`
+   - State that the content is retained only for historical or reference material.
+   - State that new integrations should not use these packages.
+2. Add the supported replacement paths before any install or usage examples:
+   - Local verification: use `@tokamak-zk-evm/cli` and the backend verification flow.
+   - On-chain verification: use the Solidity verifier contracts in `tokamak-network/Tokamak-zk-EVM-contracts` and the published deployment artifacts.
+3. Demote existing install and usage examples in `README.md`, `QUICK_START.md`, and `NPM_USAGE.md`.
+   - Keep examples only under a section named `Historical Usage` or `Reference Usage`.
+   - Do not present `@tokamak-zk-evm/verify-wasm-web`, `@tokamak-zk-evm/verify-wasm-nodejs`, or `@tokamak-zk-evm/verify-wasm-bundler` as recommended packages.
+4. Update `packages/backend/verify/verify-wasm/package.json`.
+   - Change the description so it starts with `Deprecated`.
+   - Add `deprecated` and `historical` keywords if keyword edits are useful.
+   - Do not add this package to root `llms.txt`, root package chooser tables, or supported package lists.
+5. Preserve build scripts and source files unless a separate maintenance task explicitly asks to remove them.
+   - This task is a documentation and metadata exposure correction, not a code removal.
+   - Do not remove examples or scripts unless they are moved under historical/reference wording.
+6. Validation after implementation:
+   - `rg -n "verify-wasm|verify-wasm-web|verify-wasm-nodejs|verify-wasm-bundler|WASM verifier" README.md llms.txt packages/backend/verify/verify-wasm`
+   - Confirm every active-looking WASM verifier mention in Markdown is preceded by or contained under deprecated/historical/reference wording.
+   - Confirm root README and root `llms.txt` still do not list WASM verifier packages as supported package surfaces.
+   - Confirm `package.json` remains valid JSON.
+   - Run `git diff --check`.
 
 ## Not Started
 
