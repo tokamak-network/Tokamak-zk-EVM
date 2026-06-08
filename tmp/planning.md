@@ -130,14 +130,27 @@ Remaining work:
 
 ### Package Metadata Normalization
 
-Status: started through metadata assessment, but no package manifest changes have been made for this plan.
+Status: inspected locally and against the npm registry on 2026-06-08. The four supported public packages all have the required metadata fields, and the npm-published metadata exposes the same required package information for version `2.1.0`. Npm may normalize repository URLs, for example by adding a `git+` prefix.
 
-Remaining work:
+Inspection result:
 
-- Review supported public package manifests for consistent keyword coverage.
-- Confirm repository URLs, repository directories, homepage links, bugs URLs, license, and author fields.
-- Avoid presenting deprecated WASM verifier package surfaces as supported public package surfaces.
-- Use package-specific keywords only where appropriate, rather than applying every keyword to every package.
+| Package | Required fields | Required manifest change | Keyword follow-up |
+| --- | --- | --- | --- |
+| `@tokamak-zk-evm/cli` | `description`, `keywords`, `homepage`, `repository.directory`, `bugs`, `license`, and `author` are present. | No required change. | No immediate keyword change. The current keywords are package-specific and include `tokamak-zk-evm`, `tokamak-network`, `prover`, `zk-EVM`, and `zk-SNARK`. |
+| `@tokamak-zk-evm/subcircuit-library` | `description`, `keywords`, `homepage`, `repository.directory`, `bugs`, `license`, and `author` are present. | No required change. | No immediate keyword change. The `wasm` keyword is appropriate here because this package publishes WASM witness-generation artifacts, not a verifier package surface. |
+| `@tokamak-zk-evm/synthesizer-node` | `description`, `keywords`, `homepage`, `repository.directory`, `bugs`, `license`, and `author` are present. | No required field-completeness change. | Consider adding `tokamak-zk-evm` for consistency with the CLI and subcircuit-library package. Do not add verifier/prover keywords because this package synthesizes circuit inputs rather than proving or verifying. |
+| `@tokamak-zk-evm/synthesizer-web` | `description`, `keywords`, `homepage`, `repository.directory`, `bugs`, `license`, and `author` are present. | No required field-completeness change. | Consider adding `tokamak-zk-evm` and normalizing `zkevm` to the same `zk-EVM` spelling used by the other public packages. Keep `browser` and `wasm` because they describe this package's browser-facing bundled-artifact model. |
+
+Concrete next plan:
+
+1. Make no changes to descriptions, homepages, repository metadata, bugs URLs, license, or author fields unless a later release changes package ownership or package locations.
+2. Apply only narrow keyword normalization to the Synthesizer packages:
+   - Add `tokamak-zk-evm` to `packages/frontend/synthesizer/node-cli/package.json`.
+   - Add `tokamak-zk-evm` to `packages/frontend/synthesizer/web-app/package.json`.
+   - Replace the `synthesizer-web` `zkevm` keyword with the repository-standard `zk-EVM` spelling.
+3. Do not add broad unrelated keywords such as `prover` or `verifier` to Synthesizer packages.
+4. Do not add deprecated WASM verifier package metadata to the supported package list.
+5. After any keyword edits, rerun local package metadata extraction and `npm pack --dry-run` for the changed packages if the package scripts allow it without rebuilding unrelated artifacts.
 
 ### Deprecated WASM Verifier Treatment
 
