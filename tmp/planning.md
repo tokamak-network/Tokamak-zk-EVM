@@ -536,31 +536,32 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - failed transaction paths are not considered in this admissibility criterion;
   - Tokamak zk-EVM should not be presented as applicable to all Ethereum smart contracts;
   - it applies to contracts or contract-entry transaction classes whose successful paths are circuit-topology invariant.
-- Give examples of likely inadmissible patterns:
-  - input-dependent loop counts that change the number of EVM steps or helper placements;
-  - input-dependent branches where different successful branches execute different opcode/helper patterns;
-  - dynamic call targets, call depths, return-data shapes, or storage access patterns that vary across successful transactions.
 - Give the nuance:
   - input-dependent loops or conditionals are not automatically impossible;
   - they can still be admissible if all successful transactions have a deterministic, topology-identical execution path after contract-level validation;
   - for example, a conditional that rejects unsupported inputs and allows only one successful path can remain compatible with one reusable circuit.
+- Add simple examples directly in this section, not as a separate strategy section.
+- Likely admissible examples:
+  - fixed-arity minting such as one-note minting: the value changes, encrypted note data changes, and storage keys change, but the successful replay still follows the same operation shape;
+  - fixed-shape token transfer: sender, receiver, and amount change, but the same balance checks, two balance updates, and event emission occur on every successful path;
+  - bounded single-slot update: a mapping key and value change, but each successful transaction performs the same key computation, one read, one write, and one event;
+  - validation-then-single-path contract: many invalid inputs revert, but every successful input passes validation and enters one common execution path.
+- Likely inadmissible examples:
+  - batch transfer where the number of recipients controls the loop count;
+  - array-processing contracts where successful calls process a variable-length list;
+  - a function whose successful branches execute different external calls or different numbers of storage writes;
+  - router-like contracts where input selects a different target contract or call depth;
+  - contracts whose successful path emits a variable number of logs or returns variable-shaped data.
+- Borderline examples to explain carefully:
+  - an input-dependent conditional is admissible if both successful branches perform the same placement topology, or if only one branch can succeed and the other reverts;
+  - a loop over user data is admissible only if the successful executed iteration count is fixed or the contract uses a fixed executed shape with dummy/no-op positions;
+  - dynamic storage keys are admissible when the number and order of storage operations remain fixed; they are inadmissible when the access pattern length or order changes across successful transactions.
+- Suggested slide design:
+  - use a two-column table: "Reusable circuit likely works" vs "Reusable circuit likely fails";
+  - use short examples, not code;
+  - add one bottom-line sentence: "Values may vary; successful topology must not."
 
-### 15. Design Effort For Admissible Contract Classes
-
-- Discuss possible engineering strategies:
-  - define the supported transaction class precisely, including entrypoint/function selector and admissible input domain;
-  - reject inputs that would lead to unsupported successful path shapes;
-  - keep loop counts fixed or bounded with a fixed executed shape when the cost is acceptable;
-  - structure successful branches so they converge to one topology, or expose only one successful branch and reject the others;
-  - canonicalize ordering of accesses and placements;
-  - keep buffer interfaces fixed and reject over-bound executions;
-  - version-lock the subcircuit library, constants, setup parameters, and metadata;
-  - separate data-dependent witness values from topology-dependent synthesis decisions.
-- Discuss the trade-off:
-  - broader contract expressiveness usually makes one reusable replay-dedicated circuit harder to guarantee;
-  - stronger admissibility restrictions make the reusable on-chain verification story cleaner but reduce the class of supported contracts.
-
-### 16. Soundness Intuition And Failure Modes
+### 15. Soundness Intuition And Failure Modes
 
 - Explain what can go wrong if the replay-to-circuit derivation is not deterministic:
   - two parties may disagree on the circuit for the same claimed execution;
@@ -570,7 +571,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - unsupported shape should be rejected clearly;
   - fallback should only improve usability when the semantic statement remains unchanged.
 
-### 17. Suggested Visuals
+### 16. Suggested Visuals
 
 - Diagram 1: "fixed library" on the left, "replay trace" on the top, "derived placement + wiring" in the center, "SNARK proof" on the right.
 - Diagram 2: subcircuit placement table with columns: placement index, subcircuit type, inputs, outputs, source edges.
@@ -580,9 +581,9 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - inadmissible: different successful branches, loop counts, calls, or storage access shapes produce different placement topology.
 - Diagram 5: replay dataflow tracker: stack/memory/storage locations point to placement wires, and repeated logical values become permutation cycles.
 - Diagram 6: `mintNotes1` replay lanes showing verification goals mapped to subcircuit groups.
-- Diagram 7: trade-off curve between contract expressiveness and reusable-circuit admissibility.
+- Diagram 7: admissible contract examples matrix: fixed-arity mint, fixed-shape transfer, bounded single-slot update, variable batch, router, variable logs.
 
-### 18. Planned Slide Outline
+### 17. Planned Slide Outline
 
 1. Title and guiding question.
 2. Why EVM execution proofs matter: scalability and privacy.
@@ -604,11 +605,10 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 18. Synthesizer execution example: private-state `mintNotes1`.
 19. `mintNotes1` verification goals and subcircuit-composition picture.
 20. Why a trusted replay-dedicated circuit must be reusable for the supported transaction class.
-21. Contract admissibility: all successful paths must preserve the same placement topology.
-22. Design strategies, trade-offs, and limitations for admissible contract classes.
-23. Summary and discussion questions.
-24. Backup slide for Q&A only: how the synthesizer follows complex EVM call structures.
-25. Backup table for Q&A only: EVM opcode-to-subcircuit or composition mapping.
+21. Contract admissibility examples: all successful paths must preserve the same placement topology.
+22. Summary and discussion questions.
+23. Backup slide for Q&A only: how the synthesizer follows complex EVM call structures.
+24. Backup table for Q&A only: EVM opcode-to-subcircuit or composition mapping.
 
 ## Appendix / Q&A Backup Material
 
@@ -768,6 +768,8 @@ depth 0: Contract A
 - The deck states the exact admissibility condition: all successful replays in the supported class must preserve identical placement topology and compatible interface layout.
 - The deck explicitly excludes failed transaction paths from the admissibility discussion.
 - The deck states that Tokamak zk-EVM should not be presented as applicable to all Ethereum smart contracts.
+- The contract admissibility slide uses concrete examples instead of a separate abstract design-strategy slide.
+- The examples include both likely admissible and likely inadmissible successful-path shapes.
 - The deck states that input-dependent loops or conditionals are admissible only when successful executions still have deterministic, topology-identical replay shape.
 - The deck states that different successful input-induced control flow can require a different derived circuit and therefore fall outside the reusable-circuit model.
 - The deck does not overclaim support for arbitrary Ethereum L1 behavior.
