@@ -556,9 +556,14 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - an input-dependent conditional is admissible if both successful branches perform the same placement topology, or if only one branch can succeed and the other reverts;
   - a loop over user data is admissible only if the successful executed iteration count is fixed or the contract uses a fixed executed shape with dummy/no-op positions;
   - dynamic storage keys are admissible when the number and order of storage operations remain fixed; they are inadmissible when the access pattern length or order changes across successful transactions.
+- Final concrete example for this slide:
+  - use the Tokamak private-state DApp as the closing example;
+  - present `mintNotes1` as a likely admissible transaction class when the successful path is fixed: one note output, one accounting-vault debit, one commitment registration, and a fixed public-output/log shape;
+  - contrast it with a hypothetical variable-note-count private-state mint or transfer, where the number of note commitments, nullifiers, storage updates, logs, or call/memory helper placements could change across successful transactions.
 - Suggested slide design:
   - use a two-column table: "Reusable circuit likely works" vs "Reusable circuit likely fails";
   - use short examples, not code;
+  - end with the private-state DApp example because it connects the abstract admissibility rule back to the running `mintNotes1` example;
   - add one bottom-line sentence: "Values may vary; successful topology must not."
 
 ### 15. Soundness Intuition And Failure Modes
