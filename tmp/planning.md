@@ -243,7 +243,32 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - Tokamak's subcircuit-library approach is a different point in the same design space;
   - instead of one monolithic explanation first, Tokamak can be introduced as deriving replay-specific placement and wiring from reusable subcircuits.
 
-### 4. SNARK Preliminaries For This Talk
+### 4. How Tokamak's Approach Differs Conceptually
+
+- Add this as an insight slide immediately after the Scroll, Linea, and Aztec comparison.
+- Keep the level conceptual. Do not introduce file paths, class names, artifact schemas, or subcircuit lists on this slide.
+- Use the same comparison axes from the previous slide:
+  - what execution object is already known;
+  - what reusable structure exists before the execution;
+  - what replay-specific object is derived;
+  - what the verifier ultimately checks.
+- Suggested contrast:
+  - Scroll and Linea emphasize constraining an EVM execution trace: the trace is the witness-like object, and the system checks that the ordered execution is valid.
+  - Aztec emphasizes privacy-first execution proofs: private execution is proved locally, then recursively accumulated and rolled up for L1 verification.
+  - Tokamak emphasizes circuit composition from a fixed subcircuit library: the replay is used to derive a placement-and-wiring plan over reusable arithmetic components.
+- Main insight:
+  - Tokamak does not primarily ask, "How do we write one large circuit that describes the whole machine?"
+  - It asks, "Given a replay, which reusable subcircuits are needed, how many copies are needed, and how should their wires be connected?"
+- Suggested analogy:
+  - Other designs can be introduced as checking a complete execution transcript.
+  - Tokamak can be introduced as assembling a custom verification worksheet from preprinted problem blocks: the blocks are reusable, but the selected blocks and the connections between answers depend on the replay.
+- State the trade-off without overclaiming:
+  - Benefit: expensive subcircuit definitions can be reused while the derived circuit focuses on the observed replay shape.
+  - Cost: replay-specific placement and wiring must be deterministic and sound; input changes can still alter the derived circuit if the trace shape changes.
+- Transition sentence for the next section:
+  - To understand this design, the audience first needs a small amount of SNARK vocabulary, then the field-programmable circuit model from the paper.
+
+### 5. SNARK Preliminaries For This Talk
 
 - Define statement, witness, public instance, circuit, and proof in introductory terms.
 - Explain R1CS/QAP only at the level needed for the audience:
@@ -252,7 +277,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - private wires carry witness data.
 - Explain why preprocessing/setup cares about the circuit description.
 
-### 5. Field-Programmable Circuit Model
+### 6. Field-Programmable Circuit Model
 
 - Introduce the paper's model:
   - fixed subcircuit library;
@@ -264,7 +289,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - derived circuit = placement sequence + wire map.
 - Explain why this reduces what must vary between executions: the library remains fixed; the replay-specific part is mostly placement and wiring.
 
-### 6. Arithmetic Constraints vs Copy Constraints
+### 7. Arithmetic Constraints vs Copy Constraints
 
 - Explain that local correctness and interconnection correctness are different obligations.
 - Local arithmetic constraints:
@@ -274,7 +299,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - Explain the wire map as a permutation over connecting wires.
 - Use a small example with 3 or 4 subcircuits before showing any Tokamak-specific names.
 
-### 7. From Ethereum Replay To Subcircuit Placement
+### 8. From Ethereum Replay To Subcircuit Placement
 
 - Define "replay" for the talk:
   - previous state snapshot;
@@ -289,7 +314,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - hash, signature, Merkle, and accumulator subcircuits for cryptographic/state operations.
 - Keep names illustrative rather than exhaustive.
 
-### 8. Repository-Grounded Implementation View
+### 9. Repository-Grounded Implementation View
 
 - Present a compact pipeline:
   - subcircuit library artifacts are generated and packaged;
@@ -302,7 +327,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - subcircuit info gives input/output wire ranges and flatten maps;
   - global wire list maps local subcircuit wires into the global circuit view.
 
-### 9. What Makes The Output Circuit Replay-Dedicated
+### 10. What Makes The Output Circuit Replay-Dedicated
 
 - The replay fixes:
   - which operations occurred;
@@ -313,7 +338,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - Values can affect witnesses without changing the circuit only when they do not change placement or wiring.
 - Values change the circuit when they alter the execution trace shape.
 
-### 10. Stability Across Different Inputs To The Same Program
+### 11. Stability Across Different Inputs To The Same Program
 
 - State the main condition:
   - identical output circuit requires identical placement topology and identical public/private interface layout, even if private witness values differ.
@@ -332,7 +357,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - Give the key warning:
   - "same program" is not enough; a stable circuit family needs trace-shape invariance or a deliberate universalization/padding strategy.
 
-### 11. Design Effort For Stable Program-Dedicated Circuits
+### 12. Design Effort For Stable Program-Dedicated Circuits
 
 - Discuss possible engineering strategies:
   - restrict the supported program/input domain so branch and loop structure is fixed;
@@ -345,7 +370,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - Discuss the trade-off:
   - more stability usually means larger circuits or stricter input admissibility.
 
-### 12. Soundness Intuition And Failure Modes
+### 13. Soundness Intuition And Failure Modes
 
 - Explain what can go wrong if the replay-to-circuit derivation is not deterministic:
   - two parties may disagree on the circuit for the same claimed execution;
@@ -355,7 +380,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - unsupported shape should be rejected clearly;
   - fallback should only improve usability when the semantic statement remains unchanged.
 
-### 13. Suggested Visuals
+### 14. Suggested Visuals
 
 - Diagram 1: "fixed library" on the left, "replay trace" on the top, "derived placement + wiring" in the center, "SNARK proof" on the right.
 - Diagram 2: subcircuit placement table with columns: placement index, subcircuit type, inputs, outputs, source edges.
@@ -365,7 +390,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - unstable: branch change, different placement sequence.
 - Diagram 5: trade-off curve between circuit stability and circuit size.
 
-### 14. Planned Slide Outline
+### 15. Planned Slide Outline
 
 1. Title and guiding question.
 2. Why EVM execution proofs matter: scalability and privacy.
@@ -373,18 +398,19 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 4. From application goals to arithmetic statements.
 5. Why NP verification circuits can depend on the found EVM trace.
 6. How selected Ethereum ZK projects turn execution into proof inputs.
-7. Minimal SNARK and circuit vocabulary.
-8. Field-programmable circuit idea.
-9. Subcircuit library, placement, and wire map.
-10. Arithmetic constraints vs copy constraints.
-11. Ethereum replay as a source of placements.
-12. Tokamak zk-EVM synthesis pipeline.
-13. Generated artifacts and their meanings.
-14. Example replay-to-placement walkthrough.
-15. Why a replay-dedicated circuit is not automatically program-dedicated.
-16. Conditions for stable output under changed inputs.
-17. Engineering strategies, trade-offs, and limitations.
-18. Summary and discussion questions.
+7. How Tokamak's subcircuit-library approach differs.
+8. Minimal SNARK and circuit vocabulary.
+9. Field-programmable circuit idea.
+10. Subcircuit library, placement, and wire map.
+11. Arithmetic constraints vs copy constraints.
+12. Ethereum replay as a source of placements.
+13. Tokamak zk-EVM synthesis pipeline.
+14. Generated artifacts and their meanings.
+15. Example replay-to-placement walkthrough.
+16. Why a replay-dedicated circuit is not automatically program-dedicated.
+17. Conditions for stable output under changed inputs.
+18. Engineering strategies, trade-offs, and limitations.
+19. Summary and discussion questions.
 
 ## Verification Checklist For The Future Deck
 
@@ -396,6 +422,8 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - The comparative Ethereum ZK section uses only Scroll, Linea, and Aztec.
 - The comparative Ethereum ZK section stays high-level and does not introduce Tokamak implementation artifacts before the field-programmable circuit model.
 - The comparative Ethereum ZK section does not claim all projects solve the replay-to-circuit problem identically; it distinguishes EVM trace-as-witness designs from Aztec's non-EVM privacy-first execution-proof design.
+- The Tokamak contrast slide explains the subcircuit-library approach through comparison axes, not implementation internals.
+- The Tokamak contrast slide gives the audience one memorable analogy, but it must remain technically faithful: reusable blocks are fixed, replay-specific placement and wiring still matter.
 - Every implementation detail is tied back to the conceptual model.
 - The deck distinguishes replay-dedicated, program-dedicated, and universal-machine circuits.
 - The deck states the exact invariance conditions required for equal output circuits across input changes.
