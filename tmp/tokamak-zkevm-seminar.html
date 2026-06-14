@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Tokamak zk-EVM Seminar: EVM replay에서 검증 회로를 유도하기</title>
+  <title>Tokamak zk-EVM Seminar: EVM 트랜잭션의 실행 기록에서 검증 회로를 유도하기</title>
   <style>
     :root {
       --page: #e8e8e8;
@@ -792,7 +792,7 @@
           <div class="piece">verification</div>
         </div>
         <div class="callout">
-          <p>오늘의 질문은 마지막 proof system 자체가 아니라, <span class="strong">주어진 EVM replay를 어떤 검증 회로로 바꾸는가</span>이다.</p>
+          <p>오늘의 질문은 마지막 proof system 자체가 아니라, <span class="strong">주어진 EVM 트랜잭션의 실행 기록을 어떤 검증 회로로 바꾸는가</span>이다.</p>
         </div>
       </main>
       <footer>
@@ -816,7 +816,7 @@
           </ul>
         </div>
         <div class="panel">
-          <h3>EVM replay에서 달라지는 것</h3>
+          <h3>EVM 트랜잭션의 실행 기록에서 달라지는 것</h3>
           <ul>
             <li>branch choice</li>
             <li>loop count</li>
@@ -826,7 +826,7 @@
           </ul>
         </div>
         <div class="callout wide">
-          <p>같은 bytecode라도 찾은 실행 trace가 달라지면 검증 회로의 모양도 달라질 수 있다.</p>
+          <p>같은 bytecode라도 실행 기록이 달라지면 검증 회로의 모양도 달라질 수 있다.</p>
         </div>
       </main>
       <footer>
@@ -883,13 +883,13 @@
           <h3>질문의 형태</h3>
           <p>“기계를 통째로 표현하는 하나의 큰 회로를 어떻게 쓰는가?”보다 다음 질문에 가깝다.</p>
           <div class="callout">
-            <p>주어진 replay에 대해 어떤 reusable block이 몇 개 필요하고, 값들은 어떻게 연결되어야 하는가?</p>
+            <p>주어진 EVM 트랜잭션의 실행 기록에 대해 어떤 reusable block이 몇 개 필요하고, 값들은 어떻게 연결되어야 하는가?</p>
           </div>
         </div>
         <div class="diagram">
           <div class="flow three">
             <div class="node"><span class="label">preprinted blocks</span><span class="detail">fixed library</span></div>
-            <div class="node"><span class="label">solved transcript</span><span class="detail">EVM replay</span></div>
+            <div class="node"><span class="label">solved transcript</span><span class="detail">EVM 트랜잭션의 실행 기록</span></div>
             <div class="node"><span class="label">custom worksheet</span><span class="detail">chosen blocks + connections</span></div>
           </div>
         </div>
@@ -929,7 +929,7 @@
             <li>small reusable circuit block</li>
             <li>block copy</li>
             <li>value connection</li>
-            <li>execution replay</li>
+            <li>EVM 트랜잭션의 실행 기록</li>
             <li>trusted circuit</li>
           </ul>
         </div>
@@ -958,14 +958,14 @@
           <div class="flow">
             <div class="node"><span class="label">qap-compiler</span><span class="detail">fixed subcircuit library</span></div>
             <div class="arrow">+</div>
-            <div class="node"><span class="label">synthesizer</span><span class="detail">bytecode + replay data → witness + value connections</span></div>
+            <div class="node"><span class="label">synthesizer</span><span class="detail">bytecode + EVM 트랜잭션의 실행 기록 → witness + value connections</span></div>
             <div class="arrow">→</div>
             <div class="node"><span class="label">prover / verifier</span><span class="detail">proof 생성과 검증</span></div>
           </div>
         </div>
         <div class="grid four" style="margin-top:18px">
           <div class="small-card"><h3>qap-compiler</h3><p class="small">reusable basis 준비</p></div>
-          <div class="small-card"><h3>synthesizer</h3><p class="small">concrete replay를 proof input으로 변환</p></div>
+          <div class="small-card"><h3>synthesizer</h3><p class="small">구체적인 EVM 트랜잭션의 실행 기록을 proof input으로 변환</p></div>
           <div class="small-card"><h3>prover</h3><p class="small">library와 synthesis output을 소비</p></div>
           <div class="small-card"><h3>verifier</h3><p class="small">public statement에 대해 proof 확인</p></div>
         </div>
@@ -985,18 +985,18 @@
         <div class="panel good">
           <h3>Library compiler: <code>qap-compiler</code></h3>
           <ul>
-            <li>특정 replay 전에 실행된다.</li>
+            <li>특정 EVM 트랜잭션의 실행 기록과 무관하게 실행된다.</li>
             <li>어떤 reusable constraint components가 있는지 정한다.</li>
             <li>library version이 바뀌기 전까지 여러 실행에 재사용된다.</li>
             <li>최종 transaction circuit을 통째로 만드는 것이 아니다.</li>
           </ul>
         </div>
         <div class="panel bad">
-          <h3>Replay compiler: <code>synthesizer</code></h3>
+          <h3>실행 기록 compiler: <code>synthesizer</code></h3>
           <ul>
-            <li>하나의 concrete replay에 대해 실행된다.</li>
-            <li>이 replay의 값과 value connection을 기록한다.</li>
-            <li>output은 replay-specific이다.</li>
+            <li>하나의 구체적인 EVM 트랜잭션의 실행 기록에 대해 실행된다.</li>
+            <li>그 실행 기록의 값과 value connection을 기록한다.</li>
+            <li>output은 실행 기록에 의존한다.</li>
             <li>reusable subcircuit library를 다시 정의하지 않는다.</li>
           </ul>
         </div>
@@ -1027,7 +1027,7 @@
             <p>subcircuit library는 작은 arithmetic constraint systems의 집합이다.</p>
           </div>
           <div class="panel">
-            <h3>replay-specific part</h3>
+            <h3>실행 기록 의존 부분</h3>
             <p>어떤 block copy를 놓고, 어떤 wire들을 같은 값으로 연결할지 정한다.</p>
           </div>
         </div>
@@ -1047,12 +1047,12 @@
         <div class="role-box">
           <h3>subcircuit library</h3>
           <p>reusable block들의 고정된 집합</p>
-          <span class="tag">before replay</span>
+          <span class="tag">before execution record</span>
         </div>
         <div class="role-box">
           <h3>placement</h3>
-          <p>replay-derived circuit 안에서 block을 한 번 사용하는 것</p>
-          <span class="tag gold">chosen from replay</span>
+          <p>실행 기록에서 유도된 circuit 안에서 block을 한 번 사용하는 것</p>
+          <span class="tag gold">chosen from execution record</span>
         </div>
         <div class="role-box">
           <h3>wire map / permutation</h3>
@@ -1096,14 +1096,14 @@
 
     <section class="slide" id="slide-15">
       <header>
-        <div class="kicker">Replay To Circuit</div>
-        <h2>EVM replay가 block layout과 value connections를 만든다</h2>
+        <div class="kicker">Execution Record To Circuit</div>
+        <h2>EVM 트랜잭션의 실행 기록이 block layout과 value connections를 만든다</h2>
       </header>
       <main class="grid two">
         <div class="panel">
           <h3>block layout</h3>
           <ul>
-            <li>replay가 다음 operation을 말해준다.</li>
+            <li>실행 기록이 다음 operation을 말해준다.</li>
             <li>synthesizer는 맞는 reusable block을 고른다.</li>
             <li>block은 local relation을 검사한다.</li>
           </ul>
@@ -1136,7 +1136,7 @@
               <span class="tag">before synthesis</span>
             </div>
             <div class="lane">
-              <div class="lane-title">Replay following</div>
+              <div class="lane-title">Execution-record following</div>
               <div class="lane-flow"><span class="block">operation observed</span><span class="block">block selected</span><span class="block">values tracked</span></div>
               <span class="tag gold">synthesizer</span>
             </div>
@@ -1198,7 +1198,7 @@
         <div class="panel">
           <h3>왜 좋은 예제인가</h3>
           <ul>
-            <li>한 함수 호출이 replay로 고정된다.</li>
+            <li>한 함수 호출이 EVM 트랜잭션의 실행 기록으로 고정된다.</li>
             <li>local EVM execution, hash, storage, call, output이 모두 등장한다.</li>
             <li>fixed-arity entrypoint라서 같은 circuit reuse 논의로 자연스럽게 이어진다.</li>
           </ul>
@@ -1213,7 +1213,7 @@
     <section class="slide" id="slide-19">
       <header>
         <div class="kicker">Example Composition</div>
-        <h2><code>mintNotes1</code> replay는 어떤 검증 목표로 나뉘는가</h2>
+        <h2><code>mintNotes1</code> 실행 기록은 어떤 검증 목표로 나뉘는가</h2>
       </header>
       <main>
         <div class="lane-diagram">
@@ -1365,7 +1365,7 @@
         </div>
         <div class="panel">
           <h3>nondeterminism</h3>
-          <p>같은 replay에 대해 서로 다른 block layout이나 value connections가 나올 수 있다.</p>
+          <p>같은 EVM 트랜잭션의 실행 기록에 대해 서로 다른 block layout이나 value connections가 나올 수 있다.</p>
         </div>
         <div class="panel">
           <h3>unsafe fallback</h3>
@@ -1389,7 +1389,7 @@
         <div class="panel">
           <h3>Derivation</h3>
           <ul>
-            <li>replay는 이미 찾은 실행 기록이다.</li>
+            <li>EVM 트랜잭션의 실행 기록은 이미 찾은 실행 경로다.</li>
             <li>synthesizer는 reusable blocks를 고른다.</li>
             <li>value connections가 copy constraints를 만든다.</li>
           </ul>
@@ -1420,7 +1420,7 @@
         <div class="panel">
           <h3>Conceptual questions</h3>
           <ul>
-            <li>universal machine circuit과 replay-derived circuit의 trade-off는 무엇인가?</li>
+            <li>universal machine circuit과 실행 기록에서 유도된 circuit의 trade-off는 무엇인가?</li>
             <li>privacy application에서 public instance 설계는 무엇을 바꾸는가?</li>
             <li>same trusted circuit reuse 조건은 contract design에 어떤 제약을 주는가?</li>
           </ul>
@@ -1428,7 +1428,7 @@
         <div class="panel">
           <h3>Implementation questions</h3>
           <ul>
-            <li>CALL 구조가 replay에서 어떻게 보이는가?</li>
+            <li>CALL 구조가 EVM 트랜잭션의 실행 기록에서 어떻게 보이는가?</li>
             <li>각 EVM opcode는 어떤 block family로 처리되는가?</li>
             <li>unsupported path는 어떻게 드러나야 하는가?</li>
           </ul>
@@ -1456,7 +1456,7 @@
           <h3>핵심 답변</h3>
           <ul>
             <li>call tree를 새로 추측하지 않는다.</li>
-            <li>interpreter가 만든 concrete message-call replay를 따라간다.</li>
+            <li>interpreter가 만든 구체적인 message-call 실행 기록을 따라간다.</li>
             <li>context boundary에서 값 복사와 caller semantics를 확인한다.</li>
             <li>call count, depth, target, return-data shape가 변하면 circuit shape도 변할 수 있다.</li>
           </ul>
