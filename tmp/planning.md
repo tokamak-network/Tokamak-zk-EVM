@@ -10,6 +10,10 @@ Create seminar presentation material explaining how Tokamak zk-EVM derives a rep
 
 The presentation must also explain the conditions and design effort needed to make the derived output circuit stable for the same program when the program input changes. This point should be treated carefully: the same bytecode does not automatically imply the same replay-specific circuit if different inputs change control flow, memory/storage access shape, or other trace-level structure.
 
+## Presentation Language
+
+The seminar deck, slide text, speaker notes, diagrams, and audience-facing examples must be written in Korean. Technical terms may keep standard English forms when Korean translation would reduce precision or make the material harder for graduate students to connect with SNARK literature.
+
 ## Scope Boundaries
 
 - Theory and concepts come first; repository details should support the explanation rather than dominate it.
@@ -234,7 +238,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - The deck states that different input-induced control flow can require a different derived circuit.
 - The deck does not overclaim support for arbitrary Ethereum L1 behavior.
 - Code references are used as anchors, not as the main teaching structure.
-- All slide text, diagrams, notes, and code comments are written in English.
+- All slide text, diagrams, speaker notes, and audience-facing examples are written in Korean, with English technical terms preserved where needed for precision.
 
 ## Open Questions Before Creating The Actual Slides
 
