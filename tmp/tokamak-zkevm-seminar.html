@@ -6,21 +6,23 @@
   <title>Tokamak zk-EVM Seminar: EVM replay에서 검증 회로를 유도하기</title>
   <style>
     :root {
-      --bg: #f7f8f4;
-      --ink: #1d2327;
-      --muted: #5b646a;
-      --line: #d7ddd6;
-      --teal: #007b78;
-      --mint: #d8efe7;
-      --gold: #f0b84f;
-      --gold-soft: #fff0c6;
-      --coral: #d8634c;
-      --coral-soft: #f8d9d1;
-      --violet: #7067cf;
-      --violet-soft: #e7e4ff;
+      --page: #e8e8e8;
+      --bg: #fbfbfa;
+      --ink: #232323;
+      --muted: #6a6a6a;
+      --line: #d9d9d6;
+      --accent: #2f7f79;
+      --accent-dark: #1f5f5a;
+      --accent-soft: #e8f2f0;
+      --warn: #b4473d;
+      --warn-soft: #f4e3e1;
+      --gold: #c78d2a;
+      --gold-soft: #f6ecd8;
+      --violet: #5b5f86;
+      --violet-soft: #ecedf6;
       --panel: #ffffff;
-      --code: #24313a;
-      --shadow: 0 18px 48px rgba(29, 35, 39, 0.12);
+      --code: #303030;
+      --shadow: 0 18px 36px rgba(0, 0, 0, 0.10);
     }
 
     * {
@@ -34,9 +36,9 @@
 
     body {
       margin: 0;
-      background: var(--bg);
+      background: var(--page);
       color: var(--ink);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", "Apple SD Gothic Neo", Arial, sans-serif;
+      font-family: "Aptos", "Helvetica Neue", -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", "Apple SD Gothic Neo", Arial, sans-serif;
       line-height: 1.42;
       min-width: 320px;
     }
@@ -54,15 +56,20 @@
 
     .deck {
       min-height: 100vh;
+      padding: 26px 0;
     }
 
     .slide {
-      min-height: 100vh;
-      padding: 56px clamp(28px, 5vw, 80px) 44px;
+      width: min(1280px, calc(100vw - 52px));
+      min-height: min(720px, calc(100vh - 52px));
+      margin: 0 auto 26px;
+      padding: 54px 68px 38px;
       display: grid;
       grid-template-rows: auto 1fr auto;
-      gap: 24px;
-      border-bottom: 1px solid var(--line);
+      gap: 22px;
+      border: 1px solid #d4d4d2;
+      background: var(--bg);
+      box-shadow: var(--shadow);
       position: relative;
       overflow: hidden;
     }
@@ -70,10 +77,11 @@
     .slide::before {
       content: "";
       position: absolute;
-      inset: 0;
-      background:
-        linear-gradient(120deg, rgba(0, 123, 120, 0.08), transparent 34%),
-        linear-gradient(310deg, rgba(240, 184, 79, 0.10), transparent 40%);
+      top: 0;
+      left: 0;
+      height: 6px;
+      width: var(--progress, 100%);
+      background: var(--accent);
       pointer-events: none;
     }
 
@@ -83,33 +91,47 @@
     }
 
     .title-slide {
-      background:
-        linear-gradient(125deg, rgba(0, 123, 120, 0.14), rgba(255, 255, 255, 0.74) 45%, rgba(240, 184, 79, 0.18)),
-        var(--bg);
+      background: #263735;
+      color: #f8f8f5;
+    }
+
+    .title-slide::before {
+      background: var(--gold);
     }
 
     header {
-      max-width: 1180px;
+      max-width: 1120px;
       width: 100%;
       margin: 0 auto;
     }
 
     main {
-      max-width: 1180px;
+      max-width: 1120px;
       width: 100%;
       margin: 0 auto;
       align-self: center;
     }
 
     footer {
-      max-width: 1180px;
+      max-width: 1120px;
       width: 100%;
       margin: 0 auto;
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-end;
       gap: 18px;
       align-items: end;
       color: var(--muted);
+      border-top: 1px solid var(--line);
+      padding-top: 10px;
+    }
+
+    footer .source {
+      margin-right: auto;
+    }
+
+    .title-slide footer {
+      color: rgba(255, 255, 255, 0.72);
+      border-top-color: rgba(255, 255, 255, 0.24);
     }
 
     h1,
@@ -120,17 +142,19 @@
     }
 
     h1 {
-      font-size: clamp(48px, 6vw, 84px);
-      line-height: 1.04;
+      font-size: clamp(50px, 5.8vw, 76px);
+      line-height: 1.08;
       letter-spacing: 0;
       margin-bottom: 24px;
+      font-weight: 500;
     }
 
     h2 {
-      font-size: clamp(34px, 4vw, 56px);
-      line-height: 1.08;
+      font-size: clamp(34px, 3.8vw, 50px);
+      line-height: 1.12;
       letter-spacing: 0;
       margin-bottom: 12px;
+      font-weight: 500;
     }
 
     h3 {
@@ -138,6 +162,7 @@
       line-height: 1.14;
       letter-spacing: 0;
       margin-bottom: 12px;
+      font-weight: 600;
     }
 
     p {
@@ -149,6 +174,11 @@
       font-size: clamp(25px, 2.8vw, 38px);
       color: var(--muted);
       max-width: 980px;
+      font-weight: 400;
+    }
+
+    .title-slide .subtitle {
+      color: rgba(255, 255, 255, 0.75);
     }
 
     .presenter-info {
@@ -156,14 +186,14 @@
       flex-wrap: wrap;
       gap: 12px;
       margin-top: 30px;
-      color: var(--ink);
+      color: inherit;
     }
 
     .kicker {
       display: inline-flex;
       align-items: center;
       gap: 10px;
-      color: var(--teal);
+      color: var(--accent);
       font-weight: 750;
       text-transform: uppercase;
       letter-spacing: 0;
@@ -174,9 +204,16 @@
       content: "";
       display: inline-block;
       width: 34px;
-      height: 5px;
-      background: var(--gold);
-      border-radius: 999px;
+      height: 3px;
+      background: var(--accent);
+    }
+
+    .title-slide .kicker {
+      color: #f1c76f;
+    }
+
+    .title-slide .kicker::before {
+      background: #f1c76f;
     }
 
     .lead {
@@ -190,7 +227,7 @@
     }
 
     .strong {
-      color: var(--teal);
+      color: var(--accent-dark);
       font-weight: 800;
     }
 
@@ -222,10 +259,10 @@
     .term,
     .lane,
     .small-card {
-      background: rgba(255, 255, 255, 0.88);
+      background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 8px;
-      box-shadow: var(--shadow);
+      border-radius: 2px;
+      box-shadow: none;
     }
 
     .panel,
@@ -240,8 +277,8 @@
     .metric h3,
     .role-box h3,
     .term h3,
-    .small-card h3 {
-      color: var(--teal);
+      .small-card h3 {
+      color: var(--accent-dark);
     }
 
     .metric {
@@ -251,8 +288,8 @@
     .metric .value {
       font-size: clamp(32px, 4vw, 60px);
       line-height: 1;
-      color: var(--teal);
-      font-weight: 850;
+      color: var(--accent-dark);
+      font-weight: 650;
       margin-bottom: 8px;
     }
 
@@ -283,23 +320,23 @@
     }
 
     .source a {
-      color: var(--teal);
+      color: var(--accent-dark);
       text-decoration: none;
-      border-bottom: 1px solid rgba(0, 123, 120, 0.35);
+      border-bottom: 1px solid rgba(47, 127, 121, 0.35);
     }
 
     .slide-number {
       font-weight: 750;
-      color: var(--teal);
+      color: var(--accent-dark);
       white-space: nowrap;
     }
 
     .diagram {
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: 2px;
       padding: 22px;
-      background: rgba(255, 255, 255, 0.82);
-      box-shadow: var(--shadow);
+      background: var(--panel);
+      box-shadow: none;
     }
 
     .flow {
@@ -315,8 +352,9 @@
 
     .flow .node {
       min-height: 110px;
-      border: 2px solid var(--teal);
-      border-radius: 8px;
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--accent);
+      border-radius: 2px;
       padding: 16px;
       background: var(--panel);
       display: flex;
@@ -329,7 +367,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      color: var(--coral);
+      color: var(--accent-dark);
       font-weight: 900;
       font-size: 38px;
     }
@@ -354,29 +392,29 @@
       justify-content: center;
       min-height: 34px;
       padding: 4px 12px;
-      border-radius: 999px;
-      background: var(--mint);
-      color: #075f5d;
-      border: 1px solid rgba(0, 123, 120, 0.22);
+      border-radius: 2px;
+      background: var(--accent-soft);
+      color: var(--accent-dark);
+      border: 1px solid rgba(47, 127, 121, 0.22);
       white-space: nowrap;
     }
 
     .tag.gold {
       background: var(--gold-soft);
-      color: #7d5200;
-      border-color: rgba(240, 184, 79, 0.5);
+      color: #6f5019;
+      border-color: rgba(199, 141, 42, 0.42);
     }
 
     .tag.coral {
-      background: var(--coral-soft);
-      color: #8a2d1f;
-      border-color: rgba(216, 99, 76, 0.35);
+      background: var(--warn-soft);
+      color: #79312c;
+      border-color: rgba(180, 71, 61, 0.32);
     }
 
     .tag.violet {
       background: var(--violet-soft);
-      color: #3d368f;
-      border-color: rgba(112, 103, 207, 0.35);
+      color: #454963;
+      border-color: rgba(91, 95, 134, 0.32);
     }
 
     .bars {
@@ -394,8 +432,8 @@
 
     .bar {
       height: 34px;
-      background: #e5e9e4;
-      border-radius: 999px;
+      background: #ebebe8;
+      border-radius: 2px;
       overflow: hidden;
       border: 1px solid var(--line);
     }
@@ -403,18 +441,17 @@
     .bar span {
       display: block;
       height: 100%;
-      background: linear-gradient(90deg, var(--teal), var(--gold));
-      border-radius: 999px;
+      background: var(--accent);
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      background: rgba(255, 255, 255, 0.88);
+      background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: 2px;
       overflow: hidden;
-      box-shadow: var(--shadow);
+      box-shadow: none;
     }
 
     th,
@@ -426,8 +463,8 @@
     }
 
     th {
-      background: #edf4f0;
-      color: #075f5d;
+      background: #efefec;
+      color: var(--accent-dark);
       font-weight: 850;
     }
 
@@ -438,9 +475,9 @@
     code {
       font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
       color: var(--code);
-      background: #edf0ed;
+      background: #efefec;
       padding: 0.12em 0.3em;
-      border-radius: 5px;
+      border-radius: 2px;
     }
 
     .equation {
@@ -454,17 +491,18 @@
 
     .equation .piece {
       padding: 18px 20px;
-      border-radius: 8px;
-      border: 2px solid var(--teal);
+      border-radius: 2px;
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--accent);
       background: var(--panel);
-      box-shadow: var(--shadow);
+      box-shadow: none;
       font-size: clamp(22px, 2vw, 30px);
       font-weight: 750;
     }
 
     .equation .op {
       font-size: 38px;
-      color: var(--coral);
+      color: var(--accent-dark);
       font-weight: 900;
     }
 
@@ -478,7 +516,7 @@
       min-height: 62px;
       padding: 10px;
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: 2px;
       background: var(--panel);
       display: flex;
       align-items: center;
@@ -488,18 +526,18 @@
     }
 
     .matrix .mint {
-      background: var(--mint);
-      color: #075f5d;
+      background: var(--accent-soft);
+      color: var(--accent-dark);
     }
 
     .matrix .transfer {
       background: var(--violet-soft);
-      color: #3d368f;
+      color: #454963;
     }
 
     .matrix .redeem {
       background: var(--gold-soft);
-      color: #7d5200;
+      color: #6f5019;
     }
 
     .comparison {
@@ -509,16 +547,17 @@
     }
 
     .good {
-      border-top: 8px solid var(--teal);
+      border-top: 5px solid var(--accent);
     }
 
     .bad {
-      border-top: 8px solid var(--coral);
+      border-top: 5px solid var(--warn);
     }
 
     .callout {
-      border-left: 8px solid var(--gold);
-      box-shadow: var(--shadow);
+      border-left: 5px solid var(--accent);
+      background: #f5f7f6;
+      box-shadow: none;
     }
 
     .lane-diagram {
@@ -536,7 +575,7 @@
 
     .lane .lane-title {
       font-weight: 850;
-      color: var(--teal);
+      color: var(--accent-dark);
     }
 
     .lane .lane-flow {
@@ -548,47 +587,10 @@
 
     .block {
       padding: 8px 12px;
-      border-radius: 8px;
-      background: #edf4f0;
-      border: 1px solid rgba(0, 123, 120, 0.2);
+      border-radius: 2px;
+      background: #efefec;
+      border: 1px solid var(--line);
       font-weight: 700;
-    }
-
-    .nav {
-      position: fixed;
-      right: 20px;
-      bottom: 18px;
-      display: flex;
-      gap: 8px;
-      z-index: 5;
-    }
-
-    .nav button {
-      min-width: 48px;
-      min-height: 44px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.92);
-      color: var(--ink);
-      box-shadow: 0 8px 22px rgba(29, 35, 39, 0.12);
-      cursor: pointer;
-    }
-
-    .nav button:hover {
-      border-color: var(--teal);
-      color: var(--teal);
-    }
-
-    .print-note {
-      position: fixed;
-      left: 20px;
-      bottom: 18px;
-      z-index: 5;
-      color: var(--muted);
-      background: rgba(255, 255, 255, 0.92);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 8px 12px;
     }
 
     @media (max-width: 900px) {
@@ -630,10 +632,6 @@
         border-bottom: 0;
       }
 
-      .nav,
-      .print-note {
-        display: none;
-      }
     }
   </style>
 </head>
@@ -1481,14 +1479,11 @@
     </section>
   </div>
 
-  <div class="print-note">Arrow keys or buttons to move slides. Print to PDF from browser if needed.</div>
-  <nav class="nav" aria-label="slide navigation">
-    <button type="button" id="prev" aria-label="previous slide">‹</button>
-    <button type="button" id="next" aria-label="next slide">›</button>
-  </nav>
-
   <script>
     const slides = Array.from(document.querySelectorAll(".slide"));
+    slides.forEach((slide, index) => {
+      slide.style.setProperty("--progress", `${((index + 1) / slides.length) * 100}%`);
+    });
     let current = Math.max(0, slides.findIndex((slide) => slide.getBoundingClientRect().top >= 0));
 
     function go(delta) {
@@ -1496,8 +1491,6 @@
       slides[current].scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
-    document.getElementById("prev").addEventListener("click", () => go(-1));
-    document.getElementById("next").addEventListener("click", () => go(1));
     document.addEventListener("keydown", (event) => {
       if (event.key === "ArrowRight" || event.key === "PageDown" || event.key === " ") {
         event.preventDefault();
