@@ -6,9 +6,9 @@ The audience is graduate students who are studying zero-knowledge proofs and SNA
 
 ## Goal
 
-Create seminar presentation material explaining how Tokamak zk-EVM derives a circuit from a subcircuit library when an Ethereum program execution replay is given.
+Create seminar presentation material explaining how Tokamak zk-EVM derives a circuit from a library of small reusable circuit blocks when an Ethereum program execution replay is given.
 
-The presentation must also explain which Ethereum contract functions can reuse the same trusted circuit across different successful transactions. This point should be treated carefully: Tokamak zk-EVM should not be presented as applying to all smart contracts. The usable case is a contract entry, or a fixed function/arity, whose successful execution replays always have the same placement topology and compatible public/private interface layout, even when witness values change.
+The presentation must also explain which Ethereum contract functions can reuse the same trusted circuit across different successful transactions. This point should be treated carefully: Tokamak zk-EVM should not be presented as applying to all smart contracts. The usable case is a contract entry whose successful executions always need the same kinds of circuit blocks, the same number of those blocks, and the same connection pattern, even when the actual values change.
 
 ## Presentation Language
 
@@ -28,12 +28,16 @@ The seminar deck, slide text, speaker notes, diagrams, and audience-facing examp
 - The repository should be used as an implementation reference for package names and workflow boundaries, not as the main source of slide-level detail.
 - The deck should avoid source-code walkthroughs except where a short implementation anchor clarifies an abstract concept.
 - Excessive detail is prohibited in audience-facing slides. Prefer high-level proof-system objects over concrete file names, payload field lists, schemas, class names, or package-internal APIs.
-- When explaining the `synthesizer`, describe its inputs at the level of `subcircuit library`, Solidity-compiled EVM bytecode, and `public/private instance`, and its outputs at the level of `witness` and `permutation`.
+- When explaining the `synthesizer`, describe its inputs at the level of `subcircuit library`, Solidity-compiled EVM bytecode, and `public/private instance`, and its outputs at the level of `witness` and value connections, with `permutation` introduced only as the technical representation of those connections.
 - Detailed artifact names such as generated JSON filenames may be kept in speaker notes or internal planning references only when they clarify implementation mapping; they should not be central slide content.
 - Terminology slides must define only the terms needed for the next few slides.
+- Audience-facing slides should introduce intuition before specialized terms. Prefer "small circuit blocks," "block layout," and "value connections" before terms such as `subcircuit`, `placement`, `topology`, `wire map`, or `permutation`.
+- Do not use a specialized term on an audience-facing slide before either defining it or pairing it with a plain-language phrase.
+- When discussing reuse, prefer the plain expression "the same kinds of blocks, the same number of blocks, and the same connections." Use `placement topology` only after that intuition is established.
+- Define `trusted circuit` the first time it appears: a fixed circuit that has already been reviewed, preprocessed, and accepted by the verifier workflow.
 - No claim should imply that every input to the same EVM bytecode yields the same derived circuit. The deck must state the required invariance assumptions explicitly.
 - The deck must state that failed transaction paths are out of scope for the same trusted circuit reuse discussion.
-- The deck must state that input-dependent loops or conditionals are not automatically disallowed; they are disallowed only when successful executions can vary the placement topology.
+- The deck must state that input-dependent loops or conditionals are not automatically disallowed; they are disallowed only when successful executions can vary the needed block layout or value connections.
 
 ## Primary Sources
 
@@ -230,20 +234,20 @@ Speaker note:
 
 ## Core Thesis
 
-Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from scratch for every replay. Instead, it starts from a fixed library of precompiled subcircuits. A replay determines which subcircuit copies are placed, what values pass through their interface wires, which public instance values are exposed, and how interface wires are connected by a permutation. The resulting circuit is replay-dedicated because it is specialized to the trace shape of that replay, while the expensive subcircuit definitions remain reusable.
+Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from scratch for every replay. Instead, it starts from a fixed library of small reusable circuit blocks. A replay determines which blocks are used, how many copies are needed, what values flow through them, and which values must be connected as equal. After this intuition is clear, the technical terms can be introduced: the blocks are `subcircuits`, their copies are `placements`, and the equality connections are represented by a `wire map` or `permutation`.
 
-For on-chain use, avoid introducing a second circuit term. The practical point is simpler: a trusted circuit derived from one representative successful replay can be reused for the same function/arity only when every successful call follows the same placement topology and compatible interface layout. This is not a claim that one circuit covers an arbitrary contract.
+For on-chain use, avoid introducing a second circuit term. The practical point is simpler: a trusted circuit, meaning a fixed circuit already reviewed, preprocessed, and accepted by the verifier workflow, can be reused for the same contract entry only when every successful call needs the same block types, block counts, and value connections. This is not a claim that one circuit covers an arbitrary contract.
 
 ## Conceptual Model To Teach
 
-1. A subcircuit library is a fixed set of small arithmetic constraint systems.
+1. A subcircuit library is a fixed set of small arithmetic constraint systems; in the first explanation, call these small reusable circuit blocks.
 2. A replay is a deterministic execution record of a program under a concrete state and input.
-3. A synthesizer maps replay events to subcircuit placements.
+3. A synthesizer maps replay events to selected block copies; later introduce the technical term `placements`.
 4. Each placement is an instance of a subcircuit with input wires, output wires, and internal witness wires.
 5. Arithmetic constraints check that each placement satisfies its local subcircuit relation.
 6. Copy constraints check that values passed between placements are consistent.
-7. The copy constraints are represented by a wire map/permutation.
-8. The derived circuit is therefore determined by placement plus wiring, not by generating a new primitive circuit language from scratch.
+7. The copy constraints are represented by a value-connection map; later introduce the technical terms `wire map` and `permutation`.
+8. The derived circuit is therefore determined by the block layout plus value connections, not by generating a new primitive circuit language from scratch.
 
 ## Planned Deck Structure
 
@@ -325,7 +329,46 @@ For on-chain use, avoid introducing a second circuit term. The practical point i
 - Transition sentence for the next section:
   - We can now name the Tokamak components, but the conceptual meaning of the two compiler stages should come from the paper's field-programmable circuit model.
 
-### 5. Tokamak zk-EVM Components And The Two Compiler Roles
+### 5. Minimal SNARK And Circuit Vocabulary
+
+- Move this section before the Tokamak component slide so the audience has the vocabulary needed to parse the component diagram.
+- Define only the minimum set of terms needed for the next few slides:
+  - statement: the claim the prover wants to prove;
+  - witness: prover-side values that make the claim true;
+  - public instance: verifier-visible statement data;
+  - circuit: the arithmetic checks that decide whether the witness is valid for the statement;
+  - proof: a compact object checked by the verifier instead of re-running the computation.
+- Explain R1CS/QAP only at the level needed for the audience:
+  - arithmetic constraints encode local computation;
+  - public wires expose verifier-visible data;
+  - private wires carry witness data;
+  - preprocessing/setup depends on the circuit description.
+- Do not introduce Tokamak package names on this slide.
+
+### 6. Intuitive Vocabulary For Tokamak Circuit Derivation
+
+- Add this as a low-density vocabulary bridge before the two-compiler slide.
+- Purpose:
+  - reduce cognitive load before the field-programmable circuit model;
+  - make sure students can distinguish fixed library objects from replay-specific proof inputs;
+  - avoid letting implementation names hide the conceptual roles.
+- Explain only these terms in Korean in the actual deck, with English terms preserved in parentheses:
+  - small reusable circuit block (`subcircuit`): a reusable arithmetic checker for one kind of local relation.
+  - block copy (`placement`): one use of a subcircuit in the replay-derived circuit.
+  - value connection (`wire map` / `permutation`): a compact record that two wires must carry the same value.
+  - execution replay (`replay`): the concrete execution record already produced by running the EVM program.
+  - trusted circuit: a fixed circuit already reviewed, preprocessed, and accepted by the verifier workflow.
+- Add one compact contrast table with only three rows:
+  - fixed before replay: reusable circuit blocks;
+  - chosen from replay: which block copies are needed;
+  - connected from replay: which values must be equal.
+- Suggested warning:
+  - do not define every term that will appear later;
+  - do not introduce `function/arity`, metadata, buffer bounds, setup parameters, or package-internal artifacts here.
+- Design constraint:
+  - This should be a low-density vocabulary slide. If the table and five definitions do not fit at 14 pt or larger, split it into two slides.
+
+### 7. Tokamak zk-EVM Components And The Two Compiler Roles
 
 - Show the full Tokamak zk-EVM flow at a conceptual level:
   - `qap-compiler`;
@@ -334,7 +377,7 @@ For on-chain use, avoid introducing a second circuit term. The practical point i
   - `verifier`.
 - Explain the four components using the paper-first model:
   - `qap-compiler`: prepares the reusable circuit basis. Conceptually, it produces the fixed subcircuit library before any particular replay is considered.
-  - `synthesizer`: compiles one concrete replay into proof inputs. At the slide level, describe its input as the subcircuit library, Solidity-compiled EVM bytecode, and public/private instance data; describe its output as witness data plus a permutation.
+  - `synthesizer`: compiles one concrete replay into proof inputs. At the slide level, describe its input as the subcircuit library, Solidity-compiled EVM bytecode, and public/private instance data; describe its output as witness data plus value connections, with `permutation` introduced as the technical term.
   - `prover`: consumes the fixed library and synthesizer outputs to produce a proof for the replay-derived statement.
   - `verifier`: checks the proof against the public part of the statement.
 - Emphasize the two compiler roles:
@@ -345,51 +388,19 @@ For on-chain use, avoid introducing a second circuit term. The practical point i
     - should not be described as compiling a standalone final transaction circuit.
   - Replay compiler: `synthesizer`
     - runs for a concrete replay;
-    - answers "what witness and permutation represent this replay over the fixed library?";
+    - answers "what values and value connections represent this replay over the fixed library?";
     - output is replay-specific;
     - does not redefine the reusable subcircuit library.
 - Suggested visual:
   - left lane: `qap-compiler` -> fixed subcircuit library;
-  - right lane: bytecode + public/private instance -> `synthesizer` -> witness + permutation;
-  - merge lane: library + witness/permutation -> `prover` -> proof -> `verifier`.
+  - right lane: bytecode + public/private instance -> `synthesizer` -> witness + value connections;
+  - merge lane: library + witness/value connections -> `prover` -> proof -> `verifier`.
 - Suggested analogy:
   - `qap-compiler` prints the reusable puzzle pieces.
   - `synthesizer` reads the solved execution and records the values and equality pattern for this particular puzzle.
   - `prover` proves the assembled puzzle is consistent.
   - `verifier` checks the proof without reassembling everything.
-- Do not over-detail preprocessing, setup, CLI packaging, Node/Web adapters, or exact JSON schemas on this slide. Mention them later only if needed for implementation anchoring.
-
-### 6. Terminology Introduced By The Two Compiler View
-
-- Add this as a vocabulary bridge immediately after the two-compiler slide.
-- Purpose:
-  - reduce cognitive load before the field-programmable circuit model;
-  - make sure students can distinguish fixed library objects from replay-specific proof inputs;
-  - avoid letting implementation names hide the conceptual roles.
-- Explain only these terms in Korean in the actual deck, with English terms preserved in parentheses:
-  - `subcircuit library`: the reusable circuit basis prepared before a particular replay.
-  - `bytecode`: the compiled EVM program being replayed.
-  - `public instance`: verifier-visible statement data.
-  - `private instance`: prover-side execution data that is not directly revealed.
-  - `witness`: concrete values used by the prover to satisfy the selected constraints.
-  - `permutation`: the compact representation of equality/copy constraints between connected values.
-- Add one compact contrast table with only three rows:
-  - before replay: subcircuit library;
-  - synthesizer input: bytecode and public/private instance;
-  - synthesizer output: witness and permutation.
-- Suggested warning:
-  - Do not define every term that will appear later. Define only the terms needed to understand the two compiler roles.
-- Design constraint:
-  - This should be a low-density vocabulary slide. If the table and six definitions do not fit at 14 pt or larger, split it into two slides.
-
-### 7. SNARK Preliminaries For This Talk
-
-- Define statement, witness, public instance, circuit, and proof in introductory terms.
-- Explain R1CS/QAP only at the level needed for the audience:
-  - arithmetic constraints encode local computation;
-  - public wires expose verifier-visible data;
-  - private wires carry witness data.
-- Explain why preprocessing/setup cares about the circuit description.
+- Do not over-detail preprocessing, setup, CLI packaging, Node/Web adapters, exact JSON schemas, metadata fields, buffer bounds, or setup parameters on this slide. Mention them later only if needed for implementation anchoring.
 
 ### 8. Field-Programmable Circuit Model
 
@@ -403,7 +414,8 @@ For on-chain use, avoid introducing a second circuit term. The practical point i
   - interface wires between subcircuits;
   - internal wires inside each subcircuit.
 - Show the key abstraction:
-  - derived circuit = placement sequence + wire map.
+  - derived circuit = block layout plus value connections;
+  - technical notation: placement sequence plus wire map.
 - Explain why this reduces what must vary between executions: the library remains fixed; the replay-specific part is mostly placement and wiring.
 
 ### 9. Arithmetic Constraints vs Copy Constraints
@@ -416,14 +428,14 @@ For on-chain use, avoid introducing a second circuit term. The practical point i
   - each subcircuit instance must satisfy its own relation.
 - Copy constraints:
   - if placement A's output feeds placement B's input, both wires must carry the same field element.
-- Explain the wire map as a permutation over connecting wires.
+- Explain the wire map as a compact way to record equal-value connections; mention permutation only after the equality intuition is clear.
 - Use a small example with 3 or 4 subcircuits before showing any Tokamak-specific names.
 
 ### 10. From Ethereum Replay To Subcircuit Placement
 
 - Role of this section:
   - apply the previous two conceptual slides to EVM replay;
-  - explain how EVM locations and dataflow become placement and permutation.
+  - explain how EVM locations and dataflow become block layout and value connections, with placement and permutation introduced as the technical terms.
 - Define "replay" for the talk:
   - previous state snapshot;
   - transaction;
@@ -431,26 +443,26 @@ For on-chain use, avoid introducing a second circuit term. The practical point i
   - contract code;
   - deterministic execution semantics.
 - Explain that the synthesizer follows the replay and records two coupled objects:
-  - placements: which reusable subcircuit instance checks each observed operation or helper relation;
-  - permutation: which variables across placements must be equal because the replay dataflow says they are the same logical value.
-- Explain placement tracking:
-  - when an opcode or helper computation consumes values, the synthesizer identifies the current logical values from stack, memory, calldata, storage, block data, or reserved buffers;
-  - when the operation produces a value, the synthesizer records a new placement output variable and updates the logical location that now owns that value;
-  - the local subcircuit relation checks the operation itself.
-- Explain permutation tracking:
-  - every logical value is carried through the replay as a producer-consumer relationship;
-  - if a later placement input is supposed to reuse an earlier placement output, the synthesizer records an equality relation between the corresponding wires;
-  - stack moves, memory copies, calldata copies, return-data copies, storage-key reuse, and public-output exposure are all sources of such equality relations;
-  - after synthesis, these equality groups are serialized as a permutation, which is the copy-constraint part of the derived circuit.
+  - block layout: which reusable block copy checks each observed operation or helper relation;
+  - value connections: which block inputs and outputs must be equal because the replay says they are the same logical value.
+- Compress placement tracking for the main slide:
+  - the replay says what operation happened next;
+  - the synthesizer chooses the matching reusable block;
+  - the block checks the local relation for that operation.
+- Compress value-connection tracking for the main slide:
+  - the replay also says where each value came from and where it is used next;
+  - the synthesizer tracks this dataflow through stack, memory, calldata, storage, call return data, and public outputs;
+  - equal-value requirements are recorded as a connection map, technically serialized as a permutation.
 - Map common EVM operations to subcircuit categories:
   - buffers for external/public/private inputs and outputs;
-  - ALU subcircuits for arithmetic and bitwise operations;
-  - hash, signature, Merkle, and accumulator subcircuits for cryptographic/state operations.
+  - arithmetic/bitwise blocks;
+  - hash/signature blocks;
+  - state membership/update blocks.
 - Suggested visual:
   - left side: replay events update symbolic locations such as stack slot, memory slice, storage key, and return buffer;
-  - middle: each event creates or consumes placement wires;
-  - right side: equal logical values are grouped into permutation cycles;
-  - caption: "placements verify local relations; permutation verifies that the replay dataflow connects the same values."
+  - middle: each event creates or consumes block wires;
+  - right side: equal logical values are grouped into value-connection cycles;
+  - caption: "blocks verify local relations; value connections verify that the replay dataflow connects the same values."
 - Keep names illustrative rather than exhaustive.
 
 ### 11. Repository-Grounded Implementation View
@@ -458,7 +470,7 @@ For on-chain use, avoid introducing a second circuit term. The practical point i
 - Present a compact pipeline:
   - subcircuit library artifacts are generated and packaged;
   - synthesizer consumes high-level bytecode and public/private instance data with the fixed library;
-  - synthesis emits witness-oriented data and a permutation;
+  - synthesis emits witness-oriented data and value connections, technically represented as a permutation;
   - prover and verifier consume those high-level objects.
 - Mention the compiled subcircuit list from `compile.sh` only as a reference example.
 - Explain metadata roles:
@@ -471,7 +483,7 @@ For on-chain use, avoid introducing a second circuit term. The practical point i
 - Purpose:
   - make the synthesizer role concrete without turning the talk into a source-code walkthrough;
   - show how one Solidity-level function call becomes verification goals;
-  - show how those goals are covered by groups of subcircuits and connected by a permutation.
+  - show how those goals are covered by groups of reusable blocks and connected by equality requirements.
 - Example source:
   - Solidity logic from `PrivateStateController.mintNotes1` and `L2AccountingVault.debitLiquidBalance`;
   - transaction replay fixture from `packages/frontend/synthesizer/examples/privateState/mintNotes/mintNotes1/`;
@@ -491,12 +503,14 @@ For on-chain use, avoid introducing a second circuit term. The practical point i
   - verify storage reads/writes and the resulting state transition;
   - verify that public outputs expose the intended event and state-observation data.
 - Subcircuit-composition picture:
-  - input/output buffers feed public inputs, block data, EVM bytecode/context, private inputs, and public outputs;
-  - signature and origin binding use `Poseidon`, `DecToBit`, `JubjubExpBatch`, and `EdDsaVerify`;
-  - EVM arithmetic, comparisons, bitwise operations, stack/memory checks, and control-flow-adjacent values use `ALU1`, `ALU2`, and `Accumulator`;
-  - hash-related replay obligations use `Poseidon` placements in this run;
-  - storage and state membership/update obligations use `VerifyMerkleProof`;
-  - the permutation connects equal values across these groups so that a value produced in one placement is the same value consumed later.
+  - show role groups first, not raw subcircuit names:
+    - transaction and signer binding;
+    - local Solidity/EVM execution;
+    - hash and note-commitment computation;
+    - storage/state transition;
+    - public output exposure.
+  - explain that the connection map links equal values across these groups so that a value produced in one block is the same value consumed later.
+  - keep exact subcircuit names out of audience-facing main slides unless the slide has enough room and the names serve a clear explanatory purpose.
 - Suggested visual:
   - left: "`mintNotes1` transaction replay";
   - middle, four horizontal lanes:
@@ -504,14 +518,15 @@ For on-chain use, avoid introducing a second circuit term. The practical point i
     - Solidity/EVM local execution;
     - hash, commitment, and storage-key computation;
     - state transition and public outputs;
-  - right: "witness + permutation";
-  - bottom annotation: "local constraints check each box; permutation checks equality between boxes."
+  - right: "witness + value connections";
+  - bottom annotation: "local constraints check each box; value connections check equality between boxes."
 - Speaker-note facts from the actual synthesizer run:
   - the fixture replay completed with 165 placement instances;
   - the subcircuit count was `ALU1: 88`, `VerifyMerkleProof: 36`, `ALU2: 15`, `Poseidon: 12`, `JubjubExpBatch: 4`, `DecToBit: 2`, `Accumulator: 2`, `EdDsaVerify: 1`, and five buffer placements;
   - the permutation had 3710 entries and passed the permutation check;
   - the EVM step log contained 628 rows, including `KECCAK256`, `SLOAD`, `SSTORE`, `CALL`, and `LOG1` events relevant to the function narrative.
 - Keep these details out of the main slide unless there is enough room at 14 pt or larger:
+  - exact subcircuit-name lists;
   - raw placement JSON;
   - exact transaction calldata;
   - full opcode histogram;
@@ -536,28 +551,29 @@ For on-chain use, avoid introducing a second circuit term. The practical point i
 - Values change the circuit when they alter the execution trace shape.
 - Clarify reuse without adding a second circuit term:
   - a circuit is first derived from one successful replay;
-  - the same trusted circuit can be reused for the same function/arity only if all successful replays preserve the same placement topology and compatible interface layout;
+  - the same trusted circuit can be reused for the same contract entry only if all successful replays preserve the same block types, block counts, and value connections;
+  - after this is clear, state the technical phrase: identical placement topology and compatible interface layout;
   - this is the bridge from replay-specific derivation to reusing the same trusted circuit.
 
 ### 14. Which Contracts Can Reuse The Same Trusted Circuit?
 
 - Replace the earlier "same program, same circuit" framing with a simpler reuse question:
-  - given one trusted synthesizer output for a contract entry, can that same circuit be reused for every successful call to the same function/arity?
+  - given one trusted synthesizer output for a contract entry, can that same circuit be reused for every successful call to the same entry?
 - Explain why this matters:
   - the on-chain verifier can check a proof for a fixed public statement and proving key, but it cannot independently validate an arbitrary newly generated synthesizer output as part of normal contract verification;
   - therefore one trusted/preprocessed output must be reusable for the intended set of successful calls;
-  - if each transaction required a different placement topology, the system would need a different derived circuit and the reusable on-chain verification story would break.
+  - if each transaction required a different block layout or connection pattern, the system would need a different derived circuit and the reusable on-chain verification story would break.
 - State the same trusted circuit reuse condition:
-  - for every successful replay of the supported function/arity, the placement topology must be identical;
-  - the public/private interface layout, buffer bounds, library version, constants, setup parameters, and metadata must also remain compatible;
-  - witness values may change, but they must not change the topology or interface shape.
+  - plain version for the main slide: every successful replay must use the same kinds of blocks, the same number of blocks, and the same value connections;
+  - technical version for speaker notes or a bottom caption: the placement topology and public/private interface layout must remain compatible;
+  - witness values may change, but they must not change the block layout or connection pattern.
 - State the scope explicitly:
   - failed transaction paths are not considered in this reuse rule;
   - Tokamak zk-EVM should not be presented as applicable to all Ethereum smart contracts;
-  - it applies to contract entries whose successful paths are circuit-topology invariant.
+  - it applies to contract entries whose successful paths keep the same circuit shape.
 - Give the nuance:
   - input-dependent loops or conditionals are not automatically impossible;
-  - they can still be usable if all successful transactions have a deterministic, topology-identical execution path after contract-level validation;
+  - they can still be usable if all successful transactions have a deterministic execution path with the same block layout and connections after contract-level validation;
   - for example, a conditional that rejects unsupported inputs and allows only one successful path can remain compatible with the same trusted circuit.
 - Split this material into two slides in the final deck:
   - Slide A: examples of when the same trusted circuit can or cannot be reused;
@@ -574,13 +590,13 @@ For on-chain use, avoid introducing a second circuit term. The practical point i
   - router-like contracts where input selects a different target contract or call depth;
   - contracts whose successful path emits a variable number of logs or returns variable-shaped data.
 - Slide A, borderline examples to explain carefully:
-  - an input-dependent conditional is usable if both successful branches perform the same placement topology, or if only one branch can succeed and the other reverts;
+  - an input-dependent conditional is usable if both successful branches use the same block layout and connections, or if only one branch can succeed and the other reverts;
   - a loop over user data is usable only if the successful executed iteration count is fixed or the contract uses a fixed executed shape with dummy/no-op positions;
   - dynamic storage keys are usable when the number and order of storage operations remain fixed; they are not usable when the access pattern length or order changes across successful transactions.
 - Slide B, private-state DApp concrete example:
   - use the Tokamak private-state DApp as the closing example, not only `mintNotes1`;
   - show that the DApp contract defines separate fixed-arity entrypoints instead of one variable-size note operation;
-  - explain that each entrypoint/function selector needs its own trusted circuit because it has its own replay-dedicated topology.
+  - explain that each entrypoint/function selector needs its own trusted circuit because it uses a different block layout and connection pattern.
 - Private-state DApp function families to show:
   - mint circuits:
     - `mintNotes1`, `mintNotes2`, `mintNotes3`, `mintNotes4`, `mintNotes5`, `mintNotes6`;
@@ -597,48 +613,48 @@ For on-chain use, avoid introducing a second circuit term. The practical point i
   - supporting accounting-vault calls:
     - `debitLiquidBalance` appears in mint paths;
     - `creditLiquidBalance` appears in redeem paths;
-    - these support calls affect the call/storage topology of the corresponding entrypoint circuit.
+    - these support calls affect the call/storage shape of the corresponding entrypoint circuit.
   - public helper functions:
     - `computeNoteCommitment` and `computeNullifier` can be listed separately as deterministic helper-style functions, but they are not the main private-state transaction classes.
 - Key message:
   - the private-state DApp is usable by splitting variable note-count behavior into many fixed-arity functions;
-  - this is exactly the kind of contract design that avoids one successful transaction changing the placement topology of another;
+  - this is exactly the kind of contract design that avoids one successful transaction changing the block layout of another;
   - the cost is that each function selector/arity needs its own trusted synthesizer output and proving setup path.
 - Suggested slide design:
   - use a two-column table: "Same circuit likely works" vs "Same circuit likely fails";
   - use short examples, not code;
   - end with a compact private-state DApp matrix: mint arity, transfer input/output arity, redeem arity;
   - visually emphasize that rows are different circuits, not one circuit with a variable note count;
-  - add one bottom-line sentence: "Values may vary; successful topology must not."
+  - add one bottom-line sentence: "Values may vary; the successful circuit shape must not."
 
 ### 15. Soundness Intuition And Failure Modes
 
 - Keep this section focused on failure modes, not on repeating the same trusted circuit reuse argument.
-- Explain what can go wrong if the trusted topology and the claimed function/arity do not match:
+- Explain what can go wrong if the trusted circuit shape and the claimed contract entry do not match:
   - a proof could verify a statement for a different successful-path shape than the one the verifier thinks is being supported;
-  - verifier preprocessing may bind the wrong placement topology or public/private interface layout;
-  - a prover could appear to prove a supported transaction while relying on a topology that was never trusted for that function/arity.
+  - verifier preprocessing may bind the wrong block layout, connection pattern, or public/private interface;
+  - a prover could appear to prove a supported transaction while relying on a circuit shape that was never trusted for that contract entry.
 - Explain what can go wrong if the replay-to-circuit derivation is not deterministic:
-  - two parties may derive different placement/permutation objects for the same claimed successful replay;
+  - two parties may derive different block-layout or value-connection objects for the same claimed successful replay;
   - deployment and proving infrastructure may disagree about which proving key or circuit identity is authoritative;
   - debugging becomes impossible because the same semantic transaction no longer maps to one reproducible circuit object.
 - Explain why fallback logic must not hide synthesis defects:
   - unsupported shape should be rejected clearly;
-  - fallback should only improve usability when the semantic statement and placement topology remain unchanged;
+  - fallback should only improve usability when the semantic statement and circuit shape remain unchanged;
   - fallback must not silently pad, skip, or reroute a transaction into a different trusted circuit.
 
 ### 16. Suggested Visuals
 
-- Diagram 1: "fixed library" on the left, "replay trace" on the top, "derived placement + wiring" in the center, "SNARK proof" on the right.
-- Diagram 2: subcircuit placement table with columns: placement index, subcircuit type, inputs, outputs, source edges.
-- Diagram 3: copy constraint/permutation cycles over a small set of connecting wires.
+- Diagram 1: "fixed library" on the left, "replay trace" on the top, "chosen blocks + value connections" in the center, "SNARK proof" on the right.
+- Diagram 2: block-layout table with columns: block index, block type, inputs, outputs, source values.
+- Diagram 3: copy-constraint/value-connection cycles over a small set of connecting wires.
 - Diagram 4: usable vs not usable successful paths:
-  - usable: different witness values, same successful placement topology;
-  - not usable: different successful branches, loop counts, calls, or storage access shapes produce different placement topology.
-- Diagram 5: replay dataflow tracker: stack/memory/storage locations point to placement wires, and repeated logical values become permutation cycles.
+  - usable: different witness values, same successful block layout and connections;
+  - not usable: different successful branches, loop counts, calls, or storage access shapes produce different circuit shapes.
+- Diagram 5: replay dataflow tracker: stack/memory/storage locations point to block wires, and repeated logical values become value-connection cycles.
 - Diagram 6: `mintNotes1` replay lanes showing verification goals mapped to subcircuit groups.
 - Diagram 7: private-state DApp function matrix: `mintNotes1`-`mintNotes6`, supported `transferNotesNToM` arities, and `redeemNotes1`-`redeemNotes4`, with one row per trusted circuit.
-- Diagram 8: circuit reuse relationship: representative successful replay -> trusted placement topology -> all successful calls to the same function/arity reuse the same circuit.
+- Diagram 8: circuit reuse relationship: representative successful replay -> trusted circuit shape -> all successful calls to the same contract entry reuse the same circuit.
 
 ### 17. Planned Slide Outline
 
@@ -649,22 +665,22 @@ For on-chain use, avoid introducing a second circuit term. The practical point i
 5. Why NP verification circuits can depend on the found EVM trace.
 6. How selected Ethereum ZK projects turn execution into proof inputs.
 7. How Tokamak's subcircuit-library approach differs.
-8. Tokamak zk-EVM components: qap-compiler, synthesizer, prover, verifier.
-9. The two compiler roles: library compiler vs replay compiler.
-10. Terminology from the two-compiler view.
-11. Minimal SNARK and circuit vocabulary.
+8. Minimal SNARK and circuit vocabulary for this talk.
+9. Intuitive vocabulary: reusable blocks, block copies, and value connections.
+10. Tokamak zk-EVM components: qap-compiler, synthesizer, prover, verifier.
+11. The two compiler roles: library compiler vs replay compiler.
 12. Field-programmable circuit idea.
-13. Subcircuit library, placement, and wire map.
+13. Subcircuit library, placement, and wire map after the intuition is clear.
 14. Arithmetic constraints vs copy constraints.
-15. Ethereum replay as a source of placements and permutation.
+15. Ethereum replay as a source of block layout and value connections.
 16. Tokamak zk-EVM synthesis pipeline.
 17. High-level generated objects and their meanings.
 18. Synthesizer execution example: private-state `mintNotes1`.
 19. `mintNotes1` verification goals and subcircuit-composition picture.
-20. Why the same trusted circuit must be reusable for the supported function/arity.
+20. Why the same trusted circuit must be reusable for the supported contract entry.
 21. Contract examples: reusable vs non-reusable successful path shapes.
 22. Private-state DApp matrix: fixed-arity functions need different trusted circuits.
-23. Soundness failure modes: wrong topology, nondeterministic synthesis, and unsafe fallback.
+23. Soundness failure modes: wrong circuit shape, nondeterministic synthesis, and unsafe fallback.
 24. Summary and discussion questions.
 25. Backup slide for Q&A only: how the synthesizer follows complex EVM call structures.
 26. Backup table for Q&A only: EVM opcode-to-subcircuit or composition mapping.
@@ -723,10 +739,12 @@ depth 0: Contract A
 ### A2. EVM Opcode-To-Subcircuit Mapping Backup Table
 
 - Use this as reference material only. It is too dense for the main seminar body.
+- Main Q&A slides should use a short opcode-family summary first. Keep the full table as speaker notes, a backup appendix, or a separate reference page.
 - Source basis:
   - opcode catalog: `evm.codes` and `duneanalytics/evm.codes` `opcodes.json`, accessed 2026-06-14;
   - Tokamak mapping: `configuredTypes.ts`, `instructions.ts`, `InstructionHandler`, and `MemoryManager`.
 - Table design:
+  - first prepare a compact Q&A summary with roughly 5-7 rows: arithmetic/bitwise, memory/calldata/return-data, storage/state, calls, logs/outputs, environment values, unsupported paths;
   - split the appendix across multiple slides if rendered at 14 pt or larger;
   - keep one row per opcode family when the same rule applies to all members of a range;
   - include exact opcode names in each row so the table can still answer "what about this opcode?";
@@ -804,31 +822,35 @@ depth 0: Contract A
 - The Tokamak contrast slide explains the subcircuit-library approach through comparison axes, not implementation internals.
 - The Tokamak contrast slide gives the audience one memorable analogy, but it must remain technically faithful: reusable blocks are fixed, replay-specific placement and wiring still matter.
 - Conceptual explanations of Tokamak's two compiler roles are grounded in the paper's field-programmable circuit model, while repository documents are used only for package names and workflow boundaries.
-- The deck distinguishes `qap-compiler` as the reusable-library compiler from `synthesizer` as the replay-to-witness-and-permutation compiler.
+- The deck distinguishes `qap-compiler` as the reusable-library compiler from `synthesizer` as the replay-to-witness-and-value-connections compiler.
 - The deck shows `prover` and `verifier` as backend consumers of the fixed library and replay-specific synthesizer outputs.
-- Terms introduced by the two-compiler slide are explained before the talk proceeds to the full field-programmable circuit model.
-- The terminology slide defines only the minimal terms needed for the two-compiler explanation.
-- The Ethereum replay section explains both outputs of synthesis: operation-to-placement tracking and dataflow-to-permutation tracking.
-- The field-programmable, arithmetic/copy, and Ethereum replay sections have distinct roles and avoid repeating the same placement/permutation explanation at the same level.
-- The permutation explanation makes clear that stack moves, memory copies, calldata, return data, storage reuse, and public-output exposure can create equality relations between placement wires.
-- The deck does not describe the synthesizer as merely listing subcircuits; it also tracks how variables are connected across subcircuit placements.
+- Terms needed for the two-compiler slide are explained before the package names are introduced.
+- The terminology slide defines only the minimal terms needed for the next few slides.
+- No specialized term appears on an audience-facing slide before it is defined or paired with plain language.
+- The main deck explains "same trusted circuit" using "same block types, same block counts, and same value connections" before using `placement topology`.
+- The term `trusted circuit` is defined as a fixed circuit already reviewed, preprocessed, and accepted by the verifier workflow.
+- The Ethereum replay section explains both outputs of synthesis in plain terms: choosing reusable block copies and tracking value connections.
+- The field-programmable, arithmetic/copy, and Ethereum replay sections have distinct roles and avoid repeating the same block-layout/value-connection explanation at the same level.
+- The value-connection explanation makes clear that stack moves, memory copies, calldata, return data, storage reuse, and public-output exposure can create equality relations between block wires.
+- The deck does not describe the synthesizer as merely listing blocks; it also tracks how values are connected across block copies.
 - The `mintNotes1` example is grounded in the Solidity source and an actual synthesizer run, but the slide does not expose raw placement JSON or a full opcode histogram.
 - The `mintNotes1` example explains verification goals before naming subcircuit groups.
-- The `mintNotes1` subcircuit visual groups placements by role instead of showing all 165 placement instances.
+- The `mintNotes1` subcircuit visual groups placements by role instead of showing all 165 placement instances or a long list of subcircuit names.
 - The `mintNotes1` wording treats Poseidon as the hash-related subcircuit used by this run and does not claim that the run uses a dedicated Keccak subcircuit.
 - The `mintNotes1` walkthrough explicitly transitions to the private-state DApp matrix by saying it is one fixed-arity entrypoint among many.
 - Complex EVM call-structure material is kept as Q&A backup and does not interrupt the main explanation.
 - The Q&A call-structure explanation describes per-depth context tracking and boundary checks without exposing implementation internals.
 - The Q&A call-structure explanation connects dynamic calls back to circuit-stability risks.
 - The opcode-to-subcircuit backup table uses `evm.codes` as the opcode catalog and the Tokamak repository as the synthesis-mapping source.
+- The main Q&A opcode material starts with a compact opcode-family summary; the full opcode table remains backup/reference material.
 - The opcode-to-subcircuit backup table distinguishes direct arithmetic placements from composed memory/context/storage handling.
 - The opcode-to-subcircuit backup table marks unsupported opcodes explicitly and does not present fallbacks as support.
 - Every implementation detail is tied back to the conceptual model.
-- The deck avoids introducing a second circuit term; it explains reuse in plain language as "the same trusted circuit can be reused for the same function/arity."
-- The deck distinguishes replay-dedicated circuits from universal-machine circuits, while explaining that replay-derived topology can be reused only under a same-topology condition.
-- The deck explains that the same trusted circuit can be reused only when every successful replay for the supported function/arity preserves the same topology and interface layout.
-- The deck states that one trusted synthesizer output must be reusable for all successful calls in the supported function/arity because arbitrary newly generated synthesizer outputs are not independently validated on-chain.
-- The deck states the exact same trusted circuit reuse condition: all successful replays for the supported function/arity must preserve identical placement topology and compatible interface layout.
+- The deck avoids introducing a second circuit term; it explains reuse in plain language as "the same trusted circuit can be reused for the same supported contract entry."
+- The deck distinguishes replay-dedicated circuits from universal-machine circuits, while explaining that replay-derived circuit shape can be reused only under a same-shape condition.
+- The deck explains that the same trusted circuit can be reused only when every successful replay for the supported contract entry preserves the same block layout, value connections, and compatible interface.
+- The deck states that one trusted synthesizer output must be reusable for all successful calls in the supported contract entry because arbitrary newly generated synthesizer outputs are not independently validated on-chain.
+- The deck states the exact same trusted circuit reuse condition in plain language first: all successful replays for the supported contract entry must preserve the same block types, block counts, and value connections.
 - The deck explicitly excludes failed transaction paths from the same trusted circuit reuse discussion.
 - The deck states that Tokamak zk-EVM should not be presented as applicable to all Ethereum smart contracts.
 - The same trusted circuit reuse slide uses concrete examples instead of a separate abstract design-strategy slide.
@@ -836,7 +858,7 @@ depth 0: Contract A
 - The same trusted circuit reuse examples are split across two slides: general examples first, private-state DApp matrix second.
 - The private-state DApp example shows all fixed-arity function families and states that different function selectors/arities need different trusted circuits.
 - The private-state DApp example must not imply that `mintNotes1`, `mintNotes2`, transfer, and redeem calls share one derived circuit.
-- The deck states that input-dependent loops or conditionals are usable only when successful executions still have deterministic, topology-identical replay shape.
+- The deck states that input-dependent loops or conditionals are usable only when successful executions still have deterministic, same-shape replay behavior.
 - The deck states that different successful input-induced control flow can require a different derived circuit and therefore fail the same trusted circuit reuse requirement.
 - The deck does not overclaim support for arbitrary Ethereum L1 behavior.
 - Code references are used as anchors, not as the main teaching structure.
