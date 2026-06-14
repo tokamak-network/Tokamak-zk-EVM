@@ -88,6 +88,20 @@ Use repository sources only to map the paper's conceptual model onto Tokamak pac
 - `packages/backend/README.md`
   - Describes backend setup, preprocess, prove, and verify flows, including the fact that backend binaries consume the subcircuit library and synthesizer outputs.
 
+### External Solidity Sources For The `mintNotes1` Example
+
+Use these sources only for the private-state `mintNotes1` example. The local synthesizer fixture is in this repository, but the Solidity source currently lives in the related contracts repository.
+
+- `https://github.com/tokamak-network/Tokamak-zk-EVM-contracts`
+- `https://raw.githubusercontent.com/tokamak-network/Tokamak-zk-EVM-contracts/main/packages/apps/private-state/src/PrivateStateController.sol`
+- `https://raw.githubusercontent.com/tokamak-network/Tokamak-zk-EVM-contracts/main/packages/apps/private-state/src/L2AccountingVault.sol`
+- Local fixture:
+  - `packages/frontend/synthesizer/examples/privateState/mintNotes/mintNotes1/`
+- Local calldata helper:
+  - `packages/frontend/synthesizer/examples/privateState/utils.ts`
+
+Implementation findings from the executed fixture should be used as speaker-note support, not as dense slide content.
+
 ### Market And Funding Sources For Opening Visuals
 
 Use these sources only for the opening motivation. They should not be used to claim Tokamak zk-EVM market share.
@@ -402,7 +416,62 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - metadata connects the abstract subcircuit library to concrete proving-system objects;
   - do not show metadata schemas or generated filenames on the slide.
 
-### 12. What Makes The Output Circuit Replay-Dedicated
+### 12. Synthesizer Execution Example: Private-State `mintNotes1`
+
+- Add this section after the component and terminology explanation, before returning to general replay-dedicated circuit properties.
+- Purpose:
+  - make the synthesizer role concrete without turning the talk into a source-code walkthrough;
+  - show how one Solidity-level function call becomes verification goals;
+  - show how those goals are covered by groups of subcircuits and connected by a permutation.
+- Example source:
+  - Solidity logic from `PrivateStateController.mintNotes1` and `L2AccountingVault.debitLiquidBalance`;
+  - transaction replay fixture from `packages/frontend/synthesizer/examples/privateState/mintNotes/mintNotes1/`;
+  - actual synthesizer run performed against that fixture.
+- Solidity logic to explain in the deck:
+  - `mintNotes1` receives one output note containing an amount and encrypted note data;
+  - it validates that the note amount and owner are nonzero;
+  - it derives an encrypted-note salt and a note commitment;
+  - it debits the caller's private-state liquid balance through the accounting vault;
+  - it registers the new note commitment and rejects duplicates;
+  - it emits the encrypted note data needed by observers.
+- Replay verification goals:
+  - bind the transaction, signer/origin, bytecode, public data, and private data to one replay;
+  - verify calldata decoding, function dispatch, branches, arithmetic, memory updates, and return/log behavior;
+  - verify hash-related computations for note commitment and storage-key style values;
+  - verify the external vault call and the balance debit condition;
+  - verify storage reads/writes and the resulting state transition;
+  - verify that public outputs expose the intended event and state-observation data.
+- Subcircuit-composition picture:
+  - input/output buffers feed public inputs, block data, EVM bytecode/context, private inputs, and public outputs;
+  - signature and origin binding use `Poseidon`, `DecToBit`, `JubjubExpBatch`, and `EdDsaVerify`;
+  - EVM arithmetic, comparisons, bitwise operations, stack/memory checks, and control-flow-adjacent values use `ALU1`, `ALU2`, and `Accumulator`;
+  - hash-related replay obligations use `Poseidon` placements in this run;
+  - storage and state membership/update obligations use `VerifyMerkleProof`;
+  - the permutation connects equal values across these groups so that a value produced in one placement is the same value consumed later.
+- Suggested visual:
+  - left: "`mintNotes1` transaction replay";
+  - middle, four horizontal lanes:
+    - transaction and signer binding;
+    - Solidity/EVM local execution;
+    - hash, commitment, and storage-key computation;
+    - state transition and public outputs;
+  - right: "witness + permutation";
+  - bottom annotation: "local constraints check each box; permutation checks equality between boxes."
+- Speaker-note facts from the actual synthesizer run:
+  - the fixture replay completed with 165 placement instances;
+  - the subcircuit count was `ALU1: 88`, `VerifyMerkleProof: 36`, `ALU2: 15`, `Poseidon: 12`, `JubjubExpBatch: 4`, `DecToBit: 2`, `Accumulator: 2`, `EdDsaVerify: 1`, and five buffer placements;
+  - the permutation had 3710 entries and passed the permutation check;
+  - the EVM step log contained 628 rows, including `KECCAK256`, `SLOAD`, `SSTORE`, `CALL`, and `LOG1` events relevant to the function narrative.
+- Keep these details out of the main slide unless there is enough room at 14 pt or larger:
+  - raw placement JSON;
+  - exact transaction calldata;
+  - full opcode histogram;
+  - implementation class or handler names.
+- Caution for wording:
+  - do not claim that Solidity `keccak256` is literally checked by a Keccak subcircuit in this run; describe the placement-level fact as hash-related obligations represented by `Poseidon` placements;
+  - do not claim that every call to the same bytecode yields the same placement list.
+
+### 13. What Makes The Output Circuit Replay-Dedicated
 
 - The replay fixes:
   - which operations occurred;
@@ -413,7 +482,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - Values can affect witnesses without changing the circuit only when they do not change placement or wiring.
 - Values change the circuit when they alter the execution trace shape.
 
-### 13. Stability Across Different Inputs To The Same Program
+### 14. Stability Across Different Inputs To The Same Program
 
 - State the main condition:
   - identical output circuit requires identical placement topology and identical public/private interface layout, even if private witness values differ.
@@ -432,7 +501,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - Give the key warning:
   - "same program" is not enough; a stable circuit family needs trace-shape invariance or a deliberate universalization/padding strategy.
 
-### 14. Design Effort For Stable Program-Dedicated Circuits
+### 15. Design Effort For Stable Program-Dedicated Circuits
 
 - Discuss possible engineering strategies:
   - restrict the supported program/input domain so branch and loop structure is fixed;
@@ -445,7 +514,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - Discuss the trade-off:
   - more stability usually means larger circuits or stricter input admissibility.
 
-### 15. Soundness Intuition And Failure Modes
+### 16. Soundness Intuition And Failure Modes
 
 - Explain what can go wrong if the replay-to-circuit derivation is not deterministic:
   - two parties may disagree on the circuit for the same claimed execution;
@@ -455,7 +524,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - unsupported shape should be rejected clearly;
   - fallback should only improve usability when the semantic statement remains unchanged.
 
-### 16. Suggested Visuals
+### 17. Suggested Visuals
 
 - Diagram 1: "fixed library" on the left, "replay trace" on the top, "derived placement + wiring" in the center, "SNARK proof" on the right.
 - Diagram 2: subcircuit placement table with columns: placement index, subcircuit type, inputs, outputs, source edges.
@@ -463,9 +532,10 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - Diagram 4: stable vs unstable inputs:
   - stable: same trace shape, different witness values;
   - unstable: branch change, different placement sequence.
-- Diagram 5: trade-off curve between circuit stability and circuit size.
+- Diagram 5: `mintNotes1` replay lanes showing verification goals mapped to subcircuit groups.
+- Diagram 6: trade-off curve between circuit stability and circuit size.
 
-### 17. Planned Slide Outline
+### 18. Planned Slide Outline
 
 1. Title and guiding question.
 2. Why EVM execution proofs matter: scalability and privacy.
@@ -484,11 +554,12 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 15. Ethereum replay as a source of placements.
 16. Tokamak zk-EVM synthesis pipeline.
 17. High-level generated objects and their meanings.
-18. Example high-level synthesis walkthrough.
-19. Why a replay-dedicated circuit is not automatically program-dedicated.
-20. Conditions for stable output under changed inputs.
-21. Engineering strategies, trade-offs, and limitations.
-22. Summary and discussion questions.
+18. Synthesizer execution example: private-state `mintNotes1`.
+19. `mintNotes1` verification goals and subcircuit-composition picture.
+20. Why a replay-dedicated circuit is not automatically program-dedicated.
+21. Conditions for stable output under changed inputs.
+22. Engineering strategies, trade-offs, and limitations.
+23. Summary and discussion questions.
 
 ## Verification Checklist For The Future Deck
 
@@ -507,6 +578,10 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - The deck shows `prover` and `verifier` as backend consumers of the fixed library and replay-specific synthesizer outputs.
 - Terms introduced by the two-compiler slide are explained before the talk proceeds to the full field-programmable circuit model.
 - The terminology slide defines only the minimal terms needed for the two-compiler explanation.
+- The `mintNotes1` example is grounded in the Solidity source and an actual synthesizer run, but the slide does not expose raw placement JSON or a full opcode histogram.
+- The `mintNotes1` example explains verification goals before naming subcircuit groups.
+- The `mintNotes1` subcircuit visual groups placements by role instead of showing all 165 placement instances.
+- The `mintNotes1` wording treats Poseidon as the hash-related subcircuit used by this run and does not claim that the run uses a dedicated Keccak subcircuit.
 - Every implementation detail is tied back to the conceptual model.
 - The deck distinguishes replay-dedicated, program-dedicated, and universal-machine circuits.
 - The deck states the exact invariance conditions required for equal output circuits across input changes.
@@ -520,5 +595,5 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 
 - Desired seminar length: 30, 45, 60, or 90 minutes.
 - Desired output format: Markdown outline, PowerPoint deck, Google Slides, or another format.
-- Whether to include a small concrete transaction example from the repository fixtures.
+- How much of the `mintNotes1` example should be kept in main slides versus speaker notes if the final time budget is short.
 - Whether to include mathematical notation from the paper directly, or keep notation mostly informal.
