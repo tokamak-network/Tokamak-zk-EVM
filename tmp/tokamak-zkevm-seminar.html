@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Tokamak zk-EVM: Replay에서 회로를 유도하기</title>
+  <title>Tokamak zk-EVM Seminar: EVM replay에서 검증 회로를 유도하기</title>
   <style>
     :root {
       --bg: #f7f8f4;
@@ -149,6 +149,14 @@
       font-size: clamp(25px, 2.8vw, 38px);
       color: var(--muted);
       max-width: 980px;
+    }
+
+    .presenter-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 30px;
+      color: var(--ink);
     }
 
     .kicker {
@@ -634,6 +642,11 @@
       <main>
         <h1>EVM replay에서 검증 회로를 어떻게 유도하는가</h1>
         <p class="subtitle">subcircuit library, synthesizer, 그리고 같은 trusted circuit을 재사용하기 위한 조건</p>
+        <div class="presenter-info" aria-label="presentation information">
+          <span class="tag">장재혁</span>
+          <span class="tag gold">Tokamak Network</span>
+          <span class="tag violet">2026년 6월 15일</span>
+        </div>
       </main>
       <footer>
         <div class="source">대상: ZKP와 SNARK를 입문 수준에서 공부하는 대학원생</div>
