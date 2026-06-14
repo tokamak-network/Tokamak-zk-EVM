@@ -25,8 +25,12 @@ The seminar deck, slide text, speaker notes, diagrams, and audience-facing examp
 
 - Theory and concepts come first; repository details should support the explanation rather than dominate it.
 - The deck should explain the field-programmable circuit model from the paper before mapping it to Tokamak zk-EVM artifacts.
-- The repository should be used as an implementation reference for terminology, artifact names, and the actual synthesis flow.
+- The repository should be used as an implementation reference for package names and workflow boundaries, not as the main source of slide-level detail.
 - The deck should avoid source-code walkthroughs except where a short implementation anchor clarifies an abstract concept.
+- Excessive detail is prohibited in audience-facing slides. Prefer high-level proof-system objects over concrete file names, payload field lists, schemas, class names, or package-internal APIs.
+- When explaining the `synthesizer`, describe its inputs at the level of `subcircuit library` and `public/private instance`, and its outputs at the level of `witness` and `permutation`.
+- Detailed artifact names such as generated JSON filenames may be kept in speaker notes or internal planning references only when they clarify implementation mapping; they should not be central slide content.
+- Terminology slides must define only the terms needed for the next few slides.
 - No claim should imply that every input to the same EVM bytecode yields the same derived circuit. The deck must state the required invariance assumptions explicitly.
 
 ## Primary Sources
@@ -68,11 +72,11 @@ Use repository sources only to map the paper's conceptual model onto Tokamak pac
 - `packages/frontend/synthesizer/docs/execution-flow.md`
   - Describes input preparation, synthesis execution, artifact generation, and adapter output.
 - `packages/frontend/synthesizer/docs/output-files.md`
-  - Describes `placementVariables.json`, `instance.json`, `instance_description.json`, `permutation.json`, state snapshots, and logs.
+  - Describes the implementation mapping behind the high-level synthesizer outputs.
 - `packages/frontend/synthesizer/core/src/app/synthesize.ts`
   - Shows the end-to-end runtime: reconstruct state, create transaction, run `synthesizeTX()`, capture final state, and generate circuit artifacts.
 - `packages/frontend/synthesizer/core/src/circuitGenerator/circuitGenerator.ts`
-  - Shows that final artifacts are placement variables, public instance data, public instance descriptions, and a permutation.
+  - Shows that final artifacts correspond to witness-oriented data, public instance data, and a permutation.
 - `packages/frontend/synthesizer/core/src/circuitGenerator/handlers/variableGenerator.ts`
   - Shows placement-to-subcircuit witness generation, output checks, public instance extraction, buffer-size checks, and EVM-wire-to-Circom-wire conversion.
 - `packages/frontend/synthesizer/core/src/circuitGenerator/handlers/permutationGenerator.ts`
@@ -291,10 +295,10 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - `prover`;
   - `verifier`.
 - Explain the four components using the paper-first model:
-  - `qap-compiler`: prepares the reusable circuit basis. It compiles Circom subcircuit definitions, constants, metadata, R1CS, and WASM artifacts into the fixed subcircuit library. Conceptually, this corresponds to preparing the field-programmable library, not proving a transaction.
-  - `synthesizer`: compiles one concrete Tokamak L2 replay into execution-specific circuit data. It consumes the replay and the fixed library, then derives placement variables, public instances, descriptions, and a permutation/wire map. Conceptually, this corresponds to producing the program data that selects and connects library components.
-  - `prover`: consumes the fixed library, setup/CRS artifacts, and synthesizer outputs to produce a SNARK proof for the replay-derived statement.
-  - `verifier`: consumes the verification key/CRS material, public statement data, and proof to accept or reject the claimed execution.
+  - `qap-compiler`: prepares the reusable circuit basis. Conceptually, it produces the fixed subcircuit library before any particular replay is considered.
+  - `synthesizer`: compiles one concrete replay into proof inputs. At the slide level, describe its input as the subcircuit library plus public/private instance data, and its output as witness data plus a permutation.
+  - `prover`: consumes the fixed library and synthesizer outputs to produce a proof for the replay-derived statement.
+  - `verifier`: checks the proof against the public part of the statement.
 - Emphasize the two compiler roles:
   - Library compiler: `qap-compiler`
     - runs ahead of a particular replay;
@@ -303,47 +307,41 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
     - should not be described as compiling a standalone final transaction circuit.
   - Replay compiler: `synthesizer`
     - runs for a concrete replay;
-    - answers "which library components are used, how many copies are placed, and how are their wires connected?";
+    - answers "what witness and permutation represent this replay over the fixed library?";
     - output is replay-specific;
-    - does not redefine the arithmetic relation inside each subcircuit.
+    - does not redefine the reusable subcircuit library.
 - Suggested visual:
   - left lane: `qap-compiler` -> fixed subcircuit library;
-  - right lane: transaction replay -> `synthesizer` -> placement + public instance + permutation;
-  - merge lane: library + replay-specific data -> `prover` -> proof -> `verifier`.
+  - right lane: public/private instance -> `synthesizer` -> witness + permutation;
+  - merge lane: library + witness/permutation -> `prover` -> proof -> `verifier`.
 - Suggested analogy:
   - `qap-compiler` prints the reusable puzzle pieces.
-  - `synthesizer` reads the solved execution and writes the assembly instructions for this particular puzzle.
+  - `synthesizer` reads the solved execution and records the values and equality pattern for this particular puzzle.
   - `prover` proves the assembled puzzle is consistent.
   - `verifier` checks the proof without reassembling everything.
-- Do not over-detail `preprocess`, CRS generation, CLI packaging, Node/Web adapters, or exact JSON schemas on this slide. Mention them later only if needed for implementation anchoring.
+- Do not over-detail preprocessing, setup, CLI packaging, Node/Web adapters, or exact JSON schemas on this slide. Mention them later only if needed for implementation anchoring.
 
 ### 6. Terminology Introduced By The Two Compiler View
 
 - Add this as a vocabulary bridge immediately after the two-compiler slide.
 - Purpose:
   - reduce cognitive load before the field-programmable circuit model;
-  - make sure students can distinguish library-time objects from replay-time objects;
+  - make sure students can distinguish fixed library objects from replay-specific proof inputs;
   - avoid letting implementation names hide the conceptual roles.
-- Explain these terms in Korean in the actual deck, with English terms preserved in parentheses:
-  - `subcircuit`: a small arithmetic constraint system that checks one local relation.
-  - `subcircuit library`: a fixed collection of reusable subcircuits prepared before seeing a particular replay.
-  - `field-programmable`: the library is fixed, but the execution-specific "program" is represented by which subcircuits are placed and how wires are connected.
-  - `placement`: one concrete copy of a subcircuit in the derived circuit.
-  - `placement sequence` or `placement topology`: the ordered/structured list of subcircuit copies selected for a replay.
-  - `wire`: a field element slot carrying an input, output, intermediate witness, or public value.
-  - `wire map`: the replay-specific connection plan saying which wires must hold the same value.
-  - `permutation`: the algebraic representation of copy constraints induced by the wire map.
-  - `public instance`: verifier-visible values such as public inputs, public outputs, or public state commitments.
-  - `witness`: prover-known private data, including internal wire values and execution data needed to satisfy constraints.
-  - `CRS` or setup material: preprocessing data tied to the fixed proving system and circuit-family parameters.
-- Add one compact contrast table:
-  - library-time terms: subcircuit, subcircuit library, setup parameters, CRS;
-  - replay-time terms: replay, placement, witness values, public instance, wire map/permutation;
-  - proof-time terms: proof, verifier check.
+- Explain only these terms in Korean in the actual deck, with English terms preserved in parentheses:
+  - `subcircuit library`: the reusable circuit basis prepared before a particular replay.
+  - `public instance`: verifier-visible statement data.
+  - `private instance`: prover-side execution data that is not directly revealed.
+  - `witness`: concrete values used by the prover to satisfy the selected constraints.
+  - `permutation`: the compact representation of equality/copy constraints between connected values.
+- Add one compact contrast table with only three rows:
+  - before replay: subcircuit library;
+  - synthesizer input: public/private instance;
+  - synthesizer output: witness and permutation.
 - Suggested warning:
-  - "Circuit" can mean a reusable subcircuit, a replay-derived composed circuit, or a proving-system relation. The slide should state which meaning is being used whenever ambiguity matters.
+  - Do not define every term that will appear later. Define only the terms needed to understand the two compiler roles.
 - Design constraint:
-  - This should be a low-density vocabulary slide. If terms do not fit at 14 pt or larger, split it into two slides: "Library-Time Terms" and "Replay-Time Terms."
+  - This should be a low-density vocabulary slide. If the table and five definitions do not fit at 14 pt or larger, split it into two slides.
 
 ### 7. SNARK Preliminaries For This Talk
 
@@ -395,14 +393,13 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 
 - Present a compact pipeline:
   - subcircuit library artifacts are generated and packaged;
-  - adapter loads input snapshots and library metadata/WASM;
-  - shared synthesis reconstructs Tokamak L2 execution state and runs synthesis;
-  - circuit generation emits placement variables, public instance data, public instance descriptions, and a permutation.
+  - synthesizer consumes high-level public/private instance data with the fixed library;
+  - synthesis emits witness-oriented data and a permutation;
+  - prover and verifier consume those high-level objects.
 - Mention the compiled subcircuit list from `compile.sh` only as a reference example.
 - Explain metadata roles:
-  - setup parameters define bounds and public/private wire partitions;
-  - subcircuit info gives input/output wire ranges and flatten maps;
-  - global wire list maps local subcircuit wires into the global circuit view.
+  - metadata connects the abstract subcircuit library to concrete proving-system objects;
+  - do not show metadata schemas or generated filenames on the slide.
 
 ### 12. What Makes The Output Circuit Replay-Dedicated
 
@@ -485,8 +482,8 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 14. Arithmetic constraints vs copy constraints.
 15. Ethereum replay as a source of placements.
 16. Tokamak zk-EVM synthesis pipeline.
-17. Generated artifacts and their meanings.
-18. Example replay-to-placement walkthrough.
+17. High-level generated objects and their meanings.
+18. Example high-level synthesis walkthrough.
 19. Why a replay-dedicated circuit is not automatically program-dedicated.
 20. Conditions for stable output under changed inputs.
 21. Engineering strategies, trade-offs, and limitations.
@@ -504,11 +501,11 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - The comparative Ethereum ZK section does not claim all projects solve the replay-to-circuit problem identically; it distinguishes EVM trace-as-witness designs from Aztec's non-EVM privacy-first execution-proof design.
 - The Tokamak contrast slide explains the subcircuit-library approach through comparison axes, not implementation internals.
 - The Tokamak contrast slide gives the audience one memorable analogy, but it must remain technically faithful: reusable blocks are fixed, replay-specific placement and wiring still matter.
-- Conceptual explanations of Tokamak's two compiler roles are grounded in the paper's field-programmable circuit model, while repository documents are used only for package names, artifact names, and workflow boundaries.
-- The deck distinguishes `qap-compiler` as the reusable-library compiler from `synthesizer` as the replay-to-placement-and-wiring compiler.
+- Conceptual explanations of Tokamak's two compiler roles are grounded in the paper's field-programmable circuit model, while repository documents are used only for package names and workflow boundaries.
+- The deck distinguishes `qap-compiler` as the reusable-library compiler from `synthesizer` as the replay-to-witness-and-permutation compiler.
 - The deck shows `prover` and `verifier` as backend consumers of the fixed library and replay-specific synthesizer outputs.
 - Terms introduced by the two-compiler slide are explained before the talk proceeds to the full field-programmable circuit model.
-- The terminology slide distinguishes library-time, replay-time, and proof-time objects.
+- The terminology slide defines only the minimal terms needed for the two-compiler explanation.
 - Every implementation detail is tied back to the conceptual model.
 - The deck distinguishes replay-dedicated, program-dedicated, and universal-machine circuits.
 - The deck states the exact invariance conditions required for equal output circuits across input changes.
