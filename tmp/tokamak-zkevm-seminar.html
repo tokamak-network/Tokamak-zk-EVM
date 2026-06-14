@@ -606,6 +606,85 @@
       font-weight: 700;
     }
 
+    .ram-claim {
+      display: grid;
+      grid-template-columns: 1.05fr 1.4fr 1.05fr;
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    .ram-claim .stage {
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--accent);
+      border-radius: 2px;
+      background: var(--panel);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .ram-claim .stage h3 {
+      margin-bottom: 2px;
+    }
+
+    .ram-claim .stage p {
+      font-size: clamp(19px, 1.6vw, 24px);
+      margin-bottom: 0;
+    }
+
+    .trace-table {
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .trace-row {
+      display: grid;
+      grid-template-columns: 72px 1fr 1fr 1fr;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .trace-row span {
+      min-height: 38px;
+      padding: 7px 9px;
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      background: #f2f2ef;
+      font-size: 18px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+    }
+
+    .trace-row.header span {
+      background: var(--accent-soft);
+      color: var(--accent-dark);
+      font-weight: 850;
+    }
+
+    .step-checks {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .step-checks .check {
+      min-height: 72px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-top: 4px solid var(--accent);
+      background: var(--panel);
+      font-weight: 750;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
     @media (max-width: 900px) {
       .grid.two,
       .grid.three,
@@ -613,7 +692,13 @@
       .comparison,
       .flow,
       .flow.three,
+      .ram-claim,
       .lane {
+        grid-template-columns: 1fr;
+      }
+
+      .step-checks,
+      .trace-row {
         grid-template-columns: 1fr;
       }
 
@@ -664,7 +749,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">1 / 29</div>
+        <div class="slide-number">1 / 30</div>
       </footer>
     </section>
 
@@ -697,7 +782,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">2 / 29</div>
+        <div class="slide-number">2 / 30</div>
       </footer>
     </section>
 
@@ -738,7 +823,7 @@
       </main>
       <footer>
         <div class="source">Sources: <a href="https://l2beat.com/scaling/tvs">L2BEAT scaling TVS</a>, <a href="https://defillama.com/chains">DefiLlama chains</a>, <a href="https://www.coingecko.com/en/categories/layer-2">CoinGecko L2</a>, <a href="https://www.coingecko.com/en/categories/zero-knowledge-zk">CoinGecko ZK</a>, <a href="https://www.coingecko.com/en/categories/privacy">CoinGecko Privacy</a>, <a href="https://www.coingecko.com/en/categories/privacy-coins">Privacy Coins</a>, <a href="https://defillama.com/protocols/privacy">DefiLlama Privacy</a>. Accessed 2026-06-15.</div>
-        <div class="slide-number">3 / 29</div>
+        <div class="slide-number">3 / 30</div>
       </footer>
     </section>
 
@@ -772,7 +857,7 @@
       </main>
       <footer>
         <div class="source">Sources: <a href="https://experts.bitwiseinvestments.com/cio-memos/canton-arc-and-tempo-three-lessons-about-crypto">Bitwise</a>, <a href="https://www.coindesk.com/business/2026/05/12/privacy-emerges-as-crypto-s-next-killer-app-with-arc-canton-and-tempo-topping-usd1-billion-in-funding">CoinDesk</a>, <a href="https://medium.com/aztec-protocol/aztec-raises-100-million-to-build-encrypted-ethereum-dd5062ba949c">Aztec</a>, <a href="https://www.globenewswire.com/news-release/2025/11/18/3190435/0/en/0xbow-closes-3-5m-round-for-compliant-crypto-privacy-technology-following-ethereum-foundation-integration.html">GlobeNewswire</a>, <a href="https://crypto.news/payy-raises-6m-seed-to-build-private-stablecoin-payments-on-zero-knowledge-rails/">crypto.news</a>, <a href="https://blog.ethereum.org/2025/10/08/privacy-commitment">EF Privacy</a>, <a href="https://pse.dev/blog/pse-roadmap-2025">PSE roadmap</a>, <a href="https://thedefiant.io/news/defi/privacy-pools-go-live-on-ethereum-with-vitalik-buterin-as-one-of-the-first-users">Privacy Pools</a>, <a href="https://thedefiant.io/news/blockchains/ethereum-foundation-kohaku-sdk-privacy-wallet-integration-bb4t52">Kohaku</a>.</div>
-        <div class="slide-number">4 / 29</div>
+        <div class="slide-number">4 / 30</div>
       </footer>
     </section>
 
@@ -797,7 +882,7 @@
       </main>
       <footer>
         <div class="source">Reference: Jang and Judd, <a href="https://eprint.iacr.org/2024/507">IACR ePrint 2024/507</a>.</div>
-        <div class="slide-number">5 / 29</div>
+        <div class="slide-number">5 / 30</div>
       </footer>
     </section>
 
@@ -827,35 +912,77 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">6 / 29</div>
+        <div class="slide-number">6 / 30</div>
       </footer>
     </section>
 
     <section class="slide" id="slide-6">
       <header>
-        <div class="kicker">Landscape</div>
-        <h2>다른 zkEVM들은 실행 기록을 어떻게 검증 문제로 고정하는가</h2>
+        <div class="kicker">RAM Circuit View</div>
+        <h2>RAM 회로 관점: 실행 경로를 witness로 검증한다</h2>
       </header>
       <main class="grid three">
         <div class="panel">
           <h3>Scroll</h3>
-          <p>EVM 실행을 opcode 단위 trace로 펼치고, 각 step의 correctness와 상태 전이를 검증한다.</p>
+          <p>EVM 실행을 opcode 단위 경로로 펼치고, stack, memory, storage 변화가 올바른지 검증한다.</p>
         </div>
         <div class="panel">
           <h3>Linea</h3>
-          <p>tracer가 만든 execution traces를 고정된 EVM execution constraints가 검증한다.</p>
+          <p>tracer가 만든 EVM 실행 경로와 상태 변수들을 prover input으로 사용하고, constraint system이 이를 검사한다.</p>
         </div>
         <div class="panel">
           <h3>Aztec</h3>
-          <p>EVM trace보다 private function proof와 kernel circuit 조합을 중심으로 privacy-first 실행을 검증한다.</p>
+          <p>EVM은 아니지만 AVM과 private circuit 실행을 증명한다. 즉 VM 실행을 회로로 검증한다는 관점은 같다.</p>
         </div>
         <div class="callout wide">
-          <p>공통점은 이미 관측된 실행을 검증 가능한 입력으로 만든다는 점이고, 차이는 그 입력을 어떤 검증 회로 구조로 처리하는가에 있다.</p>
+          <p>공통 증명 명제: 주어진 step 수 안에서, 주어진 실행 경로와 상태 변수들이 machine semantics를 만족하며 성공적으로 끝났는가?</p>
         </div>
       </main>
       <footer>
-        <div class="source">Sources: <a href="https://docs.scroll.io/en/technology/zkevm/zkevm-overview/">Scroll zkEVM overview</a>, <a href="https://github.com/LFDT-Lineth/lineth-monorepo">Lineth monorepo</a>, <a href="https://docs.aztec.network/">Aztec docs</a>.</div>
-        <div class="slide-number">7 / 29</div>
+        <div class="source">Sources: <a href="https://docs.scroll.io/en/technology/zkevm/zkevm-overview/">Scroll zkEVM overview</a>, <a href="https://github.com/Consensys/linea-tracer">Linea tracer</a>, <a href="https://docs.aztec.network/developers/docs/foundational-topics/advanced/circuits/public_execution">Aztec AVM docs</a>, <a href="https://eprint.iacr.org/2024/507">Jang-Judd 2024/507</a>.</div>
+        <div class="slide-number">7 / 30</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-7-ram-verification">
+      <header>
+        <div class="kicker">RAM Circuit Check</div>
+        <h2>RAM 회로는 주어진 실행 경로를 어떻게 검증하는가</h2>
+      </header>
+      <main class="grid">
+        <div class="ram-claim">
+          <div class="stage">
+            <h3>공개 입력</h3>
+            <p>program, initial state, claimed final state, step bound</p>
+          </div>
+          <div class="stage">
+            <h3>Witness</h3>
+            <p>각 step의 pc, opcode, stack, memory, storage, call state</p>
+            <div class="trace-table">
+              <div class="trace-row header"><span>step</span><span>pc / opcode</span><span>state before</span><span>state after</span></div>
+              <div class="trace-row"><span>i</span><span>SLOAD</span><span>stack, storage</span><span>stack'</span></div>
+              <div class="trace-row"><span>i+1</span><span>JUMPI</span><span>condition, pc</span><span>next pc</span></div>
+              <div class="trace-row"><span>i+2</span><span>CALL</span><span>caller state</span><span>callee state</span></div>
+            </div>
+          </div>
+          <div class="stage">
+            <h3>검증 결과</h3>
+            <p>모든 row와 인접 row가 VM 규칙을 만족하면 accept</p>
+          </div>
+        </div>
+        <div class="step-checks">
+          <div class="check">opcode별 동작 검사</div>
+          <div class="check">pc와 branch 조건 검사</div>
+          <div class="check">memory / storage 접근 검사</div>
+          <div class="check">시작 상태와 종료 상태 연결</div>
+        </div>
+        <div class="callout">
+          <p>회로는 다음 실행 경로를 찾지 않는다. prover가 제시한 실행 경로가 machine 규칙을 만족하는지 row별로 확인한다.</p>
+        </div>
+      </main>
+      <footer>
+        <div class="source">Sources: <a href="https://docs.scroll.io/en/technology/zkevm/zkevm-overview/">Scroll zkEVM overview</a>, <a href="https://github.com/Consensys/linea-tracer">Linea tracer</a>, <a href="https://docs.aztec.network/developers/docs/foundational-topics/advanced/circuits/public_execution">Aztec AVM docs</a>, <a href="https://eprint.iacr.org/2024/507">Jang-Judd 2024/507</a>.</div>
+        <div class="slide-number">8 / 30</div>
       </footer>
     </section>
 
@@ -878,7 +1005,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">8 / 29</div>
+        <div class="slide-number">9 / 30</div>
       </footer>
     </section>
 
@@ -905,7 +1032,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">9 / 29</div>
+        <div class="slide-number">10 / 30</div>
       </footer>
     </section>
 
@@ -923,7 +1050,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">10 / 29</div>
+        <div class="slide-number">11 / 30</div>
       </footer>
     </section>
 
@@ -948,7 +1075,7 @@
       </main>
       <footer>
         <div class="source">Source: Jang and Judd, <a href="https://eprint.iacr.org/2024/507">IACR ePrint 2024/507</a>.</div>
-        <div class="slide-number">11 / 29</div>
+        <div class="slide-number">12 / 30</div>
       </footer>
     </section>
 
@@ -973,7 +1100,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">12 / 29</div>
+        <div class="slide-number">13 / 30</div>
       </footer>
     </section>
 
@@ -997,7 +1124,7 @@
       </main>
       <footer>
         <div class="source">Source: Tokamak zk-EVM repository README.</div>
-        <div class="slide-number">13 / 29</div>
+        <div class="slide-number">14 / 30</div>
       </footer>
     </section>
 
@@ -1025,7 +1152,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">14 / 29</div>
+        <div class="slide-number">15 / 30</div>
       </footer>
     </section>
 
@@ -1049,7 +1176,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">15 / 29</div>
+        <div class="slide-number">16 / 30</div>
       </footer>
     </section>
 
@@ -1076,7 +1203,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">16 / 29</div>
+        <div class="slide-number">17 / 30</div>
       </footer>
     </section>
 
@@ -1106,7 +1233,7 @@
       </main>
       <footer>
         <div class="source">Source: Tokamak zk-EVM synthesizer README and execution-flow documentation.</div>
-        <div class="slide-number">17 / 29</div>
+        <div class="slide-number">18 / 30</div>
       </footer>
     </section>
 
@@ -1137,7 +1264,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">18 / 29</div>
+        <div class="slide-number">19 / 30</div>
       </footer>
     </section>
 
@@ -1160,7 +1287,7 @@
       </main>
       <footer>
         <div class="source">Sources: PrivateStateController.sol, L2AccountingVault.sol, local fixture <code>examples/privateState/mintNotes/mintNotes1</code>.</div>
-        <div class="slide-number">19 / 29</div>
+        <div class="slide-number">20 / 30</div>
       </footer>
     </section>
 
@@ -1195,7 +1322,7 @@
       </main>
       <footer>
         <div class="source">Source: local <code>mintNotes1</code> synthesizer fixture run.</div>
-        <div class="slide-number">20 / 29</div>
+        <div class="slide-number">21 / 30</div>
       </footer>
     </section>
 
@@ -1222,7 +1349,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">21 / 29</div>
+        <div class="slide-number">22 / 30</div>
       </footer>
     </section>
 
@@ -1249,7 +1376,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">22 / 29</div>
+        <div class="slide-number">23 / 30</div>
       </footer>
     </section>
 
@@ -1285,7 +1412,7 @@
       </main>
       <footer>
         <div class="source">Source: PrivateStateController.sol private-state DApp function families.</div>
-        <div class="slide-number">23 / 29</div>
+        <div class="slide-number">24 / 30</div>
       </footer>
     </section>
 
@@ -1312,7 +1439,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">24 / 29</div>
+        <div class="slide-number">25 / 30</div>
       </footer>
     </section>
 
@@ -1336,7 +1463,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">25 / 29</div>
+        <div class="slide-number">26 / 30</div>
       </footer>
     </section>
 
@@ -1364,7 +1491,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">26 / 29</div>
+        <div class="slide-number">27 / 30</div>
       </footer>
     </section>
 
@@ -1393,7 +1520,7 @@
       </main>
       <footer>
         <div class="source">Source: Tokamak zk-EVM synthesizer transaction-flow documentation and synthesizer sources.</div>
-        <div class="slide-number">27 / 29</div>
+        <div class="slide-number">28 / 30</div>
       </footer>
     </section>
 
@@ -1422,7 +1549,7 @@
       </main>
       <footer>
         <div class="source">Opcode catalog: <a href="https://www.evm.codes/">evm.codes</a>. Tokamak mapping: repository synthesizer sources.</div>
-        <div class="slide-number">28 / 29</div>
+        <div class="slide-number">29 / 30</div>
       </footer>
     </section>
 
@@ -1451,7 +1578,7 @@
       </main>
       <footer>
         <div class="source">Web metrics and documentation accessed 2026-06-15.</div>
-        <div class="slide-number">29 / 29</div>
+        <div class="slide-number">30 / 30</div>
       </footer>
     </section>
   </div>
