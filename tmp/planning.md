@@ -14,6 +14,13 @@ The presentation must also explain the conditions and design effort needed to ma
 
 The seminar deck, slide text, speaker notes, diagrams, and audience-facing examples must be written in Korean. Technical terms may keep standard English forms when Korean translation would reduce precision or make the material harder for graduate students to connect with SNARK literature.
 
+## Slide Design Constraints
+
+- No text in any slide may be smaller than 14 pt.
+- This minimum applies to titles, body text, labels, captions, chart annotations, table cells, footnotes, source labels, and diagram text.
+- If a table, source note, or diagram cannot fit at 14 pt or larger, reduce the amount of visible text, split the content across slides, or move details into speaker notes.
+- Speaker notes may contain fuller explanations, but audience-facing slide text must remain readable without relying on dense small print.
+
 ## Scope Boundaries
 
 - Theory and concepts come first; repository details should support the explanation rather than dominate it.
@@ -324,6 +331,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - The deck does not overclaim support for arbitrary Ethereum L1 behavior.
 - Code references are used as anchors, not as the main teaching structure.
 - All slide text, diagrams, speaker notes, and audience-facing examples are written in Korean, with English technical terms preserved where needed for precision.
+- No audience-facing slide text is smaller than 14 pt, including labels, captions, table cells, footnotes, and source labels.
 
 ## Open Questions Before Creating The Actual Slides
 
