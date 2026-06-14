@@ -1,0 +1,1502 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tokamak zk-EVM: Replay에서 회로를 유도하기</title>
+  <style>
+    :root {
+      --bg: #f7f8f4;
+      --ink: #1d2327;
+      --muted: #5b646a;
+      --line: #d7ddd6;
+      --teal: #007b78;
+      --mint: #d8efe7;
+      --gold: #f0b84f;
+      --gold-soft: #fff0c6;
+      --coral: #d8634c;
+      --coral-soft: #f8d9d1;
+      --violet: #7067cf;
+      --violet-soft: #e7e4ff;
+      --panel: #ffffff;
+      --code: #24313a;
+      --shadow: 0 18px 48px rgba(29, 35, 39, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      font-size: 19px;
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", "Apple SD Gothic Neo", Arial, sans-serif;
+      line-height: 1.42;
+      min-width: 320px;
+    }
+
+    body,
+    button,
+    input,
+    table,
+    code,
+    .source,
+    .label,
+    .slide-number {
+      font-size: 19px;
+    }
+
+    .deck {
+      min-height: 100vh;
+    }
+
+    .slide {
+      min-height: 100vh;
+      padding: 56px clamp(28px, 5vw, 80px) 44px;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 24px;
+      border-bottom: 1px solid var(--line);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .slide::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(120deg, rgba(0, 123, 120, 0.08), transparent 34%),
+        linear-gradient(310deg, rgba(240, 184, 79, 0.10), transparent 40%);
+      pointer-events: none;
+    }
+
+    .slide > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .title-slide {
+      background:
+        linear-gradient(125deg, rgba(0, 123, 120, 0.14), rgba(255, 255, 255, 0.74) 45%, rgba(240, 184, 79, 0.18)),
+        var(--bg);
+    }
+
+    header {
+      max-width: 1180px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    main {
+      max-width: 1180px;
+      width: 100%;
+      margin: 0 auto;
+      align-self: center;
+    }
+
+    footer {
+      max-width: 1180px;
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: end;
+      color: var(--muted);
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      font-size: clamp(48px, 6vw, 84px);
+      line-height: 1.04;
+      letter-spacing: 0;
+      margin-bottom: 24px;
+    }
+
+    h2 {
+      font-size: clamp(34px, 4vw, 56px);
+      line-height: 1.08;
+      letter-spacing: 0;
+      margin-bottom: 12px;
+    }
+
+    h3 {
+      font-size: clamp(24px, 2.4vw, 34px);
+      line-height: 1.14;
+      letter-spacing: 0;
+      margin-bottom: 12px;
+    }
+
+    p {
+      font-size: clamp(22px, 2.1vw, 30px);
+      margin-bottom: 18px;
+    }
+
+    .subtitle {
+      font-size: clamp(25px, 2.8vw, 38px);
+      color: var(--muted);
+      max-width: 980px;
+    }
+
+    .kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--teal);
+      font-weight: 750;
+      text-transform: uppercase;
+      letter-spacing: 0;
+      margin-bottom: 12px;
+    }
+
+    .kicker::before {
+      content: "";
+      display: inline-block;
+      width: 34px;
+      height: 5px;
+      background: var(--gold);
+      border-radius: 999px;
+    }
+
+    .lead {
+      font-size: clamp(26px, 2.6vw, 40px);
+      line-height: 1.25;
+      max-width: 1050px;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .strong {
+      color: var(--teal);
+      font-weight: 800;
+    }
+
+    .grid {
+      display: grid;
+      gap: 18px;
+    }
+
+    .grid.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .grid.four {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .panel,
+    .metric,
+    .callout,
+    .role-box,
+    .term,
+    .lane,
+    .small-card {
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .panel,
+    .callout,
+    .role-box,
+    .term,
+    .small-card {
+      padding: 24px;
+    }
+
+    .panel h3,
+    .metric h3,
+    .role-box h3,
+    .term h3,
+    .small-card h3 {
+      color: var(--teal);
+    }
+
+    .metric {
+      padding: 20px 22px;
+    }
+
+    .metric .value {
+      font-size: clamp(32px, 4vw, 60px);
+      line-height: 1;
+      color: var(--teal);
+      font-weight: 850;
+      margin-bottom: 8px;
+    }
+
+    .metric .caption {
+      color: var(--muted);
+      font-size: 20px;
+    }
+
+    ul,
+    ol {
+      margin: 0;
+      padding-left: 1.2em;
+    }
+
+    li {
+      font-size: clamp(22px, 2vw, 30px);
+      margin: 10px 0;
+    }
+
+    .compact li {
+      font-size: clamp(20px, 1.7vw, 25px);
+      margin: 7px 0;
+    }
+
+    .source {
+      color: var(--muted);
+      line-height: 1.3;
+    }
+
+    .source a {
+      color: var(--teal);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(0, 123, 120, 0.35);
+    }
+
+    .slide-number {
+      font-weight: 750;
+      color: var(--teal);
+      white-space: nowrap;
+    }
+
+    .diagram {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 22px;
+      background: rgba(255, 255, 255, 0.82);
+      box-shadow: var(--shadow);
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(120px, 1fr));
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    .flow.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .flow .node {
+      min-height: 110px;
+      border: 2px solid var(--teal);
+      border-radius: 8px;
+      padding: 16px;
+      background: var(--panel);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .flow .arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--coral);
+      font-weight: 900;
+      font-size: 38px;
+    }
+
+    .node .label,
+    .tag,
+    .pill {
+      font-weight: 800;
+    }
+
+    .node .detail,
+    .term .detail,
+    .small {
+      color: var(--muted);
+      font-size: 20px;
+    }
+
+    .tag,
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 34px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      background: var(--mint);
+      color: #075f5d;
+      border: 1px solid rgba(0, 123, 120, 0.22);
+      white-space: nowrap;
+    }
+
+    .tag.gold {
+      background: var(--gold-soft);
+      color: #7d5200;
+      border-color: rgba(240, 184, 79, 0.5);
+    }
+
+    .tag.coral {
+      background: var(--coral-soft);
+      color: #8a2d1f;
+      border-color: rgba(216, 99, 76, 0.35);
+    }
+
+    .tag.violet {
+      background: var(--violet-soft);
+      color: #3d368f;
+      border-color: rgba(112, 103, 207, 0.35);
+    }
+
+    .bars {
+      display: grid;
+      gap: 14px;
+      margin-top: 12px;
+    }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: 180px 1fr 150px;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .bar {
+      height: 34px;
+      background: #e5e9e4;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+    }
+
+    .bar span {
+      display: block;
+      height: 100%;
+      background: linear-gradient(90deg, var(--teal), var(--gold));
+      border-radius: 999px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--line);
+      padding: 14px 16px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #edf4f0;
+      color: #075f5d;
+      font-weight: 850;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      color: var(--code);
+      background: #edf0ed;
+      padding: 0.12em 0.3em;
+      border-radius: 5px;
+    }
+
+    .equation {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      align-items: center;
+      justify-content: center;
+      margin: 20px 0;
+    }
+
+    .equation .piece {
+      padding: 18px 20px;
+      border-radius: 8px;
+      border: 2px solid var(--teal);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      font-size: clamp(22px, 2vw, 30px);
+      font-weight: 750;
+    }
+
+    .equation .op {
+      font-size: 38px;
+      color: var(--coral);
+      font-weight: 900;
+    }
+
+    .matrix {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .matrix .cell {
+      min-height: 62px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-weight: 750;
+    }
+
+    .matrix .mint {
+      background: var(--mint);
+      color: #075f5d;
+    }
+
+    .matrix .transfer {
+      background: var(--violet-soft);
+      color: #3d368f;
+    }
+
+    .matrix .redeem {
+      background: var(--gold-soft);
+      color: #7d5200;
+    }
+
+    .comparison {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    .good {
+      border-top: 8px solid var(--teal);
+    }
+
+    .bad {
+      border-top: 8px solid var(--coral);
+    }
+
+    .callout {
+      border-left: 8px solid var(--gold);
+      box-shadow: var(--shadow);
+    }
+
+    .lane-diagram {
+      display: grid;
+      gap: 12px;
+    }
+
+    .lane {
+      display: grid;
+      grid-template-columns: 220px 1fr 200px;
+      gap: 12px;
+      align-items: center;
+      padding: 14px;
+    }
+
+    .lane .lane-title {
+      font-weight: 850;
+      color: var(--teal);
+    }
+
+    .lane .lane-flow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .block {
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: #edf4f0;
+      border: 1px solid rgba(0, 123, 120, 0.2);
+      font-weight: 700;
+    }
+
+    .nav {
+      position: fixed;
+      right: 20px;
+      bottom: 18px;
+      display: flex;
+      gap: 8px;
+      z-index: 5;
+    }
+
+    .nav button {
+      min-width: 48px;
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.92);
+      color: var(--ink);
+      box-shadow: 0 8px 22px rgba(29, 35, 39, 0.12);
+      cursor: pointer;
+    }
+
+    .nav button:hover {
+      border-color: var(--teal);
+      color: var(--teal);
+    }
+
+    .print-note {
+      position: fixed;
+      left: 20px;
+      bottom: 18px;
+      z-index: 5;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 12px;
+    }
+
+    @media (max-width: 900px) {
+      .grid.two,
+      .grid.three,
+      .grid.four,
+      .comparison,
+      .flow,
+      .flow.three,
+      .lane {
+        grid-template-columns: 1fr;
+      }
+
+      .bar-row {
+        grid-template-columns: 1fr;
+      }
+
+      .matrix {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .slide {
+        padding: 36px 22px 64px;
+      }
+    }
+
+    @media print {
+      html {
+        font-size: 19px;
+      }
+
+      body {
+        background: #fff;
+      }
+
+      .slide {
+        min-height: 100vh;
+        page-break-after: always;
+        border-bottom: 0;
+      }
+
+      .nav,
+      .print-note {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="deck">
+    <section class="slide title-slide" id="slide-1">
+      <header>
+        <div class="kicker">Tokamak zk-EVM Seminar</div>
+      </header>
+      <main>
+        <h1>EVM replay에서 검증 회로를 어떻게 유도하는가</h1>
+        <p class="subtitle">subcircuit library, synthesizer, 그리고 같은 trusted circuit을 재사용하기 위한 조건</p>
+      </main>
+      <footer>
+        <div class="source">대상: ZKP와 SNARK를 입문 수준에서 공부하는 대학원생</div>
+        <div class="slide-number">1 / 28</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-2">
+      <header>
+        <div class="kicker">Motivation</div>
+        <h2>왜 EVM 실행을 증명하려 하는가</h2>
+      </header>
+      <main class="grid two">
+        <div class="panel">
+          <h3>Scalability</h3>
+          <p>모든 검증자가 모든 실행을 다시 수행하지 않고, 짧은 proof로 실행 결과를 확인한다.</p>
+          <ul class="compact">
+            <li>rollup-style validation</li>
+            <li>repeated verifier work 감소</li>
+            <li>많은 실행을 하나의 검증 흐름으로 압축</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>Privacy</h3>
+          <p>실행의 정당성은 보이되, witness의 일부는 숨긴다.</p>
+          <ul class="compact">
+            <li>private input과 public statement 분리</li>
+            <li>private state, shielded account, encrypted execution</li>
+            <li>correctness without full disclosure</li>
+          </ul>
+        </div>
+      </main>
+      <footer>
+        <div class="source">핵심 전환: 응용 목표는 달라도 결국 EVM 실행을 arithmetic statement로 바꿔야 한다.</div>
+        <div class="slide-number">2 / 28</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-3">
+      <header>
+        <div class="kicker">Evidence</div>
+        <h2>Scaling은 크고, privacy는 다시 중요해지고 있다</h2>
+      </header>
+      <main class="grid two">
+        <div class="panel">
+          <h3>Scaling side</h3>
+          <div class="metric">
+            <div class="value">~$39.31B</div>
+            <div class="caption">L2BEAT tracked scaling TVS</div>
+          </div>
+          <div class="bars">
+            <div class="bar-row"><strong>Rollups</strong><div class="bar"><span style="width:83%"></span></div><span>~$32.78B</span></div>
+            <div class="bar-row"><strong>Starknet</strong><div class="bar"><span style="width:18%"></span></div><span>~$418M</span></div>
+            <div class="bar-row"><strong>Linea</strong><div class="bar"><span style="width:15%"></span></div><span>~$351M</span></div>
+          </div>
+        </div>
+        <div class="panel">
+          <h3>Privacy side</h3>
+          <div class="metric">
+            <div class="value">~$469.77M</div>
+            <div class="caption">tracked privacy TVL: Tornado Cash, Railgun, Privacy Pools</div>
+          </div>
+          <ul class="compact">
+            <li>30D privacy volume: ~ $173.90M</li>
+            <li>Ethereum Foundation Privacy Cluster</li>
+            <li>PSE roadmap, Kohaku SDK, Aztec funding</li>
+          </ul>
+        </div>
+      </main>
+      <footer>
+        <div class="source">Sources: <a href="https://l2beat.com/scaling/tvs">L2BEAT scaling TVS</a>, <a href="https://l2beat.com/privacy/summary">L2BEAT privacy summary</a>, EF Privacy posts, PSE roadmap. Accessed 2026-06-14.</div>
+        <div class="slide-number">3 / 28</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-4">
+      <header>
+        <div class="kicker">Problem</div>
+        <h2>응용에서 회로 문제로</h2>
+      </header>
+      <main>
+        <div class="equation">
+          <div class="piece">EVM 실행</div>
+          <div class="op">→</div>
+          <div class="piece">arithmetic statement</div>
+          <div class="op">→</div>
+          <div class="piece">SNARK proof</div>
+          <div class="op">→</div>
+          <div class="piece">verification</div>
+        </div>
+        <div class="callout">
+          <p>오늘의 질문은 마지막 proof system 자체가 아니라, <span class="strong">주어진 EVM replay를 어떤 검증 회로로 바꾸는가</span>이다.</p>
+        </div>
+      </main>
+      <footer>
+        <div class="source">Terminology follows "An Efficient SNARK for Field-Programmable and RAM Circuits", Jang and Judd.</div>
+        <div class="slide-number">4 / 28</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-5">
+      <header>
+        <div class="kicker">NP View</div>
+        <h2>회로는 답을 찾는 장치가 아니다</h2>
+      </header>
+      <main class="grid two">
+        <div class="panel">
+          <h3>NP-style verification</h3>
+          <ul>
+            <li>prover는 witness가 존재한다고 주장한다.</li>
+            <li>circuit은 그 witness가 statement를 만족하는지 확인한다.</li>
+            <li>회로의 목적은 search가 아니라 verification이다.</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>EVM replay에서 달라지는 것</h3>
+          <ul>
+            <li>branch choice</li>
+            <li>loop count</li>
+            <li>memory/storage access</li>
+            <li>call structure</li>
+            <li>intermediate dataflow</li>
+          </ul>
+        </div>
+      </main>
+      <footer>
+        <div class="source">따라서 같은 bytecode라도 찾은 실행 trace가 달라지면 검증 회로의 모양도 달라질 수 있다.</div>
+        <div class="slide-number">5 / 28</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-6">
+      <header>
+        <div class="kicker">Landscape</div>
+        <h2>다른 Ethereum ZK 시스템은 실행을 어떻게 proof input으로 보는가</h2>
+      </header>
+      <main>
+        <table>
+          <thead>
+            <tr>
+              <th>Project</th>
+              <th>proof input이 되는 것</th>
+              <th>무엇이 그것을 검증하는가</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Scroll</strong></td>
+              <td>EVM 실행을 step-by-step opcode trace로 전개</td>
+              <td>opcode correctness, ordering, initial/final state agreement</td>
+            </tr>
+            <tr>
+              <td><strong>Linea</strong></td>
+              <td>tracer가 만든 execution traces</td>
+              <td>valid EVM execution logic을 담은 constraints</td>
+            </tr>
+            <tr>
+              <td><strong>Aztec</strong></td>
+              <td>private function proofs와 AVM execution proofs</td>
+              <td>private kernel circuits와 rollup circuits</td>
+            </tr>
+          </tbody>
+        </table>
+      </main>
+      <footer>
+        <div class="source">Sources: <a href="https://docs.scroll.io/en/technology/zkevm/zkevm-overview/">Scroll zkEVM overview</a>, <a href="https://github.com/LFDT-Lineth/lineth-monorepo">Lineth monorepo</a>, <a href="https://docs.aztec.network/">Aztec docs</a>.</div>
+        <div class="slide-number">6 / 28</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-7">
+      <header>
+        <div class="kicker">Tokamak Contrast</div>
+        <h2>Tokamak은 reusable block을 조립하는 쪽에 초점을 둔다</h2>
+      </header>
+      <main class="grid two">
+        <div class="panel">
+          <h3>질문의 형태</h3>
+          <p>“기계를 통째로 표현하는 하나의 큰 회로를 어떻게 쓰는가?”보다 다음 질문에 가깝다.</p>
+          <div class="callout">
+            <p>주어진 replay에 대해 어떤 reusable block이 몇 개 필요하고, 값들은 어떻게 연결되어야 하는가?</p>
+          </div>
+        </div>
+        <div class="diagram">
+          <div class="flow three">
+            <div class="node"><span class="label">preprinted blocks</span><span class="detail">fixed library</span></div>
+            <div class="node"><span class="label">solved transcript</span><span class="detail">EVM replay</span></div>
+            <div class="node"><span class="label">custom worksheet</span><span class="detail">chosen blocks + connections</span></div>
+          </div>
+        </div>
+      </main>
+      <footer>
+        <div class="source">비유: reusable 문제 블록은 고정되어 있고, 어떤 블록을 골라 어떻게 연결할지는 replay가 결정한다.</div>
+        <div class="slide-number">7 / 28</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-8">
+      <header>
+        <div class="kicker">SNARK Vocabulary</div>
+        <h2>이 발표에서 필요한 최소 용어</h2>
+      </header>
+      <main class="grid three">
+        <div class="term"><h3>statement</h3><p class="detail">prover가 증명하려는 주장</p></div>
+        <div class="term"><h3>witness</h3><p class="detail">그 주장을 참으로 만드는 prover-side 값</p></div>
+        <div class="term"><h3>public instance</h3><p class="detail">verifier에게 공개되는 statement 데이터</p></div>
+        <div class="term"><h3>circuit</h3><p class="detail">witness가 유효한지 확인하는 arithmetic checks</p></div>
+        <div class="term"><h3>proof</h3><p class="detail">계산 전체를 다시 하지 않고 검증하는 compact object</p></div>
+        <div class="term"><h3>setup</h3><p class="detail">회로 설명에 의존하는 preprocessing</p></div>
+      </main>
+      <footer>
+        <div class="source">R1CS/QAP는 local arithmetic constraints와 public/private wires를 설명하는 수준에서만 사용한다.</div>
+        <div class="slide-number">8 / 28</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-9">
+      <header>
+        <div class="kicker">Intuition First</div>
+        <h2>Tokamak 회로 유도 직관</h2>
+      </header>
+      <main class="grid two">
+        <div class="panel">
+          <h3>먼저 이렇게 생각한다</h3>
+          <ul>
+            <li>small reusable circuit block</li>
+            <li>block copy</li>
+            <li>value connection</li>
+            <li>execution replay</li>
+            <li>trusted circuit</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>그 다음 기술 용어를 붙인다</h3>
+          <ul>
+            <li>block = <code>subcircuit</code></li>
+            <li>block copy = <code>placement</code></li>
+            <li>value connection = <code>wire map</code> / <code>permutation</code></li>
+            <li>trusted circuit = reviewed, preprocessed, verifier-accepted fixed circuit</li>
+          </ul>
+        </div>
+      </main>
+      <footer>
+        <div class="source">원칙: audience-facing slide에서는 직관을 먼저 만들고 특수 용어는 뒤에 붙인다.</div>
+        <div class="slide-number">9 / 28</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-10">
+      <header>
+        <div class="kicker">Components</div>
+        <h2>Tokamak zk-EVM 전체 흐름</h2>
+      </header>
+      <main>
+        <div class="diagram">
+          <div class="flow">
+            <div class="node"><span class="label">qap-compiler</span><span class="detail">fixed subcircuit library</span></div>
+            <div class="arrow">+</div>
+            <div class="node"><span class="label">synthesizer</span><span class="detail">bytecode + replay data → witness + value connections</span></div>
+            <div class="arrow">→</div>
+            <div class="node"><span class="label">prover / verifier</span><span class="detail">proof 생성과 검증</span></div>
+          </div>
+        </div>
+        <div class="grid four" style="margin-top:18px">
+          <div class="small-card"><h3>qap-compiler</h3><p class="small">reusable basis 준비</p></div>
+          <div class="small-card"><h3>synthesizer</h3><p class="small">concrete replay를 proof input으로 변환</p></div>
+          <div class="small-card"><h3>prover</h3><p class="small">library와 synthesis output을 소비</p></div>
+          <div class="small-card"><h3>verifier</h3><p class="small">public statement에 대해 proof 확인</p></div>
+        </div>
+      </main>
+      <footer>
+        <div class="source">Repository anchors: <code>README.md</code>, <code>qap-compiler</code>, <code>synthesizer</code>, <code>prover</code>, <code>verify</code>.</div>
+        <div class="slide-number">10 / 28</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-11">
+      <header>
+        <div class="kicker">Two Compilers</div>
+        <h2>두 compiler는 서로 다른 질문에 답한다</h2>
+      </header>
+      <main class="comparison">
+        <div class="panel good">
+          <h3>Library compiler: <code>qap-compiler</code></h3>
+          <ul>
+            <li>특정 replay 전에 실행된다.</li>
+            <li>어떤 reusable constraint components가 있는지 정한다.</li>
+            <li>library version이 바뀌기 전까지 여러 실행에 재사용된다.</li>
+            <li>최종 transaction circuit을 통째로 만드는 것이 아니다.</li>
+          </ul>
+        </div>
+        <div class="panel bad">
+          <h3>Replay compiler: <code>synthesizer</code></h3>
+          <ul>
+            <li>하나의 concrete replay에 대해 실행된다.</li>
+            <li>이 replay의 값과 value connection을 기록한다.</li>
+            <li>output은 replay-specific이다.</li>
+            <li>reusable subcircuit library를 다시 정의하지 않는다.</li>
+          </ul>
+        </div>
+      </main>
+      <footer>
+        <div class="source">Slide-level synthesizer input: subcircuit library, Solidity-compiled EVM bytecode, public/private instance. Output: witness and value connections.</div>
+        <div class="slide-number">11 / 28</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-12">
+      <header>
+        <div class="kicker">Paper Model</div>
+        <h2>Field-programmable circuit idea</h2>
+      </header>
+      <main>
+        <div class="equation">
+          <div class="piece">fixed library</div>
+          <div class="op">+</div>
+          <div class="piece">block layout</div>
+          <div class="op">+</div>
+          <div class="piece">value connections</div>
+          <div class="op">=</div>
+          <div class="piece">derived circuit</div>
+        </div>
+        <div class="grid two">
+          <div class="panel">
+            <h3>fixed part</h3>
+            <p>subcircuit library는 작은 arithmetic constraint systems의 집합이다.</p>
+          </div>
+          <div class="panel">
+            <h3>replay-specific part</h3>
+            <p>어떤 block copy를 놓고, 어떤 wire들을 같은 값으로 연결할지 정한다.</p>
+          </div>
+        </div>
+      </main>
+      <footer>
+        <div class="source">Source: Jang and Judd, "An Efficient SNARK for Field-Programmable and RAM Circuits".</div>
+        <div class="slide-number">12 / 28</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-13">
+      <header>
+        <div class="kicker">Technical Names</div>
+        <h2>이제 기술 용어를 붙인다</h2>
+      </header>
+      <main class="grid three">
+        <div class="role-box">
+          <h3>subcircuit library</h3>
+          <p>reusable block들의 고정된 집합</p>
+          <span class="tag">before replay</span>
+        </div>
+        <div class="role-box">
+          <h3>placement</h3>
+          <p>replay-derived circuit 안에서 block을 한 번 사용하는 것</p>
+          <span class="tag gold">chosen from replay</span>
+        </div>
+        <div class="role-box">
+          <h3>wire map / permutation</h3>
+          <p>두 wire가 같은 값을 가져야 한다는 연결표</p>
+          <span class="tag coral">value connection</span>
+        </div>
+      </main>
+      <footer>
+        <div class="source">중요한 점: primitive circuit language를 매번 새로 만드는 것이 아니라, block layout과 value connections를 유도한다.</div>
+        <div class="slide-number">13 / 28</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-14">
+      <header>
+        <div class="kicker">Two Obligations</div>
+        <h2>local correctness와 interconnection correctness</h2>
+      </header>
+      <main class="grid two">
+        <div class="panel">
+          <h3>Arithmetic constraints</h3>
+          <p>각 block copy가 자기 local relation을 만족하는지 확인한다.</p>
+          <div class="equation">
+            <div class="piece">x</div><div class="op">+</div><div class="piece">y</div><div class="op">=</div><div class="piece">z</div>
+          </div>
+        </div>
+        <div class="panel">
+          <h3>Copy constraints</h3>
+          <p>앞 block의 output이 뒤 block의 input으로 쓰이면 두 wire 값이 같아야 한다.</p>
+          <div class="equation">
+            <div class="piece">A.out</div><div class="op">=</div><div class="piece">B.in</div>
+          </div>
+        </div>
+      </main>
+      <footer>
+        <div class="source">wire map은 equal-value connections를 compact하게 기록한다. permutation은 그 기술적 표현이다.</div>
+        <div class="slide-number">14 / 28</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-15">
+      <header>
+        <div class="kicker">Replay To Circuit</div>
+        <h2>EVM replay가 block layout과 value connections를 만든다</h2>
+      </header>
+      <main class="grid two">
+        <div class="panel">
+          <h3>block layout</h3>
+          <ul>
+            <li>replay가 다음 operation을 말해준다.</li>
+            <li>synthesizer는 맞는 reusable block을 고른다.</li>
+            <li>block은 local relation을 검사한다.</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>value connections</h3>
+          <ul>
+            <li>값이 어디서 와서 어디로 가는지 추적한다.</li>
+            <li>stack, memory, calldata, storage, return data를 따라간다.</li>
+            <li>같은 값이어야 하는 wire들을 연결한다.</li>
+          </ul>
+        </div>
+      </main>
+      <footer>
+        <div class="source">Technical terms: block copy = placement, value-connection map = wire map/permutation.</div>
+        <div class="slide-number">15 / 28</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-16">
+      <header>
+        <div class="kicker">Synthesis Pipeline</div>
+        <h2>Tokamak zk-EVM synthesis pipeline</h2>
+      </header>
+      <main>
+        <div class="diagram">
+          <div class="lane-diagram">
+            <div class="lane">
+              <div class="lane-title">Input</div>
+              <div class="lane-flow"><span class="block">subcircuit library</span><span class="block">EVM bytecode</span><span class="block">public/private instance</span></div>
+              <span class="tag">before synthesis</span>
+            </div>
+            <div class="lane">
+              <div class="lane-title">Replay following</div>
+              <div class="lane-flow"><span class="block">operation observed</span><span class="block">block selected</span><span class="block">values tracked</span></div>
+              <span class="tag gold">synthesizer</span>
+            </div>
+            <div class="lane">
+              <div class="lane-title">Output</div>
+              <div class="lane-flow"><span class="block">witness</span><span class="block">value connections</span><span class="block">public instance</span></div>
+              <span class="tag coral">proof input</span>
+            </div>
+          </div>
+        </div>
+      </main>
+      <footer>
+        <div class="source">Repository anchors: synthesizer README, architecture, execution-flow, output-files, circuitGenerator.</div>
+        <div class="slide-number">16 / 28</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-17">
+      <header>
+        <div class="kicker">Generated Objects</div>
+        <h2>생성물은 무엇을 의미하는가</h2>
+      </header>
+      <main class="grid three">
+        <div class="panel">
+          <h3>witness-oriented data</h3>
+          <p>선택된 block들이 만족해야 할 concrete values</p>
+        </div>
+        <div class="panel">
+          <h3>public instance</h3>
+          <p>verifier가 확인할 공개 statement data</p>
+        </div>
+        <div class="panel">
+          <h3>value connections</h3>
+          <p>같은 값이어야 하는 wire들의 연결 관계</p>
+        </div>
+      </main>
+      <footer>
+        <div class="source">Implementation detail such as JSON filenames and schemas stays in notes, not in the main teaching flow.</div>
+        <div class="slide-number">17 / 28</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-18">
+      <header>
+        <div class="kicker">Example</div>
+        <h2>private-state <code>mintNotes1</code>: Solidity-level logic</h2>
+      </header>
+      <main class="grid two">
+        <div class="panel">
+          <h3>함수가 하는 일</h3>
+          <ul>
+            <li>하나의 output note를 받는다.</li>
+            <li>amount와 owner가 0이 아닌지 확인한다.</li>
+            <li>encrypted-note salt와 note commitment를 만든다.</li>
+            <li>accounting vault에서 liquid balance를 debit한다.</li>
+            <li>새 note commitment를 등록하고 duplicate를 거부한다.</li>
+            <li>encrypted note data를 event로 노출한다.</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>왜 좋은 예제인가</h3>
+          <ul>
+            <li>한 함수 호출이 replay로 고정된다.</li>
+            <li>local EVM execution, hash, storage, call, output이 모두 등장한다.</li>
+            <li>fixed-arity entrypoint라서 같은 circuit reuse 논의로 자연스럽게 이어진다.</li>
+          </ul>
+        </div>
+      </main>
+      <footer>
+        <div class="source">Sources: PrivateStateController.sol, L2AccountingVault.sol, local fixture <code>examples/privateState/mintNotes/mintNotes1</code>.</div>
+        <div class="slide-number">18 / 28</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-19">
+      <header>
+        <div class="kicker">Example Composition</div>
+        <h2><code>mintNotes1</code> replay는 어떤 검증 목표로 나뉘는가</h2>
+      </header>
+      <main>
+        <div class="lane-diagram">
+          <div class="lane">
+            <div class="lane-title">Transaction binding</div>
+            <div class="lane-flow"><span class="block">tx</span><span class="block">signer/origin</span><span class="block">bytecode</span></div>
+            <span class="tag">binding</span>
+          </div>
+          <div class="lane">
+            <div class="lane-title">Local execution</div>
+            <div class="lane-flow"><span class="block">calldata decode</span><span class="block">dispatch</span><span class="block">branch</span><span class="block">arithmetic</span></div>
+            <span class="tag gold">EVM</span>
+          </div>
+          <div class="lane">
+            <div class="lane-title">Commitment/state</div>
+            <div class="lane-flow"><span class="block">hash-like work</span><span class="block">vault call</span><span class="block">storage read/write</span></div>
+            <span class="tag violet">state</span>
+          </div>
+          <div class="lane">
+            <div class="lane-title">Public outputs</div>
+            <div class="lane-flow"><span class="block">event/log</span><span class="block">state observation</span><span class="block">return behavior</span></div>
+            <span class="tag coral">output</span>
+          </div>
+        </div>
+      </main>
+      <footer>
+        <div class="source">Speaker-note facts: 165 placements; permutation 3710 entries; subcircuit names kept out of main slide unless needed in Q&amp;A.</div>
+        <div class="slide-number">19 / 28</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-20">
+      <header>
+        <div class="kicker">Reuse Condition</div>
+        <h2>왜 같은 trusted circuit을 재사용할 수 있어야 하는가</h2>
+      </header>
+      <main class="grid two">
+        <div class="panel">
+          <h3>on-chain verifier의 관점</h3>
+          <p>verifier는 고정된 public statement와 proving key에 대한 proof를 확인한다.</p>
+          <p>임의로 새로 생성된 synthesizer output 자체를 매번 on-chain에서 검증한다고 보면 안 된다.</p>
+        </div>
+        <div class="panel">
+          <h3>reuse rule</h3>
+          <p>하나의 trusted circuit은 같은 contract entry의 모든 성공 호출에서 다음이 같을 때 재사용된다.</p>
+          <ul>
+            <li>같은 종류의 block</li>
+            <li>같은 개수의 block</li>
+            <li>같은 value connection pattern</li>
+          </ul>
+        </div>
+      </main>
+      <footer>
+        <div class="source">Technical phrase after intuition: identical placement topology and compatible public/private interface layout.</div>
+        <div class="slide-number">20 / 28</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-21">
+      <header>
+        <div class="kicker">Contract Shapes</div>
+        <h2>어떤 contract entry가 같은 circuit을 재사용하기 쉬운가</h2>
+      </header>
+      <main class="comparison">
+        <div class="panel good">
+          <h3>Likely reusable</h3>
+          <ul>
+            <li>fixed-arity minting</li>
+            <li>fixed-shape token transfer</li>
+            <li>bounded single-slot update</li>
+            <li>validation 후 하나의 successful path만 허용</li>
+          </ul>
+        </div>
+        <div class="panel bad">
+          <h3>Likely not reusable</h3>
+          <ul>
+            <li>recipient 수가 loop count를 바꾸는 batch transfer</li>
+            <li>variable-length array processing</li>
+            <li>성공 branch마다 external call 수가 다른 함수</li>
+            <li>router-like dynamic call target</li>
+          </ul>
+        </div>
+      </main>
+      <footer>
+        <div class="source">Nuance: input-dependent branch라도 모든 successful path의 circuit shape가 같으면 가능하다.</div>
+        <div class="slide-number">21 / 28</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-22">
+      <header>
+        <div class="kicker">Private-State DApp</div>
+        <h2>variable note count를 fixed-arity functions로 쪼갠다</h2>
+      </header>
+      <main>
+        <div class="matrix">
+          <div class="cell mint">mintNotes1</div>
+          <div class="cell mint">mintNotes2</div>
+          <div class="cell mint">mintNotes3</div>
+          <div class="cell mint">mintNotes4</div>
+          <div class="cell mint">mintNotes5</div>
+          <div class="cell mint">mintNotes6</div>
+          <div class="cell transfer">1 → 1</div>
+          <div class="cell transfer">1 → 2</div>
+          <div class="cell transfer">1 → 3</div>
+          <div class="cell transfer">2 → 1</div>
+          <div class="cell transfer">2 → 2</div>
+          <div class="cell transfer">3 → 1</div>
+          <div class="cell transfer">3 → 2</div>
+          <div class="cell transfer">4 → 1</div>
+          <div class="cell redeem">redeem1</div>
+          <div class="cell redeem">redeem2</div>
+          <div class="cell redeem">redeem3</div>
+          <div class="cell redeem">redeem4</div>
+        </div>
+        <div class="callout" style="margin-top:20px">
+          <p>각 row는 “하나의 variable-size 회로”가 아니라, function selector와 arity마다 다른 trusted circuit이 필요하다는 메시지를 준다.</p>
+        </div>
+      </main>
+      <footer>
+        <div class="source">Private-state DApp example: mint, transfer, redeem families; helper functions are not the main transaction entries.</div>
+        <div class="slide-number">22 / 28</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-23">
+      <header>
+        <div class="kicker">Failure Modes</div>
+        <h2>잘못된 circuit shape를 신뢰하면 무엇이 깨지는가</h2>
+      </header>
+      <main class="grid three">
+        <div class="panel">
+          <h3>wrong shape</h3>
+          <p>verifier가 생각한 successful path와 다른 회로 모양을 증명할 수 있다.</p>
+        </div>
+        <div class="panel">
+          <h3>nondeterminism</h3>
+          <p>같은 replay에 대해 서로 다른 block layout이나 value connections가 나올 수 있다.</p>
+        </div>
+        <div class="panel">
+          <h3>unsafe fallback</h3>
+          <p>unsupported shape를 조용히 padding, skip, reroute하면 statement가 바뀐다.</p>
+        </div>
+      </main>
+      <footer>
+        <div class="source">Rule: unsupported shape should be rejected clearly; fallback must not hide synthesis defects.</div>
+        <div class="slide-number">23 / 28</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-24">
+      <header>
+        <div class="kicker">Summary</div>
+        <h2>오늘의 핵심 정리</h2>
+      </header>
+      <main class="grid two">
+        <div class="panel">
+          <h3>Derivation</h3>
+          <ul>
+            <li>replay는 이미 찾은 실행 기록이다.</li>
+            <li>synthesizer는 reusable blocks를 고른다.</li>
+            <li>value connections가 copy constraints를 만든다.</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>Reuse</h3>
+          <ul>
+            <li>같은 bytecode가 항상 같은 circuit을 뜻하지 않는다.</li>
+            <li>successful circuit shape가 같을 때만 같은 trusted circuit을 재사용한다.</li>
+            <li>Tokamak zk-EVM은 모든 smart contract에 자동 적용되는 모델이 아니다.</li>
+          </ul>
+        </div>
+      </main>
+      <footer>
+        <div class="source">Bottom line: values may vary; the successful circuit shape must not.</div>
+        <div class="slide-number">24 / 28</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-25">
+      <header>
+        <div class="kicker">Discussion</div>
+        <h2>Q&amp;A를 위한 질문</h2>
+      </header>
+      <main class="grid two">
+        <div class="panel">
+          <h3>Conceptual questions</h3>
+          <ul>
+            <li>universal machine circuit과 replay-derived circuit의 trade-off는 무엇인가?</li>
+            <li>privacy application에서 public instance 설계는 무엇을 바꾸는가?</li>
+            <li>same trusted circuit reuse 조건은 contract design에 어떤 제약을 주는가?</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>Implementation questions</h3>
+          <ul>
+            <li>CALL 구조가 replay에서 어떻게 보이는가?</li>
+            <li>각 EVM opcode는 어떤 block family로 처리되는가?</li>
+            <li>unsupported path는 어떻게 드러나야 하는가?</li>
+          </ul>
+        </div>
+      </main>
+      <footer>
+        <div class="source">다음 두 장은 Q&amp;A backup이다.</div>
+        <div class="slide-number">25 / 28</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-26">
+      <header>
+        <div class="kicker">Q&amp;A Backup</div>
+        <h2>복잡한 EVM call 구조를 Synthesizer가 다루는 방식</h2>
+      </header>
+      <main class="grid two">
+        <div class="diagram">
+          <div class="flow three">
+            <div class="node"><span class="label">depth 0</span><span class="detail">Contract A: parent memory에서 calldata 준비</span></div>
+            <div class="node"><span class="label">depth 1</span><span class="detail">Contract B: child context의 local EVM steps</span></div>
+            <div class="node"><span class="label">depth 0</span><span class="detail">return data가 parent memory로 복사됨</span></div>
+          </div>
+        </div>
+        <div class="panel">
+          <h3>핵심 답변</h3>
+          <ul>
+            <li>call tree를 새로 추측하지 않는다.</li>
+            <li>interpreter가 만든 concrete message-call replay를 따라간다.</li>
+            <li>context boundary에서 값 복사와 caller semantics를 확인한다.</li>
+            <li>call count, depth, target, return-data shape가 변하면 circuit shape도 변할 수 있다.</li>
+          </ul>
+        </div>
+      </main>
+      <footer>
+        <div class="source">Q&amp;A only: handler names, raw memory arrays, exact TypeScript flow are not main-slide material.</div>
+        <div class="slide-number">26 / 28</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-27">
+      <header>
+        <div class="kicker">Q&amp;A Backup</div>
+        <h2>EVM opcode family별 처리 직관</h2>
+      </header>
+      <main>
+        <table>
+          <thead>
+            <tr>
+              <th>Opcode family</th>
+              <th>처리 직관</th>
+              <th>주의점</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Arithmetic / bitwise</td><td>ALU-style reusable blocks</td><td>local relation 중심</td></tr>
+            <tr><td>Memory / calldata / return data</td><td>memory reconstruction과 value connections</td><td>alignment와 aliasing이 helper block 수를 바꿀 수 있음</td></tr>
+            <tr><td>Storage / state</td><td>storage read/write와 state proof obligations</td><td>access pattern 길이와 순서가 중요</td></tr>
+            <tr><td>Calls</td><td>context setup, calldata copy, child execution, return-data copy</td><td>call depth와 target 변화는 circuit shape risk</td></tr>
+            <tr><td>Logs / outputs</td><td>public-output-oriented buffers</td><td>log 수와 data shape가 달라질 수 있음</td></tr>
+            <tr><td>Unsupported paths</td><td>rejected / not synthesized</td><td>fallback으로 지원처럼 보이면 안 됨</td></tr>
+          </tbody>
+        </table>
+      </main>
+      <footer>
+        <div class="source">Opcode catalog: <a href="https://www.evm.codes/">evm.codes</a>. Tokamak mapping: repository synthesizer sources. Full opcode table should stay as reference material.</div>
+        <div class="slide-number">27 / 28</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-28">
+      <header>
+        <div class="kicker">References</div>
+        <h2>주요 출처</h2>
+      </header>
+      <main class="grid two">
+        <div class="panel">
+          <h3>Concept and implementation</h3>
+          <ul class="compact">
+            <li>Jehyuk Jang and Jamie Judd, <em>An Efficient SNARK for Field-Programmable and RAM Circuits</em>.</li>
+            <li>Tokamak zk-EVM repository: <code>qap-compiler</code>, <code>synthesizer</code>, <code>prover</code>, <code>verify</code>.</li>
+            <li>Tokamak private-state contracts and local <code>mintNotes1</code> fixture.</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>Comparative and motivation sources</h3>
+          <ul class="compact">
+            <li>Scroll zkEVM overview.</li>
+            <li>LFDT-Lineth monorepo and Linea docs.</li>
+            <li>Aztec documentation.</li>
+            <li>L2BEAT scaling and privacy summaries.</li>
+            <li>Ethereum Foundation privacy posts, PSE roadmap, Kohaku coverage.</li>
+          </ul>
+        </div>
+      </main>
+      <footer>
+        <div class="source">Access date for web metrics and docs in planning: 2026-06-14.</div>
+        <div class="slide-number">28 / 28</div>
+      </footer>
+    </section>
+  </div>
+
+  <div class="print-note">Arrow keys or buttons to move slides. Print to PDF from browser if needed.</div>
+  <nav class="nav" aria-label="slide navigation">
+    <button type="button" id="prev" aria-label="previous slide">‹</button>
+    <button type="button" id="next" aria-label="next slide">›</button>
+  </nav>
+
+  <script>
+    const slides = Array.from(document.querySelectorAll(".slide"));
+    let current = Math.max(0, slides.findIndex((slide) => slide.getBoundingClientRect().top >= 0));
+
+    function go(delta) {
+      current = Math.min(slides.length - 1, Math.max(0, current + delta));
+      slides[current].scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    document.getElementById("prev").addEventListener("click", () => go(-1));
+    document.getElementById("next").addEventListener("click", () => go(1));
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowRight" || event.key === "PageDown" || event.key === " ") {
+        event.preventDefault();
+        go(1);
+      }
+      if (event.key === "ArrowLeft" || event.key === "PageUp") {
+        event.preventDefault();
+        go(-1);
+      }
+      if (event.key === "Home") {
+        event.preventDefault();
+        current = 0;
+        slides[current].scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      if (event.key === "End") {
+        event.preventDefault();
+        current = slides.length - 1;
+        slides[current].scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (visible) {
+        current = slides.indexOf(visible.target);
+      }
+    }, { threshold: [0.45, 0.65, 0.85] });
+
+    slides.forEach((slide) => observer.observe(slide));
+  </script>
+</body>
+</html>
