@@ -96,9 +96,9 @@ Use repository sources only to map the paper's conceptual model onto Tokamak pac
 - `packages/backend/README.md`
   - Describes backend setup, preprocess, prove, and verify flows, including the fact that backend binaries consume the subcircuit library and synthesizer outputs.
 
-### External Solidity Sources For The `mintNotes1` Example
+### External Solidity Sources For The Private-State Examples
 
-Use these sources only for the private-state `mintNotes1` example. The local synthesizer fixture is in this repository, but the Solidity source currently lives in the related contracts repository.
+Use these sources for the private-state `mintNotes1` walkthrough and the private-state DApp admissibility matrix. The local synthesizer fixture is in this repository, but the Solidity source currently lives in the related contracts repository.
 
 - `https://github.com/tokamak-network/Tokamak-zk-EVM-contracts`
 - `https://raw.githubusercontent.com/tokamak-network/Tokamak-zk-EVM-contracts/main/packages/apps/private-state/src/PrivateStateController.sol`
@@ -557,13 +557,37 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - a loop over user data is admissible only if the successful executed iteration count is fixed or the contract uses a fixed executed shape with dummy/no-op positions;
   - dynamic storage keys are admissible when the number and order of storage operations remain fixed; they are inadmissible when the access pattern length or order changes across successful transactions.
 - Final concrete example for this slide:
-  - use the Tokamak private-state DApp as the closing example;
-  - present `mintNotes1` as a likely admissible transaction class when the successful path is fixed: one note output, one accounting-vault debit, one commitment registration, and a fixed public-output/log shape;
-  - contrast it with a hypothetical variable-note-count private-state mint or transfer, where the number of note commitments, nullifiers, storage updates, logs, or call/memory helper placements could change across successful transactions.
+  - use the Tokamak private-state DApp as the closing example, not only `mintNotes1`;
+  - show that the DApp contract defines separate fixed-arity entrypoints instead of one variable-size note operation;
+  - explain that each entrypoint/function selector should be treated as its own supported transaction class with its own replay-dedicated circuit topology.
+- Private-state DApp function families to show:
+  - mint circuits:
+    - `mintNotes1`, `mintNotes2`, `mintNotes3`, `mintNotes4`, `mintNotes5`, `mintNotes6`;
+    - each function has a different output arity, so the number of note preparations, commitment registrations, logs, additions, and storage updates differs;
+    - therefore `mintNotes1` and `mintNotes6` should not be presented as sharing the same derived circuit.
+  - transfer circuits:
+    - `transferNotes1To1`, `transferNotes1To2`, `transferNotes1To3`, `transferNotes2To1`, `transferNotes2To2`, `transferNotes3To1`, `transferNotes3To2`, `transferNotes4To1`;
+    - the input/output note arity determines the number of nullifier checks, commitment checks, value-sum checks, storage updates, and encrypted-note logs;
+    - each arity pair is a different reusable circuit class.
+  - redeem circuits:
+    - `redeemNotes1`, `redeemNotes2`, `redeemNotes3`, `redeemNotes4`;
+    - the input note arity determines the number of nullifiers, value accumulation steps, and the final accounting-vault credit path;
+    - each redeem arity is a different reusable circuit class.
+  - supporting accounting-vault calls:
+    - `debitLiquidBalance` appears in mint paths;
+    - `creditLiquidBalance` appears in redeem paths;
+    - these support calls affect the call/storage topology of the corresponding entrypoint circuit.
+  - public helper functions:
+    - `computeNoteCommitment` and `computeNullifier` can be listed separately as deterministic helper-style functions, but they are not the main private-state transaction classes.
+- Key message:
+  - the private-state DApp is admissible by splitting variable note-count behavior into many fixed-arity functions;
+  - this is exactly the kind of contract design that avoids one successful transaction changing the placement topology of another;
+  - the cost is that each function selector/arity needs its own trusted synthesizer output and proving setup path.
 - Suggested slide design:
   - use a two-column table: "Reusable circuit likely works" vs "Reusable circuit likely fails";
   - use short examples, not code;
-  - end with the private-state DApp example because it connects the abstract admissibility rule back to the running `mintNotes1` example;
+  - end with a compact private-state DApp matrix: mint arity, transfer input/output arity, redeem arity;
+  - visually emphasize that rows are different circuits, not one circuit with a variable note count;
   - add one bottom-line sentence: "Values may vary; successful topology must not."
 
 ### 15. Soundness Intuition And Failure Modes
@@ -586,7 +610,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - inadmissible: different successful branches, loop counts, calls, or storage access shapes produce different placement topology.
 - Diagram 5: replay dataflow tracker: stack/memory/storage locations point to placement wires, and repeated logical values become permutation cycles.
 - Diagram 6: `mintNotes1` replay lanes showing verification goals mapped to subcircuit groups.
-- Diagram 7: admissible contract examples matrix: fixed-arity mint, fixed-shape transfer, bounded single-slot update, variable batch, router, variable logs.
+- Diagram 7: private-state DApp function matrix: `mintNotes1`-`mintNotes6`, supported `transferNotesNToM` arities, and `redeemNotes1`-`redeemNotes4`, with one row per reusable circuit class.
 
 ### 17. Planned Slide Outline
 
@@ -775,6 +799,8 @@ depth 0: Contract A
 - The deck states that Tokamak zk-EVM should not be presented as applicable to all Ethereum smart contracts.
 - The contract admissibility slide uses concrete examples instead of a separate abstract design-strategy slide.
 - The examples include both likely admissible and likely inadmissible successful-path shapes.
+- The private-state DApp admissibility example shows all fixed-arity function families and states that different function selectors/arities correspond to different replay-dedicated circuits.
+- The private-state DApp example must not imply that `mintNotes1`, `mintNotes2`, transfer, and redeem calls share one derived circuit.
 - The deck states that input-dependent loops or conditionals are admissible only when successful executions still have deterministic, topology-identical replay shape.
 - The deck states that different successful input-induced control flow can require a different derived circuit and therefore fall outside the reusable-circuit model.
 - The deck does not overclaim support for arbitrary Ethereum L1 behavior.
