@@ -8,6 +8,190 @@ Slides 6 onward currently introduce many Tokamak and SNARK concepts too quickly.
 
 The revision should not be a local wording pass. It should be a communication rewrite of the main technical body.
 
+### Concrete Diagnosis Of The Current Slides
+
+This diagnosis is based on the current HTML deck, not on the intended outline. The main problem is not that individual phrases are awkward; the technical body often skips the conceptual bridge that would let an introductory SNARK audience understand why the next object is being introduced.
+
+#### Slide 6: "회로는 답을 찾는 장치가 아니다"
+
+- The slide states the NP-verification idea, but it does not show a concrete candidate execution being checked.
+- The right panel lists `branch choice`, `loop count`, `memory/storage access`, `call structure`, and `intermediate dataflow`, but it does not explain how each item changes the needed verification circuit.
+- The slide's conclusion says circuit shape can change, but the body does not demonstrate a shape change.
+- The English noun list feels like notes for the presenter, not audience-facing explanation.
+- This slide should be the conceptual bridge from "verification not search" to "function-specific verification circuits"; currently it only asserts that bridge.
+
+#### Slide 7: "다른 Ethereum ZK 시스템은 실행을 어떻게 proof input으로 보는가"
+
+- The table appears before the audience has a stable model of "execution record as proof input."
+- Scroll, Linea, and Aztec are not directly comparable in the way the table presents them; two are EVM-trace-oriented systems, while Aztec is privacy-first and not simply an EVM execution-record system.
+- The table uses `proof input`, `opcode trace`, `execution traces`, `constraints`, `kernel circuits`, and `rollup circuits` without enough explanation.
+- There is no explicit takeaway such as "many systems start from an execution record, but they differ in how fixed or specialized the verification circuit is."
+- The slide is source-oriented rather than audience-oriented: it catalogs projects but does not clearly prepare the Tokamak contrast.
+
+#### Slide 8: "Tokamak은 reusable block을 조립하는 쪽에 초점을 둔다"
+
+- The slide introduces the key Tokamak contrast, but the analogy is too compressed.
+- `preprinted blocks`, `solved transcript`, and `custom worksheet` are not self-explanatory and do not align cleanly with the deck's chosen Korean terminology.
+- The question "which reusable block and how many" is good, but the visual does not show how a block is chosen from an execution record.
+- The slide still relies on `reusable block` before giving a visual example of one block.
+- The contrast with the previous slide is weak because the previous slide never clearly established the "machine-like fixed circuit" baseline.
+
+#### Slide 9: "이 발표에서 필요한 최소 용어"
+
+- The vocabulary slide comes after several terms have already been used: proof input, circuit, witness, reusable block, trusted circuit.
+- The slide defines generic SNARK terms, but it does not explain which of them are needed for the immediate next step.
+- `statement` is retained as a term, but the deck otherwise tries to use `검증 회로`; this can reintroduce the terminology confusion that recent edits tried to remove.
+- The terms are presented as six independent cards, not as a prover-verifier flow.
+- For the target audience, this slide should be either much earlier or replaced by definitions only when each term becomes necessary.
+
+#### Slide 10: "Tokamak 회로 유도 직관"
+
+- This slide is meant to introduce intuition, but it is mostly a bilingual glossary.
+- It repeats ideas that are separately reintroduced on slide 14, which creates redundancy rather than clarity.
+- `trusted circuit` appears before the audience knows why trust, preprocessing, and reuse matter.
+- The left panel lists objects but does not show their relationship.
+- The right panel maps terms but does not include a concrete example; it asks the audience to memorize names before seeing why the names matter.
+
+#### Slide 11: "Tokamak zk-EVM 전체 흐름"
+
+- The component pipeline is visually simple, but it compresses too many roles into one line.
+- The `+` between `qap-compiler` and `synthesizer` is ambiguous: it is not clear whether the compiler runs together with the synthesizer or produces an artifact consumed later.
+- `prover / verifier` are combined into one box even though their roles are different.
+- The four small cards below repeat the same names without adding a clearer input-output contract.
+- The slide names implementation packages before the conceptual model is stable.
+
+#### Slide 12: "두 compiler는 서로 다른 질문에 답한다"
+
+- The two-column structure is useful, but it is text-heavy and still uses implementation labels before showing a concrete example of the two compiler outputs.
+- "Library compiler" and "execution record compiler" are good conceptual labels, but the slide does not show the artifact boundary between them.
+- The distinction "before any execution record" vs "for one execution record" should be the visual center, not just a bullet.
+- The phrase "output depends on execution record" is correct but too abstract; the audience needs to know whether the output is a circuit, witness, value connections, or all of these.
+
+#### Slide 13: "Field-programmable circuit idea"
+
+- This is one of the most important conceptual slides, but the visual equation is too abstract.
+- `fixed library`, `block layout`, and `value connections` are not illustrated with even a tiny block diagram.
+- The slide mixes paper-level terminology with Tokamak-level terminology without clarifying which layer is being discussed.
+- The phrase "derived circuit" is close to "검증 회로" but does not use the same term, which weakens terminology consistency.
+- The audience cannot yet see how value connections differ from arithmetic checks.
+
+#### Slide 14: "이제 기술 용어를 붙인다"
+
+- This slide largely repeats slide 10, but with `subcircuit library`, `placement`, and `wire map / permutation`.
+- The tags `before execution record` and `chosen from execution record` are useful but remain abstract.
+- `permutation` appears as a term before the audience has seen why equality connections need a separate representation.
+- The slide lacks a concrete "same value appears in two blocks" example.
+- It should probably be merged with a visual example rather than stand alone.
+
+#### Slide 15: "local correctness와 interconnection correctness"
+
+- The core distinction is important, but the slide uses generic formulas (`x + y = z`, `A.out = B.in`) without tying them to EVM execution.
+- `local relation`, `copy constraints`, and `wire value equality` are introduced in English-heavy technical language.
+- The slide does not connect local correctness to block selection, or copy correctness to value connections from the execution record.
+- The audience may understand the formulas but still not understand how the synthesizer uses them.
+
+#### Slide 16: "EVM 트랜잭션의 실행 기록이 block layout과 value connections를 만든다"
+
+- This is the first direct explanation of execution-record-to-circuit derivation, but it appears after many abstract slides.
+- The left panel says the execution record tells the next operation, but gives no sample operation.
+- The right panel lists stack, memory, calldata, storage, and return data, but does not show a value moving through them.
+- The slide should be a visual two-track example; as written, it is another bullet summary.
+
+#### Slide 17: "Tokamak zk-EVM synthesis pipeline"
+
+- The pipeline is helpful but generic.
+- The input lane omits Solidity-compiled bytecode wording from the plan and says only `EVM bytecode`.
+- The middle lane says `operation observed`, `block selected`, `values tracked`, but does not show who observes or how the observation becomes a block copy.
+- The output lane contains `witness`, `value connections`, and `public instance`, but the next slide repeats these objects.
+- This slide and slide 18 should probably be merged or rewritten as a concrete example plus outputs.
+
+#### Slide 18: "생성물은 무엇을 의미하는가"
+
+- The slide defines outputs, but it is too generic to be memorable.
+- `witness-oriented data` is an implementation-flavored phrase; the audience likely needs "values used inside the verification circuit."
+- `public instance` is not tied to what the verifier learns.
+- `value connections` is the best item, but still lacks a picture.
+- This slide should either be attached to the pipeline slide or replaced by a labeled output diagram.
+
+#### Slide 19: "`mintNotes1`: Solidity-level logic"
+
+- The example starts with a Solidity behavior list before explaining why `mintNotes1` is the chosen pedagogical example.
+- The list is too source-code-like: output note, amount, owner, encrypted-note salt, note commitment, vault debit, duplicate rejection, event.
+- The right panel's "why good example" is useful but too late; it should frame the slide before the details.
+- There is no visual grouping of the function into stages such as input, note construction, accounting, storage, output.
+- For introductory students, this slide risks becoming a smart-contract walkthrough rather than a circuit-derivation example.
+
+#### Slide 20: "`mintNotes1` 실행 기록은 어떤 검증 목표로 나뉘는가"
+
+- The lane diagram is promising, but the verification goals are still broad labels without a visible relation to reusable blocks.
+- The placement count `165` and permutation entries `3710` are implementation findings; they distract from the conceptual explanation in the main flow.
+- The slide does not show how one goal maps to one or more reusable block families.
+- The audience cannot tell whether the numbers are important, surprising, or just incidental.
+- These metrics should move to speaker notes or backup unless they support a specific point.
+
+#### Slide 21: "왜 같은 trusted circuit을 재사용할 수 있어야 하는가"
+
+- This slide contains the central reuse argument, but it arrives after a long technical chain and still assumes the audience understands trusted circuits.
+- The on-chain verifier paragraph is important but abstract.
+- The rule is correct, but "same kind/count/connections" should be illustrated with two function calls that either preserve or change the shape.
+- `placement topology` appears in the callout after the plain rule, which is acceptable, but the slide does not visually connect the term to the rule.
+- The slide should become the main design constraint slide rather than another text-heavy explanation.
+
+#### Slide 22: "어떤 contract entry가 같은 circuit을 재사용하기 쉬운가"
+
+- The examples are useful, but the split into "Likely reusable" and "Likely not reusable" is too coarse.
+- The slide does not clearly explain the conditionally safe case: input-dependent branch or loop can be acceptable if successful executions preserve the same shape.
+- Some examples are still vague: "validation 후 하나의 successful path만 허용" needs a concrete example.
+- The slide should use three concrete mini-contract shapes: safe, unsafe, conditionally safe.
+
+#### Slide 23: "variable note count를 fixed-arity functions로 쪼갠다"
+
+- The matrix is visually useful but unexplained.
+- It assumes the audience understands private-state DApp function families and arity.
+- The callout uses "row" even though the matrix is not obviously organized by rows; this can confuse the viewer.
+- The slide does not explicitly say that each function selector can have its own trusted circuit.
+- This slide should be connected more clearly to the reuse condition from slide 21.
+
+#### Slide 24: "잘못된 circuit shape를 신뢰하면 무엇이 깨지는가"
+
+- The three failure modes are valid, but they appear before the audience has seen a positive example of correct shape reuse.
+- `wrong shape`, `nondeterminism`, and `unsafe fallback` are terse labels that need concrete failure examples.
+- The slide mixes soundness risk, determinism risk, and engineering fallback risk without ranking them.
+- The final callout is good but should follow a concrete "bad derivation" example.
+
+#### Slide 25: "오늘의 핵심 정리"
+
+- The summary still contains mixed English/Korean and implementation terms: reusable blocks, copy constraints, successful circuit shape, trusted circuit.
+- It summarizes the current deck rather than the revised conceptual story.
+- The final sentence "Values may vary; the successful circuit shape must not" is good, but it is in English and should be translated or visually highlighted.
+- The slide should reduce to three Korean takeaways.
+
+#### Slide 26: "Q&A를 위한 질문"
+
+- This is acceptable as a discussion slide, but it is not necessary in the main narrative.
+- The questions still use terms that the current deck has not made intuitive enough: universal machine circuit, public instance, same trusted circuit reuse.
+- It should be converted into speaker prompts or moved after a stronger conclusion.
+
+#### Slide 27: "복잡한 EVM call 구조를 Synthesizer가 다루는 방식"
+
+- This is correctly marked as backup, but the slide still assumes familiarity with parent/child call context.
+- The diagram is too abstract: it does not show calldata copying or return-data copying as value connections.
+- The bullet "call tree를 새로 추측하지 않는다" is useful and should be kept.
+- This slide should stay in backup, but with a more explicit dataflow picture if retained.
+
+#### Slide 28: "EVM opcode family별 처리 직관"
+
+- This is backup material and should not be part of the main story.
+- The table is dense and mixes opcode families, synthesis intuition, and reuse-shape risks.
+- It may be useful for Q&A, but the main deck should not depend on it.
+- If kept, it should be explicitly labeled as "reference only" and not treated as an explanatory slide.
+
+#### Slide 29: "주요 출처"
+
+- The reference slide is adequate, but it groups sources broadly.
+- It still says web metrics were accessed 2026-06-14, while later market updates and edits used 2026-06-15.
+- The final references should match the actual sources used in the rewritten deck.
+
 ### Global Rewrite Rules
 
 - Use "검증 회로" consistently for the audience-facing object being generated.
