@@ -62,6 +62,108 @@ The seminar deck, slide text, speaker notes, diagrams, and audience-facing examp
 - `packages/frontend/synthesizer/core/src/subcircuit/libraryTypes.ts`
   - Shows the metadata model: setup parameters, global wire list, frontend configuration, and subcircuit information.
 
+### Market And Funding Sources For Opening Visuals
+
+Use these sources only for the opening motivation. They should not be used to claim Tokamak zk-EVM market share.
+
+- L2BEAT scaling TVS summary, accessed 2026-06-14:
+  - `https://l2beat.com/scaling/tvs`
+  - Source values to cite:
+    - Ethereum scaling projects tracked by L2BEAT: total TVS `~$39.31B`.
+    - Rollups tracked by L2BEAT: TVS `~$32.78B`.
+    - Selected ZK scaling projects from the same table: Starknet `~$418.20M`, Linea `~$351.40M`, ZKsync Era `~$233.95M`, Scroll `~$43.53M`, Loopring `~$8.63M`.
+- L2BEAT privacy summary, accessed 2026-06-14:
+  - `https://l2beat.com/privacy/summary`
+  - Source values to cite:
+    - Tornado Cash: TVL `~$385.40M`, 30D volume `~$120.08M`.
+    - Railgun: TVL `~$76.46M`, 30D volume `~$49.68M`.
+    - Privacy Pools: TVL `~$7.91M`, 30D volume `~$4.14M`.
+    - Combined tracked privacy-protocol TVL from these three rows: `~$469.77M`.
+    - Combined tracked 30D privacy volume from these three rows: `~$173.90M`.
+- Disclosed scaling-side funding and acquisition sources:
+  - Matter Labs / ZKsync: CoinDesk reported total funding of `$458M` after the 2022 Series C: `https://www.coindesk.com/tech/2022/11/16/matter-labs-nets-200m-to-build-zksync-ethereum-scaling-platform`.
+  - StarkWare / Starknet: sources report approximately `$261M` total funding and a `$100M` Series D at an `$8B` valuation: `https://www.calcalistech.com/ctechnews/article/hyms9oiw5` and `https://startupintros.com/orgs/starkware-industries`.
+  - Scroll: The Block reported that a `$50M` round brought total funding to `$83M`: `https://www.theblock.co/post/217340/ethereum-scaling-scroll-50-million-funding-round-1-8-billion-valuation`.
+  - Taiko: PR Newswire reported `US$37M` total raised across three rounds: `https://www.prnewswire.com/news-releases/taiko-raises-us37m-from-top-tier-vcs-ahead-of-mainnet-launch-302077780.html`.
+  - Polygon zero-knowledge scaling acquisitions: CoinDesk reported Mir at `$400M` and Hermez at `$250M`: `https://www.coindesk.com/business/2021/12/09/polygon-acquires-ethereum-scaling-startup-mir-for-400m-in-matic`.
+- Disclosed privacy-side funding sources:
+  - Aztec: Aztec announced a `$17M` Series A and a `$100M` Series B for Ethereum privacy/encrypted Ethereum: `https://aztec.network/blog/aztec-network-raises-17-million-series-a-from-paradigm-to-bring-programmable-privacy-to-web3` and `https://medium.com/aztec-protocol/aztec-raises-100-million-to-build-encrypted-ethereum-dd5062ba949c`.
+  - Nocturne Labs: CoinDesk reported a `$6M` seed round for privacy on-chain accounts in the Ethereum ecosystem: `https://www.coindesk.com/tech/2023/10/25/bain-capital-polychain-lead-6m-funding-round-for-privacy-protocol-firm-nocturne-labs`.
+  - Nucleo: Global FinTech Series reported a `$4M` seed round for private, non-custodial, auditable multisig on Ethereum: `https://globalfintechseries.com/blockchain/nucleo-raises-4-million-seed-round-to-build-privacy-crypto-infrastructure-for-organizations`.
+  - 0xbow / Privacy Pools: GlobeNewswire reported a `$3.5M` seed round after Ethereum Foundation Privacy Pools integration: `https://www.globenewswire.com/news-release/2025/11/18/3190435/0/en/0xbow-closes-3-5m-round-for-compliant-crypto-privacy-technology-following-ethereum-foundation-integration.html`.
+
+## Opening Evidence Visuals
+
+The deck should add a visually stronger opening before the technical material. The goal is to show that EVM execution proofs matter because real projects use ZKP for two application-level outcomes: scaling execution and making selected data private.
+
+### Visual A: Two Motives For ZKP In Ethereum Execution
+
+Use a two-column visual:
+
+```text
+ZKP for EVM execution
+├─ Scalability: compact verification of many executions
+│  ├─ Rollup validation
+│  ├─ Lower repeated verifier work
+│  └─ Motivation for zkEVM and ZK rollup systems
+└─ Privacy: correctness without revealing all witness data
+   ├─ Private account/activity systems
+   ├─ Private DeFi and transfer pools
+   └─ Motivation for encrypted or privacy-preserving Ethereum applications
+```
+
+### Visual B: Market-Usage Snapshot
+
+Use two adjacent bar charts with clearly separated metrics:
+
+1. Scaling market context:
+   - L2BEAT Ethereum scaling total TVS: `~$39.31B`.
+   - L2BEAT rollup TVS: `~$32.78B`.
+   - Selected ZK scaling project TVS bars:
+     - Starknet `~$418.20M`
+     - Linea `~$351.40M`
+     - ZKsync Era `~$233.95M`
+     - Scroll `~$43.53M`
+     - Loopring `~$8.63M`
+
+2. Privacy market context:
+   - Tornado Cash TVL `~$385.40M`, 30D volume `~$120.08M`.
+   - Railgun TVL `~$76.46M`, 30D volume `~$49.68M`.
+   - Privacy Pools TVL `~$7.91M`, 30D volume `~$4.14M`.
+   - Combined tracked TVL `~$469.77M`.
+   - Combined tracked 30D volume `~$173.90M`.
+
+The speaker note should explicitly state that TVS and TVL are different metrics and should not be added together. TVS is used for scaling systems because value is secured by L2s; TVL and 30D volume are used for privacy protocols because they represent funds and activity inside tracked privacy pools.
+
+### Visual C: Capital Formation Snapshot
+
+Use a second slide with disclosed funding and acquisition figures. Label it as non-exhaustive and source-dependent.
+
+Scaling-oriented disclosed capital:
+
+| Project or organization | ZKP/Ethereum relevance | Publicly reported figure |
+| --- | --- | ---: |
+| Matter Labs / ZKsync | Ethereum ZK scaling platform | `$458M` total funding |
+| StarkWare / Starknet | STARK-based Ethereum scaling | `~$261M` total funding |
+| Scroll | Ethereum zkEVM L2 | `$83M` total funding |
+| Taiko | Ethereum-equivalent ZK rollup | `$37M` total funding |
+| Polygon Mir + Hermez acquisitions | ZK scaling acquisitions | `$650M` combined acquisition value |
+
+Privacy-oriented disclosed capital:
+
+| Project or organization | ZKP/Ethereum relevance | Publicly reported figure |
+| --- | --- | ---: |
+| Aztec | Ethereum privacy / encrypted Ethereum | `$117M` disclosed Series A+B |
+| Nocturne Labs | Ethereum private accounts | `$6M` seed |
+| Nucleo | Private Ethereum multisig infrastructure | `$4M` seed |
+| 0xbow / Privacy Pools | Compliant Ethereum privacy pools | `$3.5M` seed |
+
+Planned chart encoding:
+
+- Use horizontal bars for the scaling-oriented figures because the range is large.
+- Use a separate horizontal bar chart for privacy-oriented figures so smaller privacy rounds remain readable.
+- Add a footnote: "Funding and acquisition values are not usage, revenue, or valuation; they only show disclosed capital committed to the design space."
+
 ## Core Thesis
 
 Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from scratch for every replay. Instead, it starts from a fixed library of precompiled subcircuits. A replay determines which subcircuit copies are placed, what values pass through their interface wires, which public instance values are exposed, and how interface wires are connected by a permutation. The resulting circuit is replay-dedicated because it is specialized to the trace shape of that replay, while the expensive subcircuit definitions remain reusable.
@@ -226,25 +328,29 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 
 1. Title and guiding question.
 2. Why EVM execution proofs matter: scalability and privacy.
-3. From application goals to arithmetic statements.
-4. Why RAM/EVM execution challenges circuit-specific SNARKs.
-5. Minimal SNARK and circuit vocabulary.
-6. Field-programmable circuit idea.
-7. Subcircuit library, placement, and wire map.
-8. Arithmetic constraints vs copy constraints.
-9. Ethereum replay as a source of placements.
-10. Tokamak zk-EVM synthesis pipeline.
-11. Generated artifacts and their meanings.
-12. Example replay-to-placement walkthrough.
-13. Why a replay-dedicated circuit is not automatically program-dedicated.
-14. Conditions for stable output under changed inputs.
-15. Engineering strategies for stability.
-16. Trade-offs and limitations.
-17. Summary and discussion questions.
+3. Market-usage visual: scaling TVS vs privacy TVL/volume.
+4. Capital-formation visual: disclosed ZK scaling and ZK privacy funding.
+5. From application goals to arithmetic statements.
+6. Why RAM/EVM execution challenges circuit-specific SNARKs.
+7. Minimal SNARK and circuit vocabulary.
+8. Field-programmable circuit idea.
+9. Subcircuit library, placement, and wire map.
+10. Arithmetic constraints vs copy constraints.
+11. Ethereum replay as a source of placements.
+12. Tokamak zk-EVM synthesis pipeline.
+13. Generated artifacts and their meanings.
+14. Example replay-to-placement walkthrough.
+15. Why a replay-dedicated circuit is not automatically program-dedicated.
+16. Conditions for stable output under changed inputs.
+17. Engineering strategies for stability.
+18. Trade-offs and limitations.
+19. Summary and discussion questions.
 
 ## Verification Checklist For The Future Deck
 
 - The first half can be understood without reading the repository.
+- Opening market and funding visuals have source labels, access date, and metric definitions.
+- TVS, TVL, 30D volume, funding, acquisition values, and valuation are not mixed as if they were the same metric.
 - Every implementation detail is tied back to the conceptual model.
 - The deck distinguishes replay-dedicated, program-dedicated, and universal-machine circuits.
 - The deck states the exact invariance conditions required for equal output circuits across input changes.
