@@ -211,6 +211,10 @@
       grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 
+    .wide {
+      grid-column: 1 / -1;
+    }
+
     .panel,
     .metric,
     .callout,
@@ -649,7 +653,6 @@
         </div>
       </main>
       <footer>
-        <div class="source">Tokamak Network · 2026년 6월 15일</div>
         <div class="slide-number">1 / 28</div>
       </footer>
     </section>
@@ -678,9 +681,11 @@
             <li>correctness without full disclosure</li>
           </ul>
         </div>
+        <div class="callout wide">
+          <p>응용 목표가 scalability이든 privacy이든, 공통의 기술 문제는 EVM 실행을 검증 가능한 arithmetic statement로 바꾸는 것이다.</p>
+        </div>
       </main>
       <footer>
-        <div class="source">핵심 전환: 응용 목표는 달라도 결국 EVM 실행을 arithmetic statement로 바꿔야 한다.</div>
         <div class="slide-number">2 / 28</div>
       </footer>
     </section>
@@ -771,9 +776,11 @@
             <li>intermediate dataflow</li>
           </ul>
         </div>
+        <div class="callout wide">
+          <p>같은 bytecode라도 찾은 실행 trace가 달라지면 검증 회로의 모양도 달라질 수 있다.</p>
+        </div>
       </main>
       <footer>
-        <div class="source">따라서 같은 bytecode라도 찾은 실행 trace가 달라지면 검증 회로의 모양도 달라질 수 있다.</div>
         <div class="slide-number">5 / 28</div>
       </footer>
     </section>
@@ -839,7 +846,6 @@
         </div>
       </main>
       <footer>
-        <div class="source">비유: reusable 문제 블록은 고정되어 있고, 어떤 블록을 골라 어떻게 연결할지는 replay가 결정한다.</div>
         <div class="slide-number">7 / 28</div>
       </footer>
     </section>
@@ -858,7 +864,6 @@
         <div class="term"><h3>setup</h3><p class="detail">회로 설명에 의존하는 preprocessing</p></div>
       </main>
       <footer>
-        <div class="source">R1CS/QAP는 local arithmetic constraints와 public/private wires를 설명하는 수준에서만 사용한다.</div>
         <div class="slide-number">8 / 28</div>
       </footer>
     </section>
@@ -890,7 +895,6 @@
         </div>
       </main>
       <footer>
-        <div class="source">직관을 먼저 잡고, 기술 용어는 그 다음에 붙인다.</div>
         <div class="slide-number">9 / 28</div>
       </footer>
     </section>
@@ -918,7 +922,7 @@
         </div>
       </main>
       <footer>
-        <div class="source">Tokamak zk-EVM components: <code>qap-compiler</code>, <code>synthesizer</code>, <code>prover</code>, <code>verify</code>.</div>
+        <div class="source">Source: Tokamak zk-EVM repository README.</div>
         <div class="slide-number">10 / 28</div>
       </footer>
     </section>
@@ -949,7 +953,6 @@
         </div>
       </main>
       <footer>
-        <div class="source">Synthesizer input: subcircuit library, EVM bytecode, public/private instance. Output: witness and value connections.</div>
         <div class="slide-number">11 / 28</div>
       </footer>
     </section>
@@ -1007,9 +1010,11 @@
           <p>두 wire가 같은 값을 가져야 한다는 연결표</p>
           <span class="tag coral">value connection</span>
         </div>
+        <div class="callout wide">
+          <p>핵심은 primitive circuit language를 매번 새로 만드는 것이 아니라, block layout과 value connections를 유도한다는 점이다.</p>
+        </div>
       </main>
       <footer>
-        <div class="source">중요한 점: primitive circuit language를 매번 새로 만드는 것이 아니라, block layout과 value connections를 유도한다.</div>
         <div class="slide-number">13 / 28</div>
       </footer>
     </section>
@@ -1036,7 +1041,6 @@
         </div>
       </main>
       <footer>
-        <div class="source">wire map은 equal-value connections를 compact하게 기록한다. permutation은 그 기술적 표현이다.</div>
         <div class="slide-number">14 / 28</div>
       </footer>
     </section>
@@ -1065,7 +1069,6 @@
         </div>
       </main>
       <footer>
-        <div class="source">Technical terms: block copy = placement, value-connection map = wire map/permutation.</div>
         <div class="slide-number">15 / 28</div>
       </footer>
     </section>
@@ -1097,7 +1100,7 @@
         </div>
       </main>
       <footer>
-        <div class="source">Tokamak synthesizer artifacts connect replay data to witness and value connections.</div>
+        <div class="source">Source: Tokamak zk-EVM synthesizer README and execution-flow documentation.</div>
         <div class="slide-number">16 / 28</div>
       </footer>
     </section>
@@ -1122,7 +1125,6 @@
         </div>
       </main>
       <footer>
-        <div class="source">Generated artifacts bind witness data, public instance data, and value connections.</div>
         <div class="slide-number">17 / 28</div>
       </footer>
     </section>
@@ -1187,9 +1189,19 @@
             <span class="tag coral">output</span>
           </div>
         </div>
+        <div class="grid two" style="margin-top:18px">
+          <div class="metric">
+            <div class="value">165</div>
+            <div class="caption">placement instances in the fixture run</div>
+          </div>
+          <div class="metric">
+            <div class="value">3710</div>
+            <div class="caption">permutation entries checked in the run</div>
+          </div>
+        </div>
       </main>
       <footer>
-        <div class="source"><code>mintNotes1</code> fixture result: 165 placements and 3710 permutation entries.</div>
+        <div class="source">Source: local <code>mintNotes1</code> synthesizer fixture run.</div>
         <div class="slide-number">19 / 28</div>
       </footer>
     </section>
@@ -1214,9 +1226,11 @@
             <li>같은 value connection pattern</li>
           </ul>
         </div>
+        <div class="callout wide">
+          <p>기술적으로는 동일한 placement topology와 호환되는 public/private interface layout이 필요하다.</p>
+        </div>
       </main>
       <footer>
-        <div class="source">Technical phrasing: identical placement topology and compatible public/private interface layout.</div>
         <div class="slide-number">20 / 28</div>
       </footer>
     </section>
@@ -1245,9 +1259,11 @@
             <li>router-like dynamic call target</li>
           </ul>
         </div>
+        <div class="callout wide">
+          <p>입력 의존 branch가 있어도 모든 successful path의 circuit shape가 같으면 같은 trusted circuit을 사용할 수 있다.</p>
+        </div>
       </main>
       <footer>
-        <div class="source">Input-dependent branch라도 모든 successful path의 circuit shape가 같으면 가능하다.</div>
         <div class="slide-number">21 / 28</div>
       </footer>
     </section>
@@ -1283,7 +1299,7 @@
         </div>
       </main>
       <footer>
-        <div class="source">Private-state DApp example: mint, transfer, redeem families; helper functions are not the main transaction entries.</div>
+        <div class="source">Source: PrivateStateController.sol private-state DApp function families.</div>
         <div class="slide-number">22 / 28</div>
       </footer>
     </section>
@@ -1306,9 +1322,11 @@
           <h3>unsafe fallback</h3>
           <p>unsupported shape를 조용히 padding, skip, reroute하면 statement가 바뀐다.</p>
         </div>
+        <div class="callout wide">
+          <p>Unsupported shape는 명확히 거부되어야 하며, fallback이 statement 변경을 숨기면 안 된다.</p>
+        </div>
       </main>
       <footer>
-        <div class="source">Unsupported shape는 명확히 거부되어야 하며, fallback이 statement 변경을 숨기면 안 된다.</div>
         <div class="slide-number">23 / 28</div>
       </footer>
     </section>
@@ -1335,9 +1353,11 @@
             <li>Tokamak zk-EVM은 모든 smart contract에 자동 적용되는 모델이 아니다.</li>
           </ul>
         </div>
+        <div class="callout wide">
+          <p>Values may vary; the successful circuit shape must not.</p>
+        </div>
       </main>
       <footer>
-        <div class="source">Values may vary; the successful circuit shape must not.</div>
         <div class="slide-number">24 / 28</div>
       </footer>
     </section>
@@ -1366,7 +1386,6 @@
         </div>
       </main>
       <footer>
-        <div class="source">토론 주제: circuit derivation, reuse condition, unsupported execution shape.</div>
         <div class="slide-number">25 / 28</div>
       </footer>
     </section>
@@ -1395,7 +1414,7 @@
         </div>
       </main>
       <footer>
-        <div class="source">Call handling summary: replayed context boundaries define the checked data movement.</div>
+        <div class="source">Source: Tokamak zk-EVM synthesizer transaction-flow documentation and synthesizer sources.</div>
         <div class="slide-number">26 / 28</div>
       </footer>
     </section>
