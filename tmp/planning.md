@@ -156,7 +156,13 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 ### 2. Why Replay-Dedicated Circuits Exist
 
 - Explain the technical validation problem: many nodes want confidence in execution without re-executing every step.
-- Explain why RAM-like execution is difficult for circuit-specific SNARKs: the executed instruction trace can depend on input.
+- Develop the NP-language perspective before discussing EVM traces:
+  - A SNARK statement is an NP-style verification problem: given a public instance, the prover claims that there exists a witness satisfying the circuit.
+  - The circuit is not designed to search for the witness or discover the answer. It is designed to verify a claimed answer efficiently once the answer, execution trace, or witness has already been produced.
+  - For ordinary static computations, it is easy to forget this distinction because the verification circuit often looks like a direct encoding of the computation.
+  - For RAM/EVM execution, the found answer includes more than output values: it includes a concrete execution trace, with branch choices, loop counts, memory/storage accesses, call structure, and intermediate dataflow.
+  - Therefore, if different inputs lead the same program to different found traces, the verification problem can require a different placement and wiring pattern. This is why "the same program" does not automatically imply "the same derived circuit."
+- Explain why RAM-like execution is difficult for circuit-specific SNARKs: the executed instruction trace can depend on input, and the verification circuit may be specialized to that already-found trace.
 - Contrast three circuit-generation strategies:
   - compile a fresh circuit for every replay;
   - use a fully universal machine circuit;
@@ -291,7 +297,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 2. Why EVM execution proofs matter: scalability and privacy.
 3. One evidence slide: scaling still leads in size, privacy is re-emerging.
 4. From application goals to arithmetic statements.
-5. Why RAM/EVM execution challenges circuit-specific SNARKs.
+5. Why NP verification circuits can depend on the found EVM trace.
 6. Minimal SNARK and circuit vocabulary.
 7. Field-programmable circuit idea.
 8. Subcircuit library, placement, and wire map.
