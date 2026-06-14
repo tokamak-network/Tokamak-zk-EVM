@@ -104,6 +104,39 @@ Use these sources only for the opening motivation. They should not be used to cl
   - PSE roadmap for 2025 and beyond: PSE frames privacy as a first-class citizen across Ethereum: `https://pse.dev/blog/pse-roadmap-2025`.
   - Kohaku SDK coverage: The Defiant reported that the EF Kohaku Initiative released an SDK for wallet-level privacy integration using shielded pool protocols such as Railgun, Tornado Cash, and Privacy Pools: `https://thedefiant.io/news/blockchains/ethereum-foundation-kohaku-sdk-privacy-wallet-integration-bb4t52`.
 
+### Comparative zkEVM Sources
+
+Use these sources for the short bridge section between the NP-verification discussion and the Tokamak-specific circuit derivation. The goal is not to audit each project, but to show how major zkEVM systems frame the same high-level problem: a concrete EVM-like execution must become constrained proof input.
+
+- Scroll zkEVM overview:
+  - `https://docs.scroll.io/en/technology/zkevm/zkevm-overview/`
+  - Key points to cite:
+    - EVM execution can be viewed as a state transition function from initial state and transactions to a final state.
+    - Execution is broken into a step-by-step trace.
+    - The trace serves as the witness.
+    - The proof checks opcode correctness, ordering, and agreement between initial and final state.
+- Linea specification, current monorepo, and glossary:
+  - `https://github.com/LFDT-Lineth/lineth-monorepo`
+  - `https://github.com/Consensys/linea-specification`
+  - `https://docs.linea.build/protocol/reference/zero-knowledge-glossary`
+  - Key points to cite:
+    - The former `linea-specification` repository was archived on 2026-06-08 and points readers to the current monorepo, so current slide source labels should prefer `lineth-monorepo`.
+    - Linea's constraint system captures the logic of valid EVM executions.
+    - The tracer produces traces that the constraint system applies to and that serve as prover inputs.
+    - The execution trace records transaction-level execution events used to construct a validity proof.
+- ZKsync Era circuits documentation:
+  - `https://docs.zksync.io/zksync-protocol/era-vm/circuits`
+  - Key points to cite:
+    - ZKsync proves correct execution of its EVM-compatible VM through witness generation, circuits, and the Boojum proof system.
+    - The circuit layer constrains VM steps, opcodes, storage interactions, and precompiled contracts.
+- Polygon zkEVM prover repository:
+  - `https://github.com/0xPolygon/zkevm-prover`
+  - Key points to cite:
+    - The prover processes batches of EVM transactions, computes the resulting state, and creates proofs from polynomial constraints.
+    - The executor coordinates multiple state machines and produces polynomial evaluations for proof generation.
+- Optional secondary reference for visual classification only:
+  - L2BEAT zk catalog pages may be used to label systems at a high level, but technical claims should rely on the official docs or repositories above.
+
 ## Opening Evidence Visual
 
 The opening should be short: at most two slides before the technical transition. It should motivate EVM execution proofs without turning the seminar into a market report.
@@ -176,7 +209,29 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - use a field-programmable subcircuit-library approach.
 - Position Tokamak zk-EVM as using the third idea.
 
-### 3. SNARK Preliminaries For This Talk
+### 3. How Major zkEVM Projects Turn Replay Into Proof Inputs
+
+- Insert this section before the Tokamak-specific details so the audience first sees the broader design space.
+- State the common problem:
+  - an executor has already produced a concrete EVM-like execution;
+  - the proving system must decide which constrained object verifies that execution;
+  - the circuit or arithmetization checks the already-produced trace or batch, rather than searching for an execution.
+- Present the projects as representative patterns, not as identical architectures:
+  - Scroll: starts from the EVM state-transition view, expands execution into an ordered opcode trace, treats the trace as witness data, and proves step correctness, ordering, and start/end state agreement.
+  - Linea: uses a tracer to produce execution traces; constraints capture valid EVM execution logic and are applied to those traces as prover inputs.
+  - ZKsync Era: proves execution of its EVM-compatible VM with witness generation plus circuits that constrain VM steps, opcodes, storage interactions, and precompiles.
+  - Polygon zkEVM: processes batches of EVM transactions through executor/state-machine logic and polynomial constraints, producing evaluations and proofs for the resulting state transition.
+- Use one comparison table with three columns:
+  - project;
+  - "what becomes the proof input";
+  - "what constrains it."
+- Keep this section conceptual. Do not introduce Tokamak placement variables, permutations, or file paths yet.
+- Bridge to Tokamak:
+  - the shared theme is trace or batch verification;
+  - Tokamak's subcircuit-library approach is a different point in the same design space;
+  - instead of one monolithic explanation first, Tokamak can be introduced as deriving replay-specific placement and wiring from reusable subcircuits.
+
+### 4. SNARK Preliminaries For This Talk
 
 - Define statement, witness, public instance, circuit, and proof in introductory terms.
 - Explain R1CS/QAP only at the level needed for the audience:
@@ -185,7 +240,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - private wires carry witness data.
 - Explain why preprocessing/setup cares about the circuit description.
 
-### 4. Field-Programmable Circuit Model
+### 5. Field-Programmable Circuit Model
 
 - Introduce the paper's model:
   - fixed subcircuit library;
@@ -197,7 +252,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - derived circuit = placement sequence + wire map.
 - Explain why this reduces what must vary between executions: the library remains fixed; the replay-specific part is mostly placement and wiring.
 
-### 5. Arithmetic Constraints vs Copy Constraints
+### 6. Arithmetic Constraints vs Copy Constraints
 
 - Explain that local correctness and interconnection correctness are different obligations.
 - Local arithmetic constraints:
@@ -207,7 +262,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - Explain the wire map as a permutation over connecting wires.
 - Use a small example with 3 or 4 subcircuits before showing any Tokamak-specific names.
 
-### 6. From Ethereum Replay To Subcircuit Placement
+### 7. From Ethereum Replay To Subcircuit Placement
 
 - Define "replay" for the talk:
   - previous state snapshot;
@@ -222,7 +277,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - hash, signature, Merkle, and accumulator subcircuits for cryptographic/state operations.
 - Keep names illustrative rather than exhaustive.
 
-### 7. Repository-Grounded Implementation View
+### 8. Repository-Grounded Implementation View
 
 - Present a compact pipeline:
   - subcircuit library artifacts are generated and packaged;
@@ -235,7 +290,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - subcircuit info gives input/output wire ranges and flatten maps;
   - global wire list maps local subcircuit wires into the global circuit view.
 
-### 8. What Makes The Output Circuit Replay-Dedicated
+### 9. What Makes The Output Circuit Replay-Dedicated
 
 - The replay fixes:
   - which operations occurred;
@@ -246,7 +301,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - Values can affect witnesses without changing the circuit only when they do not change placement or wiring.
 - Values change the circuit when they alter the execution trace shape.
 
-### 9. Stability Across Different Inputs To The Same Program
+### 10. Stability Across Different Inputs To The Same Program
 
 - State the main condition:
   - identical output circuit requires identical placement topology and identical public/private interface layout, even if private witness values differ.
@@ -265,7 +320,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - Give the key warning:
   - "same program" is not enough; a stable circuit family needs trace-shape invariance or a deliberate universalization/padding strategy.
 
-### 10. Design Effort For Stable Program-Dedicated Circuits
+### 11. Design Effort For Stable Program-Dedicated Circuits
 
 - Discuss possible engineering strategies:
   - restrict the supported program/input domain so branch and loop structure is fixed;
@@ -278,7 +333,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - Discuss the trade-off:
   - more stability usually means larger circuits or stricter input admissibility.
 
-### 11. Soundness Intuition And Failure Modes
+### 12. Soundness Intuition And Failure Modes
 
 - Explain what can go wrong if the replay-to-circuit derivation is not deterministic:
   - two parties may disagree on the circuit for the same claimed execution;
@@ -288,7 +343,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - unsupported shape should be rejected clearly;
   - fallback should only improve usability when the semantic statement remains unchanged.
 
-### 12. Suggested Visuals
+### 13. Suggested Visuals
 
 - Diagram 1: "fixed library" on the left, "replay trace" on the top, "derived placement + wiring" in the center, "SNARK proof" on the right.
 - Diagram 2: subcircuit placement table with columns: placement index, subcircuit type, inputs, outputs, source edges.
@@ -298,25 +353,26 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - unstable: branch change, different placement sequence.
 - Diagram 5: trade-off curve between circuit stability and circuit size.
 
-### 13. Planned Slide Outline
+### 14. Planned Slide Outline
 
 1. Title and guiding question.
 2. Why EVM execution proofs matter: scalability and privacy.
 3. One evidence slide: scaling still leads in size, privacy is re-emerging.
 4. From application goals to arithmetic statements.
 5. Why NP verification circuits can depend on the found EVM trace.
-6. Minimal SNARK and circuit vocabulary.
-7. Field-programmable circuit idea.
-8. Subcircuit library, placement, and wire map.
-9. Arithmetic constraints vs copy constraints.
-10. Ethereum replay as a source of placements.
-11. Tokamak zk-EVM synthesis pipeline.
-12. Generated artifacts and their meanings.
-13. Example replay-to-placement walkthrough.
-14. Why a replay-dedicated circuit is not automatically program-dedicated.
-15. Conditions for stable output under changed inputs.
-16. Engineering strategies, trade-offs, and limitations.
-17. Summary and discussion questions.
+6. How major zkEVM projects turn EVM replay into proof inputs.
+7. Minimal SNARK and circuit vocabulary.
+8. Field-programmable circuit idea.
+9. Subcircuit library, placement, and wire map.
+10. Arithmetic constraints vs copy constraints.
+11. Ethereum replay as a source of placements.
+12. Tokamak zk-EVM synthesis pipeline.
+13. Generated artifacts and their meanings.
+14. Example replay-to-placement walkthrough.
+15. Why a replay-dedicated circuit is not automatically program-dedicated.
+16. Conditions for stable output under changed inputs.
+17. Engineering strategies, trade-offs, and limitations.
+18. Summary and discussion questions.
 
 ## Verification Checklist For The Future Deck
 
@@ -324,6 +380,9 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - The single opening evidence slide has source labels, access date, and metric definitions.
 - TVS, TVL, 30D volume, funding, acquisition values, and valuation are not mixed as if they were the same metric.
 - The introduction does not claim a completed shift from scalability to privacy; it claims that scalability still leads in size while privacy is re-emerging as an important Ethereum ZKP priority.
+- The comparative zkEVM section cites official project documentation or repositories for technical claims.
+- The comparative zkEVM section stays high-level and does not introduce Tokamak implementation artifacts before the field-programmable circuit model.
+- The comparative zkEVM section does not claim all projects solve the replay-to-circuit problem identically; it distinguishes trace, VM-circuit, and state-machine/polynomial-constraint styles.
 - Every implementation detail is tied back to the conceptual model.
 - The deck distinguishes replay-dedicated, program-dedicated, and universal-machine circuits.
 - The deck states the exact invariance conditions required for equal output circuits across input changes.
