@@ -687,13 +687,13 @@
           <h3>Privacy</h3>
           <p>실행의 정당성은 보이되, 실행 입력의 일부는 숨긴다.</p>
           <ul class="compact">
-            <li>private input과 public statement 분리</li>
+            <li>private input과 public input 분리</li>
             <li>private state, shielded account, encrypted execution</li>
             <li>correctness without full disclosure</li>
           </ul>
         </div>
         <div class="callout wide">
-          <p>응용 목표가 scalability이든 privacy이든, 공통의 기술 문제는 EVM 실행을 검증 가능한 arithmetic statement로 바꾸는 것이다.</p>
+          <p>응용 목표가 scalability이든 privacy이든, 공통의 기술 문제는 EVM 실행을 검증 회로로 바꾸는 것이다.</p>
         </div>
       </main>
       <footer>
@@ -811,7 +811,7 @@
           <h3>NP-style verification</h3>
           <ul>
             <li>prover는 witness가 존재한다고 주장한다.</li>
-            <li>circuit은 그 witness가 statement를 만족하는지 확인한다.</li>
+            <li>circuit은 그 witness가 검증 조건을 만족하는지 확인한다.</li>
             <li>회로의 목적은 search가 아니라 verification이다.</li>
           </ul>
         </div>
@@ -907,7 +907,7 @@
       <main class="grid three">
         <div class="term"><h3>statement</h3><p class="detail">prover가 증명하려는 주장</p></div>
         <div class="term"><h3>witness</h3><p class="detail">그 주장을 참으로 만드는 prover-side 값</p></div>
-        <div class="term"><h3>public instance</h3><p class="detail">verifier에게 공개되는 statement 데이터</p></div>
+        <div class="term"><h3>public instance</h3><p class="detail">verifier에게 공개되는 입력 데이터</p></div>
         <div class="term"><h3>circuit</h3><p class="detail">witness가 유효한지 확인하는 arithmetic checks</p></div>
         <div class="term"><h3>proof</h3><p class="detail">계산 전체를 다시 하지 않고 검증하는 compact object</p></div>
         <div class="term"><h3>setup</h3><p class="detail">회로 설명에 의존하는 preprocessing</p></div>
@@ -967,7 +967,7 @@
           <div class="small-card"><h3>qap-compiler</h3><p class="small">reusable basis 준비</p></div>
           <div class="small-card"><h3>synthesizer</h3><p class="small">구체적인 EVM 트랜잭션의 실행 기록을 proof input으로 변환</p></div>
           <div class="small-card"><h3>prover</h3><p class="small">library와 synthesis output을 소비</p></div>
-          <div class="small-card"><h3>verifier</h3><p class="small">public statement에 대해 proof 확인</p></div>
+          <div class="small-card"><h3>verifier</h3><p class="small">public input에 대해 proof 확인</p></div>
         </div>
       </main>
       <footer>
@@ -1166,7 +1166,7 @@
         </div>
         <div class="panel">
           <h3>public instance</h3>
-          <p>verifier가 확인할 공개 statement data</p>
+          <p>verifier가 확인할 공개 입력 데이터</p>
         </div>
         <div class="panel">
           <h3>value connections</h3>
@@ -1263,7 +1263,7 @@
       <main class="grid two">
         <div class="panel">
           <h3>on-chain verifier의 관점</h3>
-          <p>verifier는 고정된 public statement와 proving key에 대한 proof를 확인한다.</p>
+          <p>verifier는 고정된 public input과 proving key에 대한 proof를 확인한다.</p>
           <p>임의로 새로 생성된 synthesizer output 자체를 매번 on-chain에서 검증한다고 보면 안 된다.</p>
         </div>
         <div class="panel">
@@ -1369,10 +1369,10 @@
         </div>
         <div class="panel">
           <h3>unsafe fallback</h3>
-          <p>unsupported shape를 조용히 padding, skip, reroute하면 statement가 바뀐다.</p>
+          <p>unsupported shape를 조용히 padding, skip, reroute하면 검증 조건이 바뀐다.</p>
         </div>
         <div class="callout wide">
-          <p>Unsupported shape는 명확히 거부되어야 하며, fallback이 statement 변경을 숨기면 안 된다.</p>
+          <p>Unsupported shape는 명확히 거부되어야 하며, fallback이 검증 조건 변경을 숨기면 안 된다.</p>
         </div>
       </main>
       <footer>
