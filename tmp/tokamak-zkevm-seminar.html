@@ -179,14 +179,27 @@
 
     .title-slide .subtitle {
       color: rgba(255, 255, 255, 0.75);
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .title-slide header,
+    .title-slide main {
+      text-align: center;
     }
 
     .presenter-info {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-top: 30px;
+      display: grid;
+      gap: 6px;
+      margin-top: 34px;
       color: inherit;
+      font-size: clamp(23px, 2.1vw, 30px);
+      line-height: 1.35;
+      font-weight: 400;
+    }
+
+    .presenter-info div {
+      font-size: inherit;
     }
 
     .kicker {
@@ -645,9 +658,9 @@
         <h1>EVM replay에서 검증 회로를 어떻게 유도하는가</h1>
         <p class="subtitle">subcircuit library, synthesizer, 그리고 같은 trusted circuit을 재사용하기 위한 조건</p>
         <div class="presenter-info" aria-label="presentation information">
-          <span class="tag">장재혁</span>
-          <span class="tag gold">Tokamak Network</span>
-          <span class="tag violet">2026년 6월 15일</span>
+          <div>장재혁</div>
+          <div>Tokamak Network</div>
+          <div>2026년 6월 15일</div>
         </div>
       </main>
       <footer>
