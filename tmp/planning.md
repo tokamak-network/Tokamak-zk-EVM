@@ -44,6 +44,8 @@ The seminar deck, slide text, speaker notes, diagrams, and audience-facing examp
 ### Academic Source
 
 - `~/downloads/2024-507.pdf`
+- Web archive: `https://eprint.iacr.org/2024/507`
+- Short URL: `https://ia.cr/2024/507`
 - Paper title: "An Efficient SNARK for Field-Programmable and RAM Circuits"
 - Authors: Jehyuk Jang and Jamie Judd
 - Use this paper as the authority for conceptual definitions, theory, and explanatory language.
