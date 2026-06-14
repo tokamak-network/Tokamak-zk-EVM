@@ -1,5 +1,186 @@
 # Seminar Deck Creation Plan: Tokamak zk-EVM Replay-Dedicated Circuit Derivation
 
+## Major Revision Plan For Slides 6-29
+
+### Reason For Revision
+
+Slides 6 onward currently introduce many Tokamak and SNARK concepts too quickly. The sequence names several ideas but often does not make the audience-facing question, the intuition, and the visual evidence line up on the same slide. The target audience is introductory SNARK graduate students who do not know Tokamak zk-EVM, so the deck must reduce implementation jargon, introduce one new idea at a time, and keep each slide anchored to a concrete question.
+
+The revision should not be a local wording pass. It should be a communication rewrite of the main technical body.
+
+### Global Rewrite Rules
+
+- Use "검증 회로" consistently for the audience-facing object being generated.
+- Use "EVM 트랜잭션의 실행 기록" consistently instead of "replay" in audience-facing text.
+- Keep `statement`, `witness`, `public input`, `subcircuit`, `placement`, and `permutation` only where they are defined or immediately used.
+- Every slide after slide 5 must answer one visible question. If a slide cannot be summarized as one question and one answer, split or rewrite it.
+- Every technical term must be introduced in this order:
+  1. plain Korean intuition;
+  2. simple visual example;
+  3. technical term;
+  4. Tokamak mapping.
+- Avoid mixed-language phrases when a clear Korean phrase is available. Keep English only for established proof-system or implementation terms.
+- Do not show implementation package names before the audience understands the conceptual role.
+- Do not use dense tables in the main body unless the table directly supports a comparison the audience can understand in under 20 seconds.
+- Move detailed implementation mapping, opcode families, and call-context details to backup slides.
+- Keep each main slide to at most two visual regions plus one short takeaway.
+
+### Revised Narrative Backbone
+
+The technical story after slide 5 should be:
+
+1. A verification circuit checks a proposed execution path; it does not search for the path.
+2. Different successful executions of the same bytecode can need different checks.
+3. Other systems commonly constrain an execution trace with a large fixed machine-like circuit.
+4. Tokamak's key idea is to assemble a function-specific verification circuit from reusable circuit blocks.
+5. The paper model explains this as fixed blocks plus a chosen block layout plus value connections.
+6. Tokamak maps this model to `qap-compiler` and `synthesizer`.
+7. The synthesizer follows the EVM transaction execution record and produces witness data plus value connections.
+8. The private-state `mintNotes1` example shows what this looks like for one function.
+9. Circuit reuse is possible only for contract entries whose successful executions preserve the same block layout and value-connection shape.
+10. Backup slides answer implementation questions such as call structure and opcode families.
+
+### Slide-Group Rewrite Plan
+
+#### Slides 6-8: From Verification To Tokamak's Question
+
+- Current problem:
+  - Slide 6 jumps from NP verification to execution-path variability, but the connection to function-specialized verification circuits is not explicit enough.
+  - Slide 7 compares projects before the audience has a stable mental model.
+  - Slide 8 uses an analogy but still contains unexplained terms such as reusable blocks and transcript.
+- Revision:
+  - Slide 6 should become "검증 회로는 실행 경로를 찾지 않고 확인한다."
+    - Visual: `candidate execution path -> checks -> accept/reject`.
+    - Takeaway: if the path changes, the checks may change.
+  - Slide 7 should become "다른 zkEVM들은 실행 기록을 어떻게 고정된 검증 문제로 보는가."
+    - Keep Scroll, Linea, Aztec only.
+    - Use three simple cards, not a dense table.
+    - Emphasize the contrast: trace-as-witness, machine-like constraints, or privacy-first private-function proof composition.
+  - Slide 8 should become "Tokamak의 질문: 필요한 검사 블록을 어떻게 고르는가."
+    - Visual: fixed block shelf -> selected blocks -> connected worksheet.
+    - Remove "solved transcript"; use "EVM 트랜잭션의 실행 기록."
+
+#### Slides 9-15: Concepts And Paper Model
+
+- Current problem:
+  - Vocabulary, intuition, components, two compilers, paper model, technical names, and obligations are all separate, but the progression feels repetitive and abstract.
+  - The deck introduces terms before showing why the terms are needed.
+- Revision:
+  - Merge the current "Intuition First" and "Technical Names" material into a two-step explanation:
+    - Slide A: plain objects: reusable block, block copy, value connection.
+    - Slide B: technical names: `subcircuit`, `placement`, `permutation`.
+  - Move `qap-compiler` and `synthesizer` after the plain block model.
+  - Reframe the paper slide around one visual equation:
+    - `fixed block library + selected block copies + equality connections = function-specific verification circuit`.
+  - Replace "local correctness / interconnection correctness" with a concrete miniature example:
+    - one arithmetic block produces a value;
+    - another block consumes the same value;
+    - local checks verify each block;
+    - the connection check verifies they share the same value.
+
+#### Slides 16-18: Tokamak Components
+
+- Current problem:
+  - The component diagram names packages but does not clearly state what each component receives and emits.
+  - The two-compiler slide is conceptually right but text-heavy.
+- Revision:
+  - Use one pipeline slide with four boxes:
+    - `qap-compiler`: fixed reusable block library.
+    - `synthesizer`: EVM bytecode + EVM transaction execution record + public/private inputs -> witness + value connections.
+    - `prover`: proof.
+    - `verifier`: proof check against accepted circuit and public input.
+  - Use a second slide only for the two compilers:
+    - left: library compiler, runs before any concrete execution record;
+    - right: execution-record compiler, runs for one concrete execution record.
+  - Keep terms "witness" and "permutation" only as outputs, with one short definition each.
+
+#### Slides 19-21: Synthesizer Mechanics
+
+- Current problem:
+  - The synthesizer pipeline and generated-object slides are too generic.
+  - The audience still may not know how the execution record becomes block layout and value connections.
+- Revision:
+  - Add a simple running example with 3-4 EVM-like operations:
+    - stack value appears;
+    - arithmetic block selected;
+    - memory/storage operation selected;
+    - same logical value connected across blocks.
+  - Visual should show two synchronized tracks:
+    - execution-record events;
+    - generated block copies and value connections.
+  - Keep the technical claim:
+    - the synthesizer does not invent the path;
+    - it follows the observed execution record and records the verification obligations.
+
+#### Slides 22-24: `mintNotes1` Example
+
+- Current problem:
+  - The example appears suddenly and lists Solidity behavior without first explaining what the example is supposed to demonstrate.
+  - The composition slide likely contains too many named obligations for first-time listeners.
+- Revision:
+  - Introduce the example with one purpose:
+    - "This function is useful because it combines calldata decoding, note commitment creation, balance accounting, storage update, and event output."
+  - Split the example into two slides:
+    1. What the Solidity function does, with a small process diagram.
+    2. What the verification circuit must check, grouped into 4 broad goals:
+       - transaction/function binding;
+       - local EVM computation;
+       - storage/accounting consistency;
+       - output/event consistency.
+  - Keep placement counts and implementation findings in speaker notes or backup, not on the main slide.
+
+#### Slides 25-27: Circuit Reuse Condition
+
+- Current problem:
+  - The reuse condition is important but currently appears after many technical slides, and the contract-shape examples risk feeling like a list of exceptions.
+- Revision:
+  - Present the reuse condition as the central design rule:
+    - "All successful executions of the supported function must need the same kinds of blocks, the same number of blocks, and the same value connections."
+  - Use three concrete examples:
+    - safe: fixed-arity function;
+    - unsafe: input-dependent loop with variable successful length;
+    - conditionally safe: branch exists but every successful path converges to the same circuit shape.
+  - State explicitly:
+    - failed transactions are outside this reuse guarantee;
+    - Tokamak zk-EVM does not automatically support every smart contract.
+
+#### Slides 28-29 And Backup Slides
+
+- Current problem:
+  - Q&A and backup slides are mixed with main-flow material.
+- Revision:
+  - Main conclusion slide should contain only three takeaways:
+    1. Tokamak generates function-specific verification circuits from reusable blocks.
+    2. The synthesizer follows the EVM transaction execution record and creates witness/value-connection data.
+    3. Reuse is valid only when successful executions preserve the same circuit shape.
+  - Move call-structure explanation and opcode-family table to clearly marked backup slides.
+  - Backup slides may be denser, but must still respect the 14 pt minimum.
+
+### Visual Design Plan For The Rewrite
+
+- Replace abstract tables with card comparisons or two-lane diagrams.
+- Use the same visual grammar throughout:
+  - gray blocks: fixed reusable library;
+  - green blocks: selected block copies;
+  - red or orange lines: value connections;
+  - blue blocks: proof-system objects.
+- Use short Korean headings, not implementation labels, as the first line in each visual.
+- Use source notes only for references, never for presenter instructions or interpretive comments.
+- Keep references in footers minimal; move long source lists to the final references slide.
+
+### Acceptance Checklist
+
+- Slides 6-29 should be understandable without the presenter reading implementation details aloud.
+- Each slide should have a clear answer to "What should the audience learn here?"
+- No slide should introduce more than two new technical terms.
+- "EVM 트랜잭션의 실행 기록" must be used consistently in audience-facing text.
+- "검증 회로" must be used consistently for the generated circuit object.
+- The `qap-compiler` / `synthesizer` distinction must be explained only after the reusable-block model is clear.
+- The `mintNotes1` example must illustrate the model, not become a source-code walkthrough.
+- Backup slides must be clearly separated from the main narrative.
+- All visible text must remain at least 14 pt.
+- After rewriting, run a full pass for terminology consistency, slide-title clarity, and duplicate content.
+
 ## Audience
 
 The audience is graduate students who are studying zero-knowledge proofs and SNARKs at an introductory level. They should be assumed to know basic ideas such as arithmetic circuits, witnesses, public inputs, and the prover-verifier split, but not the Tokamak zk-EVM implementation or the field-programmable SNARK construction.
