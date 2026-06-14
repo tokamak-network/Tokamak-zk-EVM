@@ -232,6 +232,8 @@ Speaker note:
 
 Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from scratch for every replay. Instead, it starts from a fixed library of precompiled subcircuits. A replay determines which subcircuit copies are placed, what values pass through their interface wires, which public instance values are exposed, and how interface wires are connected by a permutation. The resulting circuit is replay-dedicated because it is specialized to the trace shape of that replay, while the expensive subcircuit definitions remain reusable.
 
+For on-chain use, the practical target is a reusable circuit for a supported transaction class: a trusted replay-dedicated circuit derived from a representative successful replay can be reused only when every successful replay in that class has the same placement topology and compatible interface layout. This should be called a reusable transaction-class circuit, not a claim that one circuit covers an arbitrary contract.
+
 ## Conceptual Model To Teach
 
 1. A subcircuit library is a fixed set of small arithmetic constraint systems.
@@ -391,6 +393,9 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 
 ### 8. Field-Programmable Circuit Model
 
+- Role of this section:
+  - present the paper-level abstraction only;
+  - do not discuss EVM opcode handling, private-state examples, or implementation package names here.
 - Introduce the paper's model:
   - fixed subcircuit library;
   - bounded number of placements;
@@ -403,6 +408,9 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 
 ### 9. Arithmetic Constraints vs Copy Constraints
 
+- Role of this section:
+  - separate the two kinds of constraints using a small non-EVM example;
+  - avoid repeating the full field-programmable model from the previous slide.
 - Explain that local correctness and interconnection correctness are different obligations.
 - Local arithmetic constraints:
   - each subcircuit instance must satisfy its own relation.
@@ -413,6 +421,9 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 
 ### 10. From Ethereum Replay To Subcircuit Placement
 
+- Role of this section:
+  - apply the previous two conceptual slides to EVM replay;
+  - explain how EVM locations and dataflow become placement and permutation.
 - Define "replay" for the talk:
   - previous state snapshot;
   - transaction;
@@ -508,6 +519,10 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - Caution for wording:
   - do not claim that Solidity `keccak256` is literally checked by a Keccak subcircuit in this run; describe the placement-level fact as hash-related obligations represented by `Poseidon` placements;
   - do not claim that every call to the same bytecode yields the same placement list.
+- Transition to the admissibility section:
+  - state that `mintNotes1` is not the whole private-state DApp story;
+  - it is one fixed-arity entrypoint used as a concrete walkthrough;
+  - later, the private-state DApp matrix will show that each mint, transfer, and redeem arity corresponds to a separate reusable transaction-class circuit.
 
 ### 13. What Makes The Output Circuit Replay-Dedicated
 
@@ -519,6 +534,10 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - public instance values and descriptions.
 - Values can affect witnesses without changing the circuit only when they do not change placement or wiring.
 - Values change the circuit when they alter the execution trace shape.
+- Clarify the relationship to reusable transaction-class circuits:
+  - a circuit is first derived from one successful replay;
+  - it becomes reusable for a transaction class only if all successful replays in that class preserve the same placement topology and compatible interface layout;
+  - this is the bridge from replay-dedicated derivation to contract admissibility.
 
 ### 14. Which Contracts Can Reuse One Replay-Dedicated Circuit?
 
@@ -540,23 +559,25 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - input-dependent loops or conditionals are not automatically impossible;
   - they can still be admissible if all successful transactions have a deterministic, topology-identical execution path after contract-level validation;
   - for example, a conditional that rejects unsupported inputs and allows only one successful path can remain compatible with one reusable circuit.
-- Add simple examples directly in this section, not as a separate strategy section.
-- Likely admissible examples:
+- Split this material into two slides in the final deck:
+  - Slide A: general admissibility examples;
+  - Slide B: private-state DApp fixed-arity function matrix.
+- Slide A, likely admissible examples:
   - fixed-arity minting such as one-note minting: the value changes, encrypted note data changes, and storage keys change, but the successful replay still follows the same operation shape;
   - fixed-shape token transfer: sender, receiver, and amount change, but the same balance checks, two balance updates, and event emission occur on every successful path;
   - bounded single-slot update: a mapping key and value change, but each successful transaction performs the same key computation, one read, one write, and one event;
   - validation-then-single-path contract: many invalid inputs revert, but every successful input passes validation and enters one common execution path.
-- Likely inadmissible examples:
+- Slide A, likely inadmissible examples:
   - batch transfer where the number of recipients controls the loop count;
   - array-processing contracts where successful calls process a variable-length list;
   - a function whose successful branches execute different external calls or different numbers of storage writes;
   - router-like contracts where input selects a different target contract or call depth;
   - contracts whose successful path emits a variable number of logs or returns variable-shaped data.
-- Borderline examples to explain carefully:
+- Slide A, borderline examples to explain carefully:
   - an input-dependent conditional is admissible if both successful branches perform the same placement topology, or if only one branch can succeed and the other reverts;
   - a loop over user data is admissible only if the successful executed iteration count is fixed or the contract uses a fixed executed shape with dummy/no-op positions;
   - dynamic storage keys are admissible when the number and order of storage operations remain fixed; they are inadmissible when the access pattern length or order changes across successful transactions.
-- Final concrete example for this slide:
+- Slide B, private-state DApp concrete example:
   - use the Tokamak private-state DApp as the closing example, not only `mintNotes1`;
   - show that the DApp contract defines separate fixed-arity entrypoints instead of one variable-size note operation;
   - explain that each entrypoint/function selector should be treated as its own supported transaction class with its own replay-dedicated circuit topology.
@@ -592,13 +613,19 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 
 ### 15. Soundness Intuition And Failure Modes
 
+- Keep this section focused on failure modes, not on repeating the admissibility argument.
+- Explain what can go wrong if the trusted circuit topology and the claimed transaction class do not match:
+  - a proof could verify a statement for a different successful-path shape than the one the verifier thinks is being supported;
+  - verifier preprocessing may bind the wrong placement topology or public/private interface layout;
+  - a prover could appear to prove a supported transaction while relying on a topology that was never trusted for that transaction class.
 - Explain what can go wrong if the replay-to-circuit derivation is not deterministic:
-  - two parties may disagree on the circuit for the same claimed execution;
-  - verifier preprocessing may no longer bind the intended statement;
-  - hidden fallback logic could mask an unsupported trace.
+  - two parties may derive different placement/permutation objects for the same claimed successful replay;
+  - deployment and proving infrastructure may disagree about which proving key or circuit identity is authoritative;
+  - debugging becomes impossible because the same semantic transaction no longer maps to one reproducible circuit object.
 - Explain why fallback logic must not hide synthesis defects:
   - unsupported shape should be rejected clearly;
-  - fallback should only improve usability when the semantic statement remains unchanged.
+  - fallback should only improve usability when the semantic statement and placement topology remain unchanged;
+  - fallback must not silently pad, skip, or reroute a transaction into a different circuit class.
 
 ### 16. Suggested Visuals
 
@@ -611,6 +638,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - Diagram 5: replay dataflow tracker: stack/memory/storage locations point to placement wires, and repeated logical values become permutation cycles.
 - Diagram 6: `mintNotes1` replay lanes showing verification goals mapped to subcircuit groups.
 - Diagram 7: private-state DApp function matrix: `mintNotes1`-`mintNotes6`, supported `transferNotesNToM` arities, and `redeemNotes1`-`redeemNotes4`, with one row per reusable circuit class.
+- Diagram 8: replay-dedicated to transaction-class reusable relationship: representative successful replay -> trusted placement topology -> all successful transactions in the class reuse the same circuit.
 
 ### 17. Planned Slide Outline
 
@@ -634,10 +662,12 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 18. Synthesizer execution example: private-state `mintNotes1`.
 19. `mintNotes1` verification goals and subcircuit-composition picture.
 20. Why a trusted replay-dedicated circuit must be reusable for the supported transaction class.
-21. Contract admissibility examples: all successful paths must preserve the same placement topology.
-22. Summary and discussion questions.
-23. Backup slide for Q&A only: how the synthesizer follows complex EVM call structures.
-24. Backup table for Q&A only: EVM opcode-to-subcircuit or composition mapping.
+21. Contract admissibility examples: reusable vs non-reusable successful path shapes.
+22. Private-state DApp matrix: fixed-arity functions map to different reusable circuit classes.
+23. Soundness failure modes: wrong topology, nondeterministic synthesis, and unsafe fallback.
+24. Summary and discussion questions.
+25. Backup slide for Q&A only: how the synthesizer follows complex EVM call structures.
+26. Backup table for Q&A only: EVM opcode-to-subcircuit or composition mapping.
 
 ## Appendix / Q&A Backup Material
 
@@ -779,12 +809,14 @@ depth 0: Contract A
 - Terms introduced by the two-compiler slide are explained before the talk proceeds to the full field-programmable circuit model.
 - The terminology slide defines only the minimal terms needed for the two-compiler explanation.
 - The Ethereum replay section explains both outputs of synthesis: operation-to-placement tracking and dataflow-to-permutation tracking.
+- The field-programmable, arithmetic/copy, and Ethereum replay sections have distinct roles and avoid repeating the same placement/permutation explanation at the same level.
 - The permutation explanation makes clear that stack moves, memory copies, calldata, return data, storage reuse, and public-output exposure can create equality relations between placement wires.
 - The deck does not describe the synthesizer as merely listing subcircuits; it also tracks how variables are connected across subcircuit placements.
 - The `mintNotes1` example is grounded in the Solidity source and an actual synthesizer run, but the slide does not expose raw placement JSON or a full opcode histogram.
 - The `mintNotes1` example explains verification goals before naming subcircuit groups.
 - The `mintNotes1` subcircuit visual groups placements by role instead of showing all 165 placement instances.
 - The `mintNotes1` wording treats Poseidon as the hash-related subcircuit used by this run and does not claim that the run uses a dedicated Keccak subcircuit.
+- The `mintNotes1` walkthrough explicitly transitions to the private-state DApp matrix by saying it is one fixed-arity entrypoint among many.
 - Complex EVM call-structure material is kept as Q&A backup and does not interrupt the main explanation.
 - The Q&A call-structure explanation describes per-depth context tracking and boundary checks without exposing implementation internals.
 - The Q&A call-structure explanation connects dynamic calls back to circuit-stability risks.
@@ -793,12 +825,14 @@ depth 0: Contract A
 - The opcode-to-subcircuit backup table marks unsupported opcodes explicitly and does not present fallbacks as support.
 - Every implementation detail is tied back to the conceptual model.
 - The deck distinguishes replay-dedicated circuits, reusable circuits for an admissible contract-entry transaction class, and universal-machine circuits.
+- The deck explains that a replay-dedicated circuit becomes reusable for a transaction class only when every successful replay in that class preserves the same topology and interface layout.
 - The deck states that one trusted synthesizer output must be reusable for all successful transactions in the supported class because arbitrary newly generated synthesizer outputs are not independently validated on-chain.
 - The deck states the exact admissibility condition: all successful replays in the supported class must preserve identical placement topology and compatible interface layout.
 - The deck explicitly excludes failed transaction paths from the admissibility discussion.
 - The deck states that Tokamak zk-EVM should not be presented as applicable to all Ethereum smart contracts.
 - The contract admissibility slide uses concrete examples instead of a separate abstract design-strategy slide.
 - The examples include both likely admissible and likely inadmissible successful-path shapes.
+- The admissibility examples are split across two slides: general examples first, private-state DApp matrix second.
 - The private-state DApp admissibility example shows all fixed-arity function families and states that different function selectors/arities correspond to different replay-dedicated circuits.
 - The private-state DApp example must not imply that `mintNotes1`, `mintNotes2`, transfer, and redeem calls share one derived circuit.
 - The deck states that input-dependent loops or conditionals are admissible only when successful executions still have deterministic, topology-identical replay shape.
