@@ -36,6 +36,7 @@ The seminar deck, slide text, speaker notes, diagrams, and audience-facing examp
 - `~/downloads/2024-507.pdf`
 - Paper title: "An Efficient SNARK for Field-Programmable and RAM Circuits"
 - Authors: Jehyuk Jang and Jamie Judd
+- Use this paper as the authority for conceptual definitions, theory, and explanatory language.
 - Main concepts to use:
   - SNARKs for verifiable computation of changing targets.
   - The problem of circuit-specific preprocessing for RAM-like computation.
@@ -43,19 +44,31 @@ The seminar deck, slide text, speaker notes, diagrams, and audience-facing examp
   - A derived circuit as subcircuit placement plus a wire map.
   - Separation between arithmetic constraints inside subcircuits and copy constraints between subcircuits.
   - The wire map as a permutation over connecting wires.
+  - A system split between a fixed reusable circuit basis and execution-specific program data.
 
 ### Repository Sources
 
+Use repository sources only to map the paper's conceptual model onto Tokamak package names, files, artifacts, and workflow boundaries. Do not use repository documentation as the primary source for theoretical definitions.
+
+- `README.md`
+  - Describes the monorepo as a stack for turning Tokamak L2 transaction execution into zk-SNARK proof artifacts.
+  - Lists `qap-compiler` and `synthesizer` packages under frontend compilers, and `prover` and `verify` under backend packages.
 - `packages/frontend/qap-compiler/scripts/compile.sh`
   - Lists the compiled subcircuits and confirms that the compiled circuits are composable library components, not one standalone top-level proof circuit.
 - `packages/frontend/qap-compiler/README.md`
   - Describes the published Tokamak zk-EVM Subcircuit Library artifact surface.
+- `packages/frontend/qap-compiler/docs/consumer-integration.md`
+  - Describes how the subcircuit library is consumed by the synthesizer and backend.
 - `packages/frontend/qap-compiler/docs/subcircuit-library-generation-and-release.md`
   - Describes maintainer-side generation and published library artifacts.
+- `packages/frontend/synthesizer/README.md`
+  - Describes the shared input and output model for transaction synthesis.
 - `packages/frontend/synthesizer/docs/architecture.md`
   - Describes the shared synthesis layers and generated artifacts.
 - `packages/frontend/synthesizer/docs/execution-flow.md`
   - Describes input preparation, synthesis execution, artifact generation, and adapter output.
+- `packages/frontend/synthesizer/docs/output-files.md`
+  - Describes `placementVariables.json`, `instance.json`, `instance_description.json`, `permutation.json`, state snapshots, and logs.
 - `packages/frontend/synthesizer/core/src/app/synthesize.ts`
   - Shows the end-to-end runtime: reconstruct state, create transaction, run `synthesizeTX()`, capture final state, and generate circuit artifacts.
 - `packages/frontend/synthesizer/core/src/circuitGenerator/circuitGenerator.ts`
@@ -68,6 +81,8 @@ The seminar deck, slide text, speaker notes, diagrams, and audience-facing examp
   - Shows the configured subcircuit names, buffers, and opcode-to-subcircuit mapping.
 - `packages/frontend/synthesizer/core/src/subcircuit/libraryTypes.ts`
   - Shows the metadata model: setup parameters, global wire list, frontend configuration, and subcircuit information.
+- `packages/backend/README.md`
+  - Describes backend setup, preprocess, prove, and verify flows, including the fact that backend binaries consume the subcircuit library and synthesizer outputs.
 
 ### Market And Funding Sources For Opening Visuals
 
@@ -266,9 +281,43 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - Benefit: expensive subcircuit definitions can be reused while the derived circuit focuses on the observed replay shape.
   - Cost: replay-specific placement and wiring must be deterministic and sound; input changes can still alter the derived circuit if the trace shape changes.
 - Transition sentence for the next section:
-  - To understand this design, the audience first needs a small amount of SNARK vocabulary, then the field-programmable circuit model from the paper.
+  - We can now name the Tokamak components, but the conceptual meaning of the two compiler stages should come from the paper's field-programmable circuit model.
 
-### 5. SNARK Preliminaries For This Talk
+### 5. Tokamak zk-EVM Components And The Two Compiler Roles
+
+- Show the full Tokamak zk-EVM flow at a conceptual level:
+  - `qap-compiler`;
+  - `synthesizer`;
+  - `prover`;
+  - `verifier`.
+- Explain the four components using the paper-first model:
+  - `qap-compiler`: prepares the reusable circuit basis. It compiles Circom subcircuit definitions, constants, metadata, R1CS, and WASM artifacts into the fixed subcircuit library. Conceptually, this corresponds to preparing the field-programmable library, not proving a transaction.
+  - `synthesizer`: compiles one concrete Tokamak L2 replay into execution-specific circuit data. It consumes the replay and the fixed library, then derives placement variables, public instances, descriptions, and a permutation/wire map. Conceptually, this corresponds to producing the program data that selects and connects library components.
+  - `prover`: consumes the fixed library, setup/CRS artifacts, and synthesizer outputs to produce a SNARK proof for the replay-derived statement.
+  - `verifier`: consumes the verification key/CRS material, public statement data, and proof to accept or reject the claimed execution.
+- Emphasize the two compiler roles:
+  - Library compiler: `qap-compiler`
+    - runs ahead of a particular replay;
+    - answers "what reusable constraint components exist?";
+    - output is reusable across many executions until the library version changes;
+    - should not be described as compiling a standalone final transaction circuit.
+  - Replay compiler: `synthesizer`
+    - runs for a concrete replay;
+    - answers "which library components are used, how many copies are placed, and how are their wires connected?";
+    - output is replay-specific;
+    - does not redefine the arithmetic relation inside each subcircuit.
+- Suggested visual:
+  - left lane: `qap-compiler` -> fixed subcircuit library;
+  - right lane: transaction replay -> `synthesizer` -> placement + public instance + permutation;
+  - merge lane: library + replay-specific data -> `prover` -> proof -> `verifier`.
+- Suggested analogy:
+  - `qap-compiler` prints the reusable puzzle pieces.
+  - `synthesizer` reads the solved execution and writes the assembly instructions for this particular puzzle.
+  - `prover` proves the assembled puzzle is consistent.
+  - `verifier` checks the proof without reassembling everything.
+- Do not over-detail `preprocess`, CRS generation, CLI packaging, Node/Web adapters, or exact JSON schemas on this slide. Mention them later only if needed for implementation anchoring.
+
+### 6. SNARK Preliminaries For This Talk
 
 - Define statement, witness, public instance, circuit, and proof in introductory terms.
 - Explain R1CS/QAP only at the level needed for the audience:
@@ -277,7 +326,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - private wires carry witness data.
 - Explain why preprocessing/setup cares about the circuit description.
 
-### 6. Field-Programmable Circuit Model
+### 7. Field-Programmable Circuit Model
 
 - Introduce the paper's model:
   - fixed subcircuit library;
@@ -289,7 +338,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - derived circuit = placement sequence + wire map.
 - Explain why this reduces what must vary between executions: the library remains fixed; the replay-specific part is mostly placement and wiring.
 
-### 7. Arithmetic Constraints vs Copy Constraints
+### 8. Arithmetic Constraints vs Copy Constraints
 
 - Explain that local correctness and interconnection correctness are different obligations.
 - Local arithmetic constraints:
@@ -299,7 +348,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - Explain the wire map as a permutation over connecting wires.
 - Use a small example with 3 or 4 subcircuits before showing any Tokamak-specific names.
 
-### 8. From Ethereum Replay To Subcircuit Placement
+### 9. From Ethereum Replay To Subcircuit Placement
 
 - Define "replay" for the talk:
   - previous state snapshot;
@@ -314,7 +363,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - hash, signature, Merkle, and accumulator subcircuits for cryptographic/state operations.
 - Keep names illustrative rather than exhaustive.
 
-### 9. Repository-Grounded Implementation View
+### 10. Repository-Grounded Implementation View
 
 - Present a compact pipeline:
   - subcircuit library artifacts are generated and packaged;
@@ -327,7 +376,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - subcircuit info gives input/output wire ranges and flatten maps;
   - global wire list maps local subcircuit wires into the global circuit view.
 
-### 10. What Makes The Output Circuit Replay-Dedicated
+### 11. What Makes The Output Circuit Replay-Dedicated
 
 - The replay fixes:
   - which operations occurred;
@@ -338,7 +387,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - Values can affect witnesses without changing the circuit only when they do not change placement or wiring.
 - Values change the circuit when they alter the execution trace shape.
 
-### 11. Stability Across Different Inputs To The Same Program
+### 12. Stability Across Different Inputs To The Same Program
 
 - State the main condition:
   - identical output circuit requires identical placement topology and identical public/private interface layout, even if private witness values differ.
@@ -357,7 +406,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - Give the key warning:
   - "same program" is not enough; a stable circuit family needs trace-shape invariance or a deliberate universalization/padding strategy.
 
-### 12. Design Effort For Stable Program-Dedicated Circuits
+### 13. Design Effort For Stable Program-Dedicated Circuits
 
 - Discuss possible engineering strategies:
   - restrict the supported program/input domain so branch and loop structure is fixed;
@@ -370,7 +419,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - Discuss the trade-off:
   - more stability usually means larger circuits or stricter input admissibility.
 
-### 13. Soundness Intuition And Failure Modes
+### 14. Soundness Intuition And Failure Modes
 
 - Explain what can go wrong if the replay-to-circuit derivation is not deterministic:
   - two parties may disagree on the circuit for the same claimed execution;
@@ -380,7 +429,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - unsupported shape should be rejected clearly;
   - fallback should only improve usability when the semantic statement remains unchanged.
 
-### 14. Suggested Visuals
+### 15. Suggested Visuals
 
 - Diagram 1: "fixed library" on the left, "replay trace" on the top, "derived placement + wiring" in the center, "SNARK proof" on the right.
 - Diagram 2: subcircuit placement table with columns: placement index, subcircuit type, inputs, outputs, source edges.
@@ -390,7 +439,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - unstable: branch change, different placement sequence.
 - Diagram 5: trade-off curve between circuit stability and circuit size.
 
-### 15. Planned Slide Outline
+### 16. Planned Slide Outline
 
 1. Title and guiding question.
 2. Why EVM execution proofs matter: scalability and privacy.
@@ -399,18 +448,20 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 5. Why NP verification circuits can depend on the found EVM trace.
 6. How selected Ethereum ZK projects turn execution into proof inputs.
 7. How Tokamak's subcircuit-library approach differs.
-8. Minimal SNARK and circuit vocabulary.
-9. Field-programmable circuit idea.
-10. Subcircuit library, placement, and wire map.
-11. Arithmetic constraints vs copy constraints.
-12. Ethereum replay as a source of placements.
-13. Tokamak zk-EVM synthesis pipeline.
-14. Generated artifacts and their meanings.
-15. Example replay-to-placement walkthrough.
-16. Why a replay-dedicated circuit is not automatically program-dedicated.
-17. Conditions for stable output under changed inputs.
-18. Engineering strategies, trade-offs, and limitations.
-19. Summary and discussion questions.
+8. Tokamak zk-EVM components: qap-compiler, synthesizer, prover, verifier.
+9. The two compiler roles: library compiler vs replay compiler.
+10. Minimal SNARK and circuit vocabulary.
+11. Field-programmable circuit idea.
+12. Subcircuit library, placement, and wire map.
+13. Arithmetic constraints vs copy constraints.
+14. Ethereum replay as a source of placements.
+15. Tokamak zk-EVM synthesis pipeline.
+16. Generated artifacts and their meanings.
+17. Example replay-to-placement walkthrough.
+18. Why a replay-dedicated circuit is not automatically program-dedicated.
+19. Conditions for stable output under changed inputs.
+20. Engineering strategies, trade-offs, and limitations.
+21. Summary and discussion questions.
 
 ## Verification Checklist For The Future Deck
 
@@ -424,6 +475,9 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - The comparative Ethereum ZK section does not claim all projects solve the replay-to-circuit problem identically; it distinguishes EVM trace-as-witness designs from Aztec's non-EVM privacy-first execution-proof design.
 - The Tokamak contrast slide explains the subcircuit-library approach through comparison axes, not implementation internals.
 - The Tokamak contrast slide gives the audience one memorable analogy, but it must remain technically faithful: reusable blocks are fixed, replay-specific placement and wiring still matter.
+- Conceptual explanations of Tokamak's two compiler roles are grounded in the paper's field-programmable circuit model, while repository documents are used only for package names, artifact names, and workflow boundaries.
+- The deck distinguishes `qap-compiler` as the reusable-library compiler from `synthesizer` as the replay-to-placement-and-wiring compiler.
+- The deck shows `prover` and `verifier` as backend consumers of the fixed library and replay-specific synthesizer outputs.
 - Every implementation detail is tied back to the conceptual model.
 - The deck distinguishes replay-dedicated, program-dedicated, and universal-machine circuits.
 - The deck states the exact invariance conditions required for equal output circuits across input changes.
