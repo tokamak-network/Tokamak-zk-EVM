@@ -108,6 +108,20 @@ Use these sources only for the private-state `mintNotes1` example. The local syn
 
 Implementation findings from the executed fixture should be used as speaker-note support, not as dense slide content.
 
+### EVM Opcode Reference Source For Backup Mapping
+
+Use `evm.codes` as the external opcode catalog for the opcode-to-subcircuit backup material.
+
+- `https://www.evm.codes/`, accessed 2026-06-14.
+- `https://github.com/duneanalytics/evm.codes`, accessed 2026-06-14.
+- `https://raw.githubusercontent.com/duneanalytics/evm.codes/main/opcodes.json`, accessed 2026-06-14.
+
+Use the Tokamak repository as the authority for how those opcodes are currently synthesized. The backup table must clearly distinguish:
+
+- opcodes that map directly to arithmetic subcircuits;
+- opcodes whose handling is a composition of buffers, memory reconstruction, context tracking, and optional helper placements;
+- opcodes that are unsupported or intentionally rejected.
+
 ### Market And Funding Sources For Opening Visuals
 
 Use these sources only for the opening motivation. They should not be used to claim Tokamak zk-EVM market share.
@@ -567,6 +581,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 22. Engineering strategies, trade-offs, and limitations.
 23. Summary and discussion questions.
 24. Backup slide for Q&A only: how the synthesizer follows complex EVM call structures.
+25. Backup table for Q&A only: EVM opcode-to-subcircuit or composition mapping.
 
 ## Appendix / Q&A Backup Material
 
@@ -619,6 +634,77 @@ depth 0: Contract A
   - do not imply that call handling removes replay dependence;
   - do not claim support for arbitrary Ethereum L1 behavior.
 
+### A2. EVM Opcode-To-Subcircuit Mapping Backup Table
+
+- Use this as reference material only. It is too dense for the main seminar body.
+- Source basis:
+  - opcode catalog: `evm.codes` and `duneanalytics/evm.codes` `opcodes.json`, accessed 2026-06-14;
+  - Tokamak mapping: `configuredTypes.ts`, `instructions.ts`, `InstructionHandler`, and `MemoryManager`.
+- Table design:
+  - split the appendix across multiple slides if rendered at 14 pt or larger;
+  - keep one row per opcode family when the same rule applies to all members of a range;
+  - include exact opcode names in each row so the table can still answer "what about this opcode?";
+  - include a `Status` column: `direct placement`, `composition`, `bookkeeping`, `unsupported`, or `caution`.
+- Reading rule:
+  - not every EVM opcode creates a new arithmetic placement;
+  - many opcodes update stack, memory, or call context and are later tied to other placements through the witness and permutation;
+  - unsupported opcodes should be presented as rejected paths, not as silently handled fallbacks.
+
+| EVM opcode(s) | Status | Tokamak subcircuit or composition | Notes for Q&A |
+| --- | --- | --- | --- |
+| `STOP` | bookkeeping | no arithmetic subcircuit; final stack/output consistency | Ends execution frame. |
+| `ADD`, `MUL`, `SUB` | direct placement | `ALU1` | Selector inside `ALU1` chooses the arithmetic operation. |
+| `DIV`, `SDIV`, `MOD`, `SMOD`, `ADDMOD`, `MULMOD` | direct placement | `ALU2` | Division/modular arithmetic family. |
+| `EXP` | composition | `DecToBit` + repeated `SubExpBatch` placements | Exponent is decomposed into bits, then batched exponentiation constraints are placed. |
+| `SIGNEXTEND` | direct placement | `ALU2` | Sign-extension arithmetic relation. |
+| `LT`, `GT`, `SLT`, `SGT`, `EQ`, `ISZERO` | direct placement | `ALU1` | Comparison and zero-test family. |
+| `AND`, `OR`, `XOR`, `NOT` | direct placement | `ALU1` | Bitwise family; also reused by memory masking helpers. |
+| `BYTE`, `SHL`, `SHR`, `SAR` | direct placement | `ALU2` | Byte extraction and shifts; memory helpers may place `SHL`/`SHR`. |
+| `KECCAK256` | caution | memory chunking + `Poseidon` placements | In this synthesizer, hash-shaped replay obligations are represented with Poseidon, not a dedicated Keccak subcircuit. |
+| `ADDRESS` | composition | call-context value + permutation/buffer wiring | Loads the current context's callee address. |
+| `BALANCE` | composition | static EVM input value + stack consistency | Target address comes from stack; result is treated as observed static input. |
+| `ORIGIN` | composition | cached origin derived from transaction binding: `Poseidon`, `DecToBit`, `JubjubExpBatch`, `EdDsaVerify`, then address masking | The expensive signature/origin path is prepared before normal opcode handling. |
+| `CALLER` | composition | call-context caller value + permutation/buffer wiring | Caller semantics depend on call depth and call type. |
+| `CALLVALUE` | composition | static EVM input value + stack consistency | Observed from replay context. |
+| `CALLDATALOAD` | composition | calldata memory reconstruction; optional `SHL`, `SHR`, `AND`, `Accumulator` | Exact helper placements depend on memory aliasing and byte alignment. |
+| `CALLDATASIZE` | composition | static context value + stack consistency | No dedicated arithmetic subcircuit in the ordinary case. |
+| `CALLDATACOPY` | composition | memory copy reconstruction; optional `SHL`, `SHR`, `AND`, `Accumulator` | Checks synthesized memory against interpreter-observed memory. |
+| `CODESIZE` | composition | static code-context value + stack consistency | Bound to the observed code context. |
+| `CODECOPY` | composition | code bytes as observed/static data + memory reconstruction helpers | Checks the copied memory slice. |
+| `GASPRICE` | composition | static EVM input value + stack consistency | Gas value is observed, but gas accounting is not the main constraint story. |
+| `EXTCODESIZE`, `EXTCODEHASH` | composition | static EVM input value keyed by target address + stack consistency | Target address comes from stack. |
+| `EXTCODECOPY` | composition | external code bytes as observed/static data + memory reconstruction helpers | Checks copied memory against replay. |
+| `RETURNDATASIZE` | composition | static return-data context value + stack consistency | Bound to the current message-call context. |
+| `RETURNDATACOPY` | composition | return-data memory copy + optional memory helper placements | Verifies the copied bytes match child-call return data. |
+| `BLOCKHASH` | composition | block buffer value or zero for out-of-range requests | Bounded by configured previous-block-hash support. |
+| `COINBASE`, `TIMESTAMP`, `NUMBER`, `PREVRANDAO`, `GASLIMIT`, `CHAINID`, `SELFBALANCE`, `BASEFEE` | composition | block/EVM input buffers + stack consistency | Environment values are loaded from prepared inputs. |
+| `BLOBHASH`, `BLOBBASEFEE` | unsupported | rejected / not synthesized | Keep out of supported examples. |
+| `POP` | bookkeeping | stack consistency only | No new arithmetic relation. |
+| `MLOAD` | composition | memory reconstruction; optional `SHL`, `SHR`, `AND`, `Accumulator` | Helper placements depend on overlapping writes and byte alignment. |
+| `MSTORE` | composition | memory write tracking; optional memory helper placements | Stores tracked `DataPt` values into memory model. |
+| `MSTORE8` | composition | memory write tracking + possible `AND` masking | Stores the low byte; masking may create an `ALU1` `AND` placement. |
+| `SLOAD` | composition | storage read + `VerifyMerkleProof` for registered keys; private input path for unregistered keys | State/storage proof obligations are separate from local stack behavior. |
+| `SSTORE` | composition | storage write cache + later `VerifyMerkleProof` and root update obligations | Finalization emits the state-transition proof obligations. |
+| `JUMP`, `JUMPI`, `JUMPDEST` | bookkeeping | observed control-flow consistency over replay; no dedicated branch-search circuit | The replay fixes the executed path; branch changes can alter placement topology. |
+| `PC`, `MSIZE`, `GAS` | composition | static observed value + stack consistency | Values are loaded as replay-observed data. |
+| `TLOAD`, `TSTORE` | unsupported | rejected / not synthesized | Transient storage is out of current support. |
+| `MCOPY` | composition | memory-to-memory reconstruction; optional `SHL`, `SHR`, `AND`, `Accumulator` | Checks synthesized memory against interpreter-observed memory. |
+| `PUSH0`, `PUSH1`-`PUSH32` | bookkeeping | immediate/static value loaded into stack | No arithmetic placement unless later consumed by another placement. |
+| `DUP1`-`DUP16` | bookkeeping | stack aliasing plus later permutation consistency | Duplicated value must remain equal to the original logical value. |
+| `SWAP1`-`SWAP16` | bookkeeping | stack reordering plus later permutation consistency | Reorders tracked data pointers. |
+| `LOG0`-`LOG4` | composition | public-output buffer entries for topics/data + memory reconstruction helpers | Topic and log-data chunks become public-output-oriented data. |
+| `CREATE`, `CREATE2` | unsupported | rejected / not synthesized | Contract creation is out of current support. |
+| `CALL`, `CALLCODE`, `DELEGATECALL`, `STATICCALL` | composition | call-context setup, calldata memory copy, return-data memory copy, optional memory helper placements, static call-result value | No separate "call subcircuit"; the replay creates child contexts and ordinary placements inside them. |
+| `RETURN`, `REVERT` | composition | result-memory capture + parent return-data transfer checks | Used to close or abort a message-call frame while preserving replay-observed bytes. |
+| `INVALID` | unsupported | rejected / not synthesized | Do not describe as a supported proof path. |
+| `SELFDESTRUCT` | unsupported | rejected / not synthesized | Out of current support. |
+| Undefined opcode bytes not listed by `evm.codes` | unsupported | rejected / not synthesized | The backup table should not imply coverage of undefined byte values. |
+
+- Speaker warning:
+  - this table is a support matrix and intuition guide, not a formal opcode specification;
+  - where the row says `composition`, the exact placement count is replay-dependent;
+  - memory aliasing, calldata length, return-data length, storage access pattern, and call depth can all change how many helper placements are needed.
+
 ## Verification Checklist For The Future Deck
 
 - The first half can be understood without reading the repository.
@@ -643,6 +729,9 @@ depth 0: Contract A
 - Complex EVM call-structure material is kept as Q&A backup and does not interrupt the main explanation.
 - The Q&A call-structure explanation describes per-depth context tracking and boundary checks without exposing implementation internals.
 - The Q&A call-structure explanation connects dynamic calls back to circuit-stability risks.
+- The opcode-to-subcircuit backup table uses `evm.codes` as the opcode catalog and the Tokamak repository as the synthesis-mapping source.
+- The opcode-to-subcircuit backup table distinguishes direct arithmetic placements from composed memory/context/storage handling.
+- The opcode-to-subcircuit backup table marks unsupported opcodes explicitly and does not present fallbacks as support.
 - Every implementation detail is tied back to the conceptual model.
 - The deck distinguishes replay-dedicated, program-dedicated, and universal-machine circuits.
 - The deck states the exact invariance conditions required for equal output circuits across input changes.
