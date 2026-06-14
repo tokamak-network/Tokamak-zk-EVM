@@ -91,10 +91,25 @@ Use these sources only for the opening motivation. They should not be used to cl
   - Nocturne Labs: CoinDesk reported a `$6M` seed round for privacy on-chain accounts in the Ethereum ecosystem: `https://www.coindesk.com/tech/2023/10/25/bain-capital-polychain-lead-6m-funding-round-for-privacy-protocol-firm-nocturne-labs`.
   - Nucleo: Global FinTech Series reported a `$4M` seed round for private, non-custodial, auditable multisig on Ethereum: `https://globalfintechseries.com/blockchain/nucleo-raises-4-million-seed-round-to-build-privacy-crypto-infrastructure-for-organizations`.
   - 0xbow / Privacy Pools: GlobeNewswire reported a `$3.5M` seed round after Ethereum Foundation Privacy Pools integration: `https://www.globenewswire.com/news-release/2025/11/18/3190435/0/en/0xbow-closes-3-5m-round-for-compliant-crypto-privacy-technology-following-ethereum-foundation-integration.html`.
+- Recent privacy-reemergence sources:
+  - Ethereum Foundation privacy commitment: EF states that it is expanding privacy efforts and forming a Privacy cluster: `https://blog.ethereum.org/2025/10/08/privacy-commitment`.
+  - Ethereum Foundation Privacy Cluster leadership announcement: `https://blog.ethereum.org/2025/10/01/privacy-cluster-leads`.
+  - PSE roadmap for 2025 and beyond: PSE frames privacy as a first-class citizen across Ethereum: `https://pse.dev/blog/pse-roadmap-2025`.
+  - Kohaku SDK coverage: The Defiant reported that the EF Kohaku Initiative released an SDK for wallet-level privacy integration using shielded pool protocols such as Railgun, Tornado Cash, and Privacy Pools: `https://thedefiant.io/news/blockchains/ethereum-foundation-kohaku-sdk-privacy-wallet-integration-bb4t52`.
 
 ## Opening Evidence Visuals
 
 The deck should add a visually stronger opening before the technical material. The goal is to show that EVM execution proofs matter because real projects use ZKP for two application-level outcomes: scaling execution and making selected data private.
+
+### Opening Narrative Claim
+
+The opening should not claim that the Ethereum ZKP market has fully shifted from scalability to privacy. The sourced data does not support that stronger claim: scaling-oriented ZK systems still dominate by TVS and disclosed capital.
+
+Use the following more defensible framing:
+
+> Ethereum ZKP adoption has been led by scalability, especially rollups and zkEVM systems. Recently, privacy has re-emerged as a distinct core application area, supported by Ethereum Foundation privacy initiatives, wallet-level privacy tooling, shielded pool protocols, and new privacy-focused funding rounds.
+
+This framing lets the deck start with a stronger story without overstating the evidence. The transition to Tokamak zk-EVM should be: ZKP first became economically visible through scaling, privacy is now returning as an urgent application layer concern, and both use cases depend on turning EVM execution into a precise arithmetic statement.
 
 ### Visual A: Two Motives For ZKP In Ethereum Execution
 
@@ -135,6 +150,12 @@ Use two adjacent bar charts with clearly separated metrics:
 
 The speaker note should explicitly state that TVS and TVL are different metrics and should not be added together. TVS is used for scaling systems because value is secured by L2s; TVL and 30D volume are used for privacy protocols because they represent funds and activity inside tracked privacy pools.
 
+The interpretation should be:
+
+- Scaling is still larger by deployed value and disclosed capital.
+- Privacy is not yet larger, but it is visibly becoming a renewed Ethereum roadmap and product priority.
+- The deck should present this as a shift in agenda and developer attention, not as a completed market-size inversion.
+
 ### Visual C: Capital Formation Snapshot
 
 Use a second slide with disclosed funding and acquisition figures. Label it as non-exhaustive and source-dependent.
@@ -163,6 +184,7 @@ Planned chart encoding:
 - Use horizontal bars for the scaling-oriented figures because the range is large.
 - Use a separate horizontal bar chart for privacy-oriented figures so smaller privacy rounds remain readable.
 - Add a footnote: "Funding and acquisition values are not usage, revenue, or valuation; they only show disclosed capital committed to the design space."
+- Add a speaker note: "The capital data still favors scaling, while recent EF/Kohaku/PSE activity explains why privacy deserves attention as a rising second pillar rather than a replacement for scaling."
 
 ## Core Thesis
 
@@ -351,6 +373,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - The first half can be understood without reading the repository.
 - Opening market and funding visuals have source labels, access date, and metric definitions.
 - TVS, TVL, 30D volume, funding, acquisition values, and valuation are not mixed as if they were the same metric.
+- The introduction does not claim a completed shift from scalability to privacy; it claims that scalability still leads in size while privacy is re-emerging as an important Ethereum ZKP priority.
 - Every implementation detail is tied back to the conceptual model.
 - The deck distinguishes replay-dedicated, program-dedicated, and universal-machine circuits.
 - The deck states the exact invariance conditions required for equal output circuits across input changes.
