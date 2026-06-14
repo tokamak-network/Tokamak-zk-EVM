@@ -6,9 +6,9 @@ The audience is graduate students who are studying zero-knowledge proofs and SNA
 
 ## Goal
 
-Create seminar presentation material explaining how Tokamak zk-EVM derives a replay-dedicated circuit from a subcircuit library when an Ethereum program execution replay is given.
+Create seminar presentation material explaining how Tokamak zk-EVM derives a circuit from a subcircuit library when an Ethereum program execution replay is given.
 
-The presentation must also explain which Ethereum contracts, or more precisely which supported contract-entry transaction classes, can reuse one trusted replay-dedicated circuit output across different successful transactions. This point should be treated carefully: Tokamak zk-EVM should not be presented as applying to all smart contracts. The admissible case is a contract entry whose successful execution replays always have the same placement topology and compatible public/private interface layout, even when witness values change.
+The presentation must also explain which Ethereum contract functions can reuse the same trusted circuit across different successful transactions. This point should be treated carefully: Tokamak zk-EVM should not be presented as applying to all smart contracts. The usable case is a contract entry, or a fixed function/arity, whose successful execution replays always have the same placement topology and compatible public/private interface layout, even when witness values change.
 
 ## Presentation Language
 
@@ -32,7 +32,7 @@ The seminar deck, slide text, speaker notes, diagrams, and audience-facing examp
 - Detailed artifact names such as generated JSON filenames may be kept in speaker notes or internal planning references only when they clarify implementation mapping; they should not be central slide content.
 - Terminology slides must define only the terms needed for the next few slides.
 - No claim should imply that every input to the same EVM bytecode yields the same derived circuit. The deck must state the required invariance assumptions explicitly.
-- The deck must state that failed transaction paths are out of scope for the reusable-circuit admissibility discussion.
+- The deck must state that failed transaction paths are out of scope for the same trusted circuit reuse discussion.
 - The deck must state that input-dependent loops or conditionals are not automatically disallowed; they are disallowed only when successful executions can vary the placement topology.
 
 ## Primary Sources
@@ -98,7 +98,7 @@ Use repository sources only to map the paper's conceptual model onto Tokamak pac
 
 ### External Solidity Sources For The Private-State Examples
 
-Use these sources for the private-state `mintNotes1` walkthrough and the private-state DApp admissibility matrix. The local synthesizer fixture is in this repository, but the Solidity source currently lives in the related contracts repository.
+Use these sources for the private-state `mintNotes1` walkthrough and the private-state DApp function matrix. The local synthesizer fixture is in this repository, but the Solidity source currently lives in the related contracts repository.
 
 - `https://github.com/tokamak-network/Tokamak-zk-EVM-contracts`
 - `https://raw.githubusercontent.com/tokamak-network/Tokamak-zk-EVM-contracts/main/packages/apps/private-state/src/PrivateStateController.sol`
@@ -232,7 +232,7 @@ Speaker note:
 
 Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from scratch for every replay. Instead, it starts from a fixed library of precompiled subcircuits. A replay determines which subcircuit copies are placed, what values pass through their interface wires, which public instance values are exposed, and how interface wires are connected by a permutation. The resulting circuit is replay-dedicated because it is specialized to the trace shape of that replay, while the expensive subcircuit definitions remain reusable.
 
-For on-chain use, the practical target is a reusable circuit for a supported transaction class: a trusted replay-dedicated circuit derived from a representative successful replay can be reused only when every successful replay in that class has the same placement topology and compatible interface layout. This should be called a reusable transaction-class circuit, not a claim that one circuit covers an arbitrary contract.
+For on-chain use, avoid introducing a second circuit term. The practical point is simpler: a trusted circuit derived from one representative successful replay can be reused for the same function/arity only when every successful call follows the same placement topology and compatible interface layout. This is not a claim that one circuit covers an arbitrary contract.
 
 ## Conceptual Model To Teach
 
@@ -519,10 +519,10 @@ For on-chain use, the practical target is a reusable circuit for a supported tra
 - Caution for wording:
   - do not claim that Solidity `keccak256` is literally checked by a Keccak subcircuit in this run; describe the placement-level fact as hash-related obligations represented by `Poseidon` placements;
   - do not claim that every call to the same bytecode yields the same placement list.
-- Transition to the admissibility section:
+- Transition to the same trusted circuit reuse section:
   - state that `mintNotes1` is not the whole private-state DApp story;
   - it is one fixed-arity entrypoint used as a concrete walkthrough;
-  - later, the private-state DApp matrix will show that each mint, transfer, and redeem arity corresponds to a separate reusable transaction-class circuit.
+  - later, the private-state DApp matrix will show that each mint, transfer, and redeem arity needs a separate trusted circuit.
 
 ### 13. What Makes The Output Circuit Replay-Dedicated
 
@@ -534,53 +534,53 @@ For on-chain use, the practical target is a reusable circuit for a supported tra
   - public instance values and descriptions.
 - Values can affect witnesses without changing the circuit only when they do not change placement or wiring.
 - Values change the circuit when they alter the execution trace shape.
-- Clarify the relationship to reusable transaction-class circuits:
+- Clarify reuse without adding a second circuit term:
   - a circuit is first derived from one successful replay;
-  - it becomes reusable for a transaction class only if all successful replays in that class preserve the same placement topology and compatible interface layout;
-  - this is the bridge from replay-dedicated derivation to contract admissibility.
+  - the same trusted circuit can be reused for the same function/arity only if all successful replays preserve the same placement topology and compatible interface layout;
+  - this is the bridge from replay-specific derivation to reusing the same trusted circuit.
 
-### 14. Which Contracts Can Reuse One Replay-Dedicated Circuit?
+### 14. Which Contracts Can Reuse The Same Trusted Circuit?
 
-- Replace the earlier "same program, same circuit" framing with an admissibility question:
-  - given one trusted synthesizer output for a contract entry, can that same derived circuit be reused for every successful transaction in the supported class?
+- Replace the earlier "same program, same circuit" framing with a simpler reuse question:
+  - given one trusted synthesizer output for a contract entry, can that same circuit be reused for every successful call to the same function/arity?
 - Explain why this matters:
   - the on-chain verifier can check a proof for a fixed public statement and proving key, but it cannot independently validate an arbitrary newly generated synthesizer output as part of normal contract verification;
-  - therefore one trusted/preprocessed output must be reusable for the intended set of transactions;
+  - therefore one trusted/preprocessed output must be reusable for the intended set of successful calls;
   - if each transaction required a different placement topology, the system would need a different derived circuit and the reusable on-chain verification story would break.
-- State the admissibility condition:
-  - for every successful replay of the supported contract-entry transaction class, the placement topology must be identical;
+- State the same trusted circuit reuse condition:
+  - for every successful replay of the supported function/arity, the placement topology must be identical;
   - the public/private interface layout, buffer bounds, library version, constants, setup parameters, and metadata must also remain compatible;
   - witness values may change, but they must not change the topology or interface shape.
 - State the scope explicitly:
-  - failed transaction paths are not considered in this admissibility criterion;
+  - failed transaction paths are not considered in this reuse rule;
   - Tokamak zk-EVM should not be presented as applicable to all Ethereum smart contracts;
-  - it applies to contracts or contract-entry transaction classes whose successful paths are circuit-topology invariant.
+  - it applies to contract entries whose successful paths are circuit-topology invariant.
 - Give the nuance:
   - input-dependent loops or conditionals are not automatically impossible;
-  - they can still be admissible if all successful transactions have a deterministic, topology-identical execution path after contract-level validation;
-  - for example, a conditional that rejects unsupported inputs and allows only one successful path can remain compatible with one reusable circuit.
+  - they can still be usable if all successful transactions have a deterministic, topology-identical execution path after contract-level validation;
+  - for example, a conditional that rejects unsupported inputs and allows only one successful path can remain compatible with the same trusted circuit.
 - Split this material into two slides in the final deck:
-  - Slide A: general admissibility examples;
+  - Slide A: examples of when the same trusted circuit can or cannot be reused;
   - Slide B: private-state DApp fixed-arity function matrix.
-- Slide A, likely admissible examples:
+- Slide A, likely usable examples:
   - fixed-arity minting such as one-note minting: the value changes, encrypted note data changes, and storage keys change, but the successful replay still follows the same operation shape;
   - fixed-shape token transfer: sender, receiver, and amount change, but the same balance checks, two balance updates, and event emission occur on every successful path;
   - bounded single-slot update: a mapping key and value change, but each successful transaction performs the same key computation, one read, one write, and one event;
   - validation-then-single-path contract: many invalid inputs revert, but every successful input passes validation and enters one common execution path.
-- Slide A, likely inadmissible examples:
+- Slide A, likely not-usable examples:
   - batch transfer where the number of recipients controls the loop count;
   - array-processing contracts where successful calls process a variable-length list;
   - a function whose successful branches execute different external calls or different numbers of storage writes;
   - router-like contracts where input selects a different target contract or call depth;
   - contracts whose successful path emits a variable number of logs or returns variable-shaped data.
 - Slide A, borderline examples to explain carefully:
-  - an input-dependent conditional is admissible if both successful branches perform the same placement topology, or if only one branch can succeed and the other reverts;
-  - a loop over user data is admissible only if the successful executed iteration count is fixed or the contract uses a fixed executed shape with dummy/no-op positions;
-  - dynamic storage keys are admissible when the number and order of storage operations remain fixed; they are inadmissible when the access pattern length or order changes across successful transactions.
+  - an input-dependent conditional is usable if both successful branches perform the same placement topology, or if only one branch can succeed and the other reverts;
+  - a loop over user data is usable only if the successful executed iteration count is fixed or the contract uses a fixed executed shape with dummy/no-op positions;
+  - dynamic storage keys are usable when the number and order of storage operations remain fixed; they are not usable when the access pattern length or order changes across successful transactions.
 - Slide B, private-state DApp concrete example:
   - use the Tokamak private-state DApp as the closing example, not only `mintNotes1`;
   - show that the DApp contract defines separate fixed-arity entrypoints instead of one variable-size note operation;
-  - explain that each entrypoint/function selector should be treated as its own supported transaction class with its own replay-dedicated circuit topology.
+  - explain that each entrypoint/function selector needs its own trusted circuit because it has its own replay-dedicated topology.
 - Private-state DApp function families to show:
   - mint circuits:
     - `mintNotes1`, `mintNotes2`, `mintNotes3`, `mintNotes4`, `mintNotes5`, `mintNotes6`;
@@ -589,11 +589,11 @@ For on-chain use, the practical target is a reusable circuit for a supported tra
   - transfer circuits:
     - `transferNotes1To1`, `transferNotes1To2`, `transferNotes1To3`, `transferNotes2To1`, `transferNotes2To2`, `transferNotes3To1`, `transferNotes3To2`, `transferNotes4To1`;
     - the input/output note arity determines the number of nullifier checks, commitment checks, value-sum checks, storage updates, and encrypted-note logs;
-    - each arity pair is a different reusable circuit class.
+    - each arity pair needs a different trusted circuit.
   - redeem circuits:
     - `redeemNotes1`, `redeemNotes2`, `redeemNotes3`, `redeemNotes4`;
     - the input note arity determines the number of nullifiers, value accumulation steps, and the final accounting-vault credit path;
-    - each redeem arity is a different reusable circuit class.
+    - each redeem arity needs a different trusted circuit.
   - supporting accounting-vault calls:
     - `debitLiquidBalance` appears in mint paths;
     - `creditLiquidBalance` appears in redeem paths;
@@ -601,11 +601,11 @@ For on-chain use, the practical target is a reusable circuit for a supported tra
   - public helper functions:
     - `computeNoteCommitment` and `computeNullifier` can be listed separately as deterministic helper-style functions, but they are not the main private-state transaction classes.
 - Key message:
-  - the private-state DApp is admissible by splitting variable note-count behavior into many fixed-arity functions;
+  - the private-state DApp is usable by splitting variable note-count behavior into many fixed-arity functions;
   - this is exactly the kind of contract design that avoids one successful transaction changing the placement topology of another;
   - the cost is that each function selector/arity needs its own trusted synthesizer output and proving setup path.
 - Suggested slide design:
-  - use a two-column table: "Reusable circuit likely works" vs "Reusable circuit likely fails";
+  - use a two-column table: "Same circuit likely works" vs "Same circuit likely fails";
   - use short examples, not code;
   - end with a compact private-state DApp matrix: mint arity, transfer input/output arity, redeem arity;
   - visually emphasize that rows are different circuits, not one circuit with a variable note count;
@@ -613,11 +613,11 @@ For on-chain use, the practical target is a reusable circuit for a supported tra
 
 ### 15. Soundness Intuition And Failure Modes
 
-- Keep this section focused on failure modes, not on repeating the admissibility argument.
-- Explain what can go wrong if the trusted circuit topology and the claimed transaction class do not match:
+- Keep this section focused on failure modes, not on repeating the same trusted circuit reuse argument.
+- Explain what can go wrong if the trusted topology and the claimed function/arity do not match:
   - a proof could verify a statement for a different successful-path shape than the one the verifier thinks is being supported;
   - verifier preprocessing may bind the wrong placement topology or public/private interface layout;
-  - a prover could appear to prove a supported transaction while relying on a topology that was never trusted for that transaction class.
+  - a prover could appear to prove a supported transaction while relying on a topology that was never trusted for that function/arity.
 - Explain what can go wrong if the replay-to-circuit derivation is not deterministic:
   - two parties may derive different placement/permutation objects for the same claimed successful replay;
   - deployment and proving infrastructure may disagree about which proving key or circuit identity is authoritative;
@@ -625,20 +625,20 @@ For on-chain use, the practical target is a reusable circuit for a supported tra
 - Explain why fallback logic must not hide synthesis defects:
   - unsupported shape should be rejected clearly;
   - fallback should only improve usability when the semantic statement and placement topology remain unchanged;
-  - fallback must not silently pad, skip, or reroute a transaction into a different circuit class.
+  - fallback must not silently pad, skip, or reroute a transaction into a different trusted circuit.
 
 ### 16. Suggested Visuals
 
 - Diagram 1: "fixed library" on the left, "replay trace" on the top, "derived placement + wiring" in the center, "SNARK proof" on the right.
 - Diagram 2: subcircuit placement table with columns: placement index, subcircuit type, inputs, outputs, source edges.
 - Diagram 3: copy constraint/permutation cycles over a small set of connecting wires.
-- Diagram 4: admissible vs inadmissible successful paths:
-  - admissible: different witness values, same successful placement topology;
-  - inadmissible: different successful branches, loop counts, calls, or storage access shapes produce different placement topology.
+- Diagram 4: usable vs not usable successful paths:
+  - usable: different witness values, same successful placement topology;
+  - not usable: different successful branches, loop counts, calls, or storage access shapes produce different placement topology.
 - Diagram 5: replay dataflow tracker: stack/memory/storage locations point to placement wires, and repeated logical values become permutation cycles.
 - Diagram 6: `mintNotes1` replay lanes showing verification goals mapped to subcircuit groups.
-- Diagram 7: private-state DApp function matrix: `mintNotes1`-`mintNotes6`, supported `transferNotesNToM` arities, and `redeemNotes1`-`redeemNotes4`, with one row per reusable circuit class.
-- Diagram 8: replay-dedicated to transaction-class reusable relationship: representative successful replay -> trusted placement topology -> all successful transactions in the class reuse the same circuit.
+- Diagram 7: private-state DApp function matrix: `mintNotes1`-`mintNotes6`, supported `transferNotesNToM` arities, and `redeemNotes1`-`redeemNotes4`, with one row per trusted circuit.
+- Diagram 8: circuit reuse relationship: representative successful replay -> trusted placement topology -> all successful calls to the same function/arity reuse the same circuit.
 
 ### 17. Planned Slide Outline
 
@@ -661,9 +661,9 @@ For on-chain use, the practical target is a reusable circuit for a supported tra
 17. High-level generated objects and their meanings.
 18. Synthesizer execution example: private-state `mintNotes1`.
 19. `mintNotes1` verification goals and subcircuit-composition picture.
-20. Why a trusted replay-dedicated circuit must be reusable for the supported transaction class.
-21. Contract admissibility examples: reusable vs non-reusable successful path shapes.
-22. Private-state DApp matrix: fixed-arity functions map to different reusable circuit classes.
+20. Why the same trusted circuit must be reusable for the supported function/arity.
+21. Contract examples: reusable vs non-reusable successful path shapes.
+22. Private-state DApp matrix: fixed-arity functions need different trusted circuits.
 23. Soundness failure modes: wrong topology, nondeterministic synthesis, and unsafe fallback.
 24. Summary and discussion questions.
 25. Backup slide for Q&A only: how the synthesizer follows complex EVM call structures.
@@ -824,19 +824,20 @@ depth 0: Contract A
 - The opcode-to-subcircuit backup table distinguishes direct arithmetic placements from composed memory/context/storage handling.
 - The opcode-to-subcircuit backup table marks unsupported opcodes explicitly and does not present fallbacks as support.
 - Every implementation detail is tied back to the conceptual model.
-- The deck distinguishes replay-dedicated circuits, reusable circuits for an admissible contract-entry transaction class, and universal-machine circuits.
-- The deck explains that a replay-dedicated circuit becomes reusable for a transaction class only when every successful replay in that class preserves the same topology and interface layout.
-- The deck states that one trusted synthesizer output must be reusable for all successful transactions in the supported class because arbitrary newly generated synthesizer outputs are not independently validated on-chain.
-- The deck states the exact admissibility condition: all successful replays in the supported class must preserve identical placement topology and compatible interface layout.
-- The deck explicitly excludes failed transaction paths from the admissibility discussion.
+- The deck avoids introducing a second circuit term; it explains reuse in plain language as "the same trusted circuit can be reused for the same function/arity."
+- The deck distinguishes replay-dedicated circuits from universal-machine circuits, while explaining that replay-derived topology can be reused only under a same-topology condition.
+- The deck explains that the same trusted circuit can be reused only when every successful replay for the supported function/arity preserves the same topology and interface layout.
+- The deck states that one trusted synthesizer output must be reusable for all successful calls in the supported function/arity because arbitrary newly generated synthesizer outputs are not independently validated on-chain.
+- The deck states the exact same trusted circuit reuse condition: all successful replays for the supported function/arity must preserve identical placement topology and compatible interface layout.
+- The deck explicitly excludes failed transaction paths from the same trusted circuit reuse discussion.
 - The deck states that Tokamak zk-EVM should not be presented as applicable to all Ethereum smart contracts.
-- The contract admissibility slide uses concrete examples instead of a separate abstract design-strategy slide.
-- The examples include both likely admissible and likely inadmissible successful-path shapes.
-- The admissibility examples are split across two slides: general examples first, private-state DApp matrix second.
-- The private-state DApp admissibility example shows all fixed-arity function families and states that different function selectors/arities correspond to different replay-dedicated circuits.
+- The same trusted circuit reuse slide uses concrete examples instead of a separate abstract design-strategy slide.
+- The examples include both likely usable and likely not-usable successful-path shapes.
+- The same trusted circuit reuse examples are split across two slides: general examples first, private-state DApp matrix second.
+- The private-state DApp example shows all fixed-arity function families and states that different function selectors/arities need different trusted circuits.
 - The private-state DApp example must not imply that `mintNotes1`, `mintNotes2`, transfer, and redeem calls share one derived circuit.
-- The deck states that input-dependent loops or conditionals are admissible only when successful executions still have deterministic, topology-identical replay shape.
-- The deck states that different successful input-induced control flow can require a different derived circuit and therefore fall outside the reusable-circuit model.
+- The deck states that input-dependent loops or conditionals are usable only when successful executions still have deterministic, topology-identical replay shape.
+- The deck states that different successful input-induced control flow can require a different derived circuit and therefore fail the same trusted circuit reuse requirement.
 - The deck does not overclaim support for arbitrary Ethereum L1 behavior.
 - Code references are used as anchors, not as the main teaching structure.
 - All slide text, diagrams, speaker notes, and audience-facing examples are written in Korean, with English technical terms preserved where needed for precision.
