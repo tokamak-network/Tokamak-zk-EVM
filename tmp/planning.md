@@ -417,11 +417,27 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - block/environment data;
   - contract code;
   - deterministic execution semantics.
-- Explain that the synthesizer follows the replay and records computation events as placements.
+- Explain that the synthesizer follows the replay and records two coupled objects:
+  - placements: which reusable subcircuit instance checks each observed operation or helper relation;
+  - permutation: which variables across placements must be equal because the replay dataflow says they are the same logical value.
+- Explain placement tracking:
+  - when an opcode or helper computation consumes values, the synthesizer identifies the current logical values from stack, memory, calldata, storage, block data, or reserved buffers;
+  - when the operation produces a value, the synthesizer records a new placement output variable and updates the logical location that now owns that value;
+  - the local subcircuit relation checks the operation itself.
+- Explain permutation tracking:
+  - every logical value is carried through the replay as a producer-consumer relationship;
+  - if a later placement input is supposed to reuse an earlier placement output, the synthesizer records an equality relation between the corresponding wires;
+  - stack moves, memory copies, calldata copies, return-data copies, storage-key reuse, and public-output exposure are all sources of such equality relations;
+  - after synthesis, these equality groups are serialized as a permutation, which is the copy-constraint part of the derived circuit.
 - Map common EVM operations to subcircuit categories:
   - buffers for external/public/private inputs and outputs;
   - ALU subcircuits for arithmetic and bitwise operations;
   - hash, signature, Merkle, and accumulator subcircuits for cryptographic/state operations.
+- Suggested visual:
+  - left side: replay events update symbolic locations such as stack slot, memory slice, storage key, and return buffer;
+  - middle: each event creates or consumes placement wires;
+  - right side: equal logical values are grouped into permutation cycles;
+  - caption: "placements verify local relations; permutation verifies that the replay dataflow connects the same values."
 - Keep names illustrative rather than exhaustive.
 
 ### 11. Repository-Grounded Implementation View
@@ -552,8 +568,9 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - Diagram 4: stable vs unstable inputs:
   - stable: same trace shape, different witness values;
   - unstable: branch change, different placement sequence.
-- Diagram 5: `mintNotes1` replay lanes showing verification goals mapped to subcircuit groups.
-- Diagram 6: trade-off curve between circuit stability and circuit size.
+- Diagram 5: replay dataflow tracker: stack/memory/storage locations point to placement wires, and repeated logical values become permutation cycles.
+- Diagram 6: `mintNotes1` replay lanes showing verification goals mapped to subcircuit groups.
+- Diagram 7: trade-off curve between circuit stability and circuit size.
 
 ### 18. Planned Slide Outline
 
@@ -571,7 +588,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 12. Field-programmable circuit idea.
 13. Subcircuit library, placement, and wire map.
 14. Arithmetic constraints vs copy constraints.
-15. Ethereum replay as a source of placements.
+15. Ethereum replay as a source of placements and permutation.
 16. Tokamak zk-EVM synthesis pipeline.
 17. High-level generated objects and their meanings.
 18. Synthesizer execution example: private-state `mintNotes1`.
@@ -722,6 +739,9 @@ depth 0: Contract A
 - The deck shows `prover` and `verifier` as backend consumers of the fixed library and replay-specific synthesizer outputs.
 - Terms introduced by the two-compiler slide are explained before the talk proceeds to the full field-programmable circuit model.
 - The terminology slide defines only the minimal terms needed for the two-compiler explanation.
+- The Ethereum replay section explains both outputs of synthesis: operation-to-placement tracking and dataflow-to-permutation tracking.
+- The permutation explanation makes clear that stack moves, memory copies, calldata, return data, storage reuse, and public-output exposure can create equality relations between placement wires.
+- The deck does not describe the synthesizer as merely listing subcircuits; it also tracks how variables are connected across subcircuit placements.
 - The `mintNotes1` example is grounded in the Solidity source and an actual synthesizer run, but the slide does not expose raw placement JSON or a full opcode histogram.
 - The `mintNotes1` example explains verification goals before naming subcircuit groups.
 - The `mintNotes1` subcircuit visual groups placements by role instead of showing all 165 placement instances.
