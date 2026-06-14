@@ -28,7 +28,7 @@ The seminar deck, slide text, speaker notes, diagrams, and audience-facing examp
 - The repository should be used as an implementation reference for package names and workflow boundaries, not as the main source of slide-level detail.
 - The deck should avoid source-code walkthroughs except where a short implementation anchor clarifies an abstract concept.
 - Excessive detail is prohibited in audience-facing slides. Prefer high-level proof-system objects over concrete file names, payload field lists, schemas, class names, or package-internal APIs.
-- When explaining the `synthesizer`, describe its inputs at the level of `subcircuit library` and `public/private instance`, and its outputs at the level of `witness` and `permutation`.
+- When explaining the `synthesizer`, describe its inputs at the level of `subcircuit library`, Solidity-compiled EVM bytecode, and `public/private instance`, and its outputs at the level of `witness` and `permutation`.
 - Detailed artifact names such as generated JSON filenames may be kept in speaker notes or internal planning references only when they clarify implementation mapping; they should not be central slide content.
 - Terminology slides must define only the terms needed for the next few slides.
 - No claim should imply that every input to the same EVM bytecode yields the same derived circuit. The deck must state the required invariance assumptions explicitly.
@@ -296,7 +296,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - `verifier`.
 - Explain the four components using the paper-first model:
   - `qap-compiler`: prepares the reusable circuit basis. Conceptually, it produces the fixed subcircuit library before any particular replay is considered.
-  - `synthesizer`: compiles one concrete replay into proof inputs. At the slide level, describe its input as the subcircuit library plus public/private instance data, and its output as witness data plus a permutation.
+  - `synthesizer`: compiles one concrete replay into proof inputs. At the slide level, describe its input as the subcircuit library, Solidity-compiled EVM bytecode, and public/private instance data; describe its output as witness data plus a permutation.
   - `prover`: consumes the fixed library and synthesizer outputs to produce a proof for the replay-derived statement.
   - `verifier`: checks the proof against the public part of the statement.
 - Emphasize the two compiler roles:
@@ -312,7 +312,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
     - does not redefine the reusable subcircuit library.
 - Suggested visual:
   - left lane: `qap-compiler` -> fixed subcircuit library;
-  - right lane: public/private instance -> `synthesizer` -> witness + permutation;
+  - right lane: bytecode + public/private instance -> `synthesizer` -> witness + permutation;
   - merge lane: library + witness/permutation -> `prover` -> proof -> `verifier`.
 - Suggested analogy:
   - `qap-compiler` prints the reusable puzzle pieces.
@@ -330,18 +330,19 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - avoid letting implementation names hide the conceptual roles.
 - Explain only these terms in Korean in the actual deck, with English terms preserved in parentheses:
   - `subcircuit library`: the reusable circuit basis prepared before a particular replay.
+  - `bytecode`: the compiled EVM program being replayed.
   - `public instance`: verifier-visible statement data.
   - `private instance`: prover-side execution data that is not directly revealed.
   - `witness`: concrete values used by the prover to satisfy the selected constraints.
   - `permutation`: the compact representation of equality/copy constraints between connected values.
 - Add one compact contrast table with only three rows:
   - before replay: subcircuit library;
-  - synthesizer input: public/private instance;
+  - synthesizer input: bytecode and public/private instance;
   - synthesizer output: witness and permutation.
 - Suggested warning:
   - Do not define every term that will appear later. Define only the terms needed to understand the two compiler roles.
 - Design constraint:
-  - This should be a low-density vocabulary slide. If the table and five definitions do not fit at 14 pt or larger, split it into two slides.
+  - This should be a low-density vocabulary slide. If the table and six definitions do not fit at 14 pt or larger, split it into two slides.
 
 ### 7. SNARK Preliminaries For This Talk
 
@@ -393,7 +394,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 
 - Present a compact pipeline:
   - subcircuit library artifacts are generated and packaged;
-  - synthesizer consumes high-level public/private instance data with the fixed library;
+  - synthesizer consumes high-level bytecode and public/private instance data with the fixed library;
   - synthesis emits witness-oriented data and a permutation;
   - prover and verifier consume those high-level objects.
 - Mention the compiled subcircuit list from `compile.sh` only as a reference example.
