@@ -317,7 +317,35 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - `verifier` checks the proof without reassembling everything.
 - Do not over-detail `preprocess`, CRS generation, CLI packaging, Node/Web adapters, or exact JSON schemas on this slide. Mention them later only if needed for implementation anchoring.
 
-### 6. SNARK Preliminaries For This Talk
+### 6. Terminology Introduced By The Two Compiler View
+
+- Add this as a vocabulary bridge immediately after the two-compiler slide.
+- Purpose:
+  - reduce cognitive load before the field-programmable circuit model;
+  - make sure students can distinguish library-time objects from replay-time objects;
+  - avoid letting implementation names hide the conceptual roles.
+- Explain these terms in Korean in the actual deck, with English terms preserved in parentheses:
+  - `subcircuit`: a small arithmetic constraint system that checks one local relation.
+  - `subcircuit library`: a fixed collection of reusable subcircuits prepared before seeing a particular replay.
+  - `field-programmable`: the library is fixed, but the execution-specific "program" is represented by which subcircuits are placed and how wires are connected.
+  - `placement`: one concrete copy of a subcircuit in the derived circuit.
+  - `placement sequence` or `placement topology`: the ordered/structured list of subcircuit copies selected for a replay.
+  - `wire`: a field element slot carrying an input, output, intermediate witness, or public value.
+  - `wire map`: the replay-specific connection plan saying which wires must hold the same value.
+  - `permutation`: the algebraic representation of copy constraints induced by the wire map.
+  - `public instance`: verifier-visible values such as public inputs, public outputs, or public state commitments.
+  - `witness`: prover-known private data, including internal wire values and execution data needed to satisfy constraints.
+  - `CRS` or setup material: preprocessing data tied to the fixed proving system and circuit-family parameters.
+- Add one compact contrast table:
+  - library-time terms: subcircuit, subcircuit library, setup parameters, CRS;
+  - replay-time terms: replay, placement, witness values, public instance, wire map/permutation;
+  - proof-time terms: proof, verifier check.
+- Suggested warning:
+  - "Circuit" can mean a reusable subcircuit, a replay-derived composed circuit, or a proving-system relation. The slide should state which meaning is being used whenever ambiguity matters.
+- Design constraint:
+  - This should be a low-density vocabulary slide. If terms do not fit at 14 pt or larger, split it into two slides: "Library-Time Terms" and "Replay-Time Terms."
+
+### 7. SNARK Preliminaries For This Talk
 
 - Define statement, witness, public instance, circuit, and proof in introductory terms.
 - Explain R1CS/QAP only at the level needed for the audience:
@@ -326,7 +354,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - private wires carry witness data.
 - Explain why preprocessing/setup cares about the circuit description.
 
-### 7. Field-Programmable Circuit Model
+### 8. Field-Programmable Circuit Model
 
 - Introduce the paper's model:
   - fixed subcircuit library;
@@ -338,7 +366,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - derived circuit = placement sequence + wire map.
 - Explain why this reduces what must vary between executions: the library remains fixed; the replay-specific part is mostly placement and wiring.
 
-### 8. Arithmetic Constraints vs Copy Constraints
+### 9. Arithmetic Constraints vs Copy Constraints
 
 - Explain that local correctness and interconnection correctness are different obligations.
 - Local arithmetic constraints:
@@ -348,7 +376,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - Explain the wire map as a permutation over connecting wires.
 - Use a small example with 3 or 4 subcircuits before showing any Tokamak-specific names.
 
-### 9. From Ethereum Replay To Subcircuit Placement
+### 10. From Ethereum Replay To Subcircuit Placement
 
 - Define "replay" for the talk:
   - previous state snapshot;
@@ -363,7 +391,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - hash, signature, Merkle, and accumulator subcircuits for cryptographic/state operations.
 - Keep names illustrative rather than exhaustive.
 
-### 10. Repository-Grounded Implementation View
+### 11. Repository-Grounded Implementation View
 
 - Present a compact pipeline:
   - subcircuit library artifacts are generated and packaged;
@@ -376,7 +404,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - subcircuit info gives input/output wire ranges and flatten maps;
   - global wire list maps local subcircuit wires into the global circuit view.
 
-### 11. What Makes The Output Circuit Replay-Dedicated
+### 12. What Makes The Output Circuit Replay-Dedicated
 
 - The replay fixes:
   - which operations occurred;
@@ -387,7 +415,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - Values can affect witnesses without changing the circuit only when they do not change placement or wiring.
 - Values change the circuit when they alter the execution trace shape.
 
-### 12. Stability Across Different Inputs To The Same Program
+### 13. Stability Across Different Inputs To The Same Program
 
 - State the main condition:
   - identical output circuit requires identical placement topology and identical public/private interface layout, even if private witness values differ.
@@ -406,7 +434,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - Give the key warning:
   - "same program" is not enough; a stable circuit family needs trace-shape invariance or a deliberate universalization/padding strategy.
 
-### 13. Design Effort For Stable Program-Dedicated Circuits
+### 14. Design Effort For Stable Program-Dedicated Circuits
 
 - Discuss possible engineering strategies:
   - restrict the supported program/input domain so branch and loop structure is fixed;
@@ -419,7 +447,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - Discuss the trade-off:
   - more stability usually means larger circuits or stricter input admissibility.
 
-### 14. Soundness Intuition And Failure Modes
+### 15. Soundness Intuition And Failure Modes
 
 - Explain what can go wrong if the replay-to-circuit derivation is not deterministic:
   - two parties may disagree on the circuit for the same claimed execution;
@@ -429,7 +457,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - unsupported shape should be rejected clearly;
   - fallback should only improve usability when the semantic statement remains unchanged.
 
-### 15. Suggested Visuals
+### 16. Suggested Visuals
 
 - Diagram 1: "fixed library" on the left, "replay trace" on the top, "derived placement + wiring" in the center, "SNARK proof" on the right.
 - Diagram 2: subcircuit placement table with columns: placement index, subcircuit type, inputs, outputs, source edges.
@@ -439,7 +467,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - unstable: branch change, different placement sequence.
 - Diagram 5: trade-off curve between circuit stability and circuit size.
 
-### 16. Planned Slide Outline
+### 17. Planned Slide Outline
 
 1. Title and guiding question.
 2. Why EVM execution proofs matter: scalability and privacy.
@@ -450,18 +478,19 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 7. How Tokamak's subcircuit-library approach differs.
 8. Tokamak zk-EVM components: qap-compiler, synthesizer, prover, verifier.
 9. The two compiler roles: library compiler vs replay compiler.
-10. Minimal SNARK and circuit vocabulary.
-11. Field-programmable circuit idea.
-12. Subcircuit library, placement, and wire map.
-13. Arithmetic constraints vs copy constraints.
-14. Ethereum replay as a source of placements.
-15. Tokamak zk-EVM synthesis pipeline.
-16. Generated artifacts and their meanings.
-17. Example replay-to-placement walkthrough.
-18. Why a replay-dedicated circuit is not automatically program-dedicated.
-19. Conditions for stable output under changed inputs.
-20. Engineering strategies, trade-offs, and limitations.
-21. Summary and discussion questions.
+10. Terminology from the two-compiler view.
+11. Minimal SNARK and circuit vocabulary.
+12. Field-programmable circuit idea.
+13. Subcircuit library, placement, and wire map.
+14. Arithmetic constraints vs copy constraints.
+15. Ethereum replay as a source of placements.
+16. Tokamak zk-EVM synthesis pipeline.
+17. Generated artifacts and their meanings.
+18. Example replay-to-placement walkthrough.
+19. Why a replay-dedicated circuit is not automatically program-dedicated.
+20. Conditions for stable output under changed inputs.
+21. Engineering strategies, trade-offs, and limitations.
+22. Summary and discussion questions.
 
 ## Verification Checklist For The Future Deck
 
@@ -478,6 +507,8 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - Conceptual explanations of Tokamak's two compiler roles are grounded in the paper's field-programmable circuit model, while repository documents are used only for package names, artifact names, and workflow boundaries.
 - The deck distinguishes `qap-compiler` as the reusable-library compiler from `synthesizer` as the replay-to-placement-and-wiring compiler.
 - The deck shows `prover` and `verifier` as backend consumers of the fixed library and replay-specific synthesizer outputs.
+- Terms introduced by the two-compiler slide are explained before the talk proceeds to the full field-programmable circuit model.
+- The terminology slide distinguishes library-time, replay-time, and proof-time objects.
 - Every implementation detail is tied back to the conceptual model.
 - The deck distinguishes replay-dedicated, program-dedicated, and universal-machine circuits.
 - The deck states the exact invariance conditions required for equal output circuits across input changes.
