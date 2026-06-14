@@ -8,7 +8,7 @@ The audience is graduate students who are studying zero-knowledge proofs and SNA
 
 Create seminar presentation material explaining how Tokamak zk-EVM derives a replay-dedicated circuit from a subcircuit library when an Ethereum program execution replay is given.
 
-The presentation must also explain the conditions and design effort needed to make the derived output circuit stable for the same program when the program input changes. This point should be treated carefully: the same bytecode does not automatically imply the same replay-specific circuit if different inputs change control flow, memory/storage access shape, or other trace-level structure.
+The presentation must also explain which Ethereum contracts, or more precisely which supported contract-entry transaction classes, can reuse one trusted replay-dedicated circuit output across different successful transactions. This point should be treated carefully: Tokamak zk-EVM should not be presented as applying to all smart contracts. The admissible case is a contract entry whose successful execution replays always have the same placement topology and compatible public/private interface layout, even when witness values change.
 
 ## Presentation Language
 
@@ -32,6 +32,8 @@ The seminar deck, slide text, speaker notes, diagrams, and audience-facing examp
 - Detailed artifact names such as generated JSON filenames may be kept in speaker notes or internal planning references only when they clarify implementation mapping; they should not be central slide content.
 - Terminology slides must define only the terms needed for the next few slides.
 - No claim should imply that every input to the same EVM bytecode yields the same derived circuit. The deck must state the required invariance assumptions explicitly.
+- The deck must state that failed transaction paths are out of scope for the reusable-circuit admissibility discussion.
+- The deck must state that input-dependent loops or conditionals are not automatically disallowed; they are disallowed only when successful executions can vary the placement topology.
 
 ## Primary Sources
 
@@ -518,37 +520,45 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - Values can affect witnesses without changing the circuit only when they do not change placement or wiring.
 - Values change the circuit when they alter the execution trace shape.
 
-### 14. Stability Across Different Inputs To The Same Program
+### 14. Which Contracts Can Reuse One Replay-Dedicated Circuit?
 
-- State the main condition:
-  - identical output circuit requires identical placement topology and identical public/private interface layout, even if private witness values differ.
-- Explain stable variation:
-  - data values change inside the same operation sequence;
-  - the same wires connect the same logical producers and consumers;
-  - buffer sizes and public instance layout remain within fixed bounds;
-  - the same library version, constants, setup parameters, and metadata are used.
-- Explain unstable variation:
-  - branch direction changes;
-  - loop iteration count changes;
-  - dynamic calls or created execution contexts change;
-  - memory/storage access shape changes in a way that changes recorded placements;
-  - cryptographic/state helper counts change;
-  - public/private classification or output length changes.
-- Give the key warning:
-  - "same program" is not enough; a stable circuit family needs trace-shape invariance or a deliberate universalization/padding strategy.
+- Replace the earlier "same program, same circuit" framing with an admissibility question:
+  - given one trusted synthesizer output for a contract entry, can that same derived circuit be reused for every successful transaction in the supported class?
+- Explain why this matters:
+  - the on-chain verifier can check a proof for a fixed public statement and proving key, but it cannot independently validate an arbitrary newly generated synthesizer output as part of normal contract verification;
+  - therefore one trusted/preprocessed output must be reusable for the intended set of transactions;
+  - if each transaction required a different placement topology, the system would need a different derived circuit and the reusable on-chain verification story would break.
+- State the admissibility condition:
+  - for every successful replay of the supported contract-entry transaction class, the placement topology must be identical;
+  - the public/private interface layout, buffer bounds, library version, constants, setup parameters, and metadata must also remain compatible;
+  - witness values may change, but they must not change the topology or interface shape.
+- State the scope explicitly:
+  - failed transaction paths are not considered in this admissibility criterion;
+  - Tokamak zk-EVM should not be presented as applicable to all Ethereum smart contracts;
+  - it applies to contracts or contract-entry transaction classes whose successful paths are circuit-topology invariant.
+- Give examples of likely inadmissible patterns:
+  - input-dependent loop counts that change the number of EVM steps or helper placements;
+  - input-dependent branches where different successful branches execute different opcode/helper patterns;
+  - dynamic call targets, call depths, return-data shapes, or storage access patterns that vary across successful transactions.
+- Give the nuance:
+  - input-dependent loops or conditionals are not automatically impossible;
+  - they can still be admissible if all successful transactions have a deterministic, topology-identical execution path after contract-level validation;
+  - for example, a conditional that rejects unsupported inputs and allows only one successful path can remain compatible with one reusable circuit.
 
-### 15. Design Effort For Stable Program-Dedicated Circuits
+### 15. Design Effort For Admissible Contract Classes
 
 - Discuss possible engineering strategies:
-  - restrict the supported program/input domain so branch and loop structure is fixed;
-  - pad repeated operations to fixed bounds;
-  - include both branches with selectors when the cost is acceptable;
+  - define the supported transaction class precisely, including entrypoint/function selector and admissible input domain;
+  - reject inputs that would lead to unsupported successful path shapes;
+  - keep loop counts fixed or bounded with a fixed executed shape when the cost is acceptable;
+  - structure successful branches so they converge to one topology, or expose only one successful branch and reject the others;
   - canonicalize ordering of accesses and placements;
   - keep buffer interfaces fixed and reject over-bound executions;
-  - version-lock the subcircuit library, constants, and metadata;
+  - version-lock the subcircuit library, constants, setup parameters, and metadata;
   - separate data-dependent witness values from topology-dependent synthesis decisions.
 - Discuss the trade-off:
-  - more stability usually means larger circuits or stricter input admissibility.
+  - broader contract expressiveness usually makes one reusable replay-dedicated circuit harder to guarantee;
+  - stronger admissibility restrictions make the reusable on-chain verification story cleaner but reduce the class of supported contracts.
 
 ### 16. Soundness Intuition And Failure Modes
 
@@ -565,12 +575,12 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - Diagram 1: "fixed library" on the left, "replay trace" on the top, "derived placement + wiring" in the center, "SNARK proof" on the right.
 - Diagram 2: subcircuit placement table with columns: placement index, subcircuit type, inputs, outputs, source edges.
 - Diagram 3: copy constraint/permutation cycles over a small set of connecting wires.
-- Diagram 4: stable vs unstable inputs:
-  - stable: same trace shape, different witness values;
-  - unstable: branch change, different placement sequence.
+- Diagram 4: admissible vs inadmissible successful paths:
+  - admissible: different witness values, same successful placement topology;
+  - inadmissible: different successful branches, loop counts, calls, or storage access shapes produce different placement topology.
 - Diagram 5: replay dataflow tracker: stack/memory/storage locations point to placement wires, and repeated logical values become permutation cycles.
 - Diagram 6: `mintNotes1` replay lanes showing verification goals mapped to subcircuit groups.
-- Diagram 7: trade-off curve between circuit stability and circuit size.
+- Diagram 7: trade-off curve between contract expressiveness and reusable-circuit admissibility.
 
 ### 18. Planned Slide Outline
 
@@ -593,9 +603,9 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 17. High-level generated objects and their meanings.
 18. Synthesizer execution example: private-state `mintNotes1`.
 19. `mintNotes1` verification goals and subcircuit-composition picture.
-20. Why a replay-dedicated circuit is not automatically program-dedicated.
-21. Conditions for stable output under changed inputs.
-22. Engineering strategies, trade-offs, and limitations.
+20. Why a trusted replay-dedicated circuit must be reusable for the supported transaction class.
+21. Contract admissibility: all successful paths must preserve the same placement topology.
+22. Design strategies, trade-offs, and limitations for admissible contract classes.
 23. Summary and discussion questions.
 24. Backup slide for Q&A only: how the synthesizer follows complex EVM call structures.
 25. Backup table for Q&A only: EVM opcode-to-subcircuit or composition mapping.
@@ -753,9 +763,13 @@ depth 0: Contract A
 - The opcode-to-subcircuit backup table distinguishes direct arithmetic placements from composed memory/context/storage handling.
 - The opcode-to-subcircuit backup table marks unsupported opcodes explicitly and does not present fallbacks as support.
 - Every implementation detail is tied back to the conceptual model.
-- The deck distinguishes replay-dedicated, program-dedicated, and universal-machine circuits.
-- The deck states the exact invariance conditions required for equal output circuits across input changes.
-- The deck states that different input-induced control flow can require a different derived circuit.
+- The deck distinguishes replay-dedicated circuits, reusable circuits for an admissible contract-entry transaction class, and universal-machine circuits.
+- The deck states that one trusted synthesizer output must be reusable for all successful transactions in the supported class because arbitrary newly generated synthesizer outputs are not independently validated on-chain.
+- The deck states the exact admissibility condition: all successful replays in the supported class must preserve identical placement topology and compatible interface layout.
+- The deck explicitly excludes failed transaction paths from the admissibility discussion.
+- The deck states that Tokamak zk-EVM should not be presented as applicable to all Ethereum smart contracts.
+- The deck states that input-dependent loops or conditionals are admissible only when successful executions still have deterministic, topology-identical replay shape.
+- The deck states that different successful input-induced control flow can require a different derived circuit and therefore fall outside the reusable-circuit model.
 - The deck does not overclaim support for arbitrary Ethereum L1 behavior.
 - Code references are used as anchors, not as the main teaching structure.
 - All slide text, diagrams, speaker notes, and audience-facing examples are written in Korean, with English technical terms preserved where needed for precision.
