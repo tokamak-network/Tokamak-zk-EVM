@@ -104,9 +104,17 @@ Use these sources only for the opening motivation. They should not be used to cl
   - PSE roadmap for 2025 and beyond: PSE frames privacy as a first-class citizen across Ethereum: `https://pse.dev/blog/pse-roadmap-2025`.
   - Kohaku SDK coverage: The Defiant reported that the EF Kohaku Initiative released an SDK for wallet-level privacy integration using shielded pool protocols such as Railgun, Tornado Cash, and Privacy Pools: `https://thedefiant.io/news/blockchains/ethereum-foundation-kohaku-sdk-privacy-wallet-integration-bb4t52`.
 
-### Comparative zkEVM Sources
+### Comparative Ethereum ZK Execution-Proof Sources
 
-Use these sources for the short bridge section between the NP-verification discussion and the Tokamak-specific circuit derivation. The goal is not to audit each project, but to show how major zkEVM systems frame the same high-level problem: a concrete EVM-like execution must become constrained proof input.
+Use these sources for the short bridge section between the NP-verification discussion and the Tokamak-specific circuit derivation. The goal is not to audit many projects, but to show through Scroll, Linea, and Aztec how execution becomes constrained proof input in prominent Ethereum ZK systems.
+
+Default selection for the main deck:
+
+1. Scroll
+2. Linea / Lineth
+3. Aztec
+
+Do not include other projects in the main slide. Extra examples should stay in speaker notes or be omitted.
 
 - Scroll zkEVM overview:
   - `https://docs.scroll.io/en/technology/zkevm/zkevm-overview/`
@@ -124,16 +132,17 @@ Use these sources for the short bridge section between the NP-verification discu
     - Linea's constraint system captures the logic of valid EVM executions.
     - The tracer produces traces that the constraint system applies to and that serve as prover inputs.
     - The execution trace records transaction-level execution events used to construct a validity proof.
-- ZKsync Era circuits documentation:
-  - `https://docs.zksync.io/zksync-protocol/era-vm/circuits`
+- Aztec overview and circuit documentation:
+  - `https://docs.aztec.network/`
+  - `https://docs.aztec.network/developers/overview`
+  - `https://docs.aztec.network/developers/docs/foundational-topics/advanced/circuits/private_kernel`
+  - `https://docs.aztec.network/developers/docs/foundational-topics/advanced/circuits/rollup_circuits`
   - Key points to cite:
-    - ZKsync proves correct execution of its EVM-compatible VM through witness generation, circuits, and the Boojum proof system.
-    - The circuit layer constrains VM steps, opcodes, storage interactions, and precompiled contracts.
-- Polygon zkEVM prover repository:
-  - `https://github.com/0xPolygon/zkevm-prover`
-  - Key points to cite:
-    - The prover processes batches of EVM transactions, computes the resulting state, and creates proofs from polynomial constraints.
-    - The executor coordinates multiple state machines and produces polynomial evaluations for proof generation.
+    - Aztec is a privacy-first Layer 2 on Ethereum, but it is not EVM compatible.
+    - Aztec supports private and public smart-contract execution with private and public state.
+    - Private functions execute and prove on the user's device so private inputs remain private.
+    - The private kernel recursively processes private function calls, accumulating side effects and validation requests into a proof of private execution correctness.
+    - Rollup circuits aggregate private-kernel and AVM execution proofs, validate state transitions, and produce the final proof submitted to L1.
 - Optional secondary reference for visual classification only:
   - L2BEAT zk catalog pages may be used to label systems at a high level, but technical claims should rely on the official docs or repositories above.
 
@@ -209,25 +218,28 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - use a field-programmable subcircuit-library approach.
 - Position Tokamak zk-EVM as using the third idea.
 
-### 3. How Major zkEVM Projects Turn Replay Into Proof Inputs
+### 3. How Selected Ethereum ZK Projects Turn Execution Into Proof Inputs
 
 - Insert this section before the Tokamak-specific details so the audience first sees the broader design space.
 - State the common problem:
-  - an executor has already produced a concrete EVM-like execution;
+  - an executor has already produced a concrete execution object;
   - the proving system must decide which constrained object verifies that execution;
   - the circuit or arithmetization checks the already-produced trace or batch, rather than searching for an execution.
-- Present the projects as representative patterns, not as identical architectures:
+- Present only these three selected projects, not a broad project survey:
   - Scroll: starts from the EVM state-transition view, expands execution into an ordered opcode trace, treats the trace as witness data, and proves step correctness, ordering, and start/end state agreement.
   - Linea: uses a tracer to produce execution traces; constraints capture valid EVM execution logic and are applied to those traces as prover inputs.
-  - ZKsync Era: proves execution of its EVM-compatible VM with witness generation plus circuits that constrain VM steps, opcodes, storage interactions, and precompiles.
-  - Polygon zkEVM: processes batches of EVM transactions through executor/state-machine logic and polynomial constraints, producing evaluations and proofs for the resulting state transition.
+  - Aztec: is not an EVM-compatible replay system, so use it as a privacy-focused contrast; private execution is proven through private function proofs and recursive private-kernel circuits, then aggregated with AVM execution in rollup circuits for L1 verification.
+- Explain why these examples were selected:
+  - they are current, visible Ethereum ZK systems;
+  - they expose enough official documentation to support a clean conceptual comparison;
+  - together they show two EVM-replay-oriented designs and one privacy-first execution-proof design without turning the talk into a market survey.
 - Use one comparison table with three columns:
   - project;
   - "what becomes the proof input";
   - "what constrains it."
 - Keep this section conceptual. Do not introduce Tokamak placement variables, permutations, or file paths yet.
 - Bridge to Tokamak:
-  - the shared theme is trace or batch verification;
+  - the shared theme is verifying an already-produced execution object;
   - Tokamak's subcircuit-library approach is a different point in the same design space;
   - instead of one monolithic explanation first, Tokamak can be introduced as deriving replay-specific placement and wiring from reusable subcircuits.
 
@@ -360,7 +372,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 3. One evidence slide: scaling still leads in size, privacy is re-emerging.
 4. From application goals to arithmetic statements.
 5. Why NP verification circuits can depend on the found EVM trace.
-6. How major zkEVM projects turn EVM replay into proof inputs.
+6. How selected Ethereum ZK projects turn execution into proof inputs.
 7. Minimal SNARK and circuit vocabulary.
 8. Field-programmable circuit idea.
 9. Subcircuit library, placement, and wire map.
@@ -380,9 +392,10 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - The single opening evidence slide has source labels, access date, and metric definitions.
 - TVS, TVL, 30D volume, funding, acquisition values, and valuation are not mixed as if they were the same metric.
 - The introduction does not claim a completed shift from scalability to privacy; it claims that scalability still leads in size while privacy is re-emerging as an important Ethereum ZKP priority.
-- The comparative zkEVM section cites official project documentation or repositories for technical claims.
-- The comparative zkEVM section stays high-level and does not introduce Tokamak implementation artifacts before the field-programmable circuit model.
-- The comparative zkEVM section does not claim all projects solve the replay-to-circuit problem identically; it distinguishes trace, VM-circuit, and state-machine/polynomial-constraint styles.
+- The comparative Ethereum ZK section cites official project documentation or repositories for technical claims.
+- The comparative Ethereum ZK section uses only Scroll, Linea, and Aztec.
+- The comparative Ethereum ZK section stays high-level and does not introduce Tokamak implementation artifacts before the field-programmable circuit model.
+- The comparative Ethereum ZK section does not claim all projects solve the replay-to-circuit problem identically; it distinguishes EVM trace-as-witness designs from Aztec's non-EVM privacy-first execution-proof design.
 - Every implementation detail is tied back to the conceptual model.
 - The deck distinguishes replay-dedicated, program-dedicated, and universal-machine circuits.
 - The deck states the exact invariance conditions required for equal output circuits across input changes.
