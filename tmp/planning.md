@@ -71,10 +71,16 @@ Use repository sources only to map the paper's conceptual model onto Tokamak pac
   - Describes the shared synthesis layers and generated artifacts.
 - `packages/frontend/synthesizer/docs/execution-flow.md`
   - Describes input preparation, synthesis execution, artifact generation, and adapter output.
+- `packages/frontend/synthesizer/docs/transaction-flow.md`
+  - Describes event-driven opcode translation, call-context handling, and current opcode support boundaries.
 - `packages/frontend/synthesizer/docs/output-files.md`
   - Describes the implementation mapping behind the high-level synthesizer outputs.
 - `packages/frontend/synthesizer/core/src/app/synthesize.ts`
   - Shows the end-to-end runtime: reconstruct state, create transaction, run `synthesizeTX()`, capture final state, and generate circuit artifacts.
+- `packages/frontend/synthesizer/core/src/synthesizer/synthesizer.ts`
+  - Shows VM event hooks, call-depth context creation, child-to-parent return-data transfer, and storage finalization.
+- `packages/frontend/synthesizer/core/src/synthesizer/handlers/stateManager.ts`
+  - Shows per-depth context state for stack, memory, caller, callee, calldata, return data, and result data.
 - `packages/frontend/synthesizer/core/src/circuitGenerator/circuitGenerator.ts`
   - Shows that final artifacts correspond to witness-oriented data, public instance data, and a permutation.
 - `packages/frontend/synthesizer/core/src/circuitGenerator/handlers/variableGenerator.ts`
@@ -560,6 +566,58 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 21. Conditions for stable output under changed inputs.
 22. Engineering strategies, trade-offs, and limitations.
 23. Summary and discussion questions.
+24. Backup slide for Q&A only: how the synthesizer follows complex EVM call structures.
+
+## Appendix / Q&A Backup Material
+
+### A1. How The Synthesizer Handles Complex EVM Call Structures
+
+- Use this material only if the audience asks about nested calls, `CALL`, `DELEGATECALL`, return data, or whether Tokamak creates a separate circuit for each called contract.
+- Core answer:
+  - the synthesizer does not search for a call tree and does not compile a separate top-level circuit for each call;
+  - the EVM interpreter has already produced the concrete message-call replay;
+  - the synthesizer follows that replay depth by depth and turns each observed step into placements over the same fixed subcircuit library.
+- Conceptual model:
+  - each EVM call frame is treated as a separate execution context;
+  - each context has its own tracked stack, memory, caller value, callee value, calldata, return data, and result data;
+  - child contexts are created from the parent call instruction and the parent memory slice;
+  - child return or revert data is copied back into the parent context and checked against the interpreter's observed memory.
+- Suggested Q&A explanation in Korean:
+  - "CALL 구조는 Synthesizer가 새로 추측하는 대상이 아니라 replay에 이미 나타난 구조다. Synthesizer는 call depth마다 context를 만들고, parent memory에서 child calldata가 정확히 복사되었는지, child result가 parent return buffer로 정확히 돌아왔는지를 검증한다. 각 context 내부의 연산은 기존 ALU, memory, storage, hash, Merkle 계열 placement로 처리되고, context 경계에서 같은 값이어야 하는 부분은 permutation으로 연결된다."
+- Q&A diagram:
+  - show a small call stack, not source code:
+
+```text
+depth 0: Contract A
+  CALL: calldata copied from A.memory[inOffset..inOffset+len]
+      |
+      v
+depth 1: Contract B
+  local EVM steps -> placements
+  RETURN/REVERT: result memory recorded
+      |
+      v
+depth 0: Contract A
+  return data copied into A.memory[outOffset..outOffset+len]
+```
+
+- What is verified at call boundaries:
+  - call target and calldata come from the parent stack and memory;
+  - child `CALLER` semantics are derived from the call type;
+  - `DELEGATECALL` keeps the inherited caller while executing different code context;
+  - returned bytes are the bytes that the child actually produced;
+  - parent memory after the call matches the interpreter-observed memory;
+  - storage obligations still attach to the effective execution/storage context observed in the replay.
+- Relation to circuit stability:
+  - if different inputs change call count, call depth, call target, call type, calldata length, or return-data shape, the placement topology can change;
+  - therefore complex dynamic calls are an important reason why "same bytecode" is not enough to guarantee "same derived circuit."
+- Current support boundaries to mention only if asked:
+  - message-call flows such as `CALL`, `CALLCODE`, `DELEGATECALL`, and `STATICCALL` are part of the documented runtime model;
+  - `CREATE`, precompiles, and other unsupported paths should be described as rejected or out of scope rather than silently handled.
+- Do not over-detail:
+  - do not show handler names, exact TypeScript control flow, or raw memory arrays on a slide;
+  - do not imply that call handling removes replay dependence;
+  - do not claim support for arbitrary Ethereum L1 behavior.
 
 ## Verification Checklist For The Future Deck
 
@@ -582,6 +640,9 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - The `mintNotes1` example explains verification goals before naming subcircuit groups.
 - The `mintNotes1` subcircuit visual groups placements by role instead of showing all 165 placement instances.
 - The `mintNotes1` wording treats Poseidon as the hash-related subcircuit used by this run and does not claim that the run uses a dedicated Keccak subcircuit.
+- Complex EVM call-structure material is kept as Q&A backup and does not interrupt the main explanation.
+- The Q&A call-structure explanation describes per-depth context tracking and boundary checks without exposing implementation internals.
+- The Q&A call-structure explanation connects dynamic calls back to circuit-stability risks.
 - Every implementation detail is tied back to the conceptual model.
 - The deck distinguishes replay-dedicated, program-dedicated, and universal-machine circuits.
 - The deck states the exact invariance conditions required for equal output circuits across input changes.
