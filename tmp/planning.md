@@ -192,6 +192,187 @@ This diagnosis is based on the current HTML deck, not on the intended outline. T
 - It still says web metrics were accessed 2026-06-14, while later market updates and edits used 2026-06-15.
 - The final references should match the actual sources used in the rewritten deck.
 
+### Title Review For Slides 6-29
+
+Slide titles must do more work than naming a topic. For this audience, the title should tell the audience what question the slide answers or what claim they should carry forward. The current deck often uses abstract nouns, implementation labels, or English technical phrases as titles. That weakens the narrative because the audience must infer why the slide exists.
+
+#### Title Principles
+
+- Prefer claim-style or question-style Korean titles over generic topic labels.
+- Put the conceptual point before the implementation term.
+- Avoid titles that only name a component, package, or section.
+- Avoid English-only titles unless the title is a standard paper/system term being introduced.
+- Make adjacent titles form a visible chain of reasoning.
+- If a title cannot be understood without reading the body, rewrite it.
+
+#### Slide 6
+
+- Current title: "회로는 답을 찾는 장치가 아니다"
+- Problem: This title is strong, but it does not mention the immediate next concept: execution-path-dependent circuit shape.
+- Recommended title: "검증 회로는 실행 경로를 찾지 않고 확인한다"
+- Question answered: Why can the circuit depend on an already chosen execution path?
+
+#### Slide 7
+
+- Current title: "다른 Ethereum ZK 시스템은 실행을 어떻게 proof input으로 보는가"
+- Problem: The phrase "proof input" is too technical and the title does not state the comparison point.
+- Recommended title: "다른 zkEVM들은 실행 기록을 어떻게 검증 문제로 고정하는가"
+- Question answered: What is the common starting point before contrasting Tokamak?
+
+#### Slide 8
+
+- Current title: "Tokamak은 reusable block을 조립하는 쪽에 초점을 둔다"
+- Problem: The title uses `reusable block` before the audience has a clear visual model.
+- Recommended title: "Tokamak의 질문: 필요한 검사 블록을 어떻게 고르는가"
+- Question answered: What question distinguishes Tokamak's circuit-generation approach?
+
+#### Slide 9
+
+- Current title: "이 발표에서 필요한 최소 용어"
+- Problem: The title is generic and does not explain why these terms are needed now.
+- Recommended title: "검증 회로를 말하기 위한 최소 용어"
+- Question answered: Which proof-system words are needed before discussing circuit generation?
+
+#### Slide 10
+
+- Current title: "Tokamak 회로 유도 직관"
+- Problem: The title is vague; "직관" does not tell the audience what they will learn.
+- Recommended title: "고정된 블록을 골라 함수 특화 회로를 만든다"
+- Question answered: What is the simple mental model for Tokamak circuit generation?
+
+#### Slide 11
+
+- Current title: "Tokamak zk-EVM 전체 흐름"
+- Problem: The title names a system overview, but the slide should explain role boundaries.
+- Recommended title: "네 구성요소는 서로 다른 산출물을 만든다"
+- Question answered: What does each component contribute to proof generation and verification?
+
+#### Slide 12
+
+- Current title: "두 compiler는 서로 다른 질문에 답한다"
+- Problem: This title is mostly good, but it should name the two questions more concretely.
+- Recommended title: "하나는 블록을 준비하고, 하나는 실행 기록을 회로 입력으로 바꾼다"
+- Question answered: How are `qap-compiler` and `synthesizer` different?
+
+#### Slide 13
+
+- Current title: "Field-programmable circuit idea"
+- Problem: English title is abstract and does not say what the paper idea does for this talk.
+- Recommended title: "논문의 모델: 고정된 블록과 연결표로 회로를 만든다"
+- Question answered: What conceptual model from the paper explains Tokamak's approach?
+
+#### Slide 14
+
+- Current title: "이제 기술 용어를 붙인다"
+- Problem: This is process-oriented, not concept-oriented; it tells the audience what the presenter is doing, not what the audience learns.
+- Recommended title: "블록, 블록 복사본, 값 연결의 이름"
+- Question answered: What are the technical names for the three objects just introduced?
+
+#### Slide 15
+
+- Current title: "local correctness와 interconnection correctness"
+- Problem: The title is jargon-heavy and partly English; it does not tell the audience the simple distinction.
+- Recommended title: "각 블록을 검사하고, 블록 사이의 같은 값을 연결한다"
+- Question answered: What are the two kinds of checks in the generated verification circuit?
+
+#### Slide 16
+
+- Current title: "EVM 트랜잭션의 실행 기록이 block layout과 value connections를 만든다"
+- Problem: The title is conceptually right but too term-heavy for first exposure.
+- Recommended title: "실행 기록은 어떤 블록을 놓고 어떤 값을 연결할지 알려준다"
+- Question answered: How does an execution record become a block layout and value connections?
+
+#### Slide 17
+
+- Current title: "Tokamak zk-EVM synthesis pipeline"
+- Problem: Generic pipeline title; it does not say what the synthesizer does.
+- Recommended title: "Synthesizer는 실행 기록을 따라가며 회로 입력을 만든다"
+- Question answered: What does the synthesizer consume and emit?
+
+#### Slide 18
+
+- Current title: "생성물은 무엇을 의미하는가"
+- Problem: Generic and context-free; it does not name the generated objects.
+- Recommended title: "생성물은 값, 공개 입력, 값 연결이다"
+- Question answered: What are the main outputs of synthesis?
+
+#### Slide 19
+
+- Current title: "private-state `mintNotes1`: Solidity-level logic"
+- Problem: It sounds like a source-code walkthrough and foregrounds Solidity rather than the teaching purpose.
+- Recommended title: "`mintNotes1`은 왜 좋은 회로 생성 예제인가"
+- Question answered: Why is this function a useful example for the model?
+
+#### Slide 20
+
+- Current title: "`mintNotes1` 실행 기록은 어떤 검증 목표로 나뉘는가"
+- Problem: This title is clear, but it should connect the goals to circuit blocks.
+- Recommended title: "`mintNotes1`의 검증 목표는 어떤 블록 그룹으로 나뉘는가"
+- Question answered: How do the function's obligations become groups of circuit blocks?
+
+#### Slide 21
+
+- Current title: "왜 같은 trusted circuit을 재사용할 수 있어야 하는가"
+- Problem: The title is a question, but it centers "why" rather than the reuse condition itself.
+- Recommended title: "같은 회로를 재사용하려면 성공 실행의 모양이 같아야 한다"
+- Question answered: What condition allows one trusted circuit to be reused?
+
+#### Slide 22
+
+- Current title: "어떤 contract entry가 같은 circuit을 재사용하기 쉬운가"
+- Problem: Reasonable, but still generic; it should foreground shape invariance.
+- Recommended title: "입력이 달라도 성공 실행의 모양이 같으면 재사용 가능하다"
+- Question answered: Which contract shapes preserve the same verification circuit?
+
+#### Slide 23
+
+- Current title: "variable note count를 fixed-arity functions로 쪼갠다"
+- Problem: Too implementation-specific and English-heavy; it assumes the audience already understands arity.
+- Recommended title: "Private-state DApp은 함수별로 다른 고정 모양을 만든다"
+- Question answered: How does the private-state example handle variable note counts?
+
+#### Slide 24
+
+- Current title: "잘못된 circuit shape를 신뢰하면 무엇이 깨지는가"
+- Problem: Good direction, but "circuit shape" should be tied to verification soundness.
+- Recommended title: "잘못된 회로 모양을 허용하면 검증 조건이 바뀐다"
+- Question answered: What fails if unsupported shapes are silently accepted?
+
+#### Slide 25
+
+- Current title: "오늘의 핵심 정리"
+- Problem: Generic but acceptable for the final main slide; the body needs stronger Korean takeaways.
+- Recommended title: "핵심 정리: 블록 선택, 값 연결, 재사용 조건"
+- Question answered: What are the three ideas the audience should remember?
+
+#### Slide 26
+
+- Current title: "Q&A를 위한 질문"
+- Problem: Fine as a backup/discussion title, but it should not be part of the main narrative.
+- Recommended title: "토론 질문"
+- Question answered: Which conceptual questions can guide discussion after the main story?
+
+#### Slide 27
+
+- Current title: "복잡한 EVM call 구조를 Synthesizer가 다루는 방식"
+- Problem: Mostly clear, but it should say the synthesizer follows an observed call structure, not constructs one.
+- Recommended title: "CALL 구조는 새로 추측하지 않고 실행 기록을 따라간다"
+- Question answered: How does the synthesizer handle nested calls?
+
+#### Slide 28
+
+- Current title: "EVM opcode family별 처리 직관"
+- Problem: Clear as a backup reference, but the title should mark it as reference material.
+- Recommended title: "참고: opcode family별 처리 직관"
+- Question answered: How should opcode families be interpreted during Q&A?
+
+#### Slide 29
+
+- Current title: "주요 출처"
+- Problem: Acceptable; the slide should ensure dates and source categories match the rewritten deck.
+- Recommended title: "주요 출처"
+- Question answered: Which papers, docs, and market sources support the talk?
+
 ### Global Rewrite Rules
 
 - Use "검증 회로" consistently for the audience-facing object being generated.
