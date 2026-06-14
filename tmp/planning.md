@@ -373,6 +373,205 @@ Slide titles must do more work than naming a topic. For this audience, the title
 - Recommended title: "주요 출처"
 - Question answered: Which papers, docs, and market sources support the talk?
 
+### Execution Plan Derived From The Diagnosis
+
+This section converts the slide-by-slide diagnosis into concrete rewrite work. The rewrite should proceed in phases rather than editing one slide at a time in isolation. Each phase must preserve the audience model: introductory SNARK graduate students who do not know Tokamak zk-EVM.
+
+#### Phase 1: Rebuild The Conceptual Bridge After The Main Question
+
+- Target slides: current slides 6-8.
+- Goal:
+  - Connect the main question from slide 5 to the idea that a verification circuit checks an already chosen execution path.
+  - Show why different successful executions may require different checks.
+  - Prepare the Tokamak contrast without introducing implementation details too early.
+- Required slide outputs:
+  1. Slide: "검증 회로는 실행 경로를 찾지 않고 확인한다"
+     - Visual: candidate execution path -> checks -> accept/reject.
+     - Body: one example where a branch or loop count changes the checks.
+     - Remove: English-only bullet list such as `branch choice`, `loop count`, `intermediate dataflow`.
+  2. Slide: "다른 zkEVM들은 실행 기록을 어떻게 검증 문제로 고정하는가"
+     - Visual: three cards for Scroll, Linea, Aztec.
+     - Body: one sentence per project, phrased as "what becomes proof input" and "what checks it."
+     - Remove: dense comparison table.
+     - Note: explain Aztec as a privacy-first contrast, not as a direct EVM-trace equivalent.
+  3. Slide: "Tokamak의 질문: 필요한 검사 블록을 어떻게 고르는가"
+     - Visual: fixed block shelf -> selected blocks -> connected verification worksheet.
+     - Body: one sentence that the EVM transaction execution record determines block choice and connections.
+     - Remove: `preprinted blocks`, `solved transcript`, `custom worksheet` unless visually reworked and explained.
+- Completion criteria:
+  - A reader can explain why Tokamak needs a circuit-generation step before seeing any package names.
+  - No implementation package names appear in these slides.
+
+#### Phase 2: Rebuild The Reusable-Block Model
+
+- Target slides: current slides 9, 10, 13, 14, and 15.
+- Goal:
+  - Replace glossary-first explanation with a concrete object model.
+  - Introduce technical terms only after the plain model is visible.
+  - Explain local block checks and value-connection checks using one small example.
+- Required slide outputs:
+  1. Slide: "고정된 블록을 골라 함수 특화 회로를 만든다"
+     - Visual: fixed block library, selected block copies, value lines.
+     - Body: define reusable block, block copy, value connection in plain Korean.
+  2. Slide: "블록, 블록 복사본, 값 연결의 이름"
+     - Visual: same diagram with technical labels overlaid.
+     - Body: `subcircuit`, `placement`, `permutation` only.
+     - Remove: generic SNARK vocabulary not needed here.
+  3. Slide: "논문의 모델: 고정된 블록과 연결표로 회로를 만든다"
+     - Visual equation: fixed block library + selected block copies + equality connections = function-specific verification circuit.
+     - Source: Jang and Judd ePrint 2024/507.
+  4. Slide: "각 블록을 검사하고, 블록 사이의 같은 값을 연결한다"
+     - Visual: one block computes a value, another block consumes it, equality line connects the wires.
+     - Body: local checks verify each block; connection checks verify shared values.
+- Remove or merge:
+  - Current generic SNARK vocabulary slide unless terms are needed locally.
+  - Duplicated intuition/technical-name slides.
+  - Abstract formulas that are not connected to the running visual.
+- Completion criteria:
+  - The audience sees one repeated visual model across all concept slides.
+  - `subcircuit`, `placement`, and `permutation` appear only after the plain visual objects are introduced.
+
+#### Phase 3: Rebuild The Tokamak Component Explanation
+
+- Target slides: current slides 11, 12, 16, and 18.
+- Goal:
+  - Explain `qap-compiler`, `synthesizer`, `prover`, and `verifier` by input/output role, not by package name alone.
+  - Make the two compiler roles clear without overloading the slide with implementation details.
+- Required slide outputs:
+  1. Slide: "네 구성요소는 서로 다른 산출물을 만든다"
+     - Visual: four boxes in sequence.
+     - `qap-compiler`: fixed reusable block library.
+     - `synthesizer`: EVM bytecode + EVM transaction execution record + public/private inputs -> witness + value connections.
+     - `prover`: proof.
+     - `verifier`: proof check against accepted circuit and public input.
+  2. Slide: "하나는 블록을 준비하고, 하나는 실행 기록을 회로 입력으로 바꾼다"
+     - Visual: two columns with a time boundary.
+     - Left: library compiler, before concrete execution record.
+     - Right: execution-record compiler, for one concrete execution record.
+  3. Slide: "생성물은 값, 공개 입력, 값 연결이다"
+     - Visual: output bundle from synthesizer.
+     - Body: values used inside the circuit, public inputs seen by verifier, value connections for equality/copy checks.
+- Remove or move:
+  - Repeated component cards that do not add new information.
+  - `witness-oriented data` phrase.
+  - Implementation source names from main body; keep only short source footers.
+- Completion criteria:
+  - A reader can say what each component consumes and emits.
+  - The `qap-compiler` vs `synthesizer` distinction is visible from the diagram alone.
+
+#### Phase 4: Add A Concrete Synthesizer Mechanics Example
+
+- Target slides: current slides 16-18, possibly one new slide if needed.
+- Goal:
+  - Show how an EVM transaction execution record becomes block layout and value connections using a tiny example before `mintNotes1`.
+- Required slide output:
+  - Slide: "실행 기록은 어떤 블록을 놓고 어떤 값을 연결할지 알려준다"
+    - Visual: two synchronized tracks.
+    - Top track: observed events such as stack value, arithmetic operation, memory/storage use.
+    - Bottom track: selected block copies and value-connection lines.
+    - Body: synthesizer does not invent the path; it records verification obligations from the observed execution record.
+- Remove or merge:
+  - Bullet-only slide that says "execution record makes block layout and value connections" without an example.
+- Completion criteria:
+  - The audience can see one value flowing through at least two selected blocks.
+  - The slide makes clear that block selection and value connection are different outputs.
+
+#### Phase 5: Rebuild The `mintNotes1` Example As A Circuit-Generation Example
+
+- Target slides: current slides 19 and 20.
+- Goal:
+  - Turn `mintNotes1` from a Solidity walkthrough into a worked example of function-specific verification circuit generation.
+- Required slide outputs:
+  1. Slide: "`mintNotes1`은 왜 좋은 회로 생성 예제인가"
+     - Visual: input -> note construction -> accounting -> storage update -> event/output.
+     - Body: only enough Solidity-level logic to understand the verification obligations.
+  2. Slide: "`mintNotes1`의 검증 목표는 어떤 블록 그룹으로 나뉘는가"
+     - Visual: four broad verification goals mapped to block groups.
+     - Groups:
+       - transaction/function binding;
+       - local EVM computation;
+       - storage/accounting consistency;
+       - output/event consistency.
+- Move to backup or speaker notes:
+  - Placement count `165`.
+  - Permutation entry count `3710`.
+  - Detailed fixture artifact names.
+- Completion criteria:
+  - The example explains the model, not the Solidity source code.
+  - Every visible detail supports "how a function-specific verification circuit is generated."
+
+#### Phase 6: Rebuild The Circuit-Reuse Argument
+
+- Target slides: current slides 21, 22, 23, and 24.
+- Goal:
+  - Make the same-circuit reuse condition the central design constraint.
+  - Show positive, negative, and conditionally safe contract shapes.
+  - State limits clearly: failed paths are out of scope; Tokamak zk-EVM does not automatically apply to every smart contract.
+- Required slide outputs:
+  1. Slide: "같은 회로를 재사용하려면 성공 실행의 모양이 같아야 한다"
+     - Visual: two successful calls with same block layout vs different block layout.
+     - Body: same kinds of blocks, same number of blocks, same value connections.
+  2. Slide: "입력이 달라도 성공 실행의 모양이 같으면 재사용 가능하다"
+     - Visual: three mini-contract shapes.
+     - Safe: fixed-arity function.
+     - Unsafe: variable successful loop count.
+     - Conditionally safe: branch exists but successful paths converge to the same shape.
+  3. Slide: "Private-state DApp은 함수별로 다른 고정 모양을 만든다"
+     - Visual: function families by arity, with explanation that each function selector can have its own trusted circuit.
+  4. Slide: "잘못된 회로 모양을 허용하면 검증 조건이 바뀐다"
+     - Visual: unsupported shape -> reject, not fallback.
+     - Body: wrong shape, nondeterminism, unsafe fallback with one concrete example each.
+- Remove or rewrite:
+  - Vague good/bad examples.
+  - Matrix callout that says "row" when rows are not the point.
+  - Text-heavy on-chain verifier explanation unless supported by visual.
+- Completion criteria:
+  - The reuse condition can be understood without the term `placement topology`.
+  - The deck explicitly states that only successful executions are considered for reuse.
+
+#### Phase 7: Rebuild Conclusion And Backup Boundary
+
+- Target slides: current slides 25-29.
+- Goal:
+  - End the main talk with three clear takeaways.
+  - Move detailed implementation questions to backup.
+  - Ensure references match the rewritten deck and current access dates.
+- Required slide outputs:
+  1. Main conclusion slide: "핵심 정리: 블록 선택, 값 연결, 재사용 조건"
+     - Takeaway 1: Tokamak generates function-specific verification circuits from reusable blocks.
+     - Takeaway 2: The synthesizer follows the EVM transaction execution record and creates values plus value connections.
+     - Takeaway 3: Reuse is valid only when all successful executions preserve the same circuit shape.
+  2. Optional discussion slide: "토론 질문"
+     - Keep only high-level conceptual questions.
+  3. Backup slide: "CALL 구조는 새로 추측하지 않고 실행 기록을 따라간다"
+     - Show parent/child calldata and return-data movement.
+  4. Backup slide: "참고: opcode family별 처리 직관"
+     - Keep as reference-only material.
+  5. References slide: update source categories and access dates.
+- Completion criteria:
+  - Main narrative ends before backup begins.
+  - Backup slides are clearly marked and not required for core understanding.
+  - Final references align with the actual rewritten slides.
+
+#### Phase 8: Final Consistency Pass
+
+- Target: entire deck.
+- Checks:
+  - Slide titles form a chain of reasoning.
+  - Every main slide has one question and one answer.
+  - No main slide introduces more than two new technical terms.
+  - `검증 회로` is used consistently for the generated circuit object.
+  - `EVM 트랜잭션의 실행 기록` is used consistently instead of "replay."
+  - Footers contain references only.
+  - No visible text is below 14 pt.
+  - Backup slides are visually and structurally separated from main slides.
+  - Market/funding slides still cite current sources and do not overclaim.
+- Completion criteria:
+  - Run text searches for forbidden or deprecated terms.
+  - Count slides and slide numbers.
+  - Review all titles and callout boxes.
+  - If browser verification is available, inspect the deck visually at desktop size.
+
 ### Global Rewrite Rules
 
 - Use "검증 회로" consistently for the audience-facing object being generated.
