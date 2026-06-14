@@ -97,94 +97,32 @@ Use these sources only for the opening motivation. They should not be used to cl
   - PSE roadmap for 2025 and beyond: PSE frames privacy as a first-class citizen across Ethereum: `https://pse.dev/blog/pse-roadmap-2025`.
   - Kohaku SDK coverage: The Defiant reported that the EF Kohaku Initiative released an SDK for wallet-level privacy integration using shielded pool protocols such as Railgun, Tornado Cash, and Privacy Pools: `https://thedefiant.io/news/blockchains/ethereum-foundation-kohaku-sdk-privacy-wallet-integration-bb4t52`.
 
-## Opening Evidence Visuals
+## Opening Evidence Visual
 
-The deck should add a visually stronger opening before the technical material. The goal is to show that EVM execution proofs matter because real projects use ZKP for two application-level outcomes: scaling execution and making selected data private.
+The opening should be short: at most two slides before the technical transition. It should motivate EVM execution proofs without turning the seminar into a market report.
 
 ### Opening Narrative Claim
 
-The opening should not claim that the Ethereum ZKP market has fully shifted from scalability to privacy. The sourced data does not support that stronger claim: scaling-oriented ZK systems still dominate by TVS and disclosed capital.
+Do not claim that the Ethereum ZKP market has fully shifted from scalability to privacy. The sourced data does not support that stronger claim: scaling-oriented ZK systems still dominate by TVS and disclosed capital.
 
-Use the following more defensible framing:
+Use this framing:
 
-> Ethereum ZKP adoption has been led by scalability, especially rollups and zkEVM systems. Recently, privacy has re-emerged as a distinct core application area, supported by Ethereum Foundation privacy initiatives, wallet-level privacy tooling, shielded pool protocols, and new privacy-focused funding rounds.
+> Ethereum ZKP adoption has been led by scalability, especially rollups and zkEVM systems. Recently, privacy has re-emerged as a distinct core application area. Both directions need the same technical foundation: an EVM execution must be turned into a precise arithmetic statement.
 
-This framing lets the deck start with a stronger story without overstating the evidence. The transition to Tokamak zk-EVM should be: ZKP first became economically visible through scaling, privacy is now returning as an urgent application layer concern, and both use cases depend on turning EVM execution into a precise arithmetic statement.
+### Single Evidence Slide
 
-### Visual A: Two Motives For ZKP In Ethereum Execution
+Use one compact visual with two columns and a short source footnote.
 
-Use a two-column visual:
+| Direction | Evidence to show | Interpretation |
+| --- | --- | --- |
+| Scalability | L2BEAT scaling total TVS `~$39.31B`, rollup TVS `~$32.78B`, selected ZK scaling examples such as Starknet, Linea, ZKsync Era, Scroll, and Loopring. | Scaling is still the larger deployed-value and capital-formation story. |
+| Privacy | L2BEAT privacy examples: Tornado Cash, Railgun, and Privacy Pools; combined tracked TVL `~$469.77M`, combined 30D volume `~$173.90M`; EF Privacy Cluster, PSE roadmap, Kohaku SDK, and Aztec/0xbow funding. | Privacy is not larger, but it is becoming a renewed Ethereum roadmap and product priority. |
 
-```text
-ZKP for EVM execution
-├─ Scalability: compact verification of many executions
-│  ├─ Rollup validation
-│  ├─ Lower repeated verifier work
-│  └─ Motivation for zkEVM and ZK rollup systems
-└─ Privacy: correctness without revealing all witness data
-   ├─ Private account/activity systems
-   ├─ Private DeFi and transfer pools
-   └─ Motivation for encrypted or privacy-preserving Ethereum applications
-```
+Speaker note:
 
-### Visual B: Market-Usage Snapshot
-
-Use two adjacent bar charts with clearly separated metrics:
-
-1. Scaling market context:
-   - L2BEAT Ethereum scaling total TVS: `~$39.31B`.
-   - L2BEAT rollup TVS: `~$32.78B`.
-   - Selected ZK scaling project TVS bars:
-     - Starknet `~$418.20M`
-     - Linea `~$351.40M`
-     - ZKsync Era `~$233.95M`
-     - Scroll `~$43.53M`
-     - Loopring `~$8.63M`
-
-2. Privacy market context:
-   - Tornado Cash TVL `~$385.40M`, 30D volume `~$120.08M`.
-   - Railgun TVL `~$76.46M`, 30D volume `~$49.68M`.
-   - Privacy Pools TVL `~$7.91M`, 30D volume `~$4.14M`.
-   - Combined tracked TVL `~$469.77M`.
-   - Combined tracked 30D volume `~$173.90M`.
-
-The speaker note should explicitly state that TVS and TVL are different metrics and should not be added together. TVS is used for scaling systems because value is secured by L2s; TVL and 30D volume are used for privacy protocols because they represent funds and activity inside tracked privacy pools.
-
-The interpretation should be:
-
-- Scaling is still larger by deployed value and disclosed capital.
-- Privacy is not yet larger, but it is visibly becoming a renewed Ethereum roadmap and product priority.
-- The deck should present this as a shift in agenda and developer attention, not as a completed market-size inversion.
-
-### Visual C: Capital Formation Snapshot
-
-Use a second slide with disclosed funding and acquisition figures. Label it as non-exhaustive and source-dependent.
-
-Scaling-oriented disclosed capital:
-
-| Project or organization | ZKP/Ethereum relevance | Publicly reported figure |
-| --- | --- | ---: |
-| Matter Labs / ZKsync | Ethereum ZK scaling platform | `$458M` total funding |
-| StarkWare / Starknet | STARK-based Ethereum scaling | `~$261M` total funding |
-| Scroll | Ethereum zkEVM L2 | `$83M` total funding |
-| Taiko | Ethereum-equivalent ZK rollup | `$37M` total funding |
-| Polygon Mir + Hermez acquisitions | ZK scaling acquisitions | `$650M` combined acquisition value |
-
-Privacy-oriented disclosed capital:
-
-| Project or organization | ZKP/Ethereum relevance | Publicly reported figure |
-| --- | --- | ---: |
-| Aztec | Ethereum privacy / encrypted Ethereum | `$117M` disclosed Series A+B |
-| Nocturne Labs | Ethereum private accounts | `$6M` seed |
-| Nucleo | Private Ethereum multisig infrastructure | `$4M` seed |
-| 0xbow / Privacy Pools | Compliant Ethereum privacy pools | `$3.5M` seed |
-
-Planned chart encoding:
-
-- Use horizontal bars for the scaling-oriented figures because the range is large.
-- Use a separate horizontal bar chart for privacy-oriented figures so smaller privacy rounds remain readable.
-- Add a footnote: "Funding and acquisition values are not usage, revenue, or valuation; they only show disclosed capital committed to the design space."
-- Add a speaker note: "The capital data still favors scaling, while recent EF/Kohaku/PSE activity explains why privacy deserves attention as a rising second pillar rather than a replacement for scaling."
+- TVS, TVL, volume, funding, acquisition value, and valuation are different metrics. Do not put them on one numeric axis.
+- Funding and acquisition numbers may be mentioned orally or in a tiny side annotation, but they should not receive a separate slide unless the user explicitly asks for a market-focused deck.
+- The transition sentence should be: "Whether the target is scalability or privacy, the engineering problem we need now is the same: derive a verifiable arithmetic statement from an EVM replay."
 
 ## Core Thesis
 
@@ -209,12 +147,13 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 - Frame the answer around two practical goals:
   - scalability: many executions can be checked through compact proofs, reducing repeated verifier work and enabling rollup-style validation;
   - privacy: execution correctness can be argued while hiding selected witness data, depending on the statement and public-input design.
+- Use only one evidence slide for market and funding context. It should support the motivation, not become a separate topic.
 - Make the transition from application to mechanism:
   - ZKP makes EVM execution verifiable;
   - verifiable EVM execution requires an arithmetic statement;
   - Tokamak zk-EVM needs a way to derive that statement from a concrete replay.
 
-### 2. Motivation: Why Replay-Dedicated Circuits Exist
+### 2. Why Replay-Dedicated Circuits Exist
 
 - Explain the technical validation problem: many nodes want confidence in execution without re-executing every step.
 - Explain why RAM-like execution is difficult for circuit-specific SNARKs: the executed instruction trace can depend on input.
@@ -224,7 +163,7 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
   - use a field-programmable subcircuit-library approach.
 - Position Tokamak zk-EVM as using the third idea.
 
-### 3. SNARK Preliminaries for This Talk
+### 3. SNARK Preliminaries For This Talk
 
 - Define statement, witness, public instance, circuit, and proof in introductory terms.
 - Explain R1CS/QAP only at the level needed for the audience:
@@ -350,28 +289,26 @@ Tokamak zk-EVM does not derive a circuit by compiling the whole EVM program from
 
 1. Title and guiding question.
 2. Why EVM execution proofs matter: scalability and privacy.
-3. Market-usage visual: scaling TVS vs privacy TVL/volume.
-4. Capital-formation visual: disclosed ZK scaling and ZK privacy funding.
-5. From application goals to arithmetic statements.
-6. Why RAM/EVM execution challenges circuit-specific SNARKs.
-7. Minimal SNARK and circuit vocabulary.
-8. Field-programmable circuit idea.
-9. Subcircuit library, placement, and wire map.
-10. Arithmetic constraints vs copy constraints.
-11. Ethereum replay as a source of placements.
-12. Tokamak zk-EVM synthesis pipeline.
-13. Generated artifacts and their meanings.
-14. Example replay-to-placement walkthrough.
-15. Why a replay-dedicated circuit is not automatically program-dedicated.
-16. Conditions for stable output under changed inputs.
-17. Engineering strategies for stability.
-18. Trade-offs and limitations.
-19. Summary and discussion questions.
+3. One evidence slide: scaling still leads in size, privacy is re-emerging.
+4. From application goals to arithmetic statements.
+5. Why RAM/EVM execution challenges circuit-specific SNARKs.
+6. Minimal SNARK and circuit vocabulary.
+7. Field-programmable circuit idea.
+8. Subcircuit library, placement, and wire map.
+9. Arithmetic constraints vs copy constraints.
+10. Ethereum replay as a source of placements.
+11. Tokamak zk-EVM synthesis pipeline.
+12. Generated artifacts and their meanings.
+13. Example replay-to-placement walkthrough.
+14. Why a replay-dedicated circuit is not automatically program-dedicated.
+15. Conditions for stable output under changed inputs.
+16. Engineering strategies, trade-offs, and limitations.
+17. Summary and discussion questions.
 
 ## Verification Checklist For The Future Deck
 
 - The first half can be understood without reading the repository.
-- Opening market and funding visuals have source labels, access date, and metric definitions.
+- The single opening evidence slide has source labels, access date, and metric definitions.
 - TVS, TVL, 30D volume, funding, acquisition values, and valuation are not mixed as if they were the same metric.
 - The introduction does not claim a completed shift from scalability to privacy; it claims that scalability still leads in size while privacy is re-emerging as an important Ethereum ZKP priority.
 - Every implementation detail is tied back to the conceptual model.
