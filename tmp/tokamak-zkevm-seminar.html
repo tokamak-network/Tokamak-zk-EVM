@@ -775,11 +775,6 @@
       width: 27.66%;
     }
 
-    .final-comparison tr:last-child td {
-      background: var(--violet-soft);
-      font-weight: 850;
-    }
-
     .table-block {
       display: grid;
       gap: 10px;
@@ -1672,7 +1667,7 @@
         </div>
       </main>
       <footer>
-        <div class="source">Sources: <a href="https://docs.scroll.io/en/technology/zkevm/zkevm-overview/">Scroll zkEVM overview</a>, <a href="https://github.com/Consensys/linea-tracer">Linea tracer</a>, <a href="https://docs.aztec.network/developers/docs/foundational-topics/advanced/circuits/public_execution">Aztec public execution</a>, <a href="https://docs.aztec.network/developers/docs/foundational-topics/advanced/circuits/private_kernel">Aztec private kernel</a>, <a href="https://docs.aztec.network/developers/docs/resources/glossary">Aztec glossary</a>.</div>
+        <div class="source">Sources: <a href="https://docs.scroll.io/en/technology/zkevm/zkevm-overview/">Scroll zkEVM overview</a>, <a href="https://github.com/Consensys/linea-tracer">Linea tracer</a>, <a href="https://docs.aztec.network/developers/docs/foundational-topics/advanced/circuits/public_execution">Aztec public execution</a>, <a href="https://docs.aztec.network/developers/overview">Aztec overview</a>, <a href="https://docs.aztec.network/developers/docs/resources/glossary">Aztec glossary</a>.</div>
         <div class="slide-number">7 / 20</div>
       </footer>
     </section>
@@ -2068,18 +2063,18 @@
             </tr>
           </thead>
           <tbody>
-            <tr><td>검증 대상</td><td>범용 VM/RAM step 실행</td><td>EVM 함수의 성공 실행 모양</td><td>private function proof + private kernel</td></tr>
-            <tr><td>회로 단위</td><td>고정 범용 실행 회로</td><td>함수별 audit 검증 회로</td><td>private function별 회로 + kernel phase</td></tr>
-            <tr><td>경로 처리</td><td>trace witness + step transition</td><td>실행 기록 → placement topology + wire map</td><td>function proof → recursive kernel accumulation</td></tr>
-            <tr><td>재사용 조건</td><td>같은 VM 회로, 다른 trace</td><td>같은 함수, 같은 성공 실행 모양</td><td>같은 private function circuit + kernel protocol</td></tr>
-            <tr><td>강점</td><td>범용성</td><td>EVM 호환성과 회로 효율</td><td>privacy-native 함수 검증</td></tr>
-            <tr><td>비용 / 제약</td><td>step 수 + RAM/memory 검증 비용</td><td>회로 생성 올바름 = audit 신뢰 영역</td><td>client-side proving + kernel overhead</td></tr>
-            <tr><td>핵심 통찰</td><td>프로그램을 범용 기계 위에서 검증</td><td>EVM 실행을 함수 전용 회로로 고정</td><td>private proof를 kernel이 연결</td></tr>
+            <tr><td>검증 대상</td><td>특정 VM의 step 실행</td><td>EVM에서 특정 함수의 실행</td><td>임의 함수의 실행</td></tr>
+            <tr><td>회로 종류</td><td>VM 전용 단일 회로</td><td>EVM 전용 subcircuits + 함수 전용 topology</td><td>함수 전용 회로</td></tr>
+            <tr><td>재사용 조건</td><td>동일 VM</td><td>동일 함수 실행 경로</td><td>동일 함수 실행 경로</td></tr>
+            <tr><td>새로운 회로 audit 범위</td><td>없음</td><td>함수 전용 topology</td><td>함수 전용 회로의 모든 변수</td></tr>
+            <tr><td>실행 경로 취급</td><td>witness</td><td>public instance</td><td>public instance</td></tr>
+            <tr><td>강점</td><td>범용성</td><td>EVM 호환성, 회로 효율, 낮은 audit 비용</td><td>회로 효율</td></tr>
+            <tr><td>비용 / 제약</td><td>지나친 회로 크기</td><td>새로운 함수에 새로운 audit 필요</td><td>새로운 함수에 새로운 audit 필요</td></tr>
           </tbody>
         </table>
       </main>
       <footer>
-        <div class="source">Sources: <a href="https://eprint.iacr.org/2024/507">Jang-Judd 2024/507</a>, <a href="https://tokamak-network.github.io/tokamak-zk-evm-docs/frontend/synthesizer/synthesizer-code-examples.html">Tokamak synthesizer docs</a>, <a href="https://docs.aztec.network/developers/docs/foundational-topics/advanced/circuits/private_kernel">Aztec private kernel docs</a>.</div>
+        <div class="source">Sources: <a href="https://eprint.iacr.org/2024/507">Jang-Judd 2024/507</a>, <a href="https://tokamak-network.github.io/tokamak-zk-evm-docs/frontend/synthesizer/synthesizer-code-examples.html">Tokamak synthesizer docs</a>, <a href="https://docs.aztec.network/developers/overview">Aztec overview</a>.</div>
         <div class="slide-number">20 / 20</div>
       </footer>
     </section>
