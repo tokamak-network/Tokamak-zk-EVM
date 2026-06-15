@@ -824,70 +824,6 @@
       font-weight: 900;
     }
 
-    .io-triangle {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      grid-template-rows: auto auto;
-      gap: 16px;
-      align-items: stretch;
-    }
-
-    .io-triangle .top {
-      grid-column: 1 / -1;
-      justify-self: center;
-      width: 54%;
-    }
-
-    .io-triangle .node {
-      border: 2px solid var(--accent);
-      background: var(--panel);
-      min-height: 130px;
-      padding: 18px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      text-align: center;
-      font-weight: 850;
-    }
-
-    .value-network {
-      display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 10px;
-      align-items: center;
-    }
-
-    .value-network .vnode {
-      min-height: 92px;
-      border: 1px solid var(--line);
-      background: var(--panel);
-      border-top: 5px solid var(--accent);
-      padding: 12px;
-      text-align: center;
-      font-weight: 800;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .value-network .vedge {
-      height: 4px;
-      background: var(--accent);
-      position: relative;
-    }
-
-    .value-network .vedge::after {
-      content: "";
-      position: absolute;
-      right: -2px;
-      top: -6px;
-      width: 0;
-      height: 0;
-      border-top: 8px solid transparent;
-      border-bottom: 8px solid transparent;
-      border-left: 12px solid var(--accent);
-    }
-
     .risk-axis {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
@@ -968,8 +904,6 @@
       .fork-diagram,
       .signal-timeline,
       .block-graph,
-      .io-triangle,
-      .value-network,
       .risk-axis,
       .paper-figures,
       .lane {
@@ -1028,7 +962,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">1 / 30</div>
+        <div class="slide-number">1 / 25</div>
       </footer>
     </section>
 
@@ -1070,7 +1004,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">2 / 30</div>
+        <div class="slide-number">2 / 25</div>
       </footer>
     </section>
 
@@ -1111,7 +1045,7 @@
       </main>
       <footer>
         <div class="source">Sources: <a href="https://l2beat.com/scaling/tvs">L2BEAT scaling TVS</a>, <a href="https://defillama.com/chains">DefiLlama chains</a>, <a href="https://www.coingecko.com/en/categories/layer-2">CoinGecko L2</a>, <a href="https://www.coingecko.com/en/categories/zero-knowledge-zk">CoinGecko ZK</a>, <a href="https://www.coingecko.com/en/categories/privacy">CoinGecko Privacy</a>, <a href="https://www.coingecko.com/en/categories/privacy-coins">Privacy Coins</a>, <a href="https://defillama.com/protocols/privacy">DefiLlama Privacy</a>. Accessed 2026-06-15.</div>
-        <div class="slide-number">3 / 30</div>
+        <div class="slide-number">3 / 25</div>
       </footer>
     </section>
 
@@ -1135,7 +1069,7 @@
       </main>
       <footer>
         <div class="source">Sources: <a href="https://experts.bitwiseinvestments.com/cio-memos/canton-arc-and-tempo-three-lessons-about-crypto">Bitwise</a>, <a href="https://www.coindesk.com/business/2026/05/12/privacy-emerges-as-crypto-s-next-killer-app-with-arc-canton-and-tempo-topping-usd1-billion-in-funding">CoinDesk</a>, <a href="https://medium.com/aztec-protocol/aztec-raises-100-million-to-build-encrypted-ethereum-dd5062ba949c">Aztec</a>, <a href="https://www.globenewswire.com/news-release/2025/11/18/3190435/0/en/0xbow-closes-3-5m-round-for-compliant-crypto-privacy-technology-following-ethereum-foundation-integration.html">GlobeNewswire</a>, <a href="https://crypto.news/payy-raises-6m-seed-to-build-private-stablecoin-payments-on-zero-knowledge-rails/">crypto.news</a>, <a href="https://blog.ethereum.org/2025/10/08/privacy-commitment">EF Privacy</a>, <a href="https://pse.dev/blog/pse-roadmap-2025">PSE roadmap</a>, <a href="https://thedefiant.io/news/defi/privacy-pools-go-live-on-ethereum-with-vitalik-buterin-as-one-of-the-first-users">Privacy Pools</a>, <a href="https://thedefiant.io/news/blockchains/ethereum-foundation-kohaku-sdk-privacy-wallet-integration-bb4t52">Kohaku</a>.</div>
-        <div class="slide-number">4 / 30</div>
+        <div class="slide-number">4 / 25</div>
       </footer>
     </section>
 
@@ -1160,7 +1094,7 @@
       </main>
       <footer>
         <div class="source">Reference: Jang and Judd, <a href="https://eprint.iacr.org/2024/507">IACR ePrint 2024/507</a>.</div>
-        <div class="slide-number">5 / 30</div>
+        <div class="slide-number">5 / 25</div>
       </footer>
     </section>
 
@@ -1187,7 +1121,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">6 / 30</div>
+        <div class="slide-number">6 / 25</div>
       </footer>
     </section>
 
@@ -1213,7 +1147,7 @@
       </main>
       <footer>
         <div class="source">Sources: <a href="https://docs.scroll.io/en/technology/zkevm/zkevm-overview/">Scroll zkEVM overview</a>, <a href="https://github.com/Consensys/linea-tracer">Linea tracer</a>, <a href="https://docs.aztec.network/developers/docs/foundational-topics/advanced/circuits/public_execution">Aztec public execution</a>, <a href="https://docs.aztec.network/developers/docs/foundational-topics/advanced/circuits/private_kernel">Aztec private kernel</a>, <a href="https://docs.aztec.network/developers/docs/resources/glossary">Aztec glossary</a>.</div>
-        <div class="slide-number">7 / 30</div>
+        <div class="slide-number">7 / 25</div>
       </footer>
     </section>
 
@@ -1255,7 +1189,7 @@
       </main>
       <footer>
         <div class="source">Sources: <a href="https://docs.scroll.io/en/technology/zkevm/zkevm-overview/">Scroll zkEVM overview</a>, <a href="https://github.com/Consensys/linea-tracer">Linea tracer</a>, <a href="https://docs.aztec.network/developers/docs/foundational-topics/advanced/circuits/public_execution">Aztec AVM docs</a>, <a href="https://eprint.iacr.org/2024/507">Jang-Judd 2024/507</a>.</div>
-        <div class="slide-number">8 / 30</div>
+        <div class="slide-number">8 / 25</div>
       </footer>
     </section>
 
@@ -1270,11 +1204,11 @@
           <div class="graph-edge">+</div>
           <div class="graph-node">EVM 실행 기록<br><span class="small">operation sequence</span></div>
           <div class="graph-edge">→</div>
-          <div class="graph-node">함수 특화 검증 회로<br><span class="small">placements + value connections</span></div>
+          <div class="graph-node">함수 특화 검증 회로<br><span class="small">placements + wire map</span></div>
         </div>
       </main>
       <footer>
-        <div class="slide-number">9 / 30</div>
+        <div class="slide-number">9 / 25</div>
       </footer>
     </section>
 
@@ -1291,16 +1225,16 @@
           </figure>
           <figure class="paper-figure">
             <img src="assets/figure-4-crop.png" alt="Paper Figure 4 showing a circuit composed from subcircuit placements and a wire map">
-            <figcaption>Figure 4: placements and value connections</figcaption>
+            <figcaption>Figure 4: placements and wire map</figcaption>
           </figure>
         </div>
         <div class="callout wide">
-          <p>검증 회로 생성은 “새 언어를 만드는 일”이 아니라, subcircuit placement를 만들고 그 사이의 value connection을 기록하는 일이다.</p>
+          <p>검증 회로 생성은 “새 언어를 만드는 일”이 아니라, subcircuit placement와 그 사이의 wire map을 정하는 일이다.</p>
         </div>
       </main>
       <footer>
         <div class="source">Source: Jang and Judd, <a href="https://eprint.iacr.org/2024/507">IACR ePrint 2024/507</a>, Figures 3-4.</div>
-        <div class="slide-number">10 / 30</div>
+        <div class="slide-number">10 / 25</div>
       </footer>
     </section>
 
@@ -1315,69 +1249,15 @@
           <tbody>
             <tr><td>재사용 회로 조각</td><td>subcircuit</td><td>작은 검증 규칙</td></tr>
             <tr><td>선택된 사용 자리</td><td>placement</td><td>특정 실행 안의 subcircuit 사용</td></tr>
-            <tr><td>값 연결</td><td>value connection</td><td>동일 값 관계</td></tr>
+            <tr><td>연결표</td><td>wire map</td><td>동일 값 관계</td></tr>
           </tbody>
         </table>
         <div class="callout wide">
-          <p>이후 용어는 subcircuit, placement, value connection으로 통일한다. permutation은 value connection의 기술적 표현으로만 다룬다.</p>
+          <p>이후 용어는 subcircuit, placement, wire map으로 통일한다. wire map은 placement 사이의 wiring을 기록한다.</p>
         </div>
       </main>
       <footer>
-        <div class="slide-number">11 / 30</div>
-      </footer>
-    </section>
-
-    <section class="slide" id="slide-10">
-      <header>
-        <div class="kicker">Paper Model</div>
-        <h2>논문의 subcircuit과 연결표 모델</h2>
-      </header>
-      <main>
-        <div class="equation">
-          <div class="piece">subcircuit library</div>
-          <div class="op">+</div>
-          <div class="piece">placements</div>
-          <div class="op">+</div>
-          <div class="piece">equality connections</div>
-          <div class="op">=</div>
-          <div class="piece">function-specific verification circuit</div>
-        </div>
-        <div class="callout">
-          <p>Field-programmable circuit의 핵심은 expensive fixed basis를 재사용하면서, 실행에 필요한 layout과 연결표만 바꾸는 것이다.</p>
-        </div>
-      </main>
-      <footer>
-        <div class="source">Source: Jang and Judd, <a href="https://eprint.iacr.org/2024/507">IACR ePrint 2024/507</a>.</div>
-        <div class="slide-number">12 / 30</div>
-      </footer>
-    </section>
-
-    <section class="slide" id="slide-11">
-      <header>
-        <div class="kicker">Two Checks</div>
-        <h2>Placement 내부 검사와 placement 사이 연결</h2>
-      </header>
-      <main>
-        <table class="matrix-table">
-          <thead><tr><th>Check layer</th><th>Local relation</th><th>Cross-placement relation</th><th>Example</th></tr></thead>
-          <tbody>
-            <tr><td>placement 내부</td><td>single placement</td><td>-</td><td>x + y = z</td></tr>
-            <tr><td>placement 사이</td><td>-</td><td>value connection</td><td>A.out = B.in</td></tr>
-          </tbody>
-        </table>
-        <div class="block-graph" style="margin-top:20px">
-          <div class="graph-node">Placement A<br><span class="small">output value</span></div>
-          <div class="graph-edge">=</div>
-          <div class="graph-node">Value connection<br><span class="small">same value</span></div>
-          <div class="graph-edge">=</div>
-          <div class="graph-node">Placement B<br><span class="small">input value</span></div>
-        </div>
-        <div class="callout wide">
-          <p>실행 기록은 어떤 placement가 필요한지와 어떤 value connection이 필요한지를 동시에 알려준다.</p>
-        </div>
-      </main>
-      <footer>
-        <div class="slide-number">13 / 30</div>
+        <div class="slide-number">11 / 25</div>
       </footer>
     </section>
 
@@ -1390,18 +1270,18 @@
         <div class="diagram">
           <div class="flow">
             <div class="node"><span class="label">qap-compiler</span><span class="detail">고정된 subcircuit library</span></div>
-            <div class="node"><span class="label">synthesizer</span><span class="detail">witness + value connections</span></div>
+            <div class="node"><span class="label">synthesizer</span><span class="detail">witness + wire map</span></div>
             <div class="node"><span class="label">prover</span><span class="detail">SNARK proof</span></div>
             <div class="node"><span class="label">verifier</span><span class="detail">public input 기반 proof check</span></div>
           </div>
         </div>
         <div class="callout">
-          <p>qap-compiler는 subcircuit library를 만들고, synthesizer는 특정 EVM 함수 실행에 필요한 placement와 value connection을 만든다.</p>
+          <p>qap-compiler는 subcircuit library를 만들고, synthesizer는 특정 EVM 함수 실행에 필요한 placement와 wire map을 만든다.</p>
         </div>
       </main>
       <footer>
         <div class="source">Source: Tokamak zk-EVM repository README.</div>
-        <div class="slide-number">14 / 30</div>
+        <div class="slide-number">12 / 25</div>
       </footer>
     </section>
 
@@ -1415,30 +1295,12 @@
           <thead><tr><th>Compiler</th><th>When</th><th>Input</th><th>Output</th><th>Reuse scope</th></tr></thead>
           <tbody>
             <tr><td><code>qap-compiler</code></td><td>offline</td><td>subcircuit definitions</td><td>subcircuit library</td><td>library version</td></tr>
-            <tr><td><code>synthesizer</code></td><td>per execution record</td><td>bytecode, instance, library</td><td>witness, value connections</td><td>same execution shape</td></tr>
+            <tr><td><code>synthesizer</code></td><td>per execution record</td><td>bytecode, instance, library</td><td>witness, wire map</td><td>same execution shape</td></tr>
           </tbody>
         </table>
       </main>
       <footer>
-        <div class="slide-number">15 / 30</div>
-      </footer>
-    </section>
-
-    <section class="slide" id="slide-14">
-      <header>
-        <div class="kicker">Synthesizer Output</div>
-        <h2>Synthesizer 산출물</h2>
-      </header>
-      <main>
-        <div class="io-triangle">
-          <div class="node top">synthesizer output</div>
-          <div class="node">witness<br><span class="small">private computation values</span></div>
-          <div class="node">public input<br><span class="small">verifier-visible values</span></div>
-          <div class="node top">value connections<br><span class="small">same-value relation</span></div>
-        </div>
-      </main>
-      <footer>
-        <div class="slide-number">16 / 30</div>
+        <div class="slide-number">13 / 25</div>
       </footer>
     </section>
 
@@ -1456,72 +1318,16 @@
           </div>
           <div class="lane">
             <div class="lane-title">생성되는 검증 회로 조각</div>
-            <div class="lane-flow"><span class="block">ADD placement</span><span class="block">memory placement</span><span class="block">consumer placement</span><span class="block">z value connection</span></div>
+            <div class="lane-flow"><span class="block">ADD placement</span><span class="block">memory placement</span><span class="block">consumer placement</span><span class="block">z wire map entry</span></div>
             <span class="tag gold">synthesizer output</span>
           </div>
         </div>
         <div class="callout">
-          <p>synthesizer는 경로를 새로 추측하지 않는다. 관측된 실행 기록에서 필요한 placement와 value connection을 기록한다.</p>
+          <p>synthesizer는 경로를 새로 추측하지 않는다. 관측된 실행 기록에서 필요한 placement와 wire map을 기록한다.</p>
         </div>
       </main>
       <footer>
-        <div class="slide-number">17 / 30</div>
-      </footer>
-    </section>
-
-    <section class="slide" id="slide-16">
-      <header>
-        <div class="kicker">Synthesis Pipeline</div>
-        <h2>Synthesizer 입력과 출력</h2>
-      </header>
-      <main>
-        <div class="lane-diagram">
-          <div class="lane">
-            <div class="lane-title">Input</div>
-            <div class="lane-flow"><span class="block">subcircuit library</span><span class="block">Solidity-compiled bytecode</span><span class="block">public/private inputs</span></div>
-            <span class="tag">given</span>
-          </div>
-          <div class="lane">
-            <div class="lane-title">Follow execution record</div>
-            <div class="lane-flow"><span class="block">operation observed</span><span class="block">placement generated</span><span class="block">value connection tracked</span></div>
-            <span class="tag gold">synthesizer</span>
-          </div>
-          <div class="lane">
-            <div class="lane-title">Output</div>
-            <div class="lane-flow"><span class="block">witness</span><span class="block">public input</span><span class="block">value connections</span></div>
-            <span class="tag coral">proof input</span>
-          </div>
-        </div>
-      </main>
-      <footer>
-        <div class="source">Source: Tokamak zk-EVM synthesizer README and execution-flow documentation.</div>
-        <div class="slide-number">18 / 30</div>
-      </footer>
-    </section>
-
-    <section class="slide" id="slide-17">
-      <header>
-        <div class="kicker">Mini Example</div>
-        <h2>여러 placement를 지나는 하나의 값</h2>
-      </header>
-      <main>
-        <div class="value-network">
-          <div class="vnode">calldata placement<br>amount output</div>
-          <div class="vedge" aria-hidden="true"></div>
-          <div class="vnode">nonzero check<br>amount input</div>
-          <div class="vedge" aria-hidden="true"></div>
-          <div class="vnode">accounting placement<br>amount input</div>
-        </div>
-        <table class="matrix-table" style="margin-top:20px">
-          <thead><tr><th>Observed value</th><th>Execution record</th><th>Generated relation</th></tr></thead>
-          <tbody><tr><td>amount</td><td>calldata → check → accounting</td><td>value connection</td></tr></tbody>
-        </table>
-        <div class="callout wide">
-          <p>value connection은 “같은 논리적 값”이 여러 placement에서 일관되게 사용되었음을 검증한다.</p>
-        </div>
-      </main>
-      <footer>
-        <div class="slide-number">19 / 30</div>
+        <div class="slide-number">14 / 25</div>
       </footer>
     </section>
 
@@ -1544,7 +1350,7 @@
       </main>
       <footer>
         <div class="source">Sources: PrivateStateController.sol, L2AccountingVault.sol, local fixture <code>examples/privateState/mintNotes/mintNotes1</code>.</div>
-        <div class="slide-number">20 / 30</div>
+        <div class="slide-number">15 / 25</div>
       </footer>
     </section>
 
@@ -1579,7 +1385,7 @@
       </main>
       <footer>
         <div class="source">Source: local <code>mintNotes1</code> synthesizer fixture run.</div>
-        <div class="slide-number">21 / 30</div>
+        <div class="slide-number">16 / 25</div>
       </footer>
     </section>
 
@@ -1594,7 +1400,7 @@
           <tbody>
             <tr><td>subcircuit type</td><td>same subcircuit family</td><td>same checked relation</td></tr>
             <tr><td>placement count</td><td>same number of placements</td><td>same circuit size</td></tr>
-            <tr><td>value connection</td><td>same value connection pattern</td><td>same verification target</td></tr>
+            <tr><td>wire map</td><td>same wire map pattern</td><td>same verification target</td></tr>
           </tbody>
         </table>
         <div class="callout wide">
@@ -1602,7 +1408,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">22 / 30</div>
+        <div class="slide-number">17 / 25</div>
       </footer>
     </section>
 
@@ -1622,7 +1428,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">23 / 30</div>
+        <div class="slide-number">18 / 25</div>
       </footer>
     </section>
 
@@ -1658,7 +1464,7 @@
       </main>
       <footer>
         <div class="source">Source: PrivateStateController.sol private-state DApp function families.</div>
-        <div class="slide-number">24 / 30</div>
+        <div class="slide-number">19 / 25</div>
       </footer>
     </section>
 
@@ -1681,7 +1487,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">25 / 30</div>
+        <div class="slide-number">20 / 25</div>
       </footer>
     </section>
 
@@ -1694,13 +1500,13 @@
         <div class="block-graph">
           <div class="graph-node">1. placement 생성<br><span class="small">subcircuit library → placements</span></div>
           <div class="graph-edge">→</div>
-          <div class="graph-node">2. 값 연결<br><span class="small">value connections</span></div>
+          <div class="graph-node">2. wire map<br><span class="small">same-value wiring</span></div>
           <div class="graph-edge">→</div>
           <div class="graph-node">3. 재사용 조건<br><span class="small">same successful shape</span></div>
         </div>
       </main>
       <footer>
-        <div class="slide-number">26 / 30</div>
+        <div class="slide-number">21 / 25</div>
       </footer>
     </section>
 
@@ -1719,7 +1525,7 @@
         </table>
       </main>
       <footer>
-        <div class="slide-number">27 / 30</div>
+        <div class="slide-number">22 / 25</div>
       </footer>
     </section>
 
@@ -1747,7 +1553,7 @@
       </main>
       <footer>
         <div class="source">Source: Tokamak zk-EVM synthesizer transaction-flow documentation and synthesizer sources.</div>
-        <div class="slide-number">28 / 30</div>
+        <div class="slide-number">23 / 25</div>
       </footer>
     </section>
 
@@ -1767,7 +1573,7 @@
           </thead>
           <tbody>
             <tr><td>Arithmetic / bitwise</td><td>ALU-style subcircuits</td><td>대체로 local relation 중심</td></tr>
-            <tr><td>Memory / calldata</td><td>memory reconstruction과 value connection</td><td>alignment, aliasing, helper placement 수 변화</td></tr>
+            <tr><td>Memory / calldata</td><td>memory reconstruction과 wire map</td><td>alignment, aliasing, helper placement 수 변화</td></tr>
             <tr><td>Storage / state</td><td>storage read/write와 state proof obligations</td><td>access pattern 길이와 순서</td></tr>
             <tr><td>Calls</td><td>context setup, calldata copy, child execution, return-data copy</td><td>call depth, target 변화, shape risk</td></tr>
             <tr><td>Unsupported paths</td><td>rejected / not synthesized</td><td>fallback 지원 오인 risk</td></tr>
@@ -1776,7 +1582,7 @@
       </main>
       <footer>
         <div class="source">Opcode catalog: <a href="https://www.evm.codes/">evm.codes</a>. Tokamak mapping: repository synthesizer sources.</div>
-        <div class="slide-number">29 / 30</div>
+        <div class="slide-number">24 / 25</div>
       </footer>
     </section>
 
@@ -1798,7 +1604,7 @@
       </main>
       <footer>
         <div class="source">Web metrics and documentation accessed 2026-06-15.</div>
-        <div class="slide-number">30 / 30</div>
+        <div class="slide-number">25 / 25</div>
       </footer>
     </section>
   </div>
