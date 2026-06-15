@@ -919,20 +919,20 @@
     <section class="slide" id="slide-6">
       <header>
         <div class="kicker">RAM Circuit View</div>
-        <h2>RAM 회로 관점: 실행 경로를 witness로 검증한다</h2>
+        <h2>다른 주요 프로젝트들의 접근 방법</h2>
       </header>
       <main class="grid three">
         <div class="panel">
-          <h3>Scroll</h3>
-          <p>EVM 실행을 opcode 단위 경로로 펼치고, stack, memory, storage 변화가 올바른지 검증한다.</p>
-        </div>
-        <div class="panel">
-          <h3>Linea</h3>
-          <p>tracer가 만든 EVM 실행 경로와 상태 변수들을 prover input으로 사용하고, constraint system이 이를 검사한다.</p>
+          <h3>Scroll / Linea</h3>
+          <p>EVM 실행을 opcode 단위 경로와 상태 변수로 펼치고, 고정된 EVM 제약이 각 step과 상태 전이를 검증한다.</p>
         </div>
         <div class="panel">
           <h3>Aztec</h3>
-          <p>EVM은 아니지만 AVM과 private circuit 실행을 증명한다. 즉 VM 실행을 회로로 검증한다는 관점은 같다.</p>
+          <p>EVM은 아니지만 AVM과 private circuit 실행을 증명한다. VM 실행을 회로로 검증한다는 관점은 같다.</p>
+        </div>
+        <div class="panel">
+          <h3>공통 관점</h3>
+          <p>실행 경로와 상태 변수를 witness로 두고, 회로는 그 경로가 machine 규칙을 따르는지 확인한다.</p>
         </div>
         <div class="callout wide">
           <p>공통 증명 명제: 주어진 step 수 안에서, 주어진 실행 경로와 상태 변수들이 machine semantics를 만족하며 성공적으로 끝났는가?</p>
