@@ -1184,7 +1184,7 @@
           </thead>
           <tbody>
             <tr><td>Scroll / Linea</td><td>EVM opcode execution</td><td>RAM-style trace validation</td><td>pc, opcode, stack, memory, storage</td></tr>
-            <tr><td>Aztec public execution</td><td>AVM bytecode</td><td>VM/RAM-style validation</td><td>AVM state and execution rows</td></tr>
+            <tr><td>Aztec public execution</td><td>AVM bytecode</td><td>VM/RAM-style validation</td><td>AVM state and execution steps</td></tr>
             <tr><td>Aztec private execution</td><td>private function</td><td>ACIR function-specific arithmetic circuit</td><td>private inputs and intermediate values</td></tr>
           </tbody>
         </table>
@@ -1221,7 +1221,7 @@
           </div>
           <div class="stage">
             <h3>검증 결과</h3>
-            <p>row-wise VM 규칙, adjacent-row consistency, accept</p>
+            <p>step별 VM 규칙, 인접 step 일관성, accept</p>
           </div>
         </div>
         <div class="step-checks">
@@ -1231,7 +1231,7 @@
           <div class="check">시작 상태와 종료 상태 연결</div>
         </div>
         <div class="callout">
-          <p>회로는 다음 실행 경로를 찾지 않는다. prover가 제시한 실행 경로가 machine 규칙을 만족하는지 row별로 확인한다.</p>
+          <p>회로는 다음 실행 경로를 찾지 않는다. prover가 제시한 실행 경로가 machine 규칙을 만족하는지 step별로 확인한다.</p>
         </div>
       </main>
       <footer>
