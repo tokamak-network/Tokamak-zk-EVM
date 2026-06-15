@@ -945,6 +945,18 @@
       text-align: center;
     }
 
+    .paper-figures {
+      display: grid;
+      grid-template-columns: 0.75fr 1.35fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .paper-figures .paper-figure img {
+      height: 320px;
+      max-height: 320px;
+    }
+
     @media (max-width: 900px) {
       .grid.two,
       .grid.three,
@@ -959,6 +971,7 @@
       .io-triangle,
       .value-network,
       .risk-axis,
+      .paper-figures,
       .lane {
         grid-template-columns: 1fr;
       }
@@ -1271,16 +1284,22 @@
         <h2>Subcircuit 기반 함수 특화 회로</h2>
       </header>
       <main>
-        <figure class="paper-figure">
-          <img src="assets/figure-4-crop.png" alt="Paper Figure 4 showing a circuit composed from subcircuit placements and a wire map">
-          <figcaption>Figure 4: subcircuit placements and value connections through a wire map</figcaption>
-        </figure>
+        <div class="paper-figures">
+          <figure class="paper-figure">
+            <img src="assets/figure-3-library-crop.png" alt="Paper Figure 3 showing an example subcircuit library">
+            <figcaption>Figure 3: subcircuit library</figcaption>
+          </figure>
+          <figure class="paper-figure">
+            <img src="assets/figure-4-crop.png" alt="Paper Figure 4 showing a circuit composed from subcircuit placements and a wire map">
+            <figcaption>Figure 4: placements and value connections</figcaption>
+          </figure>
+        </div>
         <div class="callout wide">
           <p>검증 회로 생성은 “새 언어를 만드는 일”이 아니라, subcircuit placement를 만들고 그 사이의 value connection을 기록하는 일이다.</p>
         </div>
       </main>
       <footer>
-        <div class="source">Source: Jang and Judd, <a href="https://eprint.iacr.org/2024/507">IACR ePrint 2024/507</a>, Figure 4.</div>
+        <div class="source">Source: Jang and Judd, <a href="https://eprint.iacr.org/2024/507">IACR ePrint 2024/507</a>, Figures 3-4.</div>
         <div class="slide-number">10 / 30</div>
       </footer>
     </section>
