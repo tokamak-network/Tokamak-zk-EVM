@@ -954,6 +954,85 @@
       background: var(--violet-soft);
     }
 
+    .support-decision {
+      display: grid;
+      gap: 18px;
+      align-content: center;
+    }
+
+    .decision-flow {
+      display: grid;
+      grid-template-columns: 1fr 58px 1fr 58px 1fr 58px 1fr;
+      gap: 0;
+      align-items: stretch;
+    }
+
+    .decision-step {
+      min-height: 104px;
+      border-top: 6px solid var(--accent);
+      border-bottom: 1px solid var(--line);
+      border-left: 1px solid var(--line);
+      background: var(--panel);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 6px;
+      font-weight: 850;
+      text-align: center;
+    }
+
+    .decision-step:last-child {
+      border-right: 1px solid var(--line);
+      border-top-color: var(--violet);
+      background: var(--violet-soft);
+    }
+
+    .decision-arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent-dark);
+      font-size: 38px;
+      font-weight: 900;
+    }
+
+    .support-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--line);
+    }
+
+    .support-table th,
+    .support-table td {
+      border-bottom: 1px solid var(--line);
+      padding: 12px 14px;
+      text-align: left;
+      font-size: 21px;
+    }
+
+    .support-table th {
+      color: var(--accent-dark);
+      background: var(--accent-soft);
+    }
+
+    .support-table td:last-child {
+      font-weight: 850;
+    }
+
+    .status-yes {
+      color: var(--accent-dark);
+    }
+
+    .status-maybe {
+      color: var(--gold);
+    }
+
+    .status-no {
+      color: var(--warn);
+    }
+
     .risk-axis {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
@@ -1037,6 +1116,7 @@
       .trust-boundary,
       .reuse-chain,
       .shape-test,
+      .decision-flow,
       .risk-axis,
       .paper-figures,
       .lane {
@@ -1044,7 +1124,8 @@
       }
 
       .trust-divider,
-      .reuse-chain .arrow {
+      .reuse-chain .arrow,
+      .decision-arrow {
         min-height: 54px;
         transform: rotate(90deg);
       }
@@ -1101,7 +1182,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">1 / 22</div>
+        <div class="slide-number">1 / 21</div>
       </footer>
     </section>
 
@@ -1143,7 +1224,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">2 / 22</div>
+        <div class="slide-number">2 / 21</div>
       </footer>
     </section>
 
@@ -1184,7 +1265,7 @@
       </main>
       <footer>
         <div class="source">Sources: <a href="https://l2beat.com/scaling/tvs">L2BEAT scaling TVS</a>, <a href="https://defillama.com/chains">DefiLlama chains</a>, <a href="https://www.coingecko.com/en/categories/layer-2">CoinGecko L2</a>, <a href="https://www.coingecko.com/en/categories/zero-knowledge-zk">CoinGecko ZK</a>, <a href="https://www.coingecko.com/en/categories/privacy">CoinGecko Privacy</a>, <a href="https://www.coingecko.com/en/categories/privacy-coins">Privacy Coins</a>, <a href="https://defillama.com/protocols/privacy">DefiLlama Privacy</a>. Accessed 2026-06-15.</div>
-        <div class="slide-number">3 / 22</div>
+        <div class="slide-number">3 / 21</div>
       </footer>
     </section>
 
@@ -1208,7 +1289,7 @@
       </main>
       <footer>
         <div class="source">Sources: <a href="https://experts.bitwiseinvestments.com/cio-memos/canton-arc-and-tempo-three-lessons-about-crypto">Bitwise</a>, <a href="https://www.coindesk.com/business/2026/05/12/privacy-emerges-as-crypto-s-next-killer-app-with-arc-canton-and-tempo-topping-usd1-billion-in-funding">CoinDesk</a>, <a href="https://medium.com/aztec-protocol/aztec-raises-100-million-to-build-encrypted-ethereum-dd5062ba949c">Aztec</a>, <a href="https://www.globenewswire.com/news-release/2025/11/18/3190435/0/en/0xbow-closes-3-5m-round-for-compliant-crypto-privacy-technology-following-ethereum-foundation-integration.html">GlobeNewswire</a>, <a href="https://crypto.news/payy-raises-6m-seed-to-build-private-stablecoin-payments-on-zero-knowledge-rails/">crypto.news</a>, <a href="https://blog.ethereum.org/2025/10/08/privacy-commitment">EF Privacy</a>, <a href="https://pse.dev/blog/pse-roadmap-2025">PSE roadmap</a>, <a href="https://thedefiant.io/news/defi/privacy-pools-go-live-on-ethereum-with-vitalik-buterin-as-one-of-the-first-users">Privacy Pools</a>, <a href="https://thedefiant.io/news/blockchains/ethereum-foundation-kohaku-sdk-privacy-wallet-integration-bb4t52">Kohaku</a>.</div>
-        <div class="slide-number">4 / 22</div>
+        <div class="slide-number">4 / 21</div>
       </footer>
     </section>
 
@@ -1233,7 +1314,7 @@
       </main>
       <footer>
         <div class="source">Reference: Jang and Judd, <a href="https://eprint.iacr.org/2024/507">IACR ePrint 2024/507</a>.</div>
-        <div class="slide-number">5 / 22</div>
+        <div class="slide-number">5 / 21</div>
       </footer>
     </section>
 
@@ -1260,7 +1341,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">6 / 22</div>
+        <div class="slide-number">6 / 21</div>
       </footer>
     </section>
 
@@ -1286,7 +1367,7 @@
       </main>
       <footer>
         <div class="source">Sources: <a href="https://docs.scroll.io/en/technology/zkevm/zkevm-overview/">Scroll zkEVM overview</a>, <a href="https://github.com/Consensys/linea-tracer">Linea tracer</a>, <a href="https://docs.aztec.network/developers/docs/foundational-topics/advanced/circuits/public_execution">Aztec public execution</a>, <a href="https://docs.aztec.network/developers/docs/foundational-topics/advanced/circuits/private_kernel">Aztec private kernel</a>, <a href="https://docs.aztec.network/developers/docs/resources/glossary">Aztec glossary</a>.</div>
-        <div class="slide-number">7 / 22</div>
+        <div class="slide-number">7 / 21</div>
       </footer>
     </section>
 
@@ -1328,7 +1409,7 @@
       </main>
       <footer>
         <div class="source">Sources: <a href="https://docs.scroll.io/en/technology/zkevm/zkevm-overview/">Scroll zkEVM overview</a>, <a href="https://github.com/Consensys/linea-tracer">Linea tracer</a>, <a href="https://docs.aztec.network/developers/docs/foundational-topics/advanced/circuits/public_execution">Aztec AVM docs</a>, <a href="https://eprint.iacr.org/2024/507">Jang-Judd 2024/507</a>.</div>
-        <div class="slide-number">8 / 22</div>
+        <div class="slide-number">8 / 21</div>
       </footer>
     </section>
 
@@ -1347,7 +1428,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">9 / 22</div>
+        <div class="slide-number">9 / 21</div>
       </footer>
     </section>
 
@@ -1373,7 +1454,7 @@
       </main>
       <footer>
         <div class="source">Source: Jang and Judd, <a href="https://eprint.iacr.org/2024/507">IACR ePrint 2024/507</a>, Figures 3-4.</div>
-        <div class="slide-number">10 / 22</div>
+        <div class="slide-number">10 / 21</div>
       </footer>
     </section>
 
@@ -1396,7 +1477,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">11 / 22</div>
+        <div class="slide-number">11 / 21</div>
       </footer>
     </section>
 
@@ -1420,7 +1501,7 @@
       </main>
       <footer>
         <div class="source">Source: Tokamak zk-EVM repository README.</div>
-        <div class="slide-number">12 / 22</div>
+        <div class="slide-number">12 / 21</div>
       </footer>
     </section>
 
@@ -1439,7 +1520,7 @@
         </table>
       </main>
       <footer>
-        <div class="slide-number">13 / 22</div>
+        <div class="slide-number">13 / 21</div>
       </footer>
     </section>
 
@@ -1466,7 +1547,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">14 / 22</div>
+        <div class="slide-number">14 / 21</div>
       </footer>
     </section>
 
@@ -1489,7 +1570,7 @@
       </main>
       <footer>
         <div class="source">Sources: PrivateStateController.sol, L2AccountingVault.sol, local fixture <code>examples/privateState/mintNotes/mintNotes1</code>.</div>
-        <div class="slide-number">15 / 22</div>
+        <div class="slide-number">15 / 21</div>
       </footer>
     </section>
 
@@ -1524,7 +1605,7 @@
       </main>
       <footer>
         <div class="source">Source: local <code>mintNotes1</code> synthesizer fixture run.</div>
-        <div class="slide-number">16 / 22</div>
+        <div class="slide-number">16 / 21</div>
       </footer>
     </section>
 
@@ -1572,27 +1653,43 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">17 / 22</div>
+        <div class="slide-number">17 / 21</div>
       </footer>
     </section>
 
     <section class="slide" id="slide-21">
       <header>
-        <div class="kicker">Contract Shapes</div>
-        <h2>성공 실행 모양별 contract 유형</h2>
+        <div class="kicker">Support Criterion</div>
+        <h2>지원 가능한 함수의 판단 기준</h2>
       </header>
       <main>
-        <div class="risk-axis">
-          <div class="bar low">안전한 형태<br>고정 note 수<br>동일 placement</div>
-          <div class="bar mid">조건부 가능<br>branch 존재<br>동일 shape 수렴</div>
-          <div class="bar high">위험한 형태<br>가변 array<br>가변 loop count</div>
+        <div class="support-decision">
+          <div class="decision-flow">
+            <div class="decision-step">동일 함수<br><span class="small">same selector</span></div>
+            <div class="decision-arrow">→</div>
+            <div class="decision-step">성공 실행 기록<br><span class="small">only successful path</span></div>
+            <div class="decision-arrow">→</div>
+            <div class="decision-step">동일 회로 모양<br><span class="small">placement topology + wire map</span></div>
+            <div class="decision-arrow">→</div>
+            <div class="decision-step">Audit된 회로<br>재사용</div>
+          </div>
+          <table class="support-table">
+            <thead>
+              <tr><th>Function shape</th><th>Input dependence</th><th>Support decision</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>고정 arity / 고정 loop bound</td><td>값만 변화</td><td class="status-yes">지원 가능</td></tr>
+              <tr><td>입력 의존 branch</td><td>성공 경로가 동일 모양으로 수렴</td><td class="status-maybe">조건부 가능</td></tr>
+              <tr><td>가변 array / 가변 loop count</td><td>성공 경로마다 placement 수 변화</td><td class="status-no">지원 불가</td></tr>
+            </tbody>
+          </table>
         </div>
         <div class="callout wide">
-          <p>같은 trusted circuit reuse 논의는 성공한 실행 경로만 대상으로 한다. 실패한 트랜잭션 경로는 별도 범위다.</p>
+          <p>Tokamak zk-EVM의 지원 여부는 입력값의 크기나 내용이 아니라, 성공 실행에서 생성되는 placement topology와 wire map이 항상 같은지로 판단한다.</p>
         </div>
       </main>
       <footer>
-        <div class="slide-number">18 / 22</div>
+        <div class="slide-number">18 / 21</div>
       </footer>
     </section>
 
@@ -1628,30 +1725,7 @@
       </main>
       <footer>
         <div class="source">Source: PrivateStateController.sol private-state DApp function families.</div>
-        <div class="slide-number">19 / 22</div>
-      </footer>
-    </section>
-
-    <section class="slide" id="slide-23">
-      <header>
-        <div class="kicker">Failure Modes</div>
-        <h2>잘못된 회로 모양의 위험</h2>
-      </header>
-      <main>
-        <table class="matrix-table">
-          <thead><tr><th>Failure mode</th><th>Immediate issue</th><th>Verification risk</th></tr></thead>
-          <tbody>
-            <tr><td>wrong shape</td><td>검토된 회로와 다른 placement 구성</td><td>다른 proof target</td></tr>
-            <tr><td>nondeterminism</td><td>동일 기록, 서로 다른 placement 배치</td><td>신뢰 대상 불명확성</td></tr>
-            <tr><td>unsafe fallback</td><td>unsupported shape, padding, skip</td><td>검증 조건 변화</td></tr>
-          </tbody>
-        </table>
-        <div class="callout wide">
-          <p>지원하지 않는 성공 실행 모양은 조용히 보정하지 말고 명확히 거부되어야 한다.</p>
-        </div>
-      </main>
-      <footer>
-        <div class="slide-number">20 / 22</div>
+        <div class="slide-number">19 / 21</div>
       </footer>
     </section>
 
@@ -1670,7 +1744,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">21 / 22</div>
+        <div class="slide-number">20 / 21</div>
       </footer>
     </section>
 
@@ -1689,7 +1763,7 @@
         </table>
       </main>
       <footer>
-        <div class="slide-number">22 / 22</div>
+        <div class="slide-number">21 / 21</div>
       </footer>
     </section>
 
