@@ -1160,7 +1160,7 @@
         </div>
         <div class="risk-axis">
           <div class="bar low">branch<br>opcode set</div>
-          <div class="bar mid">loop count<br>block copy</div>
+          <div class="bar mid">loop count<br>placement 수</div>
           <div class="bar high">call graph<br>value boundary</div>
         </div>
         <div class="callout wide">
@@ -1243,15 +1243,15 @@
     <section class="slide" id="slide-7">
       <header>
         <div class="kicker">Tokamak Question</div>
-        <h2>Tokamak의 검사 블록 선택 문제</h2>
+        <h2>Tokamak의 placement 생성 문제</h2>
       </header>
       <main>
         <div class="block-graph">
-          <div class="graph-node">고정된 block library<br><span class="small">reusable subcircuits</span></div>
+          <div class="graph-node">subcircuit library<br><span class="small">fixed reusable constraints</span></div>
           <div class="graph-edge">+</div>
-          <div class="graph-node">EVM 실행 기록<br><span class="small">operation + value movement</span></div>
+          <div class="graph-node">EVM 실행 기록<br><span class="small">operation sequence</span></div>
           <div class="graph-edge">→</div>
-          <div class="graph-node">함수 특화 검증 회로<br><span class="small">selected blocks + value connections</span></div>
+          <div class="graph-node">함수 특화 검증 회로<br><span class="small">placements + value connections</span></div>
         </div>
       </main>
       <footer>
@@ -1261,25 +1261,25 @@
 
     <section class="slide" id="slide-8">
       <header>
-        <div class="kicker">Block Model</div>
-        <h2>고정 블록 기반 함수 특화 회로</h2>
+        <div class="kicker">Subcircuit Model</div>
+        <h2>Subcircuit 기반 함수 특화 회로</h2>
       </header>
       <main>
         <div class="circuit-topology">
           <div class="flow three">
-            <div class="node"><span class="label">reusable block</span><span class="detail">fixed constraint fragment</span></div>
-            <div class="node"><span class="label">block copy #1</span><span class="detail">one placement</span></div>
-            <div class="node"><span class="label">block copy #2</span><span class="detail">another placement</span></div>
+            <div class="node"><span class="label">subcircuit</span><span class="detail">fixed constraint fragment</span></div>
+            <div class="node"><span class="label">placement #1</span><span class="detail">one subcircuit use</span></div>
+            <div class="node"><span class="label">placement #2</span><span class="detail">another subcircuit use</span></div>
           </div>
           <div class="wire" aria-hidden="true"></div>
           <div class="flow three">
-            <div class="node"><span class="label">wire A.out</span><span class="detail">output value</span></div>
-            <div class="node"><span class="label">wire B.in</span><span class="detail">input value</span></div>
-            <div class="node"><span class="label">permutation</span><span class="detail">equality connection</span></div>
+            <div class="node"><span class="label">placement A output</span><span class="detail">same logical value</span></div>
+            <div class="node"><span class="label">placement B input</span><span class="detail">same logical value</span></div>
+            <div class="node"><span class="label">value connection</span><span class="detail">same-value relation</span></div>
           </div>
         </div>
         <div class="callout wide">
-          <p>검증 회로 생성은 “새 언어를 만드는 일”이 아니라, 고정된 블록을 고르고 그 사이의 같은 값을 연결하는 일이다.</p>
+          <p>검증 회로 생성은 “새 언어를 만드는 일”이 아니라, subcircuit placement를 만들고 그 사이의 value connection을 기록하는 일이다.</p>
         </div>
       </main>
       <footer>
@@ -1290,19 +1290,19 @@
     <section class="slide" id="slide-9">
       <header>
         <div class="kicker">Technical Names</div>
-        <h2>블록 모델의 세 가지 이름</h2>
+        <h2>Subcircuit 모델의 세 가지 이름</h2>
       </header>
       <main>
         <table class="matrix-table">
           <thead><tr><th>Plain name</th><th>Technical name</th><th>Role in generated circuit</th></tr></thead>
           <tbody>
-            <tr><td>재사용 블록</td><td>subcircuit</td><td>작은 검증 규칙</td></tr>
-            <tr><td>블록 복사본</td><td>placement</td><td>선택된 subcircuit의 한 사용 자리</td></tr>
-            <tr><td>값 연결</td><td>permutation</td><td>동일 값이어야 하는 wire들의 연결표</td></tr>
+            <tr><td>재사용 회로 조각</td><td>subcircuit</td><td>작은 검증 규칙</td></tr>
+            <tr><td>선택된 사용 자리</td><td>placement</td><td>특정 실행 안의 subcircuit 사용</td></tr>
+            <tr><td>값 연결</td><td>value connection</td><td>동일 값 관계</td></tr>
           </tbody>
         </table>
         <div class="callout wide">
-          <p>이후에는 plain-language로는 “블록, 블록 복사본, 값 연결”을 쓰고, 필요한 곳에서만 technical name을 함께 표시한다.</p>
+          <p>이후 용어는 subcircuit, placement, value connection으로 통일한다. permutation은 value connection의 기술적 표현으로만 다룬다.</p>
         </div>
       </main>
       <footer>
@@ -1313,13 +1313,13 @@
     <section class="slide" id="slide-10">
       <header>
         <div class="kicker">Paper Model</div>
-        <h2>논문의 고정 블록과 연결표 모델</h2>
+        <h2>논문의 subcircuit과 연결표 모델</h2>
       </header>
       <main>
         <div class="equation">
-          <div class="piece">fixed block library</div>
+          <div class="piece">subcircuit library</div>
           <div class="op">+</div>
-          <div class="piece">selected block copies</div>
+          <div class="piece">placements</div>
           <div class="op">+</div>
           <div class="piece">equality connections</div>
           <div class="op">=</div>
@@ -1338,25 +1338,25 @@
     <section class="slide" id="slide-11">
       <header>
         <div class="kicker">Two Checks</div>
-        <h2>블록 내부 검사와 블록 사이 연결</h2>
+        <h2>Placement 내부 검사와 placement 사이 연결</h2>
       </header>
       <main>
         <table class="matrix-table">
-          <thead><tr><th>Check layer</th><th>Local relation</th><th>Cross-block relation</th><th>Example</th></tr></thead>
+          <thead><tr><th>Check layer</th><th>Local relation</th><th>Cross-placement relation</th><th>Example</th></tr></thead>
           <tbody>
-            <tr><td>블록 내부</td><td>single placement</td><td>-</td><td>x + y = z</td></tr>
-            <tr><td>블록 사이</td><td>-</td><td>wire equality</td><td>A.out = B.in</td></tr>
+            <tr><td>placement 내부</td><td>single placement</td><td>-</td><td>x + y = z</td></tr>
+            <tr><td>placement 사이</td><td>-</td><td>value connection</td><td>A.out = B.in</td></tr>
           </tbody>
         </table>
         <div class="block-graph" style="margin-top:20px">
-          <div class="graph-node">Block A<br><span class="small">output wire</span></div>
+          <div class="graph-node">Placement A<br><span class="small">output value</span></div>
           <div class="graph-edge">=</div>
-          <div class="graph-node">Permutation<br><span class="small">same value</span></div>
+          <div class="graph-node">Value connection<br><span class="small">same value</span></div>
           <div class="graph-edge">=</div>
-          <div class="graph-node">Block B<br><span class="small">input wire</span></div>
+          <div class="graph-node">Placement B<br><span class="small">input value</span></div>
         </div>
         <div class="callout wide">
-          <p>실행 기록은 어떤 블록이 필요한지와 어떤 값이 같은 값으로 이어지는지를 동시에 알려준다.</p>
+          <p>실행 기록은 어떤 placement가 필요한지와 어떤 value connection이 필요한지를 동시에 알려준다.</p>
         </div>
       </main>
       <footer>
@@ -1379,7 +1379,7 @@
           </div>
         </div>
         <div class="callout">
-          <p>qap-compiler는 블록 선반을 만들고, synthesizer는 특정 EVM 함수 실행에 필요한 블록 복사본과 값 연결을 만든다.</p>
+          <p>qap-compiler는 subcircuit library를 만들고, synthesizer는 특정 EVM 함수 실행에 필요한 placement와 value connection을 만든다.</p>
         </div>
       </main>
       <footer>
@@ -1417,7 +1417,7 @@
           <div class="node top">synthesizer output</div>
           <div class="node">witness<br><span class="small">private computation values</span></div>
           <div class="node">public input<br><span class="small">verifier-visible values</span></div>
-          <div class="node top">value connections<br><span class="small">wire equality relation</span></div>
+          <div class="node top">value connections<br><span class="small">same-value relation</span></div>
         </div>
       </main>
       <footer>
@@ -1428,7 +1428,7 @@
     <section class="slide" id="slide-15">
       <header>
         <div class="kicker">Execution Record To Circuit</div>
-        <h2>실행 기록 기반 block selection</h2>
+        <h2>실행 기록 기반 placement 생성</h2>
       </header>
       <main>
         <div class="lane-diagram">
@@ -1439,12 +1439,12 @@
           </div>
           <div class="lane">
             <div class="lane-title">생성되는 검증 회로 조각</div>
-            <div class="lane-flow"><span class="block">ADD block</span><span class="block">memory block</span><span class="block">consumer block</span><span class="block">z 연결</span></div>
+            <div class="lane-flow"><span class="block">ADD placement</span><span class="block">memory placement</span><span class="block">consumer placement</span><span class="block">z value connection</span></div>
             <span class="tag gold">synthesizer output</span>
           </div>
         </div>
         <div class="callout">
-          <p>synthesizer는 경로를 새로 추측하지 않는다. 관측된 실행 기록에서 검증해야 할 block과 같은 값 연결을 기록한다.</p>
+          <p>synthesizer는 경로를 새로 추측하지 않는다. 관측된 실행 기록에서 필요한 placement와 value connection을 기록한다.</p>
         </div>
       </main>
       <footer>
@@ -1466,7 +1466,7 @@
           </div>
           <div class="lane">
             <div class="lane-title">Follow execution record</div>
-            <div class="lane-flow"><span class="block">operation observed</span><span class="block">block selected</span><span class="block">values tracked</span></div>
+            <div class="lane-flow"><span class="block">operation observed</span><span class="block">placement generated</span><span class="block">value connection tracked</span></div>
             <span class="tag gold">synthesizer</span>
           </div>
           <div class="lane">
@@ -1485,22 +1485,22 @@
     <section class="slide" id="slide-17">
       <header>
         <div class="kicker">Mini Example</div>
-        <h2>여러 블록을 지나는 하나의 값</h2>
+        <h2>여러 placement를 지나는 하나의 값</h2>
       </header>
       <main>
         <div class="value-network">
-          <div class="vnode">calldata block<br>amount output</div>
+          <div class="vnode">calldata placement<br>amount output</div>
           <div class="vedge" aria-hidden="true"></div>
           <div class="vnode">nonzero check<br>amount input</div>
           <div class="vedge" aria-hidden="true"></div>
-          <div class="vnode">accounting block<br>amount input</div>
+          <div class="vnode">accounting placement<br>amount input</div>
         </div>
         <table class="matrix-table" style="margin-top:20px">
           <thead><tr><th>Observed value</th><th>Execution record</th><th>Generated relation</th></tr></thead>
-          <tbody><tr><td>amount</td><td>calldata → check → accounting</td><td>same-value wire connection</td></tr></tbody>
+          <tbody><tr><td>amount</td><td>calldata → check → accounting</td><td>value connection</td></tr></tbody>
         </table>
         <div class="callout wide">
-          <p>값 연결은 “같은 논리적 값”이 여러 block copy에서 일관되게 사용되었음을 검증한다.</p>
+          <p>value connection은 “같은 논리적 값”이 여러 placement에서 일관되게 사용되었음을 검증한다.</p>
         </div>
       </main>
       <footer>
@@ -1534,7 +1534,7 @@
     <section class="slide" id="slide-19">
       <header>
         <div class="kicker">Example Composition</div>
-        <h2><code>mintNotes1</code> 검증 목표별 block group</h2>
+        <h2><code>mintNotes1</code> 검증 목표별 placement group</h2>
       </header>
       <main>
         <div class="lane-diagram">
@@ -1575,9 +1575,9 @@
         <table class="matrix-table">
           <thead><tr><th>Reuse condition</th><th>Required equality</th><th>Reason</th></tr></thead>
           <tbody>
-            <tr><td>block type</td><td>same subcircuit family</td><td>same checked relation</td></tr>
-            <tr><td>block count</td><td>same number of placements</td><td>same circuit size</td></tr>
-            <tr><td>value connection</td><td>same wire equality pattern</td><td>same verification target</td></tr>
+            <tr><td>subcircuit type</td><td>same subcircuit family</td><td>same checked relation</td></tr>
+            <tr><td>placement count</td><td>same number of placements</td><td>same circuit size</td></tr>
+            <tr><td>value connection</td><td>same value connection pattern</td><td>same verification target</td></tr>
           </tbody>
         </table>
         <div class="callout wide">
@@ -1596,7 +1596,7 @@
       </header>
       <main>
         <div class="risk-axis">
-          <div class="bar low">안전한 형태<br>고정 note 수<br>동일 block</div>
+          <div class="bar low">안전한 형태<br>고정 note 수<br>동일 placement</div>
           <div class="bar mid">조건부 가능<br>branch 존재<br>동일 shape 수렴</div>
           <div class="bar high">위험한 형태<br>가변 array<br>가변 loop count</div>
         </div>
@@ -1654,8 +1654,8 @@
         <table class="matrix-table">
           <thead><tr><th>Failure mode</th><th>Immediate issue</th><th>Verification risk</th></tr></thead>
           <tbody>
-            <tr><td>wrong shape</td><td>검토된 회로와 다른 block 구성</td><td>다른 proof target</td></tr>
-            <tr><td>nondeterminism</td><td>동일 기록, 서로 다른 block 배치</td><td>신뢰 대상 불명확성</td></tr>
+            <tr><td>wrong shape</td><td>검토된 회로와 다른 placement 구성</td><td>다른 proof target</td></tr>
+            <tr><td>nondeterminism</td><td>동일 기록, 서로 다른 placement 배치</td><td>신뢰 대상 불명확성</td></tr>
             <tr><td>unsafe fallback</td><td>unsupported shape, padding, skip</td><td>검증 조건 변화</td></tr>
           </tbody>
         </table>
@@ -1675,9 +1675,9 @@
       </header>
       <main>
         <div class="block-graph">
-          <div class="graph-node">1. 블록 선택<br><span class="small">fixed library → placements</span></div>
+          <div class="graph-node">1. placement 생성<br><span class="small">subcircuit library → placements</span></div>
           <div class="graph-edge">→</div>
-          <div class="graph-node">2. 값 연결<br><span class="small">same-value wires</span></div>
+          <div class="graph-node">2. 값 연결<br><span class="small">value connections</span></div>
           <div class="graph-edge">→</div>
           <div class="graph-node">3. 재사용 조건<br><span class="small">same successful shape</span></div>
         </div>
@@ -1697,7 +1697,7 @@
           <thead><tr><th>Category</th><th>Question axis 1</th><th>Question axis 2</th><th>Question axis 3</th></tr></thead>
           <tbody>
             <tr><td>Concept</td><td>function-specific vs universal machine</td><td>privacy public input design</td><td>same-shape contract constraints</td></tr>
-            <tr><td>Implementation</td><td>CALL structure in execution record</td><td>opcode family to block family</td><td>unsupported shape exposure</td></tr>
+            <tr><td>Implementation</td><td>CALL structure in execution record</td><td>opcode family to subcircuit family</td><td>unsupported shape exposure</td></tr>
           </tbody>
         </table>
       </main>
@@ -1749,8 +1749,8 @@
             </tr>
           </thead>
           <tbody>
-            <tr><td>Arithmetic / bitwise</td><td>ALU-style reusable blocks</td><td>대체로 local relation 중심</td></tr>
-            <tr><td>Memory / calldata</td><td>memory reconstruction과 값 연결</td><td>alignment, aliasing, helper block 수 변화</td></tr>
+            <tr><td>Arithmetic / bitwise</td><td>ALU-style subcircuits</td><td>대체로 local relation 중심</td></tr>
+            <tr><td>Memory / calldata</td><td>memory reconstruction과 value connection</td><td>alignment, aliasing, helper placement 수 변화</td></tr>
             <tr><td>Storage / state</td><td>storage read/write와 state proof obligations</td><td>access pattern 길이와 순서</td></tr>
             <tr><td>Calls</td><td>context setup, calldata copy, child execution, return-data copy</td><td>call depth, target 변화, shape risk</td></tr>
             <tr><td>Unsupported paths</td><td>rejected / not synthesized</td><td>fallback 지원 오인 risk</td></tr>
