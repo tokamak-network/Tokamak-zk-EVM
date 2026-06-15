@@ -1109,6 +1109,189 @@
       background: var(--violet-soft);
     }
 
+    .opcode-lens {
+      display: grid;
+      gap: 20px;
+      align-content: center;
+    }
+
+    .evm-vs-synth {
+      display: grid;
+      grid-template-columns: 1fr 92px 1fr;
+      gap: 0;
+      align-items: stretch;
+    }
+
+    .execution-box {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      padding: 20px;
+      display: grid;
+      gap: 12px;
+      align-content: center;
+      min-height: 174px;
+    }
+
+    .execution-box h3 {
+      margin: 0;
+      color: var(--accent-dark);
+    }
+
+    .execution-box.synth h3 {
+      color: var(--violet);
+    }
+
+    .execution-line {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: center;
+      font-weight: 850;
+      text-align: center;
+    }
+
+    .execution-line .token {
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      background: var(--accent-soft);
+      min-width: 82px;
+    }
+
+    .execution-box.synth .token {
+      background: var(--violet-soft);
+    }
+
+    .lens-arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent-dark);
+      font-size: 46px;
+      font-weight: 900;
+    }
+
+    .lens-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .lens-card {
+      border: 1px solid var(--line);
+      border-top: 6px solid var(--accent);
+      background: var(--panel);
+      padding: 16px;
+      min-height: 116px;
+      display: grid;
+      align-content: start;
+      gap: 6px;
+      font-weight: 750;
+    }
+
+    .lens-card:nth-child(2) {
+      border-top-color: var(--gold);
+    }
+
+    .lens-card:nth-child(3) {
+      border-top-color: var(--violet);
+    }
+
+    .opcode-pipeline {
+      display: grid;
+      gap: 18px;
+      align-content: center;
+    }
+
+    .symbol-flow {
+      display: grid;
+      grid-template-columns: 1fr 58px 1.15fr 58px 1fr;
+      align-items: stretch;
+    }
+
+    .symbol-node {
+      min-height: 128px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-top: 6px solid var(--accent);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      text-align: center;
+      gap: 6px;
+      font-weight: 850;
+    }
+
+    .symbol-node.placement {
+      border-top-color: var(--violet);
+      background: var(--violet-soft);
+    }
+
+    .symbol-arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent-dark);
+      font-size: 38px;
+      font-weight: 900;
+    }
+
+    .subcircuit-strip {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .subcircuit-chip {
+      min-height: 82px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      text-align: center;
+      font-weight: 850;
+      border-left: 5px solid var(--accent);
+    }
+
+    .state-memory-map {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .path-panel {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      padding: 18px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .path-panel h3 {
+      margin: 0;
+      color: var(--accent-dark);
+    }
+
+    .path-flow {
+      display: grid;
+      gap: 8px;
+    }
+
+    .path-step {
+      border-left: 5px solid var(--accent);
+      background: var(--accent-soft);
+      padding: 10px 12px;
+      font-weight: 800;
+    }
+
+    .path-panel.memory .path-step {
+      border-left-color: var(--violet);
+      background: var(--violet-soft);
+    }
+
     .status-yes {
       color: var(--accent-dark);
     }
@@ -1207,6 +1390,11 @@
       .decision-flow,
       .arity-map,
       .shape-ruler,
+      .evm-vs-synth,
+      .lens-grid,
+      .symbol-flow,
+      .subcircuit-strip,
+      .state-memory-map,
       .risk-axis,
       .paper-figures,
       .lane {
@@ -1216,7 +1404,9 @@
       .trust-divider,
       .reuse-chain .arrow,
       .decision-arrow,
-      .arity-arrow {
+      .arity-arrow,
+      .lens-arrow,
+      .symbol-arrow {
         min-height: 54px;
         transform: rotate(90deg);
       }
@@ -1882,28 +2072,101 @@
     <section class="slide" id="slide-27">
       <header>
         <div class="kicker">Backup Reference</div>
-        <h2>참고: opcode family별 처리 직관</h2>
+        <h2>Opcode 처리를 보는 렌즈</h2>
       </header>
       <main>
-        <table>
-          <thead>
-            <tr>
-              <th>Opcode family</th>
-              <th>처리 직관</th>
-              <th>회로 모양 risk</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td>Arithmetic / bitwise</td><td>ALU-style subcircuits</td><td>대체로 local relation 중심</td></tr>
-            <tr><td>Memory / calldata</td><td>memory reconstruction과 wire map</td><td>alignment, aliasing, helper placement 수 변화</td></tr>
-            <tr><td>Storage / state</td><td>storage read/write와 state proof obligations</td><td>access pattern 길이와 순서</td></tr>
-            <tr><td>Calls</td><td>context setup, calldata copy, child execution, return-data copy</td><td>call depth, target 변화, shape risk</td></tr>
-            <tr><td>Unsupported paths</td><td>rejected / not synthesized</td><td>fallback 지원 오인 risk</td></tr>
-          </tbody>
-        </table>
+        <div class="opcode-lens">
+          <div class="evm-vs-synth">
+            <div class="execution-box">
+              <h3>EVM 실행</h3>
+              <div class="execution-line"><span class="token">값 pop</span><span>→</span><span class="token">계산</span><span>→</span><span class="token">값 push</span></div>
+              <div class="small">최종 값 중심</div>
+            </div>
+            <div class="lens-arrow">→</div>
+            <div class="execution-box synth">
+              <h3>Synthesizer</h3>
+              <div class="execution-line"><span class="token">symbol pop</span><span>→</span><span class="token">placement</span><span>→</span><span class="token">symbol push</span></div>
+              <div class="small">검증 회로 생성 중심</div>
+            </div>
+          </div>
+          <div class="lens-grid">
+            <div class="lens-card"><strong>Local computation</strong><span class="small">stack symbol → ALU / bitwise placement</span></div>
+            <div class="lens-card"><strong>External boundary</strong><span class="small">calldata / storage → buffer placement</span></div>
+            <div class="lens-card"><strong>Memory reconstruction</strong><span class="small">overlap fragments → reconstruction placements</span></div>
+          </div>
+        </div>
+        <div class="callout wide">
+          <p>Opcode별 디테일은 다르지만, 질문은 같다. “이 opcode가 어떤 symbol을 소비하고, 어떤 placement를 만들며, 다음 symbol을 어디에 남기는가?”</p>
+        </div>
       </main>
       <footer>
-        <div class="source">Opcode catalog: <a href="https://www.evm.codes/">evm.codes</a>. Tokamak mapping: repository synthesizer sources.</div>
+        <div class="source">Sources: <a href="https://tokamak-network.github.io/tokamak-zk-evm-docs/frontend/synthesizer/synthesizer-code-examples.html">Tokamak docs: Code Examples</a>, <a href="https://tokamak-network.github.io/tokamak-zk-evm-docs/frontend/synthesizer/synthesizer-opcodes.html">Opcode Reference</a>.</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-27-local">
+      <header>
+        <div class="kicker">Backup Reference</div>
+        <h2>Local opcode: stack 연산에서 placement로</h2>
+      </header>
+      <main>
+        <div class="opcode-pipeline">
+          <div class="symbol-flow">
+            <div class="symbol-node">StackPt<br><span class="small">a, b symbols</span></div>
+            <div class="symbol-arrow">→</div>
+            <div class="symbol-node placement">ALU / bitwise placement<br><span class="small">selector chooses operation</span></div>
+            <div class="symbol-arrow">→</div>
+            <div class="symbol-node">StackPt<br><span class="small">result symbol</span></div>
+          </div>
+          <div class="subcircuit-strip">
+            <div class="subcircuit-chip">ALU1<span class="small">ADD, MUL, SUB, EQ</span></div>
+            <div class="subcircuit-chip">ALU2<span class="small">DIV, MOD, ADDMOD</span></div>
+            <div class="subcircuit-chip">ALU3<span class="small">SHL, SHR, SAR</span></div>
+            <div class="subcircuit-chip">ALU4<span class="small">LT, GT, SLT, SGT</span></div>
+            <div class="subcircuit-chip">Bitwise<span class="small">AND, OR, XOR</span></div>
+          </div>
+        </div>
+        <div class="callout wide">
+          <p>ADD 같은 local opcode는 계산 결과만 만드는 것이 아니라, stack symbol을 입력으로 받는 subcircuit placement 하나와 출력 symbol을 남긴다.</p>
+        </div>
+      </main>
+      <footer>
+        <div class="source">Sources: <a href="https://tokamak-network.github.io/tokamak-zk-evm-docs/frontend/synthesizer/synthesizer-code-examples.html">Tokamak docs: ADD example</a>, <a href="https://tokamak-network.github.io/tokamak-zk-evm-docs/frontend/synthesizer/synthesizer-opcodes.html">Opcode Reference</a>.</div>
+      </footer>
+    </section>
+
+    <section class="slide" id="slide-27-state-memory">
+      <header>
+        <div class="kicker">Backup Reference</div>
+        <h2>State와 memory opcode의 핵심 차이</h2>
+      </header>
+      <main>
+        <div class="state-memory-map">
+          <div class="path-panel">
+            <h3>SLOAD / SSTORE</h3>
+            <div class="path-flow">
+              <div class="path-step">storage value</div>
+              <div class="path-step">PRV_IN / PRV_OUT buffer</div>
+              <div class="path-step">DataPt symbol</div>
+              <div class="path-step">cache for repeated access</div>
+            </div>
+          </div>
+          <div class="path-panel memory">
+            <h3>MLOAD</h3>
+            <div class="path-flow">
+              <div class="path-step">MemoryPt overlap search</div>
+              <div class="path-step">fragment shift / mask</div>
+              <div class="path-step">SHR, AND, SHL, OR placements</div>
+              <div class="path-step">reconstructed word symbol</div>
+            </div>
+          </div>
+        </div>
+        <div class="callout wide">
+          <p>State와 memory opcode의 난점은 산술이 아니라 “외부 값 또는 과거 write 조각을 어떤 symbol과 wire map으로 연결할 것인가”이다.</p>
+        </div>
+      </main>
+      <footer>
+        <div class="source">Source: <a href="https://tokamak-network.github.io/tokamak-zk-evm-docs/frontend/synthesizer/synthesizer-code-examples.html">Tokamak docs: SLOAD and MLOAD examples</a>.</div>
       </footer>
     </section>
 
@@ -1917,7 +2180,7 @@
           <thead><tr><th>Source type</th><th>References</th><th>Use in deck</th></tr></thead>
           <tbody>
             <tr><td>Paper</td><td>Jang and Judd, <a href="https://eprint.iacr.org/2024/507"><em>An Efficient SNARK for Field-Programmable and RAM Circuits</em></a></td><td>field-programmable and RAM circuit model</td></tr>
-            <tr><td>Implementation</td><td>Tokamak zk-EVM repository, private-state contracts, <code>mintNotes1</code> fixture</td><td>architecture and example flow</td></tr>
+            <tr><td>Implementation</td><td>Tokamak zk-EVM repository, <a href="https://tokamak-network.github.io/tokamak-zk-evm-docs/frontend/synthesizer/synthesizer-code-examples.html">Tokamak synthesizer code examples</a>, <a href="https://tokamak-network.github.io/tokamak-zk-evm-docs/frontend/synthesizer/synthesizer-opcodes.html">opcode reference</a></td><td>architecture, example flow, opcode handling</td></tr>
             <tr><td>Comparative</td><td>Scroll zkEVM overview, LFDT-Lineth, Aztec docs</td><td>project approach comparison</td></tr>
             <tr><td>Market</td><td>L2BEAT, DefiLlama, CoinGecko, EF privacy posts, PSE roadmap</td><td>motivation and context</td></tr>
           </tbody>
