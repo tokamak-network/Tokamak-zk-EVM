@@ -751,6 +751,35 @@
       font-size: 20px;
     }
 
+    .final-comparison {
+      table-layout: fixed;
+    }
+
+    .final-comparison th,
+    .final-comparison td {
+      font-size: 19px;
+      padding: 9px 10px;
+      line-height: 1.22;
+    }
+
+    .final-comparison th:first-child,
+    .final-comparison td:first-child {
+      width: 17%;
+      color: var(--accent-dark);
+      font-weight: 850;
+      background: var(--accent-soft);
+    }
+
+    .final-comparison th:not(:first-child),
+    .final-comparison td:not(:first-child) {
+      width: 27.66%;
+    }
+
+    .final-comparison tr:last-child td {
+      background: var(--violet-soft);
+      font-weight: 850;
+    }
+
     .table-block {
       display: grid;
       gap: 10px;
@@ -2025,19 +2054,32 @@
 
     <section class="slide" id="slide-24">
       <header>
-        <div class="kicker">Summary</div>
-        <h2>핵심 정리</h2>
+        <div class="kicker">Final Insight</div>
+        <h2>세 가지 실행 검증 방식의 차이</h2>
       </header>
       <main>
-        <div class="block-graph">
-          <div class="graph-node">1. placement 생성<br><span class="small">subcircuit library → placements</span></div>
-          <div class="graph-edge">→</div>
-          <div class="graph-node">2. wire map<br><span class="small">same-value wiring</span></div>
-          <div class="graph-edge">→</div>
-          <div class="graph-node">3. 재사용 조건<br><span class="small">same successful shape</span></div>
-        </div>
+        <table class="final-comparison">
+          <thead>
+            <tr>
+              <th>비교 축</th>
+              <th>RAM-style 실행 검증</th>
+              <th>Tokamak-style 실행 검증</th>
+              <th>Aztec private function 실행 검증</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>검증 대상</td><td>범용 VM/RAM step 실행</td><td>EVM 함수의 성공 실행 모양</td><td>private function proof + private kernel</td></tr>
+            <tr><td>회로 단위</td><td>고정 범용 실행 회로</td><td>함수별 audit 검증 회로</td><td>private function별 회로 + kernel phase</td></tr>
+            <tr><td>경로 처리</td><td>trace witness + step transition</td><td>실행 기록 → placement topology + wire map</td><td>function proof → recursive kernel accumulation</td></tr>
+            <tr><td>재사용 조건</td><td>같은 VM 회로, 다른 trace</td><td>같은 함수, 같은 성공 실행 모양</td><td>같은 private function circuit + kernel protocol</td></tr>
+            <tr><td>강점</td><td>범용성</td><td>EVM 호환성과 회로 효율</td><td>privacy-native 함수 검증</td></tr>
+            <tr><td>비용 / 제약</td><td>step 수 + RAM/memory 검증 비용</td><td>회로 생성 올바름 = audit 신뢰 영역</td><td>client-side proving + kernel overhead</td></tr>
+            <tr><td>핵심 통찰</td><td>프로그램을 범용 기계 위에서 검증</td><td>EVM 실행을 함수 전용 회로로 고정</td><td>private proof를 kernel이 연결</td></tr>
+          </tbody>
+        </table>
       </main>
       <footer>
+        <div class="source">Sources: <a href="https://eprint.iacr.org/2024/507">Jang-Judd 2024/507</a>, <a href="https://tokamak-network.github.io/tokamak-zk-evm-docs/frontend/synthesizer/synthesizer-code-examples.html">Tokamak synthesizer docs</a>, <a href="https://docs.aztec.network/developers/docs/foundational-topics/advanced/circuits/private_kernel">Aztec private kernel docs</a>.</div>
         <div class="slide-number">20 / 20</div>
       </footer>
     </section>
