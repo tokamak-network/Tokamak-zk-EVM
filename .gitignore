@@ -26,6 +26,7 @@ coverage.json
 # Misc
 .DS_Store
 *.log
+tmp/
 
 #Cursor
 .cursor
