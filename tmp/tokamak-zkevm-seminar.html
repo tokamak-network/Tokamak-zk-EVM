@@ -824,19 +824,6 @@
       font-weight: 900;
     }
 
-    .circuit-topology {
-      display: grid;
-      grid-template-columns: 1.8fr 80px 1.8fr;
-      gap: 18px;
-      align-items: center;
-    }
-
-    .circuit-topology .wire {
-      height: 4px;
-      background: var(--accent);
-      align-self: center;
-    }
-
     .io-triangle {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -938,6 +925,26 @@
       background: var(--warn-soft);
     }
 
+    .paper-figure {
+      margin: 0;
+      display: grid;
+      gap: 10px;
+    }
+
+    .paper-figure img {
+      width: 100%;
+      max-height: 430px;
+      object-fit: contain;
+      background: #fff;
+      border: 1px solid var(--line);
+    }
+
+    .paper-figure figcaption {
+      color: var(--muted);
+      font-size: 20px;
+      text-align: center;
+    }
+
     @media (max-width: 900px) {
       .grid.two,
       .grid.three,
@@ -949,7 +956,6 @@
       .fork-diagram,
       .signal-timeline,
       .block-graph,
-      .circuit-topology,
       .io-triangle,
       .value-network,
       .risk-axis,
@@ -1265,24 +1271,16 @@
         <h2>Subcircuit 기반 함수 특화 회로</h2>
       </header>
       <main>
-        <div class="circuit-topology">
-          <div class="flow three">
-            <div class="node"><span class="label">subcircuit</span><span class="detail">fixed constraint fragment</span></div>
-            <div class="node"><span class="label">placement #1</span><span class="detail">one subcircuit use</span></div>
-            <div class="node"><span class="label">placement #2</span><span class="detail">another subcircuit use</span></div>
-          </div>
-          <div class="wire" aria-hidden="true"></div>
-          <div class="flow three">
-            <div class="node"><span class="label">placement A output</span><span class="detail">same logical value</span></div>
-            <div class="node"><span class="label">placement B input</span><span class="detail">same logical value</span></div>
-            <div class="node"><span class="label">value connection</span><span class="detail">same-value relation</span></div>
-          </div>
-        </div>
+        <figure class="paper-figure">
+          <img src="assets/figure-4-crop.png" alt="Paper Figure 4 showing a circuit composed from subcircuit placements and a wire map">
+          <figcaption>Figure 4: subcircuit placements and value connections through a wire map</figcaption>
+        </figure>
         <div class="callout wide">
           <p>검증 회로 생성은 “새 언어를 만드는 일”이 아니라, subcircuit placement를 만들고 그 사이의 value connection을 기록하는 일이다.</p>
         </div>
       </main>
       <footer>
+        <div class="source">Source: Jang and Judd, <a href="https://eprint.iacr.org/2024/507">IACR ePrint 2024/507</a>, Figure 4.</div>
         <div class="slide-number">10 / 30</div>
       </footer>
     </section>
