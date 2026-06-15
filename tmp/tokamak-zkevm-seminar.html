@@ -653,7 +653,7 @@
       border: 1px solid var(--line);
       border-radius: 2px;
       background: #f2f2ef;
-      font-size: 18px;
+      font-size: 19px;
       font-weight: 700;
       display: flex;
       align-items: center;
@@ -756,12 +756,12 @@
     <section class="slide" id="slide-2">
       <header>
         <div class="kicker">Motivation</div>
-        <h2>왜 EVM 실행을 증명하려 하는가</h2>
+        <h2>EVM 실행 증명의 동기</h2>
       </header>
       <main class="grid two">
         <div class="panel">
           <h3>Scalability</h3>
-          <p>모든 검증자가 모든 실행을 다시 수행하지 않고, 짧은 proof로 실행 결과를 확인한다.</p>
+          <p>짧은 proof, 실행 결과 확인, 검증자 재실행 부담 감소</p>
           <ul class="compact">
             <li>rollup-style validation</li>
             <li>repeated verifier work 감소</li>
@@ -770,7 +770,7 @@
         </div>
         <div class="panel">
           <h3>Privacy</h3>
-          <p>실행의 정당성은 보이되, 실행 입력의 일부는 숨긴다.</p>
+          <p>실행 정당성 공개, 실행 입력 일부 은닉</p>
           <ul class="compact">
             <li>private input과 public input 분리</li>
             <li>private state, shielded account, encrypted execution</li>
@@ -789,7 +789,7 @@
     <section class="slide" id="slide-3">
       <header>
         <div class="kicker">Market Size</div>
-        <h2>ZKP 응용 시장의 규모 비교</h2>
+        <h2>ZKP 응용 시장 규모</h2>
       </header>
       <main class="grid two">
         <div class="panel">
@@ -830,7 +830,7 @@
     <section class="slide" id="slide-4-privacy-signals">
       <header>
         <div class="kicker">Privacy Signals</div>
-        <h2>프라이버시 ZKP가 다시 주목받는 이유</h2>
+        <h2>프라이버시 ZKP 재부상 신호</h2>
       </header>
       <main class="grid two">
         <div class="panel">
@@ -864,7 +864,7 @@
     <section class="slide" id="slide-4">
       <header>
         <div class="kicker">Problem</div>
-        <h2>응용에서 회로 문제로</h2>
+        <h2>응용 목표와 회로 생성 문제</h2>
       </header>
       <main>
         <div class="equation">
@@ -889,22 +889,22 @@
     <section class="slide" id="slide-5">
       <header>
         <div class="kicker">Verification View</div>
-        <h2>검증 회로는 실행 경로를 찾지 않고 확인한다</h2>
+        <h2>검증 회로와 후보 실행 경로</h2>
       </header>
       <main class="grid two">
         <div class="diagram">
           <div class="flow three">
             <div class="node"><span class="label">후보 실행 경로</span><span class="detail">branch, loop, call 결과가 이미 정해짐</span></div>
-            <div class="node"><span class="label">검증 회로</span><span class="detail">그 경로가 규칙을 만족하는지 확인</span></div>
+            <div class="node"><span class="label">검증 회로</span><span class="detail">경로 규칙 만족 여부</span></div>
             <div class="node"><span class="label">accept / reject</span><span class="detail">계산을 다시 찾지 않고 검사</span></div>
           </div>
         </div>
         <div class="panel">
-          <h3>왜 회로 모양이 달라질 수 있는가</h3>
+          <h3>회로 모양 변화 요인</h3>
           <ul>
-            <li>실행 branch가 바뀌면 검사해야 할 opcode가 달라진다.</li>
-            <li>반복 횟수가 바뀌면 필요한 block copy 수가 달라진다.</li>
-            <li>call 구조가 바뀌면 연결해야 할 값의 경계가 달라진다.</li>
+            <li>branch별 opcode 검사 차이</li>
+            <li>반복 횟수별 block copy 수 차이</li>
+            <li>call 구조별 값 연결 경계 차이</li>
           </ul>
         </div>
         <div class="callout wide">
@@ -924,22 +924,22 @@
       <main class="grid three">
         <div class="panel">
           <h3>Scroll / Linea</h3>
-          <p>EVM 실행을 opcode 단위 경로와 상태 변수로 펼치고, 고정된 EVM 제약이 각 step과 상태 전이를 검증한다.</p>
+          <p>EVM RAM-style trace, opcode step, stack, memory, storage, state transition</p>
         </div>
         <div class="panel">
-          <h3>Aztec</h3>
-          <p>EVM은 아니지만 AVM과 private circuit 실행을 증명한다. VM 실행을 회로로 검증한다는 관점은 같다.</p>
+          <h3>Aztec public execution</h3>
+          <p>AVM bytecode, sequencer execution, VM/RAM-style validation</p>
         </div>
         <div class="panel">
-          <h3>공통 관점</h3>
-          <p>실행 경로와 상태 변수를 witness로 두고, 회로는 그 경로가 machine 규칙을 따르는지 확인한다.</p>
+          <h3>Aztec private execution</h3>
+          <p>ACIR circuit, unrolled control flow, function-specific arithmetic circuit</p>
         </div>
         <div class="callout wide">
-          <p>공통 증명 명제: 주어진 step 수 안에서, 주어진 실행 경로와 상태 변수들이 machine semantics를 만족하며 성공적으로 끝났는가?</p>
+          <p>같은 프로젝트 안에서도 회로화 대상에 따라 접근이 달라진다. Public VM 실행은 RAM-style 검증에 가깝고, private 함수 실행은 함수 특화 회로에 가깝다.</p>
         </div>
       </main>
       <footer>
-        <div class="source">Sources: <a href="https://docs.scroll.io/en/technology/zkevm/zkevm-overview/">Scroll zkEVM overview</a>, <a href="https://github.com/Consensys/linea-tracer">Linea tracer</a>, <a href="https://docs.aztec.network/developers/docs/foundational-topics/advanced/circuits/public_execution">Aztec AVM docs</a>, <a href="https://eprint.iacr.org/2024/507">Jang-Judd 2024/507</a>.</div>
+        <div class="source">Sources: <a href="https://docs.scroll.io/en/technology/zkevm/zkevm-overview/">Scroll zkEVM overview</a>, <a href="https://github.com/Consensys/linea-tracer">Linea tracer</a>, <a href="https://docs.aztec.network/developers/docs/foundational-topics/advanced/circuits/public_execution">Aztec public execution</a>, <a href="https://docs.aztec.network/developers/docs/foundational-topics/advanced/circuits/private_kernel">Aztec private kernel</a>, <a href="https://docs.aztec.network/developers/docs/resources/glossary">Aztec glossary</a>.</div>
         <div class="slide-number">7 / 30</div>
       </footer>
     </section>
@@ -947,7 +947,7 @@
     <section class="slide" id="slide-7-ram-verification">
       <header>
         <div class="kicker">RAM Circuit Check</div>
-        <h2>RAM 회로는 주어진 실행 경로를 어떻게 검증하는가</h2>
+        <h2>RAM 회로의 실행 경로 검증</h2>
       </header>
       <main class="grid">
         <div class="ram-claim">
@@ -967,7 +967,7 @@
           </div>
           <div class="stage">
             <h3>검증 결과</h3>
-            <p>모든 row와 인접 row가 VM 규칙을 만족하면 accept</p>
+            <p>row-wise VM 규칙, adjacent-row consistency, accept</p>
           </div>
         </div>
         <div class="step-checks">
@@ -989,19 +989,19 @@
     <section class="slide" id="slide-7">
       <header>
         <div class="kicker">Tokamak Question</div>
-        <h2>Tokamak의 질문: 필요한 검사 블록을 어떻게 고르는가</h2>
+        <h2>Tokamak의 검사 블록 선택 문제</h2>
       </header>
       <main class="grid two">
         <div class="diagram">
           <div class="flow three">
             <div class="node"><span class="label">고정된 블록 선반</span><span class="detail">재사용 가능한 작은 검증 블록</span></div>
-            <div class="node"><span class="label">실행 기록</span><span class="detail">어떤 연산과 값 이동이 있었는가</span></div>
+            <div class="node"><span class="label">실행 기록</span><span class="detail">연산과 값 이동</span></div>
             <div class="node"><span class="label">함수 특화 검증 회로</span><span class="detail">선택된 블록 + 값 연결</span></div>
           </div>
         </div>
         <div class="panel">
-          <h3>Tokamak이 풀어야 하는 문제</h3>
-          <p>모든 EVM을 하나의 거대한 회로로만 생각하지 않고, 실행 기록에 필요한 검사 블록을 골라 함수 특화 검증 회로를 만든다.</p>
+          <h3>핵심 문제</h3>
+          <p>고정된 block library, 실행 기록 기반 block selection, 함수 특화 검증 회로</p>
         </div>
       </main>
       <footer>
@@ -1012,20 +1012,20 @@
     <section class="slide" id="slide-8">
       <header>
         <div class="kicker">Block Model</div>
-        <h2>고정된 블록을 골라 함수 특화 회로를 만든다</h2>
+        <h2>고정 블록 기반 함수 특화 회로</h2>
       </header>
       <main class="grid three">
         <div class="role-box">
           <h3>재사용 블록</h3>
-          <p>작은 검증 규칙 하나를 담은 고정된 회로 조각</p>
+          <p>작은 검증 규칙, 고정 회로 조각</p>
         </div>
         <div class="role-box">
           <h3>블록 복사본</h3>
-          <p>특정 실행에서 그 블록을 한 번 사용하는 자리</p>
+          <p>특정 실행 안의 단일 block 사용 자리</p>
         </div>
         <div class="role-box">
           <h3>값 연결</h3>
-          <p>서로 다른 블록의 wire가 같은 값을 가져야 한다는 관계</p>
+          <p>서로 다른 block wire의 equality relation</p>
         </div>
         <div class="callout wide">
           <p>검증 회로 생성은 “새 언어를 만드는 일”이 아니라, 고정된 블록을 고르고 그 사이의 같은 값을 연결하는 일이다.</p>
@@ -1039,7 +1039,7 @@
     <section class="slide" id="slide-9">
       <header>
         <div class="kicker">Technical Names</div>
-        <h2>블록, 블록 복사본, 값 연결의 이름</h2>
+        <h2>블록 모델의 세 가지 이름</h2>
       </header>
       <main class="grid three">
         <div class="term"><h3>subcircuit</h3><p class="detail">재사용 가능한 작은 검증 블록</p></div>
@@ -1057,7 +1057,7 @@
     <section class="slide" id="slide-10">
       <header>
         <div class="kicker">Paper Model</div>
-        <h2>논문의 모델: 고정된 블록과 연결표로 회로를 만든다</h2>
+        <h2>논문의 고정 블록과 연결표 모델</h2>
       </header>
       <main>
         <div class="equation">
@@ -1082,17 +1082,17 @@
     <section class="slide" id="slide-11">
       <header>
         <div class="kicker">Two Checks</div>
-        <h2>각 블록을 검사하고, 블록 사이의 같은 값을 연결한다</h2>
+        <h2>블록 내부 검사와 블록 사이 연결</h2>
       </header>
       <main class="grid two">
         <div class="panel">
           <h3>블록 내부 검사</h3>
-          <p>하나의 블록 복사본은 자기 안의 계산 규칙을 만족해야 한다.</p>
+          <p>단일 block copy 내부 계산 규칙</p>
           <div class="equation"><div class="piece">x</div><div class="op">+</div><div class="piece">y</div><div class="op">=</div><div class="piece">z</div></div>
         </div>
         <div class="panel">
           <h3>블록 사이 연결 검사</h3>
-          <p>앞 블록의 output이 뒤 블록의 input이면 두 wire는 같은 값이어야 한다.</p>
+          <p>이전 block output과 다음 block input의 동일 값 관계</p>
           <div class="equation"><div class="piece">A.out</div><div class="op">=</div><div class="piece">B.in</div></div>
         </div>
         <div class="callout wide">
@@ -1107,7 +1107,7 @@
     <section class="slide" id="slide-12">
       <header>
         <div class="kicker">Components</div>
-        <h2>네 구성요소는 서로 다른 산출물을 만든다</h2>
+        <h2>네 구성요소와 산출물</h2>
       </header>
       <main>
         <div class="diagram">
@@ -1115,7 +1115,7 @@
             <div class="node"><span class="label">qap-compiler</span><span class="detail">고정된 subcircuit library</span></div>
             <div class="node"><span class="label">synthesizer</span><span class="detail">witness + value connections</span></div>
             <div class="node"><span class="label">prover</span><span class="detail">SNARK proof</span></div>
-            <div class="node"><span class="label">verifier</span><span class="detail">public input에 대한 proof 확인</span></div>
+            <div class="node"><span class="label">verifier</span><span class="detail">public input 기반 proof check</span></div>
           </div>
         </div>
         <div class="callout">
@@ -1131,23 +1131,23 @@
     <section class="slide" id="slide-13">
       <header>
         <div class="kicker">Two Compilers</div>
-        <h2>하나는 블록을 준비하고, 하나는 실행 기록을 회로 입력으로 바꾼다</h2>
+        <h2>두 컴파일러의 역할 분리</h2>
       </header>
       <main class="comparison">
         <div class="panel good">
           <h3><code>qap-compiler</code></h3>
           <ul>
-            <li>구체적인 EVM 실행과 무관하게 먼저 실행된다.</li>
-            <li>재사용 가능한 subcircuit library를 만든다.</li>
-            <li>library version이 같으면 여러 함수 실행에서 공유된다.</li>
+            <li>구체적 EVM 실행과 무관한 사전 단계</li>
+            <li>재사용 가능한 subcircuit library</li>
+            <li>동일 library version 기반 공유</li>
           </ul>
         </div>
         <div class="panel bad">
           <h3><code>synthesizer</code></h3>
           <ul>
-            <li>하나의 EVM 트랜잭션의 실행 기록을 따라간다.</li>
-            <li>필요한 placement와 witness 값을 만든다.</li>
-            <li>같은 값이어야 하는 wire들을 value connection으로 기록한다.</li>
+            <li>단일 EVM 트랜잭션 실행 기록</li>
+            <li>필요한 placement와 witness 값</li>
+            <li>동일 값 wire들의 value connection</li>
           </ul>
         </div>
       </main>
@@ -1159,20 +1159,20 @@
     <section class="slide" id="slide-14">
       <header>
         <div class="kicker">Synthesizer Output</div>
-        <h2>생성물은 값, 공개 입력, 값 연결이다</h2>
+        <h2>Synthesizer 산출물</h2>
       </header>
       <main class="grid three">
         <div class="panel">
           <h3>witness</h3>
-          <p>검증 회로 안에서 사용되는 비공개 계산 값</p>
+          <p>검증 회로 내부 비공개 계산 값</p>
         </div>
         <div class="panel">
           <h3>public input</h3>
-          <p>verifier가 proof와 함께 확인하는 공개 값</p>
+          <p>proof와 함께 확인되는 공개 값</p>
         </div>
         <div class="panel">
           <h3>value connections</h3>
-          <p>서로 다른 블록의 wire가 같은 값이어야 하는 관계</p>
+          <p>서로 다른 block wire의 동일 값 관계</p>
         </div>
       </main>
       <footer>
@@ -1183,7 +1183,7 @@
     <section class="slide" id="slide-15">
       <header>
         <div class="kicker">Execution Record To Circuit</div>
-        <h2>실행 기록은 어떤 블록을 놓고 어떤 값을 연결할지 알려준다</h2>
+        <h2>실행 기록 기반 block selection</h2>
       </header>
       <main>
         <div class="lane-diagram">
@@ -1210,7 +1210,7 @@
     <section class="slide" id="slide-16">
       <header>
         <div class="kicker">Synthesis Pipeline</div>
-        <h2>Synthesizer는 실행 기록을 따라가며 회로 입력을 만든다</h2>
+        <h2>Synthesizer 입력과 출력</h2>
       </header>
       <main>
         <div class="lane-diagram">
@@ -1240,23 +1240,23 @@
     <section class="slide" id="slide-17">
       <header>
         <div class="kicker">Mini Example</div>
-        <h2>하나의 값은 여러 블록을 지나가며 연결된다</h2>
+        <h2>여러 블록을 지나는 하나의 값</h2>
       </header>
       <main class="grid two">
         <div class="panel">
-          <h3>실행 기록에서 보이는 일</h3>
+          <h3>실행 기록의 값 흐름</h3>
           <ul>
-            <li>calldata에서 amount를 읽는다.</li>
-            <li>amount가 0이 아닌지 검사한다.</li>
-            <li>amount가 balance update에 다시 사용된다.</li>
+            <li>calldata의 amount</li>
+            <li>amount nonzero check</li>
+            <li>balance update의 amount 재사용</li>
           </ul>
         </div>
         <div class="panel">
-          <h3>검증 회로에서 생기는 일</h3>
+          <h3>검증 회로의 값 연결</h3>
           <ul>
-            <li>calldata block이 amount 값을 낸다.</li>
-            <li>nonzero check block이 같은 amount를 받는다.</li>
-            <li>accounting block도 같은 amount를 받도록 연결된다.</li>
+            <li>calldata block의 amount output</li>
+            <li>nonzero check block의 amount input</li>
+            <li>accounting block의 amount input</li>
           </ul>
         </div>
         <div class="callout wide">
@@ -1271,7 +1271,7 @@
     <section class="slide" id="slide-18">
       <header>
         <div class="kicker">Example</div>
-        <h2><code>mintNotes1</code>은 왜 좋은 회로 생성 예제인가</h2>
+        <h2><code>mintNotes1</code> 회로 생성 예제</h2>
       </header>
       <main>
         <div class="lane-diagram">
@@ -1294,7 +1294,7 @@
     <section class="slide" id="slide-19">
       <header>
         <div class="kicker">Example Composition</div>
-        <h2><code>mintNotes1</code>의 검증 목표는 어떤 블록 그룹으로 나뉘는가</h2>
+        <h2><code>mintNotes1</code> 검증 목표별 block group</h2>
       </header>
       <main>
         <div class="lane-diagram">
@@ -1329,11 +1329,11 @@
     <section class="slide" id="slide-20">
       <header>
         <div class="kicker">Reuse Condition</div>
-        <h2>같은 회로를 재사용하려면 성공 실행의 모양이 같아야 한다</h2>
+        <h2>Trusted circuit 재사용 조건</h2>
       </header>
       <main class="grid two">
         <div class="panel">
-          <h3>같아야 하는 것</h3>
+          <h3>동일해야 하는 요소</h3>
           <ul>
             <li>같은 종류의 블록</li>
             <li>같은 개수의 블록 복사본</li>
@@ -1341,8 +1341,8 @@
           </ul>
         </div>
         <div class="panel">
-          <h3>왜 필요한가</h3>
-          <p>trusted circuit은 이미 검토되고 verifier workflow에 받아들여진 고정 회로다. 매번 새로 생성된 회로 구조를 on-chain에서 검토한다고 보면 안 된다.</p>
+          <h3>필요한 이유</h3>
+          <p>사전 검토된 고정 회로, verifier workflow, on-chain 회로 구조 검토 부재</p>
         </div>
         <div class="callout wide">
           <p>값은 달라져도 된다. 성공 실행에서 필요한 회로의 모양은 같아야 한다.</p>
@@ -1356,20 +1356,20 @@
     <section class="slide" id="slide-21">
       <header>
         <div class="kicker">Contract Shapes</div>
-        <h2>입력이 달라도 성공 실행의 모양이 같으면 재사용 가능하다</h2>
+        <h2>성공 실행 모양별 contract 유형</h2>
       </header>
       <main class="grid three">
         <div class="panel good">
           <h3>안전한 형태</h3>
-          <p>고정 개수의 note를 mint하고 항상 같은 검사 블록을 사용한다.</p>
+          <p>고정 note 개수, 동일 검사 block</p>
         </div>
         <div class="panel bad">
           <h3>위험한 형태</h3>
-          <p>입력 배열 길이에 따라 성공 실행의 loop count와 block 수가 달라진다.</p>
+          <p>입력 배열 길이, 가변 loop count, 가변 block 수</p>
         </div>
         <div class="panel">
           <h3>조건부 가능</h3>
-          <p>branch가 있어도 모든 성공 경로가 같은 블록 수와 값 연결로 수렴하면 가능하다.</p>
+          <p>branch 존재, 동일 block 수, 동일 값 연결 수렴</p>
         </div>
         <div class="callout wide">
           <p>같은 trusted circuit reuse 논의는 성공한 실행 경로만 대상으로 한다. 실패한 트랜잭션 경로는 별도 범위다.</p>
@@ -1383,7 +1383,7 @@
     <section class="slide" id="slide-22">
       <header>
         <div class="kicker">Private-State DApp</div>
-        <h2>Private-state DApp은 함수별로 다른 고정 모양을 만든다</h2>
+        <h2>Private-state DApp의 함수별 고정 모양</h2>
       </header>
       <main>
         <div class="matrix">
@@ -1419,20 +1419,20 @@
     <section class="slide" id="slide-23">
       <header>
         <div class="kicker">Failure Modes</div>
-        <h2>잘못된 회로 모양을 허용하면 검증 조건이 바뀐다</h2>
+        <h2>잘못된 회로 모양의 위험</h2>
       </header>
       <main class="grid three">
         <div class="panel">
           <h3>wrong shape</h3>
-          <p>검토된 회로와 다른 블록 구성이 proof 대상이 될 수 있다.</p>
+          <p>검토된 회로와 다른 block 구성</p>
         </div>
         <div class="panel">
           <h3>nondeterminism</h3>
-          <p>같은 실행 기록에서 서로 다른 블록 배치가 나오면 verifier가 무엇을 신뢰하는지 흐려진다.</p>
+          <p>동일 실행 기록, 서로 다른 block 배치, 신뢰 대상 불명확성</p>
         </div>
         <div class="panel">
           <h3>unsafe fallback</h3>
-          <p>지원하지 않는 모양을 padding이나 skip으로 숨기면 검증 조건이 바뀐다.</p>
+          <p>unsupported shape, padding, skip, 검증 조건 변화</p>
         </div>
         <div class="callout wide">
           <p>지원하지 않는 성공 실행 모양은 조용히 보정하지 말고 명확히 거부되어야 한다.</p>
@@ -1446,20 +1446,20 @@
     <section class="slide" id="slide-24">
       <header>
         <div class="kicker">Summary</div>
-        <h2>핵심 정리: 블록 선택, 값 연결, 재사용 조건</h2>
+        <h2>핵심 정리</h2>
       </header>
       <main class="grid three">
         <div class="panel">
           <h3>1. 블록 선택</h3>
-          <p>Tokamak은 고정된 재사용 블록에서 함수 실행에 필요한 블록 복사본을 고른다.</p>
+          <p>고정 재사용 block, 함수 실행별 block copy</p>
         </div>
         <div class="panel">
           <h3>2. 값 연결</h3>
-          <p>synthesizer는 EVM 트랜잭션의 실행 기록을 따라 같은 값이어야 하는 wire를 연결한다.</p>
+          <p>EVM 트랜잭션 실행 기록, 동일 값 wire connection</p>
         </div>
         <div class="panel">
           <h3>3. 재사용 조건</h3>
-          <p>성공 실행마다 회로 모양이 같을 때만 같은 trusted circuit을 재사용한다.</p>
+          <p>성공 실행별 동일 회로 모양, trusted circuit reuse</p>
         </div>
       </main>
       <footer>
@@ -1470,23 +1470,23 @@
     <section class="slide" id="slide-25">
       <header>
         <div class="kicker">Discussion</div>
-        <h2>토론 질문</h2>
+        <h2>토론 주제</h2>
       </header>
       <main class="grid two">
         <div class="panel">
           <h3>개념 질문</h3>
           <ul>
-            <li>함수 특화 검증 회로와 universal machine circuit의 trade-off는 무엇인가?</li>
-            <li>privacy application에서 public input 설계는 무엇을 숨기고 무엇을 드러내는가?</li>
-            <li>same-shape 조건은 smart contract design에 어떤 제약을 주는가?</li>
+            <li>함수 특화 검증 회로와 universal machine circuit의 trade-off</li>
+            <li>privacy application의 public input 설계</li>
+            <li>same-shape 조건과 smart contract design 제약</li>
           </ul>
         </div>
         <div class="panel">
           <h3>구현 질문</h3>
           <ul>
-            <li>CALL 구조는 실행 기록에서 어떻게 보이는가?</li>
-            <li>각 opcode family는 어떤 block family로 처리되는가?</li>
-            <li>지원하지 않는 실행 모양은 어떻게 드러나야 하는가?</li>
+            <li>실행 기록 안의 CALL 구조</li>
+            <li>opcode family별 block family</li>
+            <li>unsupported execution shape의 노출 방식</li>
           </ul>
         </div>
       </main>
@@ -1498,7 +1498,7 @@
     <section class="slide" id="slide-26">
       <header>
         <div class="kicker">Backup</div>
-        <h2>CALL 구조는 새로 추측하지 않고 실행 기록을 따라간다</h2>
+        <h2>CALL 구조와 실행 기록</h2>
       </header>
       <main class="grid two">
         <div class="diagram">
@@ -1511,10 +1511,10 @@
         <div class="panel">
           <h3>핵심 답변</h3>
           <ul>
-            <li>call tree를 새로 추측하지 않는다.</li>
-            <li>실행 기록에 나타난 call depth와 return boundary를 따라간다.</li>
-            <li>calldata copy와 return-data copy는 값 연결로 검증된다.</li>
-            <li>call count, target, return shape가 변하면 회로 모양도 변할 수 있다.</li>
+            <li>관측된 call tree</li>
+            <li>실행 기록의 call depth와 return boundary</li>
+            <li>calldata copy와 return-data copy의 값 연결</li>
+            <li>call count, target, return shape 변화와 회로 모양 risk</li>
           </ul>
         </div>
       </main>
@@ -1540,10 +1540,10 @@
           </thead>
           <tbody>
             <tr><td>Arithmetic / bitwise</td><td>ALU-style reusable blocks</td><td>대체로 local relation 중심</td></tr>
-            <tr><td>Memory / calldata</td><td>memory reconstruction과 값 연결</td><td>alignment와 aliasing이 helper block 수를 바꿀 수 있음</td></tr>
-            <tr><td>Storage / state</td><td>storage read/write와 state proof obligations</td><td>access pattern 길이와 순서가 중요</td></tr>
-            <tr><td>Calls</td><td>context setup, calldata copy, child execution, return-data copy</td><td>call depth와 target 변화는 shape risk</td></tr>
-            <tr><td>Unsupported paths</td><td>rejected / not synthesized</td><td>fallback으로 지원처럼 보이면 안 됨</td></tr>
+            <tr><td>Memory / calldata</td><td>memory reconstruction과 값 연결</td><td>alignment, aliasing, helper block 수 변화</td></tr>
+            <tr><td>Storage / state</td><td>storage read/write와 state proof obligations</td><td>access pattern 길이와 순서</td></tr>
+            <tr><td>Calls</td><td>context setup, calldata copy, child execution, return-data copy</td><td>call depth, target 변화, shape risk</td></tr>
+            <tr><td>Unsupported paths</td><td>rejected / not synthesized</td><td>fallback 지원 오인 risk</td></tr>
           </tbody>
         </table>
       </main>
@@ -1562,17 +1562,17 @@
         <div class="panel">
           <h3>Concept and implementation</h3>
           <ul class="compact">
-            <li>Jehyuk Jang and Jamie Judd, <a href="https://eprint.iacr.org/2024/507"><em>An Efficient SNARK for Field-Programmable and RAM Circuits</em></a>.</li>
-            <li>Tokamak zk-EVM repository: <code>qap-compiler</code>, <code>synthesizer</code>, <code>prover</code>, <code>verify</code>.</li>
-            <li>Tokamak private-state contracts and local <code>mintNotes1</code> fixture.</li>
+            <li>Jehyuk Jang and Jamie Judd, <a href="https://eprint.iacr.org/2024/507"><em>An Efficient SNARK for Field-Programmable and RAM Circuits</em></a></li>
+            <li>Tokamak zk-EVM repository: <code>qap-compiler</code>, <code>synthesizer</code>, <code>prover</code>, <code>verify</code></li>
+            <li>Tokamak private-state contracts and local <code>mintNotes1</code> fixture</li>
           </ul>
         </div>
         <div class="panel">
           <h3>Comparative and motivation sources</h3>
           <ul class="compact">
-            <li>Scroll zkEVM overview, LFDT-Lineth, and Aztec docs.</li>
-            <li>L2BEAT, DefiLlama, and CoinGecko market data.</li>
-            <li>Ethereum Foundation privacy posts, PSE roadmap, Privacy Pools, Kohaku coverage.</li>
+            <li>Scroll zkEVM overview, LFDT-Lineth, Aztec docs</li>
+            <li>L2BEAT, DefiLlama, CoinGecko market data</li>
+            <li>Ethereum Foundation privacy posts, PSE roadmap, Privacy Pools, Kohaku coverage</li>
           </ul>
         </div>
       </main>
