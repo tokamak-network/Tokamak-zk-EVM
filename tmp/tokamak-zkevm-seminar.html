@@ -571,6 +571,7 @@
       border-left: 5px solid var(--accent);
       background: #f5f7f6;
       box-shadow: none;
+      margin-top: 18px;
     }
 
     .lane-diagram {
@@ -594,7 +595,7 @@
     .lane .lane-flow {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 24px;
       align-items: center;
     }
 
@@ -604,6 +605,17 @@
       background: #efefec;
       border: 1px solid var(--line);
       font-weight: 700;
+      position: relative;
+    }
+
+    .lane-flow .block:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      right: -18px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--accent-dark);
+      font-weight: 900;
     }
 
     .ram-claim {
@@ -685,6 +697,247 @@
       justify-content: center;
     }
 
+    .fork-diagram {
+      display: grid;
+      grid-template-columns: 1fr 150px 1fr;
+      grid-template-rows: auto auto;
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .fork-diagram .hub {
+      grid-column: 2;
+      grid-row: 1 / span 2;
+      border: 2px solid var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent-dark);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-weight: 850;
+      padding: 18px;
+      min-height: 260px;
+    }
+
+    .fork-diagram .branch {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      padding: 20px;
+      position: relative;
+    }
+
+    .fork-diagram .branch::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      width: 18px;
+      border-top: 3px solid var(--accent);
+    }
+
+    .fork-diagram .left::after {
+      right: -18px;
+    }
+
+    .fork-diagram .right::after {
+      left: -18px;
+    }
+
+    .signal-timeline {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 22px;
+      position: relative;
+    }
+
+    .signal-lane {
+      display: grid;
+      grid-template-columns: 76px 1fr;
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .signal-lane .year {
+      background: var(--accent-soft);
+      color: var(--accent-dark);
+      border: 1px solid rgba(47, 127, 121, 0.28);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 850;
+    }
+
+    .signal-lane .event {
+      border-left: 4px solid var(--accent);
+      background: var(--panel);
+      padding: 10px 14px;
+      border-top: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      min-height: 60px;
+      display: flex;
+      align-items: center;
+      font-weight: 700;
+    }
+
+    .matrix-table th,
+    .matrix-table td {
+      font-size: 20px;
+    }
+
+    .table-block {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .table-block h3 {
+      color: var(--accent-dark);
+      margin-bottom: 0;
+    }
+
+    .block-graph {
+      display: grid;
+      grid-template-columns: 1fr 74px 1fr 74px 1fr;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .block-graph .graph-node {
+      min-height: 120px;
+      border: 2px solid var(--accent);
+      background: var(--panel);
+      padding: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-weight: 850;
+    }
+
+    .block-graph .graph-edge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent-dark);
+      font-size: 44px;
+      font-weight: 900;
+    }
+
+    .circuit-topology {
+      display: grid;
+      grid-template-columns: 1.8fr 80px 1.8fr;
+      gap: 18px;
+      align-items: center;
+    }
+
+    .circuit-topology .wire {
+      height: 4px;
+      background: var(--accent);
+      align-self: center;
+    }
+
+    .io-triangle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto auto;
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .io-triangle .top {
+      grid-column: 1 / -1;
+      justify-self: center;
+      width: 54%;
+    }
+
+    .io-triangle .node {
+      border: 2px solid var(--accent);
+      background: var(--panel);
+      min-height: 130px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      text-align: center;
+      font-weight: 850;
+    }
+
+    .value-network {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      align-items: center;
+    }
+
+    .value-network .vnode {
+      min-height: 92px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-top: 5px solid var(--accent);
+      padding: 12px;
+      text-align: center;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .value-network .vedge {
+      height: 4px;
+      background: var(--accent);
+      position: relative;
+    }
+
+    .value-network .vedge::after {
+      content: "";
+      position: absolute;
+      right: -2px;
+      top: -6px;
+      width: 0;
+      height: 0;
+      border-top: 8px solid transparent;
+      border-bottom: 8px solid transparent;
+      border-left: 12px solid var(--accent);
+    }
+
+    .risk-axis {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 14px;
+      align-items: end;
+      min-height: 310px;
+      border-left: 3px solid var(--line);
+      border-bottom: 3px solid var(--line);
+      padding: 0 0 16px 16px;
+    }
+
+    .risk-axis .bar {
+      display: flex;
+      align-items: end;
+      justify-content: center;
+      color: var(--ink);
+      background: var(--accent-soft);
+      border: 1px solid rgba(47, 127, 121, 0.32);
+      font-weight: 850;
+      text-align: center;
+      padding: 12px;
+    }
+
+    .risk-axis .low {
+      height: 120px;
+    }
+
+    .risk-axis .mid {
+      height: 200px;
+      background: var(--gold-soft);
+    }
+
+    .risk-axis .high {
+      height: 280px;
+      background: var(--warn-soft);
+    }
+
     @media (max-width: 900px) {
       .grid.two,
       .grid.three,
@@ -693,6 +946,13 @@
       .flow,
       .flow.three,
       .ram-claim,
+      .fork-diagram,
+      .signal-timeline,
+      .block-graph,
+      .circuit-topology,
+      .io-triangle,
+      .value-network,
+      .risk-axis,
       .lane {
         grid-template-columns: 1fr;
       }
@@ -758,24 +1018,33 @@
         <div class="kicker">Motivation</div>
         <h2>EVM 실행 증명의 동기</h2>
       </header>
-      <main class="grid two">
-        <div class="panel">
-          <h3>Scalability</h3>
-          <p>짧은 proof, 실행 결과 확인, 검증자 재실행 부담 감소</p>
-          <ul class="compact">
-            <li>rollup-style validation</li>
-            <li>repeated verifier work 감소</li>
-            <li>많은 실행을 하나의 검증 흐름으로 압축</li>
-          </ul>
-        </div>
-        <div class="panel">
-          <h3>Privacy</h3>
-          <p>실행 정당성 공개, 실행 입력 일부 은닉</p>
-          <ul class="compact">
-            <li>private input과 public input 분리</li>
-            <li>private state, shielded account, encrypted execution</li>
-            <li>correctness without full disclosure</li>
-          </ul>
+      <main>
+        <div class="fork-diagram">
+          <div class="branch left">
+            <h3>Scalability</h3>
+            <ul class="compact">
+              <li>rollup-style validation</li>
+              <li>repeated verifier work 감소</li>
+              <li>many executions → one proof flow</li>
+            </ul>
+          </div>
+          <div class="hub">EVM execution<br>→<br>SNARK proof</div>
+          <div class="branch right">
+            <h3>Privacy</h3>
+            <ul class="compact">
+              <li>public input / private input</li>
+              <li>private state, shielded account</li>
+              <li>correctness without full disclosure</li>
+            </ul>
+          </div>
+          <div class="branch left">
+            <h3>검증자 비용</h3>
+            <p>짧은 proof, 실행 결과 확인</p>
+          </div>
+          <div class="branch right">
+            <h3>공개 정보</h3>
+            <p>실행 정당성 공개, 입력 일부 은닉</p>
+          </div>
         </div>
         <div class="callout wide">
           <p>응용 목표가 scalability이든 privacy이든, 공통의 기술 문제는 EVM 실행을 검증 회로로 바꾸는 것이다.</p>
@@ -792,7 +1061,7 @@
         <h2>ZKP 응용 시장 규모</h2>
       </header>
       <main class="grid two">
-        <div class="panel">
+        <div class="table-block">
           <h3>ZKP scaling projects</h3>
           <table>
             <thead><tr><th>Project</th><th>Market cap</th><th>Bridged value</th></tr></thead>
@@ -806,7 +1075,7 @@
             </tbody>
           </table>
         </div>
-        <div class="panel">
+        <div class="table-block">
           <h3>Privacy projects</h3>
           <table>
             <thead><tr><th>Project</th><th>Market cap</th><th>Bridged value</th></tr></thead>
@@ -832,24 +1101,14 @@
         <div class="kicker">Privacy Signals</div>
         <h2>프라이버시 ZKP 재부상 신호</h2>
       </header>
-      <main class="grid two">
-        <div class="panel">
-          <h3>Recent funding signals</h3>
-          <ul class="compact">
-            <li><span class="strong">2026 · Arc, Canton, Tempo</span>: $1B+ for institutional privacy infrastructure</li>
-            <li><span class="strong">2022 · Aztec</span>: $100M Series B for encrypted Ethereum</li>
-            <li><span class="strong">2025 · 0xbow</span>: $3.5M seed after EF Privacy Pools integration</li>
-            <li><span class="strong">2026 · Payy</span>: $6M seed for private stablecoin payments</li>
-          </ul>
-        </div>
-        <div class="panel">
-          <h3>Roadmap and product signals</h3>
-          <ul class="compact">
-            <li><span class="strong">2025 · EF Privacy Cluster</span>: 47-person privacy effort</li>
-            <li><span class="strong">2025 · PSE roadmap</span>: privacy, ZK, FHE, MPC, decentralized identity</li>
-            <li><span class="strong">2025 · Privacy Pools</span>: Ethereum mainnet launch</li>
-            <li><span class="strong">2026 · Kohaku SDK</span>: wallet-level privacy integration</li>
-          </ul>
+      <main>
+        <div class="signal-timeline">
+          <div class="signal-lane"><div class="year">2022</div><div class="event"><span><span class="strong">Aztec</span>: $100M Series B for encrypted Ethereum</span></div></div>
+          <div class="signal-lane"><div class="year">2025</div><div class="event"><span><span class="strong">EF Privacy Cluster</span>: 47-person privacy effort</span></div></div>
+          <div class="signal-lane"><div class="year">2025</div><div class="event"><span><span class="strong">0xbow</span>: $3.5M seed after EF Privacy Pools integration</span></div></div>
+          <div class="signal-lane"><div class="year">2025</div><div class="event"><span><span class="strong">PSE roadmap</span>: privacy, ZK, FHE, MPC, decentralized identity</span></div></div>
+          <div class="signal-lane"><div class="year">2026</div><div class="event"><span><span class="strong">Arc, Canton, Tempo</span>: $1B+ institutional privacy infrastructure</span></div></div>
+          <div class="signal-lane"><div class="year">2026</div><div class="event"><span><span class="strong">Kohaku / Payy</span>: wallet privacy SDK, private stablecoin payments</span></div></div>
         </div>
         <div class="callout wide">
           <p><span class="strong">최근 privacy ZKP의 신호는 TVL보다 자본 배치와 로드맵에서 더 뚜렷하다.</span> Privacy ZKP의 compliance, institutional adoption, private stablecoin payment 문제들이 주목받고 있다.</p>
@@ -899,13 +1158,10 @@
             <div class="node"><span class="label">accept / reject</span><span class="detail">계산을 다시 찾지 않고 검사</span></div>
           </div>
         </div>
-        <div class="panel">
-          <h3>회로 모양 변화 요인</h3>
-          <ul>
-            <li>branch별 opcode 검사 차이</li>
-            <li>반복 횟수별 block copy 수 차이</li>
-            <li>call 구조별 값 연결 경계 차이</li>
-          </ul>
+        <div class="risk-axis">
+          <div class="bar low">branch<br>opcode set</div>
+          <div class="bar mid">loop count<br>block copy</div>
+          <div class="bar high">call graph<br>value boundary</div>
         </div>
         <div class="callout wide">
           <p>같은 bytecode라도 성공 실행 경로가 달라지면 함수 특화 검증 회로의 모양도 달라질 수 있다.</p>
@@ -921,19 +1177,17 @@
         <div class="kicker">RAM Circuit View</div>
         <h2>다른 주요 프로젝트들의 접근 방법</h2>
       </header>
-      <main class="grid three">
-        <div class="panel">
-          <h3>Scroll / Linea</h3>
-          <p>EVM RAM-style trace, opcode step, stack, memory, storage, state transition</p>
-        </div>
-        <div class="panel">
-          <h3>Aztec public execution</h3>
-          <p>AVM bytecode, sequencer execution, VM/RAM-style validation</p>
-        </div>
-        <div class="panel">
-          <h3>Aztec private execution</h3>
-          <p>ACIR circuit, unrolled control flow, function-specific arithmetic circuit</p>
-        </div>
+      <main>
+        <table class="matrix-table">
+          <thead>
+            <tr><th>Project path</th><th>Execution target</th><th>Circuit style</th><th>Main witness</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Scroll / Linea</td><td>EVM opcode execution</td><td>RAM-style trace validation</td><td>pc, opcode, stack, memory, storage</td></tr>
+            <tr><td>Aztec public execution</td><td>AVM bytecode</td><td>VM/RAM-style validation</td><td>AVM state and execution rows</td></tr>
+            <tr><td>Aztec private execution</td><td>private function</td><td>ACIR function-specific arithmetic circuit</td><td>private inputs and intermediate values</td></tr>
+          </tbody>
+        </table>
         <div class="callout wide">
           <p>같은 프로젝트 안에서도 회로화 대상에 따라 접근이 달라진다. Public VM 실행은 RAM-style 검증에 가깝고, private 함수 실행은 함수 특화 회로에 가깝다.</p>
         </div>
@@ -991,17 +1245,13 @@
         <div class="kicker">Tokamak Question</div>
         <h2>Tokamak의 검사 블록 선택 문제</h2>
       </header>
-      <main class="grid two">
-        <div class="diagram">
-          <div class="flow three">
-            <div class="node"><span class="label">고정된 블록 선반</span><span class="detail">재사용 가능한 작은 검증 블록</span></div>
-            <div class="node"><span class="label">실행 기록</span><span class="detail">연산과 값 이동</span></div>
-            <div class="node"><span class="label">함수 특화 검증 회로</span><span class="detail">선택된 블록 + 값 연결</span></div>
-          </div>
-        </div>
-        <div class="panel">
-          <h3>핵심 문제</h3>
-          <p>고정된 block library, 실행 기록 기반 block selection, 함수 특화 검증 회로</p>
+      <main>
+        <div class="block-graph">
+          <div class="graph-node">고정된 block library<br><span class="small">reusable subcircuits</span></div>
+          <div class="graph-edge">+</div>
+          <div class="graph-node">EVM 실행 기록<br><span class="small">operation + value movement</span></div>
+          <div class="graph-edge">→</div>
+          <div class="graph-node">함수 특화 검증 회로<br><span class="small">selected blocks + value connections</span></div>
         </div>
       </main>
       <footer>
@@ -1014,18 +1264,19 @@
         <div class="kicker">Block Model</div>
         <h2>고정 블록 기반 함수 특화 회로</h2>
       </header>
-      <main class="grid three">
-        <div class="role-box">
-          <h3>재사용 블록</h3>
-          <p>작은 검증 규칙, 고정 회로 조각</p>
-        </div>
-        <div class="role-box">
-          <h3>블록 복사본</h3>
-          <p>특정 실행 안의 단일 block 사용 자리</p>
-        </div>
-        <div class="role-box">
-          <h3>값 연결</h3>
-          <p>서로 다른 block wire의 equality relation</p>
+      <main>
+        <div class="circuit-topology">
+          <div class="flow three">
+            <div class="node"><span class="label">reusable block</span><span class="detail">fixed constraint fragment</span></div>
+            <div class="node"><span class="label">block copy #1</span><span class="detail">one placement</span></div>
+            <div class="node"><span class="label">block copy #2</span><span class="detail">another placement</span></div>
+          </div>
+          <div class="wire" aria-hidden="true"></div>
+          <div class="flow three">
+            <div class="node"><span class="label">wire A.out</span><span class="detail">output value</span></div>
+            <div class="node"><span class="label">wire B.in</span><span class="detail">input value</span></div>
+            <div class="node"><span class="label">permutation</span><span class="detail">equality connection</span></div>
+          </div>
         </div>
         <div class="callout wide">
           <p>검증 회로 생성은 “새 언어를 만드는 일”이 아니라, 고정된 블록을 고르고 그 사이의 같은 값을 연결하는 일이다.</p>
@@ -1041,10 +1292,15 @@
         <div class="kicker">Technical Names</div>
         <h2>블록 모델의 세 가지 이름</h2>
       </header>
-      <main class="grid three">
-        <div class="term"><h3>subcircuit</h3><p class="detail">재사용 가능한 작은 검증 블록</p></div>
-        <div class="term"><h3>placement</h3><p class="detail">선택된 subcircuit의 한 복사본</p></div>
-        <div class="term"><h3>permutation</h3><p class="detail">같은 값이어야 하는 wire들의 연결표</p></div>
+      <main>
+        <table class="matrix-table">
+          <thead><tr><th>Plain name</th><th>Technical name</th><th>Role in generated circuit</th></tr></thead>
+          <tbody>
+            <tr><td>재사용 블록</td><td>subcircuit</td><td>작은 검증 규칙</td></tr>
+            <tr><td>블록 복사본</td><td>placement</td><td>선택된 subcircuit의 한 사용 자리</td></tr>
+            <tr><td>값 연결</td><td>permutation</td><td>동일 값이어야 하는 wire들의 연결표</td></tr>
+          </tbody>
+        </table>
         <div class="callout wide">
           <p>이후에는 plain-language로는 “블록, 블록 복사본, 값 연결”을 쓰고, 필요한 곳에서만 technical name을 함께 표시한다.</p>
         </div>
@@ -1084,16 +1340,20 @@
         <div class="kicker">Two Checks</div>
         <h2>블록 내부 검사와 블록 사이 연결</h2>
       </header>
-      <main class="grid two">
-        <div class="panel">
-          <h3>블록 내부 검사</h3>
-          <p>단일 block copy 내부 계산 규칙</p>
-          <div class="equation"><div class="piece">x</div><div class="op">+</div><div class="piece">y</div><div class="op">=</div><div class="piece">z</div></div>
-        </div>
-        <div class="panel">
-          <h3>블록 사이 연결 검사</h3>
-          <p>이전 block output과 다음 block input의 동일 값 관계</p>
-          <div class="equation"><div class="piece">A.out</div><div class="op">=</div><div class="piece">B.in</div></div>
+      <main>
+        <table class="matrix-table">
+          <thead><tr><th>Check layer</th><th>Local relation</th><th>Cross-block relation</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr><td>블록 내부</td><td>single placement</td><td>-</td><td>x + y = z</td></tr>
+            <tr><td>블록 사이</td><td>-</td><td>wire equality</td><td>A.out = B.in</td></tr>
+          </tbody>
+        </table>
+        <div class="block-graph" style="margin-top:20px">
+          <div class="graph-node">Block A<br><span class="small">output wire</span></div>
+          <div class="graph-edge">=</div>
+          <div class="graph-node">Permutation<br><span class="small">same value</span></div>
+          <div class="graph-edge">=</div>
+          <div class="graph-node">Block B<br><span class="small">input wire</span></div>
         </div>
         <div class="callout wide">
           <p>실행 기록은 어떤 블록이 필요한지와 어떤 값이 같은 값으로 이어지는지를 동시에 알려준다.</p>
@@ -1133,23 +1393,14 @@
         <div class="kicker">Two Compilers</div>
         <h2>두 컴파일러의 역할 분리</h2>
       </header>
-      <main class="comparison">
-        <div class="panel good">
-          <h3><code>qap-compiler</code></h3>
-          <ul>
-            <li>구체적 EVM 실행과 무관한 사전 단계</li>
-            <li>재사용 가능한 subcircuit library</li>
-            <li>동일 library version 기반 공유</li>
-          </ul>
-        </div>
-        <div class="panel bad">
-          <h3><code>synthesizer</code></h3>
-          <ul>
-            <li>단일 EVM 트랜잭션 실행 기록</li>
-            <li>필요한 placement와 witness 값</li>
-            <li>동일 값 wire들의 value connection</li>
-          </ul>
-        </div>
+      <main>
+        <table class="matrix-table">
+          <thead><tr><th>Compiler</th><th>When</th><th>Input</th><th>Output</th><th>Reuse scope</th></tr></thead>
+          <tbody>
+            <tr><td><code>qap-compiler</code></td><td>offline</td><td>subcircuit definitions</td><td>subcircuit library</td><td>library version</td></tr>
+            <tr><td><code>synthesizer</code></td><td>per execution record</td><td>bytecode, instance, library</td><td>witness, value connections</td><td>same execution shape</td></tr>
+          </tbody>
+        </table>
       </main>
       <footer>
         <div class="slide-number">15 / 30</div>
@@ -1161,18 +1412,12 @@
         <div class="kicker">Synthesizer Output</div>
         <h2>Synthesizer 산출물</h2>
       </header>
-      <main class="grid three">
-        <div class="panel">
-          <h3>witness</h3>
-          <p>검증 회로 내부 비공개 계산 값</p>
-        </div>
-        <div class="panel">
-          <h3>public input</h3>
-          <p>proof와 함께 확인되는 공개 값</p>
-        </div>
-        <div class="panel">
-          <h3>value connections</h3>
-          <p>서로 다른 block wire의 동일 값 관계</p>
+      <main>
+        <div class="io-triangle">
+          <div class="node top">synthesizer output</div>
+          <div class="node">witness<br><span class="small">private computation values</span></div>
+          <div class="node">public input<br><span class="small">verifier-visible values</span></div>
+          <div class="node top">value connections<br><span class="small">wire equality relation</span></div>
         </div>
       </main>
       <footer>
@@ -1242,23 +1487,18 @@
         <div class="kicker">Mini Example</div>
         <h2>여러 블록을 지나는 하나의 값</h2>
       </header>
-      <main class="grid two">
-        <div class="panel">
-          <h3>실행 기록의 값 흐름</h3>
-          <ul>
-            <li>calldata의 amount</li>
-            <li>amount nonzero check</li>
-            <li>balance update의 amount 재사용</li>
-          </ul>
+      <main>
+        <div class="value-network">
+          <div class="vnode">calldata block<br>amount output</div>
+          <div class="vedge" aria-hidden="true"></div>
+          <div class="vnode">nonzero check<br>amount input</div>
+          <div class="vedge" aria-hidden="true"></div>
+          <div class="vnode">accounting block<br>amount input</div>
         </div>
-        <div class="panel">
-          <h3>검증 회로의 값 연결</h3>
-          <ul>
-            <li>calldata block의 amount output</li>
-            <li>nonzero check block의 amount input</li>
-            <li>accounting block의 amount input</li>
-          </ul>
-        </div>
+        <table class="matrix-table" style="margin-top:20px">
+          <thead><tr><th>Observed value</th><th>Execution record</th><th>Generated relation</th></tr></thead>
+          <tbody><tr><td>amount</td><td>calldata → check → accounting</td><td>same-value wire connection</td></tr></tbody>
+        </table>
         <div class="callout wide">
           <p>값 연결은 “같은 논리적 값”이 여러 block copy에서 일관되게 사용되었음을 검증한다.</p>
         </div>
@@ -1331,19 +1571,15 @@
         <div class="kicker">Reuse Condition</div>
         <h2>Trusted circuit 재사용 조건</h2>
       </header>
-      <main class="grid two">
-        <div class="panel">
-          <h3>동일해야 하는 요소</h3>
-          <ul>
-            <li>같은 종류의 블록</li>
-            <li>같은 개수의 블록 복사본</li>
-            <li>같은 값 연결 패턴</li>
-          </ul>
-        </div>
-        <div class="panel">
-          <h3>필요한 이유</h3>
-          <p>사전 검토된 고정 회로, verifier workflow, on-chain 회로 구조 검토 부재</p>
-        </div>
+      <main>
+        <table class="matrix-table">
+          <thead><tr><th>Reuse condition</th><th>Required equality</th><th>Reason</th></tr></thead>
+          <tbody>
+            <tr><td>block type</td><td>same subcircuit family</td><td>same checked relation</td></tr>
+            <tr><td>block count</td><td>same number of placements</td><td>same circuit size</td></tr>
+            <tr><td>value connection</td><td>same wire equality pattern</td><td>same verification target</td></tr>
+          </tbody>
+        </table>
         <div class="callout wide">
           <p>값은 달라져도 된다. 성공 실행에서 필요한 회로의 모양은 같아야 한다.</p>
         </div>
@@ -1358,18 +1594,11 @@
         <div class="kicker">Contract Shapes</div>
         <h2>성공 실행 모양별 contract 유형</h2>
       </header>
-      <main class="grid three">
-        <div class="panel good">
-          <h3>안전한 형태</h3>
-          <p>고정 note 개수, 동일 검사 block</p>
-        </div>
-        <div class="panel bad">
-          <h3>위험한 형태</h3>
-          <p>입력 배열 길이, 가변 loop count, 가변 block 수</p>
-        </div>
-        <div class="panel">
-          <h3>조건부 가능</h3>
-          <p>branch 존재, 동일 block 수, 동일 값 연결 수렴</p>
+      <main>
+        <div class="risk-axis">
+          <div class="bar low">안전한 형태<br>고정 note 수<br>동일 block</div>
+          <div class="bar mid">조건부 가능<br>branch 존재<br>동일 shape 수렴</div>
+          <div class="bar high">위험한 형태<br>가변 array<br>가변 loop count</div>
         </div>
         <div class="callout wide">
           <p>같은 trusted circuit reuse 논의는 성공한 실행 경로만 대상으로 한다. 실패한 트랜잭션 경로는 별도 범위다.</p>
@@ -1421,19 +1650,15 @@
         <div class="kicker">Failure Modes</div>
         <h2>잘못된 회로 모양의 위험</h2>
       </header>
-      <main class="grid three">
-        <div class="panel">
-          <h3>wrong shape</h3>
-          <p>검토된 회로와 다른 block 구성</p>
-        </div>
-        <div class="panel">
-          <h3>nondeterminism</h3>
-          <p>동일 실행 기록, 서로 다른 block 배치, 신뢰 대상 불명확성</p>
-        </div>
-        <div class="panel">
-          <h3>unsafe fallback</h3>
-          <p>unsupported shape, padding, skip, 검증 조건 변화</p>
-        </div>
+      <main>
+        <table class="matrix-table">
+          <thead><tr><th>Failure mode</th><th>Immediate issue</th><th>Verification risk</th></tr></thead>
+          <tbody>
+            <tr><td>wrong shape</td><td>검토된 회로와 다른 block 구성</td><td>다른 proof target</td></tr>
+            <tr><td>nondeterminism</td><td>동일 기록, 서로 다른 block 배치</td><td>신뢰 대상 불명확성</td></tr>
+            <tr><td>unsafe fallback</td><td>unsupported shape, padding, skip</td><td>검증 조건 변화</td></tr>
+          </tbody>
+        </table>
         <div class="callout wide">
           <p>지원하지 않는 성공 실행 모양은 조용히 보정하지 말고 명확히 거부되어야 한다.</p>
         </div>
@@ -1448,18 +1673,13 @@
         <div class="kicker">Summary</div>
         <h2>핵심 정리</h2>
       </header>
-      <main class="grid three">
-        <div class="panel">
-          <h3>1. 블록 선택</h3>
-          <p>고정 재사용 block, 함수 실행별 block copy</p>
-        </div>
-        <div class="panel">
-          <h3>2. 값 연결</h3>
-          <p>EVM 트랜잭션 실행 기록, 동일 값 wire connection</p>
-        </div>
-        <div class="panel">
-          <h3>3. 재사용 조건</h3>
-          <p>성공 실행별 동일 회로 모양, trusted circuit reuse</p>
+      <main>
+        <div class="block-graph">
+          <div class="graph-node">1. 블록 선택<br><span class="small">fixed library → placements</span></div>
+          <div class="graph-edge">→</div>
+          <div class="graph-node">2. 값 연결<br><span class="small">same-value wires</span></div>
+          <div class="graph-edge">→</div>
+          <div class="graph-node">3. 재사용 조건<br><span class="small">same successful shape</span></div>
         </div>
       </main>
       <footer>
@@ -1472,23 +1692,14 @@
         <div class="kicker">Discussion</div>
         <h2>토론 주제</h2>
       </header>
-      <main class="grid two">
-        <div class="panel">
-          <h3>개념 질문</h3>
-          <ul>
-            <li>함수 특화 검증 회로와 universal machine circuit의 trade-off</li>
-            <li>privacy application의 public input 설계</li>
-            <li>same-shape 조건과 smart contract design 제약</li>
-          </ul>
-        </div>
-        <div class="panel">
-          <h3>구현 질문</h3>
-          <ul>
-            <li>실행 기록 안의 CALL 구조</li>
-            <li>opcode family별 block family</li>
-            <li>unsupported execution shape의 노출 방식</li>
-          </ul>
-        </div>
+      <main>
+        <table class="matrix-table">
+          <thead><tr><th>Category</th><th>Question axis 1</th><th>Question axis 2</th><th>Question axis 3</th></tr></thead>
+          <tbody>
+            <tr><td>Concept</td><td>function-specific vs universal machine</td><td>privacy public input design</td><td>same-shape contract constraints</td></tr>
+            <tr><td>Implementation</td><td>CALL structure in execution record</td><td>opcode family to block family</td><td>unsupported shape exposure</td></tr>
+          </tbody>
+        </table>
       </main>
       <footer>
         <div class="slide-number">27 / 30</div>
@@ -1508,15 +1719,14 @@
             <div class="node"><span class="label">parent context</span><span class="detail">return data를 다시 연결</span></div>
           </div>
         </div>
-        <div class="panel">
-          <h3>핵심 답변</h3>
-          <ul>
-            <li>관측된 call tree</li>
-            <li>실행 기록의 call depth와 return boundary</li>
-            <li>calldata copy와 return-data copy의 값 연결</li>
-            <li>call count, target, return shape 변화와 회로 모양 risk</li>
-          </ul>
-        </div>
+        <table class="matrix-table">
+          <thead><tr><th>Boundary</th><th>Execution record</th><th>Value connection</th></tr></thead>
+          <tbody>
+            <tr><td>parent → child</td><td>call depth, target</td><td>calldata copy</td></tr>
+            <tr><td>child local</td><td>callee EVM steps</td><td>local stack / memory</td></tr>
+            <tr><td>child → parent</td><td>return boundary</td><td>return-data copy</td></tr>
+          </tbody>
+        </table>
       </main>
       <footer>
         <div class="source">Source: Tokamak zk-EVM synthesizer transaction-flow documentation and synthesizer sources.</div>
@@ -1558,23 +1768,16 @@
         <div class="kicker">References</div>
         <h2>주요 출처</h2>
       </header>
-      <main class="grid two">
-        <div class="panel">
-          <h3>Concept and implementation</h3>
-          <ul class="compact">
-            <li>Jehyuk Jang and Jamie Judd, <a href="https://eprint.iacr.org/2024/507"><em>An Efficient SNARK for Field-Programmable and RAM Circuits</em></a></li>
-            <li>Tokamak zk-EVM repository: <code>qap-compiler</code>, <code>synthesizer</code>, <code>prover</code>, <code>verify</code></li>
-            <li>Tokamak private-state contracts and local <code>mintNotes1</code> fixture</li>
-          </ul>
-        </div>
-        <div class="panel">
-          <h3>Comparative and motivation sources</h3>
-          <ul class="compact">
-            <li>Scroll zkEVM overview, LFDT-Lineth, Aztec docs</li>
-            <li>L2BEAT, DefiLlama, CoinGecko market data</li>
-            <li>Ethereum Foundation privacy posts, PSE roadmap, Privacy Pools, Kohaku coverage</li>
-          </ul>
-        </div>
+      <main>
+        <table class="matrix-table">
+          <thead><tr><th>Source type</th><th>References</th><th>Use in deck</th></tr></thead>
+          <tbody>
+            <tr><td>Paper</td><td>Jang and Judd, <a href="https://eprint.iacr.org/2024/507"><em>An Efficient SNARK for Field-Programmable and RAM Circuits</em></a></td><td>field-programmable and RAM circuit model</td></tr>
+            <tr><td>Implementation</td><td>Tokamak zk-EVM repository, private-state contracts, <code>mintNotes1</code> fixture</td><td>architecture and example flow</td></tr>
+            <tr><td>Comparative</td><td>Scroll zkEVM overview, LFDT-Lineth, Aztec docs</td><td>project approach comparison</td></tr>
+            <tr><td>Market</td><td>L2BEAT, DefiLlama, CoinGecko, EF privacy posts, PSE roadmap</td><td>motivation and context</td></tr>
+          </tbody>
+        </table>
       </main>
       <footer>
         <div class="source">Web metrics and documentation accessed 2026-06-15.</div>
