@@ -753,6 +753,8 @@
 
     .final-comparison {
       table-layout: fixed;
+      border-collapse: collapse;
+      border: 1.5px solid rgba(47, 127, 121, 0.36);
     }
 
     .final-comparison th,
@@ -760,6 +762,8 @@
       font-size: 19px;
       padding: 9px 10px;
       line-height: 1.22;
+      border-right: 1.5px solid rgba(47, 127, 121, 0.34);
+      border-bottom: 1px solid rgba(47, 127, 121, 0.22);
     }
 
     .final-comparison th:first-child,
@@ -773,6 +777,17 @@
     .final-comparison th:not(:first-child),
     .final-comparison td:not(:first-child) {
       width: 27.66%;
+    }
+
+    .final-comparison th:last-child,
+    .final-comparison td:last-child {
+      border-right: 0;
+    }
+
+    .final-comparison td[colspan] {
+      text-align: center;
+      vertical-align: middle;
+      font-weight: 750;
     }
 
     .table-block {
