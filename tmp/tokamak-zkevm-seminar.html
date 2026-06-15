@@ -519,40 +519,6 @@
       font-weight: 900;
     }
 
-    .matrix {
-      display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
-      gap: 10px;
-    }
-
-    .matrix .cell {
-      min-height: 62px;
-      padding: 10px;
-      border: 1px solid var(--line);
-      border-radius: 2px;
-      background: var(--panel);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      font-weight: 750;
-    }
-
-    .matrix .mint {
-      background: var(--accent-soft);
-      color: var(--accent-dark);
-    }
-
-    .matrix .transfer {
-      background: var(--violet-soft);
-      color: #454963;
-    }
-
-    .matrix .redeem {
-      background: var(--gold-soft);
-      color: #6f5019;
-    }
-
     .comparison {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -1021,6 +987,128 @@
       font-weight: 850;
     }
 
+    .arity-design {
+      display: grid;
+      gap: 18px;
+      align-content: center;
+    }
+
+    .arity-map {
+      display: grid;
+      grid-template-columns: 1fr 78px 1.75fr;
+      gap: 0;
+      align-items: stretch;
+    }
+
+    .variable-api {
+      border: 2px dashed var(--warn);
+      background: var(--warn-soft);
+      padding: 18px 20px;
+      display: grid;
+      gap: 12px;
+      align-content: center;
+    }
+
+    .variable-api .api-line {
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.62);
+      border-left: 5px solid var(--warn);
+      font-weight: 850;
+      color: var(--warn);
+    }
+
+    .arity-arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent-dark);
+      font-size: 46px;
+      font-weight: 900;
+    }
+
+    .fixed-family {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      display: grid;
+      gap: 0;
+    }
+
+    .family-row {
+      display: grid;
+      grid-template-columns: 142px 1fr;
+      border-bottom: 1px solid var(--line);
+      min-height: 78px;
+    }
+
+    .family-row:last-child {
+      border-bottom: 0;
+    }
+
+    .family-name {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-weight: 900;
+      color: var(--accent-dark);
+      background: var(--accent-soft);
+      border-right: 1px solid var(--line);
+    }
+
+    .family-row.transfer .family-name {
+      color: var(--violet);
+      background: var(--violet-soft);
+    }
+
+    .family-row.redeem .family-name {
+      color: var(--gold);
+      background: var(--gold-soft);
+    }
+
+    .function-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-content: center;
+      padding: 12px;
+    }
+
+    .fn {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 4px 10px;
+      border: 1px solid var(--line);
+      background: #fff;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .shape-ruler {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      border: 1px solid var(--line);
+      background: var(--panel);
+    }
+
+    .shape-ruler .ruler-step {
+      min-height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 12px;
+      font-weight: 850;
+      border-right: 1px solid var(--line);
+      border-top: 5px solid var(--accent);
+    }
+
+    .shape-ruler .ruler-step:last-child {
+      border-right: 0;
+      border-top-color: var(--violet);
+      background: var(--violet-soft);
+    }
+
     .status-yes {
       color: var(--accent-dark);
     }
@@ -1117,6 +1205,8 @@
       .reuse-chain,
       .shape-test,
       .decision-flow,
+      .arity-map,
+      .shape-ruler,
       .risk-axis,
       .paper-figures,
       .lane {
@@ -1125,7 +1215,8 @@
 
       .trust-divider,
       .reuse-chain .arrow,
-      .decision-arrow {
+      .decision-arrow,
+      .arity-arrow {
         min-height: 54px;
         transform: rotate(90deg);
       }
@@ -1137,10 +1228,6 @@
 
       .bar-row {
         grid-template-columns: 1fr;
-      }
-
-      .matrix {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
       .slide {
@@ -1182,7 +1269,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">1 / 21</div>
+        <div class="slide-number">1 / 20</div>
       </footer>
     </section>
 
@@ -1224,7 +1311,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">2 / 21</div>
+        <div class="slide-number">2 / 20</div>
       </footer>
     </section>
 
@@ -1265,7 +1352,7 @@
       </main>
       <footer>
         <div class="source">Sources: <a href="https://l2beat.com/scaling/tvs">L2BEAT scaling TVS</a>, <a href="https://defillama.com/chains">DefiLlama chains</a>, <a href="https://www.coingecko.com/en/categories/layer-2">CoinGecko L2</a>, <a href="https://www.coingecko.com/en/categories/zero-knowledge-zk">CoinGecko ZK</a>, <a href="https://www.coingecko.com/en/categories/privacy">CoinGecko Privacy</a>, <a href="https://www.coingecko.com/en/categories/privacy-coins">Privacy Coins</a>, <a href="https://defillama.com/protocols/privacy">DefiLlama Privacy</a>. Accessed 2026-06-15.</div>
-        <div class="slide-number">3 / 21</div>
+        <div class="slide-number">3 / 20</div>
       </footer>
     </section>
 
@@ -1289,7 +1376,7 @@
       </main>
       <footer>
         <div class="source">Sources: <a href="https://experts.bitwiseinvestments.com/cio-memos/canton-arc-and-tempo-three-lessons-about-crypto">Bitwise</a>, <a href="https://www.coindesk.com/business/2026/05/12/privacy-emerges-as-crypto-s-next-killer-app-with-arc-canton-and-tempo-topping-usd1-billion-in-funding">CoinDesk</a>, <a href="https://medium.com/aztec-protocol/aztec-raises-100-million-to-build-encrypted-ethereum-dd5062ba949c">Aztec</a>, <a href="https://www.globenewswire.com/news-release/2025/11/18/3190435/0/en/0xbow-closes-3-5m-round-for-compliant-crypto-privacy-technology-following-ethereum-foundation-integration.html">GlobeNewswire</a>, <a href="https://crypto.news/payy-raises-6m-seed-to-build-private-stablecoin-payments-on-zero-knowledge-rails/">crypto.news</a>, <a href="https://blog.ethereum.org/2025/10/08/privacy-commitment">EF Privacy</a>, <a href="https://pse.dev/blog/pse-roadmap-2025">PSE roadmap</a>, <a href="https://thedefiant.io/news/defi/privacy-pools-go-live-on-ethereum-with-vitalik-buterin-as-one-of-the-first-users">Privacy Pools</a>, <a href="https://thedefiant.io/news/blockchains/ethereum-foundation-kohaku-sdk-privacy-wallet-integration-bb4t52">Kohaku</a>.</div>
-        <div class="slide-number">4 / 21</div>
+        <div class="slide-number">4 / 20</div>
       </footer>
     </section>
 
@@ -1314,7 +1401,7 @@
       </main>
       <footer>
         <div class="source">Reference: Jang and Judd, <a href="https://eprint.iacr.org/2024/507">IACR ePrint 2024/507</a>.</div>
-        <div class="slide-number">5 / 21</div>
+        <div class="slide-number">5 / 20</div>
       </footer>
     </section>
 
@@ -1341,7 +1428,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">6 / 21</div>
+        <div class="slide-number">6 / 20</div>
       </footer>
     </section>
 
@@ -1367,7 +1454,7 @@
       </main>
       <footer>
         <div class="source">Sources: <a href="https://docs.scroll.io/en/technology/zkevm/zkevm-overview/">Scroll zkEVM overview</a>, <a href="https://github.com/Consensys/linea-tracer">Linea tracer</a>, <a href="https://docs.aztec.network/developers/docs/foundational-topics/advanced/circuits/public_execution">Aztec public execution</a>, <a href="https://docs.aztec.network/developers/docs/foundational-topics/advanced/circuits/private_kernel">Aztec private kernel</a>, <a href="https://docs.aztec.network/developers/docs/resources/glossary">Aztec glossary</a>.</div>
-        <div class="slide-number">7 / 21</div>
+        <div class="slide-number">7 / 20</div>
       </footer>
     </section>
 
@@ -1409,7 +1496,7 @@
       </main>
       <footer>
         <div class="source">Sources: <a href="https://docs.scroll.io/en/technology/zkevm/zkevm-overview/">Scroll zkEVM overview</a>, <a href="https://github.com/Consensys/linea-tracer">Linea tracer</a>, <a href="https://docs.aztec.network/developers/docs/foundational-topics/advanced/circuits/public_execution">Aztec AVM docs</a>, <a href="https://eprint.iacr.org/2024/507">Jang-Judd 2024/507</a>.</div>
-        <div class="slide-number">8 / 21</div>
+        <div class="slide-number">8 / 20</div>
       </footer>
     </section>
 
@@ -1428,7 +1515,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">9 / 21</div>
+        <div class="slide-number">9 / 20</div>
       </footer>
     </section>
 
@@ -1454,7 +1541,7 @@
       </main>
       <footer>
         <div class="source">Source: Jang and Judd, <a href="https://eprint.iacr.org/2024/507">IACR ePrint 2024/507</a>, Figures 3-4.</div>
-        <div class="slide-number">10 / 21</div>
+        <div class="slide-number">10 / 20</div>
       </footer>
     </section>
 
@@ -1477,7 +1564,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">11 / 21</div>
+        <div class="slide-number">11 / 20</div>
       </footer>
     </section>
 
@@ -1501,7 +1588,7 @@
       </main>
       <footer>
         <div class="source">Source: Tokamak zk-EVM repository README.</div>
-        <div class="slide-number">12 / 21</div>
+        <div class="slide-number">12 / 20</div>
       </footer>
     </section>
 
@@ -1520,7 +1607,7 @@
         </table>
       </main>
       <footer>
-        <div class="slide-number">13 / 21</div>
+        <div class="slide-number">13 / 20</div>
       </footer>
     </section>
 
@@ -1547,7 +1634,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">14 / 21</div>
+        <div class="slide-number">14 / 20</div>
       </footer>
     </section>
 
@@ -1570,7 +1657,7 @@
       </main>
       <footer>
         <div class="source">Sources: PrivateStateController.sol, L2AccountingVault.sol, local fixture <code>examples/privateState/mintNotes/mintNotes1</code>.</div>
-        <div class="slide-number">15 / 21</div>
+        <div class="slide-number">15 / 20</div>
       </footer>
     </section>
 
@@ -1605,7 +1692,7 @@
       </main>
       <footer>
         <div class="source">Source: local <code>mintNotes1</code> synthesizer fixture run.</div>
-        <div class="slide-number">16 / 21</div>
+        <div class="slide-number">16 / 20</div>
       </footer>
     </section>
 
@@ -1653,7 +1740,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">17 / 21</div>
+        <div class="slide-number">17 / 20</div>
       </footer>
     </section>
 
@@ -1689,43 +1776,60 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">18 / 21</div>
+        <div class="slide-number">18 / 20</div>
       </footer>
     </section>
 
     <section class="slide" id="slide-22">
       <header>
-        <div class="kicker">Private-State DApp</div>
-        <h2>Private-state DApp의 함수별 고정 모양</h2>
+        <div class="kicker">Private-State Example</div>
+        <h2>가변길이 입력을 고정 arity 함수로 분할</h2>
       </header>
       <main>
-        <div class="matrix">
-          <div class="cell mint">mintNotes1</div>
-          <div class="cell mint">mintNotes2</div>
-          <div class="cell mint">mintNotes3</div>
-          <div class="cell mint">mintNotes4</div>
-          <div class="cell mint">mintNotes5</div>
-          <div class="cell mint">mintNotes6</div>
-          <div class="cell transfer">1 → 1</div>
-          <div class="cell transfer">1 → 2</div>
-          <div class="cell transfer">1 → 3</div>
-          <div class="cell transfer">2 → 1</div>
-          <div class="cell transfer">2 → 2</div>
-          <div class="cell transfer">3 → 1</div>
-          <div class="cell transfer">3 → 2</div>
-          <div class="cell transfer">4 → 1</div>
-          <div class="cell redeem">redeem1</div>
-          <div class="cell redeem">redeem2</div>
-          <div class="cell redeem">redeem3</div>
-          <div class="cell redeem">redeem4</div>
+        <div class="arity-design">
+          <div class="arity-map">
+            <div class="variable-api">
+              <div class="label">가능했던 API 형태</div>
+              <div class="api-line">mintNotes(outputs[])</div>
+              <div class="api-line">transferNotes(inputs[], outputs[])</div>
+              <div class="api-line">redeemNotes(inputs[])</div>
+              <div class="small">가변길이 배열</div>
+            </div>
+            <div class="arity-arrow">→</div>
+            <div class="fixed-family">
+              <div class="family-row mint">
+                <div class="family-name">mint</div>
+                <div class="function-list">
+                  <span class="fn">mintNotes1</span><span class="fn">mintNotes2</span><span class="fn">mintNotes3</span><span class="fn">mintNotes4</span><span class="fn">mintNotes5</span><span class="fn">mintNotes6</span>
+                </div>
+              </div>
+              <div class="family-row transfer">
+                <div class="family-name">transfer</div>
+                <div class="function-list">
+                  <span class="fn">transferNotes1To1</span><span class="fn">transferNotes1To2</span><span class="fn">transferNotes1To3</span><span class="fn">transferNotes2To1</span><span class="fn">transferNotes2To2</span><span class="fn">transferNotes3To1</span><span class="fn">transferNotes3To2</span><span class="fn">transferNotes4To1</span>
+                </div>
+              </div>
+              <div class="family-row redeem">
+                <div class="family-name">redeem</div>
+                <div class="function-list">
+                  <span class="fn">redeemNotes1</span><span class="fn">redeemNotes2</span><span class="fn">redeemNotes3</span><span class="fn">redeemNotes4</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="shape-ruler">
+            <div class="ruler-step">함수 selector<br>arity 고정</div>
+            <div class="ruler-step">성공 실행<br>회로 모양 고정</div>
+            <div class="ruler-step">함수별 audit 회로<br>재사용</div>
+          </div>
         </div>
-        <div class="callout" style="margin-top:20px">
-          <p>variable-size 동작을 하나의 만능 회로로 밀어 넣기보다, function selector와 arity별로 다른 고정 모양의 trusted circuit을 둔다.</p>
+        <div class="callout wide">
+          <p>Private-state DApp은 하나의 가변길이 함수로 정의할 수 있었던 mint, transfer, redeem 동작을 Tokamak zk-EVM과 호환되도록 미리 정해진 고정길이 함수들로 분할한다.</p>
         </div>
       </main>
       <footer>
-        <div class="source">Source: PrivateStateController.sol private-state DApp function families.</div>
-        <div class="slide-number">19 / 21</div>
+        <div class="source">Source: <code>packages/frontend/synthesizer/examples/privateState/utils.ts</code>.</div>
+        <div class="slide-number">19 / 20</div>
       </footer>
     </section>
 
@@ -1744,26 +1848,7 @@
         </div>
       </main>
       <footer>
-        <div class="slide-number">20 / 21</div>
-      </footer>
-    </section>
-
-    <section class="slide" id="slide-25">
-      <header>
-        <div class="kicker">Discussion</div>
-        <h2>토론 주제</h2>
-      </header>
-      <main>
-        <table class="matrix-table">
-          <thead><tr><th>Category</th><th>Question axis 1</th><th>Question axis 2</th><th>Question axis 3</th></tr></thead>
-          <tbody>
-            <tr><td>Concept</td><td>function-specific vs universal machine</td><td>privacy public input design</td><td>same-shape contract constraints</td></tr>
-            <tr><td>Implementation</td><td>CALL structure in execution record</td><td>opcode family to subcircuit family</td><td>unsupported shape exposure</td></tr>
-          </tbody>
-        </table>
-      </main>
-      <footer>
-        <div class="slide-number">21 / 21</div>
+        <div class="slide-number">20 / 20</div>
       </footer>
     </section>
 
