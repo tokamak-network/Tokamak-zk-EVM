@@ -824,6 +824,136 @@
       font-weight: 900;
     }
 
+    .audit-reuse {
+      display: grid;
+      gap: 14px;
+      align-content: center;
+    }
+
+    .trust-boundary {
+      display: grid;
+      grid-template-columns: 1fr 84px 1fr;
+      gap: 0;
+      align-items: stretch;
+      border: 1px solid var(--line);
+      background: var(--panel);
+    }
+
+    .trust-cell {
+      min-height: 112px;
+      padding: 16px 22px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 8px;
+      border-top: 6px solid var(--accent);
+    }
+
+    .trust-cell.warn {
+      border-top-color: var(--warn);
+      background: var(--warn-soft);
+    }
+
+    .trust-cell .label {
+      color: var(--muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .trust-cell .main {
+      font-size: clamp(26px, 2.6vw, 36px);
+      font-weight: 850;
+      color: var(--accent-dark);
+      line-height: 1.15;
+    }
+
+    .trust-cell.warn .main {
+      color: var(--warn);
+    }
+
+    .trust-divider {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      border-left: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      font-size: 44px;
+      font-weight: 850;
+    }
+
+    .reuse-chain {
+      display: grid;
+      grid-template-columns: 1fr 60px 1fr 60px 1fr;
+      gap: 0;
+      align-items: center;
+    }
+
+    .reuse-chain .chain-node {
+      min-height: 82px;
+      border: 2px solid var(--accent);
+      background: var(--accent-soft);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-weight: 850;
+      padding: 14px;
+    }
+
+    .reuse-chain .arrow {
+      color: var(--accent-dark);
+      text-align: center;
+      font-size: 42px;
+      font-weight: 900;
+    }
+
+    .shape-test {
+      display: grid;
+      grid-template-columns: 160px 1fr 1fr;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .shape-test .diamond {
+      width: 120px;
+      height: 120px;
+      margin: 0 auto;
+      transform: rotate(45deg);
+      border: 3px solid var(--gold);
+      background: var(--gold-soft);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .shape-test .diamond span {
+      transform: rotate(-45deg);
+      text-align: center;
+      font-weight: 850;
+      color: var(--gold);
+      line-height: 1.2;
+    }
+
+    .shape-test .condition,
+    .shape-test .result {
+      min-height: 104px;
+      padding: 18px 22px;
+      border-left: 6px solid var(--accent);
+      background: var(--panel);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 6px;
+      font-weight: 850;
+    }
+
+    .shape-test .result {
+      border-left-color: var(--violet);
+      background: var(--violet-soft);
+    }
+
     .risk-axis {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
@@ -904,10 +1034,19 @@
       .fork-diagram,
       .signal-timeline,
       .block-graph,
+      .trust-boundary,
+      .reuse-chain,
+      .shape-test,
       .risk-axis,
       .paper-figures,
       .lane {
         grid-template-columns: 1fr;
+      }
+
+      .trust-divider,
+      .reuse-chain .arrow {
+        min-height: 54px;
+        transform: rotate(90deg);
       }
 
       .step-checks,
@@ -1391,20 +1530,45 @@
 
     <section class="slide" id="slide-20">
       <header>
-        <div class="kicker">Reuse Condition</div>
-        <h2>Trusted circuit 재사용 조건</h2>
+        <div class="kicker">Reuse Boundary</div>
+        <h2>Audit된 회로의 재사용</h2>
       </header>
       <main>
-        <table class="matrix-table">
-          <thead><tr><th>Reuse condition</th><th>Required equality</th><th>Reason</th></tr></thead>
-          <tbody>
-            <tr><td>subcircuit type</td><td>same subcircuit family</td><td>same checked relation</td></tr>
-            <tr><td>placement count</td><td>same number of placements</td><td>same circuit size</td></tr>
-            <tr><td>wire map</td><td>same wire map pattern</td><td>same verification target</td></tr>
-          </tbody>
-        </table>
+        <div class="audit-reuse">
+          <div class="trust-boundary">
+            <div class="trust-cell">
+              <div class="label">on-chain</div>
+              <div class="main">SNARK proof 검증</div>
+              <div class="small">efficient verifier work</div>
+            </div>
+            <div class="trust-divider">≠</div>
+            <div class="trust-cell warn">
+              <div class="label">trusted area</div>
+              <div class="main">회로 생성 올바름</div>
+              <div class="small">audit target</div>
+            </div>
+          </div>
+          <div class="reuse-chain">
+            <div class="chain-node">DApp / 함수별<br>회로 생성</div>
+            <div class="arrow">→</div>
+            <div class="chain-node">Audit된<br>검증 회로</div>
+            <div class="arrow">→</div>
+            <div class="chain-node">동일 함수 호출<br>재사용</div>
+          </div>
+          <div class="shape-test">
+            <div class="diamond"><span>입력값<br>변화</span></div>
+            <div class="condition">
+              <div>동일 placement topology</div>
+              <div>동일 wire map</div>
+            </div>
+            <div class="result">
+              <div>지원 대상 DApp 함수</div>
+              <div class="small">same successful execution shape</div>
+            </div>
+          </div>
+        </div>
         <div class="callout wide">
-          <p>값은 달라져도 된다. 성공 실행에서 필요한 회로의 모양은 같아야 한다.</p>
+          <p>회로 생성의 올바름은 온체인에서 효율적으로 검증하기 어렵다. 따라서 Tokamak zk-EVM은 입력값이 달라져도 성공 실행에서 회로 모양이 변하지 않는 DApp 함수에 audit된 회로를 재사용한다.</p>
         </div>
       </main>
       <footer>
