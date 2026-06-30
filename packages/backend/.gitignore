@@ -1,5 +1,6 @@
 /target
 /external-lib
+tmp/
 .env
 gen-lang-client-*.json
 client_secret_*.json
