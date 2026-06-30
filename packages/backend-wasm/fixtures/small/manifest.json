@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "suite": "small",
+  "description": "Minimal deterministic parity fixtures for the verifier-first backend-wasm port.",
+  "cases": []
+}
