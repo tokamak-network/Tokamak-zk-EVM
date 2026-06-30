@@ -1,4 +1,4 @@
-import type { G1Point, G2Point } from "../../libs/runtime/group.js";
+import type { G1Point, G2Point } from "../runtime/group.js";
 
 export interface PointCodec {
   parseG1(value: unknown): G1Point;
