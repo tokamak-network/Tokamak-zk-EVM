@@ -2,5 +2,13 @@
   "schemaVersion": 1,
   "suite": "small",
   "description": "Minimal deterministic parity fixtures for the verifier-first backend-wasm port.",
-  "cases": []
+  "cases": [
+    {
+      "id": "scalar-ops-basic",
+      "kind": "scalar-ops",
+      "description": "Checks canonical BLS12-381 Fr arithmetic and FieldSerde encoding against the native backend.",
+      "input": "input/scalar-ops-basic.json",
+      "expected": "expected/scalar-ops-basic.json"
+    }
+  ]
 }

@@ -39,3 +39,14 @@ Supported `kind` values are:
 - `full-proof`
 
 Input and expected paths are relative to the manifest directory. They must not be absolute paths or contain parent-directory traversal. Expected files must contain the deterministic native Rust outputs that TypeScript code will compare against.
+
+## Regenerating Native Fixtures
+
+Generate the current scalar fixture from the native backend with:
+
+```sh
+cd ../backend
+cargo run -p libs --bin export_scalar_fixture -- --output-dir ../backend-wasm/fixtures/small
+```
+
+The generated files must remain small and deterministic before they are committed.
