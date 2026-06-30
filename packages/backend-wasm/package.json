@@ -2,7 +2,7 @@
   "name": "@tokamak-zk-evm/backend-wasm",
   "version": "0.0.0",
   "description": "Web-compatible Tokamak zk-EVM prover and verifier package scaffold.",
-  "license": "MIT OR Apache-2.0",
+  "license": "GPL-3.0-or-later",
   "author": "Tokamak Network",
   "private": true,
   "type": "module",
@@ -11,6 +11,7 @@
   "files": [
     "dist",
     "README.md",
+    "LICENSE",
     "fixtures"
   ],
   "scripts": {
