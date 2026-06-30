@@ -1,4 +1,4 @@
-import type { FieldElement } from "../../libs/runtime/field.js";
+import type { FieldElement } from "../runtime/field.js";
 
 export interface FieldCodec {
   parse(value: string): FieldElement;

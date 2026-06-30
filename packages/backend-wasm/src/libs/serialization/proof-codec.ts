@@ -1,4 +1,4 @@
-import type { ProofData } from "../../libs/types/proof.js";
+import type { ProofData } from "../types/proof.js";
 
 export interface ProofCodec {
   parse(value: unknown): ProofData;
