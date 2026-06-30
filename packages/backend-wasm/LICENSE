@@ -1,0 +1,10 @@
+SPDX-License-Identifier: GPL-3.0-or-later
+
+This package is licensed under the GNU General Public License version 3.0
+or any later version.
+
+The canonical license text is published by the Free Software Foundation:
+https://www.gnu.org/licenses/gpl-3.0.html
+
+This package is intentionally licensed separately from the surrounding
+Tokamak zk-EVM monorepo packages, which may use different licenses.
