@@ -2,7 +2,12 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createCurveRuntime, type AffinePointJson, type PairingTerm } from "../src/index.js";
+import {
+  RollingKeccakTranscript,
+  createCurveRuntime,
+  type AffinePointJson,
+  type PairingTerm,
+} from "../src/index.js";
 
 interface ScalarFixtureInput {
   readonly operands: {
@@ -43,6 +48,32 @@ interface PairingTermJson {
 interface PairingFixtureExpected {
   readonly true_case_products_equal: boolean;
   readonly false_case_products_equal: boolean;
+}
+
+interface TranscriptFixtureInput {
+  readonly operations: readonly TranscriptOperation[];
+}
+
+type TranscriptOperation =
+  | {
+      readonly type: "CommitBytes";
+      readonly value_hex: string;
+    }
+  | {
+      readonly type: "CommitField";
+      readonly value: string;
+    }
+  | {
+      readonly type: "CommitG1";
+      readonly value: AffinePointJson;
+    }
+  | {
+      readonly type: "GetChallenges";
+      readonly count: number;
+    };
+
+interface TranscriptFixtureExpected {
+  readonly challenges: readonly string[];
 }
 
 async function readJson<T>(filePath: string): Promise<T> {
@@ -114,11 +145,39 @@ async function main(): Promise<void> {
       pairingExpected.false_case_products_equal,
       "pairing false case",
     );
+
+    const transcriptInput = await readJson<TranscriptFixtureInput>(
+      path.join(fixturesDir, "input/transcript-small.json"),
+    );
+    const transcriptExpected = await readJson<TranscriptFixtureExpected>(
+      path.join(fixturesDir, "expected/transcript-small.json"),
+    );
+    const transcript = new RollingKeccakTranscript(runtime.Fr);
+    const challenges: string[] = [];
+
+    for (const operation of transcriptInput.operations) {
+      switch (operation.type) {
+        case "CommitBytes":
+          transcript.commitBytes(parseHexBytes(operation.value_hex));
+          break;
+        case "CommitField":
+          transcript.commitFieldHex(operation.value);
+          break;
+        case "CommitG1":
+          transcript.commitG1Affine(operation.value);
+          break;
+        case "GetChallenges":
+          challenges.push(...transcript.getChallenges(operation.count).map((challenge) => runtime.Fr.toHex(challenge)));
+          break;
+      }
+    }
+
+    assertEqual(challenges, transcriptExpected.challenges, "RollingKeccakTranscript challenges");
   } finally {
     await runtime.terminate();
   }
 
-  console.log("Checked runtime field, MSM, and pairing fixtures");
+  console.log("Checked runtime field, MSM, pairing, and transcript fixtures");
 }
 
 function parsePairingTerms(
@@ -129,6 +188,20 @@ function parsePairingTerms(
     g1: runtime.G1.parseAffine(term.g1),
     g2: runtime.G2.parseAffine(term.g2),
   }));
+}
+
+function parseHexBytes(value: string): Uint8Array {
+  if (!/^0x([0-9a-fA-F]{2})*$/.test(value)) {
+    throw new Error("Expected a 0x-prefixed even-length byte string.");
+  }
+
+  const hex = value.slice(2);
+  const output = new Uint8Array(hex.length / 2);
+  for (let index = 0; index < output.length; index += 1) {
+    output[index] = Number.parseInt(hex.slice(index * 2, index * 2 + 2), 16);
+  }
+
+  return output;
 }
 
 const entrypoint = fileURLToPath(import.meta.url);
