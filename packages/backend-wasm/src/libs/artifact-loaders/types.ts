@@ -1,5 +1,6 @@
 import type {
   BinaryArtifactFileKind,
+  BinaryDigestEntryView,
   BinarySectionEncoding,
   BinarySectionType,
   BinarySectionView,
@@ -7,7 +8,10 @@ import type {
 
 export interface RuntimeArtifactFile {
   readonly kind: BinaryArtifactFileKind;
+  readonly formatVersion: number;
+  readonly sourcePackageVersion: string;
   readonly byteLength: number;
+  readonly digests: readonly BinaryDigestEntryView[];
   readonly sections: readonly BinarySectionView[];
 }
 

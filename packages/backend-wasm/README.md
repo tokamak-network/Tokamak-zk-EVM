@@ -10,7 +10,7 @@ The implementation is verifier-first. The current package contains shared runtim
 
 This package exists to provide a runtime boundary that can be used from web applications without depending on the native Rust/CUDA backend.
 
-Runtime prover and verifier APIs must consume and produce runtime bundles made of separate binary artifact files plus metadata. JSON, rkyv, native artifact conversion, fixture import, and debug export belong to tooling outside the hot prover and verifier paths.
+Runtime prover and verifier APIs must consume and produce runtime bundles made of separate binary artifact files plus a file list. JSON, rkyv, native artifact conversion, fixture import, and debug export belong to tooling outside the hot prover and verifier paths.
 
 Runtime subcircuit artifacts come from the `@tokamak-zk-evm/subcircuit-library` package dependency. CRS artifacts are prepared by the embedding application and passed to this package as binary inputs; `src/prover`, `src/verifier`, and runtime loaders must not fetch Google Drive artifacts directly.
 
@@ -44,7 +44,7 @@ Runtime libraries that `src/prover` and `src/verifier` may directly depend on.
 - `crypto/`: Keccak and transcript primitives matching the native backend byte layout.
 - `polynomial/`: bivariate dense polynomial helpers, NTT wrappers, domains, and Lagrange evaluation helpers.
 - `runtime/`: `ffjavascript` curve, field, group, pairing, MSM, and random scalar adapters.
-- `serialization/`: runtime bundle manifest types, binary artifact file format, section table encoding, schema checks, and digest validation.
+- `serialization/`: runtime bundle manifest types, binary artifact file format, typed file-kind/version/digest tables, section table encoding, and digest validation.
 
 ### `src/verifier/`
 
@@ -78,16 +78,16 @@ Reserved test directories for unit, parity, and integration coverage as the pack
 
 ## Artifact Policy
 
-Backend-wasm performs binary header, section, digest, schema, runtime encoding, and compatibility checks after npm or Google Drive provenance checks have already been handled by the artifact provider.
+Backend-wasm performs binary header, file-kind, version, digest, section, runtime encoding, and compatibility checks after npm or Google Drive provenance checks have already been handled by the artifact provider.
 
-In this package, a runtime bundle is a collection of separate binary artifact files plus metadata. It is not one monolithic binary file.
+In this package, a runtime bundle is a collection of separate binary artifact files plus a file list. It is not one monolithic binary file.
 
 Verifier runtime input is split into two runtime bundles:
 
-- `VerifierProofInput`: separate instance and proof binary artifact files plus related metadata.
-- `VerifierSetupInput`: separate CRS and preprocess binary artifact files plus setup/domain/compatibility metadata.
+- `VerifierProofInput`: separate instance and proof binary artifact files.
+- `VerifierSetupInput`: separate CRS and preprocess binary artifact files.
 
-Each file entry in a runtime bundle manifest must have its own metadata object. Cross-file compatibility metadata belongs in those per-file metadata entries. Binary artifact files should only carry the information needed to parse and validate the file itself, such as schema/runtime versions, file kind, section layout, encodings, bounds, and section digests.
+Runtime bundle manifests do not carry free-form metadata or external expected file digests. File identity, `formatVersion`, `sourcePackageVersion`, SHA-256 digests, and cross-file compatibility digests are stored in typed binary tables inside each binary artifact file.
 
 Proof, instance, CRS, and preprocess data must remain in separate binary artifact files.
 

@@ -5,6 +5,7 @@ import type {
   ArtifactConverterRequest,
   BinaryArtifactFileDebugJson,
   BinaryArtifactFileToDebugJsonInput,
+  BinaryDigestDebugJson,
   ConverterArtifactJson,
   NativeProverArtifactsToBinaryInput,
   NativeVerifierJsonToBinaryInput,
@@ -21,6 +22,7 @@ export type {
   ArtifactConverterRequest,
   BinaryArtifactFileDebugJson,
   BinaryArtifactFileToDebugJsonInput,
+  BinaryDigestDebugJson,
   BinarySectionDebugJson,
   ConverterArtifactJson,
   NativeProverArtifactsToBinaryInput,
@@ -59,10 +61,14 @@ export async function convertBinaryArtifactFileToDebugJson(
 
   return {
     kind: artifactFile.kind,
-    schemaVersion: artifactFile.schemaVersion,
-    ffjavascriptVersion: artifactFile.ffjavascriptVersion,
-    wasmcurvesVersion: artifactFile.wasmcurvesVersion,
+    formatVersion: artifactFile.formatVersion,
+    sourcePackageVersion: artifactFile.sourcePackageVersion,
     byteLength: artifactFile.byteLength,
+    digests: artifactFile.digests.map((entry): BinaryDigestDebugJson => ({
+      type: entry.type,
+      sectionIndex: entry.sectionIndex,
+      digestHex: bytesToHex(entry.digest),
+    })),
     sections: artifactFile.sections.map((section) => ({
       type: section.type,
       encoding: section.encoding,
