@@ -26,6 +26,8 @@ export interface FfField {
   fromObject(value: bigint): Uint8Array;
   toRprLE(output: Uint8Array, offset: number, value: Uint8Array): void;
   toRprBE(output: Uint8Array, offset: number, value: Uint8Array): void;
+  fft(buffer: Uint8Array): Promise<Uint8Array>;
+  ifft(buffer: Uint8Array): Promise<Uint8Array>;
 }
 
 export interface FfGroup {
