@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "case_id": "pairing-small",
+  "kind": "pairing",
+  "true_case_products_equal": true,
+  "false_case_products_equal": false
+}

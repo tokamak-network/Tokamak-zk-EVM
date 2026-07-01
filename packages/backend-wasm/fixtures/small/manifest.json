@@ -44,6 +44,34 @@
       "description": "Checks native DensePolynomialExt bivariate evaluation over deterministic points.",
       "input": "input/polynomial-eval-small.json",
       "expected": "expected/polynomial-eval-small.json"
+    },
+    {
+      "id": "msm-small",
+      "kind": "msm",
+      "description": "Checks native ICICLE G1 MSM output for deterministic BLS12-381 bases and scalars.",
+      "input": "input/msm-small.json",
+      "expected": "expected/msm-small.json"
+    },
+    {
+      "id": "pairing-small",
+      "kind": "pairing",
+      "description": "Checks native BLS12-381 pairing product equality and inequality cases.",
+      "input": "input/pairing-small.json",
+      "expected": "expected/pairing-small.json"
+    },
+    {
+      "id": "transcript-small",
+      "kind": "transcript",
+      "description": "Checks native RollingKeccakTranscript challenge generation after deterministic byte, field, and G1 commits.",
+      "input": "input/transcript-small.json",
+      "expected": "expected/transcript-small.json"
+    },
+    {
+      "id": "full-proof-small",
+      "kind": "full-proof",
+      "description": "Checks a CLI-generated L2StateChannel proof bundle that the native backend verifier accepts.",
+      "input": "input/full-proof-small.json",
+      "expected": "expected/full-proof-small.json"
     }
   ]
 }
