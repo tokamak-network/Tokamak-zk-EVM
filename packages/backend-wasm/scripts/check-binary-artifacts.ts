@@ -9,6 +9,7 @@ import {
   createBinaryArtifactFile,
   createCurveRuntime,
   loadRuntimeArtifactFile,
+  loadSigmaVerifyArtifact,
   parseRuntimeArtifactBundleManifest,
   requireRuntimeSection,
   RuntimeArtifactBundleKind,
@@ -102,6 +103,7 @@ async function main(): Promise<void> {
     });
     const msmResult = await runtime.G1.msmAffineRaw(msmBases.data, msmScalars.data);
     assertEqual(runtime.G1.formatAffine(msmResult), msmExpected.result, "binary G1 MSM");
+    await checkSigmaVerifyArtifact(runtime);
 
     assertEqual(
       await runtime.pairing.productsEqual(
@@ -229,6 +231,35 @@ function checkRuntimeBundleManifests(): void {
       }),
     "Runtime artifact bundle file metadata must be required",
   );
+}
+
+async function checkSigmaVerifyArtifact(runtime: CurveRuntime): Promise<void> {
+  const binary = await createBinaryArtifactFile(BinaryArtifactFileKind.VerifierCrs, [
+    {
+      type: BinarySectionType.CrsG1,
+      encoding: BinarySectionEncoding.FfjsG1Affine96,
+      label: "sigma.g1",
+      elementCount: 4,
+      elementByteLength: 96,
+      data: concatBytes([runtime.G1.generator, runtime.G1.generator, runtime.G1.generator, runtime.G1.generator]),
+    },
+    {
+      type: BinarySectionType.CrsG2,
+      encoding: BinarySectionEncoding.FfjsG2Affine192,
+      label: "sigma.g2",
+      elementCount: 10,
+      elementByteLength: 192,
+      data: concatBytes(
+        Array.from({ length: 10 }, () => runtime.G2.generator),
+      ),
+    },
+  ]);
+  const artifactFile = await loadRuntimeArtifactFile(binary);
+  const sigma = loadSigmaVerifyArtifact(artifactFile);
+
+  assertEqual(sigma.sections.length, 2, "sigma_verify section count");
+  assertEqual(sigma.pointsByName.G.byteLength, 96, "sigma_verify G byte length");
+  assertEqual(sigma.pointsByName["sigma2.y"].byteLength, 192, "sigma_verify sigma2.y byte length");
 }
 
 function createScalarSection(runtime: CurveRuntime, input: ScalarFixtureInput): BinarySectionInput {

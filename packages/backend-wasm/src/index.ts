@@ -1,4 +1,5 @@
 export * from "./libs/artifact-loaders/loaders.js";
+export * from "./libs/artifact-loaders/sigma-verify.js";
 export * from "./libs/artifact-loaders/types.js";
 export * from "./libs/crypto/keccak.js";
 export * from "./libs/crypto/transcript.js";

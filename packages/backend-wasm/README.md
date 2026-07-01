@@ -91,7 +91,7 @@ Each file entry in a runtime bundle manifest must have its own metadata object. 
 
 Proof, instance, CRS, and preprocess data must remain in separate binary artifact files.
 
-The `sigma_verify` binary layout must be managed by `src/libs/artifact-loaders/specs/sigma-verify.v1.json`. Loader code should validate against that JSON spec rather than hardcoding the point layout directly.
+The `sigma_verify` binary layout must be managed by `src/libs/artifact-loaders/specs/sigma-verify.v1.json`. Runtime loader code imports the generated TypeScript constant in `src/libs/artifact-loaders/specs/sigma-verify.v1.generated.ts`; it must not load JSON assets directly.
 
 ## Development
 
@@ -102,12 +102,15 @@ npm run fixtures:check
 npm run runtime:check
 npm run binary:check
 npm run polynomial:check
+npm run specs:check
 npm run verifier:check
 npm run build
 npm run clean
 ```
 
 Use `npm run fixtures:copy` only after the owning packages have prepared the source artifacts listed in `fixtures/small/copy-manifest.json`.
+
+Use `npm run specs:generate` after editing JSON specs under `src/libs/artifact-loaders/specs/`.
 
 ## License
 
