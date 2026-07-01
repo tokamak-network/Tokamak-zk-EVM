@@ -1,18 +1,18 @@
-import { decodeBinaryBundle } from "../serialization/binary-bundle.js";
+import { decodeBinaryArtifactFile } from "../serialization/binary-artifact-file.js";
 import type { BinarySectionView } from "../serialization/binary-format.js";
-import type { RuntimeArtifactBundle, RuntimeArtifactSectionQuery } from "./types.js";
+import type { RuntimeArtifactFile, RuntimeArtifactSectionQuery } from "./types.js";
 
-export type BinaryArtifactLoader = (bytes: Uint8Array) => Promise<RuntimeArtifactBundle>;
+export type BinaryArtifactLoader = (bytes: Uint8Array) => Promise<RuntimeArtifactFile>;
 
-export const loadRuntimeArtifactBundle: BinaryArtifactLoader = async (bytes) => {
-  return decodeBinaryBundle(bytes);
+export const loadRuntimeArtifactFile: BinaryArtifactLoader = async (bytes) => {
+  return decodeBinaryArtifactFile(bytes);
 };
 
 export function findRuntimeSection(
-  bundle: RuntimeArtifactBundle,
+  artifactFile: RuntimeArtifactFile,
   query: RuntimeArtifactSectionQuery,
 ): BinarySectionView | undefined {
-  return bundle.sections.find((section) => {
+  return artifactFile.sections.find((section) => {
     if (section.type !== query.type) {
       return false;
     }
@@ -30,10 +30,10 @@ export function findRuntimeSection(
 }
 
 export function requireRuntimeSection(
-  bundle: RuntimeArtifactBundle,
+  artifactFile: RuntimeArtifactFile,
   query: RuntimeArtifactSectionQuery,
 ): BinarySectionView {
-  const section = findRuntimeSection(bundle, query);
+  const section = findRuntimeSection(artifactFile, query);
 
   if (section === undefined) {
     throw new Error(`Missing runtime artifact section: ${JSON.stringify(query)}.`);

@@ -4,9 +4,9 @@ import {
   BINARY_HEADER_BYTES,
   BINARY_SECTION_ENTRY_BYTES,
   BINARY_SECTION_LABEL_BYTES,
-  BinaryBundleKind,
+  BinaryArtifactFileKind,
   BinarySectionEncoding,
-  type BinaryBundleView,
+  type BinaryArtifactFileView,
   type BinarySectionInput,
   type BinarySectionView,
   FFJAVASCRIPT_VERSION,
@@ -19,8 +19,8 @@ const DIGEST_BYTES = 32;
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
-export async function createBinaryBundle(
-  kind: BinaryBundleKind,
+export async function createBinaryArtifactFile(
+  kind: BinaryArtifactFileKind,
   sections: readonly BinarySectionInput[],
 ): Promise<Uint8Array> {
   validateSectionInputs(sections);
@@ -69,7 +69,7 @@ export async function createBinaryBundle(
   return output;
 }
 
-export async function decodeBinaryBundle(bytes: Uint8Array): Promise<BinaryBundleView> {
+export async function decodeBinaryArtifactFile(bytes: Uint8Array): Promise<BinaryArtifactFileView> {
   const input = normalizeBytes(bytes);
   const view = new DataView(input.buffer, input.byteOffset, input.byteLength);
 
@@ -87,7 +87,7 @@ export async function decodeBinaryBundle(bytes: Uint8Array): Promise<BinaryBundl
     throw new Error(`Unsupported binary artifact schema version: ${schemaVersion}.`);
   }
 
-  const kind = view.getUint16(10, true) as BinaryBundleKind;
+  const kind = view.getUint16(10, true) as BinaryArtifactFileKind;
   const sectionCount = view.getUint16(12, true);
   const sectionTableOffset = view.getUint32(16, true);
   const sectionTableLength = view.getUint32(20, true);
@@ -138,7 +138,7 @@ export async function decodeBinaryBundle(bytes: Uint8Array): Promise<BinaryBundl
       elementCount,
       byteLength,
       byteOffset,
-      bundleByteLength: input.byteLength,
+      artifactFileByteLength: input.byteLength,
     });
 
     const data = input.subarray(byteOffset, byteOffset + byteLength);
@@ -202,7 +202,7 @@ function validateSectionLayout(section: {
   readonly elementCount: number;
   readonly byteLength: number;
   readonly byteOffset: number;
-  readonly bundleByteLength: number;
+  readonly artifactFileByteLength: number;
 }): void {
   const expected = expectedElementByteLength(section.encoding);
   if (expected !== undefined && section.elementByteLength !== expected) {
@@ -213,8 +213,8 @@ function validateSectionLayout(section: {
     throw new Error("Binary artifact section byte length does not match its element count.");
   }
 
-  if (section.byteOffset + section.byteLength > section.bundleByteLength) {
-    throw new Error("Binary artifact section points outside the bundle.");
+  if (section.byteOffset + section.byteLength > section.artifactFileByteLength) {
+    throw new Error("Binary artifact section points outside the artifact file.");
   }
 }
 

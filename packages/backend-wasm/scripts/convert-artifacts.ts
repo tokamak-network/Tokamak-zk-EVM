@@ -12,10 +12,10 @@ function printUsage(): void {
   console.log(`Usage: convert-artifacts <command> [options]
 
 Commands:
-  json-to-verifier-binary    Convert native verifier JSON artifacts into a runtime-ready verifier bundle.
-  json-rkyv-to-prover-binary Convert native JSON plus rkyv artifacts into a runtime-ready prover bundle.
-  proof-binary-to-json       Convert a backend-wasm proof binary bundle into native-compatible proof JSON.
-  binary-to-debug-json       Convert a backend-wasm binary bundle into debug JSON.
+  json-to-verifier-binary    Convert native verifier JSON artifacts into runtime-ready verifier artifacts.
+  json-rkyv-to-prover-binary Convert native JSON plus rkyv artifacts into runtime-ready prover artifacts.
+  proof-binary-to-json       Convert a backend-wasm proof binary artifact file into native-compatible proof JSON.
+  binary-to-debug-json       Convert a backend-wasm binary artifact file into debug JSON.
 
 Options:
   --input <path>              Input file path.
@@ -100,10 +100,10 @@ async function readConverterInput(
     case "json-rkyv-to-prover-binary":
       return readJsonInput(options);
     case "proof-binary-to-json":
-      return { proofBundle: await readBinaryInput(options, command) };
+      return { proofFile: await readBinaryInput(options, command) };
     case "binary-to-debug-json":
       return {
-        bundle: await readBinaryInput(options, command),
+        artifactFile: await readBinaryInput(options, command),
         includeSectionData: options.includeSectionData,
       };
   }
