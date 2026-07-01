@@ -1,5 +1,7 @@
 export * from "./libs/artifact-loaders/loaders.js";
 export * from "./libs/artifact-loaders/types.js";
+export * from "./libs/crypto/keccak.js";
+export * from "./libs/crypto/transcript.js";
 export * from "./libs/runtime/curve.js";
 export * from "./libs/runtime/field.js";
 export * from "./libs/runtime/group.js";
