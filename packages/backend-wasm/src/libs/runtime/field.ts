@@ -12,6 +12,8 @@ export interface FieldRuntime {
   toBigInt(value: FieldElement): bigint;
   toHex(value: FieldElement): string;
   toRawLittleEndian(value: FieldElement): Uint8Array;
+  fft(values: readonly FieldElement[]): Promise<FieldElement[]>;
+  ifft(values: readonly FieldElement[]): Promise<FieldElement[]>;
   add(left: FieldElement, right: FieldElement): FieldElement;
   sub(left: FieldElement, right: FieldElement): FieldElement;
   neg(value: FieldElement): FieldElement;
@@ -49,6 +51,12 @@ export function createFieldRuntime(field: FfField): FieldRuntime {
       field.toRprLE(output, 0, value);
       return output;
     },
+    async fft(values) {
+      return splitFieldBuffer(await field.fft(concatFieldElements(values, field.n8)), field.n8);
+    },
+    async ifft(values) {
+      return splitFieldBuffer(await field.ifft(concatFieldElements(values, field.n8)), field.n8);
+    },
     add(left, right) {
       return field.add(left, right);
     },
@@ -83,6 +91,32 @@ export function createFieldRuntime(field: FfField): FieldRuntime {
       return field.random();
     },
   };
+}
+
+function concatFieldElements(values: readonly FieldElement[], byteLength: number): Uint8Array {
+  const output = new Uint8Array(values.length * byteLength);
+  for (let index = 0; index < values.length; index += 1) {
+    if (values[index].byteLength !== byteLength) {
+      throw new Error("Field element byte length does not match the runtime field.");
+    }
+
+    output.set(values[index], index * byteLength);
+  }
+
+  return output;
+}
+
+function splitFieldBuffer(buffer: Uint8Array, byteLength: number): FieldElement[] {
+  if (buffer.byteLength % byteLength !== 0) {
+    throw new Error("Field buffer byte length is not divisible by the runtime field width.");
+  }
+
+  const values: FieldElement[] = [];
+  for (let offset = 0; offset < buffer.byteLength; offset += byteLength) {
+    values.push(buffer.slice(offset, offset + byteLength));
+  }
+
+  return values;
 }
 
 export function parseCanonicalHex(value: string, modulus?: bigint): bigint {
