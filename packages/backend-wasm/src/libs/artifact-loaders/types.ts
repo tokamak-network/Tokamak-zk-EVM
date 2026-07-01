@@ -1,12 +1,12 @@
 import type {
-  BinaryBundleKind,
+  BinaryArtifactFileKind,
   BinarySectionEncoding,
   BinarySectionType,
   BinarySectionView,
 } from "../serialization/binary-format.js";
 
-export interface RuntimeArtifactBundle {
-  readonly kind: BinaryBundleKind;
+export interface RuntimeArtifactFile {
+  readonly kind: BinaryArtifactFileKind;
   readonly byteLength: number;
   readonly sections: readonly BinarySectionView[];
 }

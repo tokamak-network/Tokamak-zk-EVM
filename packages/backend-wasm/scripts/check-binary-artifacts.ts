@@ -3,13 +3,16 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  BinaryBundleKind,
+  BinaryArtifactFileKind,
   BinarySectionEncoding,
   BinarySectionType,
-  createBinaryBundle,
+  createBinaryArtifactFile,
   createCurveRuntime,
-  loadRuntimeArtifactBundle,
+  loadRuntimeArtifactFile,
+  parseRuntimeArtifactBundleManifest,
   requireRuntimeSection,
+  RuntimeArtifactBundleKind,
+  RuntimeArtifactFileRole,
   type AffinePointJson,
   type BinarySectionInput,
   type CurveRuntime,
@@ -72,7 +75,7 @@ async function main(): Promise<void> {
       path.join(fixturesDir, "expected/pairing-small.json"),
     );
 
-    const binary = await createBinaryBundle(BinaryBundleKind.Test, [
+    const binary = await createBinaryArtifactFile(BinaryArtifactFileKind.Test, [
       createScalarSection(runtime, scalarInput),
       createMsmBaseSection(runtime, msmInput),
       createMsmScalarSection(runtime, msmInput),
@@ -85,14 +88,14 @@ async function main(): Promise<void> {
       createPairingG1Section(runtime, "pairing.false.right.g1", pairingInput.false_case.right),
       createPairingG2Section(runtime, "pairing.false.right.g2", pairingInput.false_case.right),
     ]);
-    const bundle = await loadRuntimeArtifactBundle(binary);
+    const artifactFile = await loadRuntimeArtifactFile(binary);
 
-    const msmBases = requireRuntimeSection(bundle, {
+    const msmBases = requireRuntimeSection(artifactFile, {
       type: BinarySectionType.MsmBases,
       encoding: BinarySectionEncoding.FfjsG1Affine96,
       label: "msm.bases",
     });
-    const msmScalars = requireRuntimeSection(bundle, {
+    const msmScalars = requireRuntimeSection(artifactFile, {
       type: BinarySectionType.MsmScalars,
       encoding: BinarySectionEncoding.ScalarRawLe32,
       label: "msm.scalars",
@@ -102,25 +105,90 @@ async function main(): Promise<void> {
 
     assertEqual(
       await runtime.pairing.productsEqual(
-        readPairingTerms(bundle, "pairing.true.left"),
-        readPairingTerms(bundle, "pairing.true.right"),
+        readPairingTerms(artifactFile, "pairing.true.left"),
+        readPairingTerms(artifactFile, "pairing.true.right"),
       ),
       pairingExpected.true_case_products_equal,
       "binary pairing true case",
     );
     assertEqual(
       await runtime.pairing.productsEqual(
-        readPairingTerms(bundle, "pairing.false.left"),
-        readPairingTerms(bundle, "pairing.false.right"),
+        readPairingTerms(artifactFile, "pairing.false.left"),
+        readPairingTerms(artifactFile, "pairing.false.right"),
       ),
       pairingExpected.false_case_products_equal,
       "binary pairing false case",
     );
+
+    checkRuntimeBundleManifests();
   } finally {
     await runtime.terminate();
   }
 
-  console.log("Checked runtime-ready binary artifact bundle round-trip");
+  console.log("Checked runtime-ready binary artifact file round-trip");
+}
+
+function checkRuntimeBundleManifests(): void {
+  const digestHex = "00".repeat(32);
+
+  parseRuntimeArtifactBundleManifest({
+    schemaVersion: 1,
+    kind: RuntimeArtifactBundleKind.VerifierProofInput,
+    files: [
+      {
+        role: RuntimeArtifactFileRole.Instance,
+        path: "instance.bin",
+        digestHex,
+        artifactKind: BinaryArtifactFileKind.VerifierInstance,
+      },
+      {
+        role: RuntimeArtifactFileRole.Proof,
+        path: "proof.bin",
+        digestHex,
+        artifactKind: BinaryArtifactFileKind.VerifierProof,
+      },
+    ],
+  });
+
+  parseRuntimeArtifactBundleManifest({
+    schemaVersion: 1,
+    kind: RuntimeArtifactBundleKind.VerifierSetupInput,
+    files: [
+      {
+        role: RuntimeArtifactFileRole.Crs,
+        path: "crs.bin",
+        digestHex,
+        artifactKind: BinaryArtifactFileKind.VerifierCrs,
+      },
+      {
+        role: RuntimeArtifactFileRole.Preprocess,
+        path: "preprocess.bin",
+        digestHex,
+        artifactKind: BinaryArtifactFileKind.VerifierPreprocess,
+      },
+    ],
+  });
+
+  assertThrows(
+    () =>
+      parseRuntimeArtifactBundleManifest({
+        schemaVersion: 1,
+        kind: RuntimeArtifactBundleKind.VerifierProofInput,
+        files: [
+          {
+            role: RuntimeArtifactFileRole.Instance,
+            path: "instance.bin",
+            digestHex,
+          },
+          {
+            role: RuntimeArtifactFileRole.Crs,
+            path: "crs.bin",
+            digestHex,
+          },
+        ],
+      }),
+    "VerifierProofInput bundle manifest must not include CRS files",
+  );
 }
 
 function createScalarSection(runtime: CurveRuntime, input: ScalarFixtureInput): BinarySectionInput {
@@ -199,15 +267,15 @@ function createPairingG2Section(
 }
 
 function readPairingTerms(
-  bundle: Awaited<ReturnType<typeof loadRuntimeArtifactBundle>>,
+  artifactFile: Awaited<ReturnType<typeof loadRuntimeArtifactFile>>,
   labelPrefix: string,
 ): PairingTerm[] {
-  const g1 = requireRuntimeSection(bundle, {
+  const g1 = requireRuntimeSection(artifactFile, {
     type: BinarySectionType.PairingG1Terms,
     encoding: BinarySectionEncoding.FfjsG1Affine96,
     label: `${labelPrefix}.g1`,
   });
-  const g2 = requireRuntimeSection(bundle, {
+  const g2 = requireRuntimeSection(artifactFile, {
     type: BinarySectionType.PairingG2Terms,
     encoding: BinarySectionEncoding.FfjsG2Affine192,
     label: `${labelPrefix}.g2`,
@@ -249,6 +317,16 @@ function assertEqual(actual: unknown, expected: unknown, label: string): void {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     throw new Error(`${label} mismatch: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
   }
+}
+
+function assertThrows(callback: () => void, label: string): void {
+  try {
+    callback();
+  } catch {
+    return;
+  }
+
+  throw new Error(`${label} did not throw.`);
 }
 
 const entrypoint = fileURLToPath(import.meta.url);

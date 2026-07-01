@@ -1,3 +1,5 @@
+import type { RuntimeArtifactBundleManifest } from "../../libs/serialization/artifact-bundle.js";
+
 export const ARTIFACT_CONVERTER_COMMANDS = [
   "json-to-verifier-binary",
   "json-rkyv-to-prover-binary",
@@ -27,15 +29,15 @@ export interface NativeProverArtifactsToBinaryInput {
 }
 
 export interface ProofBinaryToNativeJsonInput {
-  readonly proofBundle: Uint8Array;
+  readonly proofFile: Uint8Array;
 }
 
-export interface BinaryBundleToDebugJsonInput {
-  readonly bundle: Uint8Array;
+export interface BinaryArtifactFileToDebugJsonInput {
+  readonly artifactFile: Uint8Array;
   readonly includeSectionData?: boolean;
 }
 
-export interface BinaryBundleDebugJson {
+export interface BinaryArtifactFileDebugJson {
   readonly kind: number;
   readonly schemaVersion: number;
   readonly ffjavascriptVersion: string;
@@ -57,15 +59,29 @@ export interface BinarySectionDebugJson {
   readonly dataHex?: string;
 }
 
+export interface RuntimeArtifactBundleOutput {
+  readonly manifest: RuntimeArtifactBundleManifest;
+  readonly files: readonly RuntimeArtifactBundleOutputFile[];
+}
+
+export interface RuntimeArtifactBundleOutputFile {
+  readonly path: string;
+  readonly bytes: Uint8Array;
+}
+
 export type ArtifactConverterInput =
   | NativeVerifierJsonToBinaryInput
   | NativeProverArtifactsToBinaryInput
   | ProofBinaryToNativeJsonInput
-  | BinaryBundleToDebugJsonInput;
+  | BinaryArtifactFileToDebugJsonInput;
 
 export interface ArtifactConverterRequest {
   readonly command: ArtifactConverterCommand;
   readonly input: ArtifactConverterInput;
 }
 
-export type ArtifactConverterOutput = Uint8Array | ConverterArtifactJson | BinaryBundleDebugJson;
+export type ArtifactConverterOutput =
+  | RuntimeArtifactBundleOutput
+  | Uint8Array
+  | ConverterArtifactJson
+  | BinaryArtifactFileDebugJson;

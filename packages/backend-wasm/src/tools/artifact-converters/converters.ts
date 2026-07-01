@@ -1,14 +1,15 @@
-import { decodeBinaryBundle } from "../../libs/serialization/binary-bundle.js";
+import { decodeBinaryArtifactFile } from "../../libs/serialization/binary-artifact-file.js";
 import type {
   ArtifactConverterCommand,
   ArtifactConverterOutput,
   ArtifactConverterRequest,
-  BinaryBundleDebugJson,
-  BinaryBundleToDebugJsonInput,
+  BinaryArtifactFileDebugJson,
+  BinaryArtifactFileToDebugJsonInput,
   ConverterArtifactJson,
   NativeProverArtifactsToBinaryInput,
   NativeVerifierJsonToBinaryInput,
   ProofBinaryToNativeJsonInput,
+  RuntimeArtifactBundleOutput,
 } from "./types.js";
 import { ARTIFACT_CONVERTER_COMMANDS } from "./types.js";
 
@@ -18,13 +19,15 @@ export type {
   ArtifactConverterInput,
   ArtifactConverterOutput,
   ArtifactConverterRequest,
-  BinaryBundleDebugJson,
-  BinaryBundleToDebugJsonInput,
+  BinaryArtifactFileDebugJson,
+  BinaryArtifactFileToDebugJsonInput,
   BinarySectionDebugJson,
   ConverterArtifactJson,
   NativeProverArtifactsToBinaryInput,
   NativeVerifierJsonToBinaryInput,
   ProofBinaryToNativeJsonInput,
+  RuntimeArtifactBundleOutput,
+  RuntimeArtifactBundleOutputFile,
 } from "./types.js";
 
 export function isArtifactConverterCommand(value: string): value is ArtifactConverterCommand {
@@ -33,13 +36,13 @@ export function isArtifactConverterCommand(value: string): value is ArtifactConv
 
 export async function convertNativeVerifierJsonToBinary(
   _input: NativeVerifierJsonToBinaryInput,
-): Promise<Uint8Array> {
+): Promise<RuntimeArtifactBundleOutput> {
   throw converterNotImplemented("json-to-verifier-binary");
 }
 
 export async function convertNativeProverArtifactsToBinary(
   _input: NativeProverArtifactsToBinaryInput,
-): Promise<Uint8Array> {
+): Promise<RuntimeArtifactBundleOutput> {
   throw converterNotImplemented("json-rkyv-to-prover-binary");
 }
 
@@ -49,18 +52,18 @@ export async function convertProofBinaryToNativeJson(
   throw converterNotImplemented("proof-binary-to-json");
 }
 
-export async function convertBinaryBundleToDebugJson(
-  input: BinaryBundleToDebugJsonInput,
-): Promise<BinaryBundleDebugJson> {
-  const bundle = await decodeBinaryBundle(input.bundle);
+export async function convertBinaryArtifactFileToDebugJson(
+  input: BinaryArtifactFileToDebugJsonInput,
+): Promise<BinaryArtifactFileDebugJson> {
+  const artifactFile = await decodeBinaryArtifactFile(input.artifactFile);
 
   return {
-    kind: bundle.kind,
-    schemaVersion: bundle.schemaVersion,
-    ffjavascriptVersion: bundle.ffjavascriptVersion,
-    wasmcurvesVersion: bundle.wasmcurvesVersion,
-    byteLength: bundle.byteLength,
-    sections: bundle.sections.map((section) => ({
+    kind: artifactFile.kind,
+    schemaVersion: artifactFile.schemaVersion,
+    ffjavascriptVersion: artifactFile.ffjavascriptVersion,
+    wasmcurvesVersion: artifactFile.wasmcurvesVersion,
+    byteLength: artifactFile.byteLength,
+    sections: artifactFile.sections.map((section) => ({
       type: section.type,
       encoding: section.encoding,
       label: section.label,
@@ -86,7 +89,7 @@ export async function executeArtifactConverter(
     case "proof-binary-to-json":
       return convertProofBinaryToNativeJson(request.input as ProofBinaryToNativeJsonInput);
     case "binary-to-debug-json":
-      return convertBinaryBundleToDebugJson(request.input as BinaryBundleToDebugJsonInput);
+      return convertBinaryArtifactFileToDebugJson(request.input as BinaryArtifactFileToDebugJsonInput);
   }
 }
 

@@ -6,11 +6,16 @@ export const BINARY_SECTION_LABEL_BYTES = 40;
 export const FFJAVASCRIPT_VERSION = "0.3.1";
 export const WASMCURVES_VERSION = "0.2.2";
 
-export enum BinaryBundleKind {
-  VerifierInput = 1,
-  ProverInput = 2,
-  ProofOutput = 3,
-  VerifierOutput = 4,
+export enum BinaryArtifactFileKind {
+  VerifierInstance = 1,
+  VerifierProof = 2,
+  VerifierCrs = 3,
+  VerifierPreprocess = 4,
+  ProverWitness = 5,
+  ProverCrs = 6,
+  ProverPreprocess = 7,
+  ProofOutput = 8,
+  VerifierOutput = 9,
   Test = 255,
 }
 
@@ -70,8 +75,8 @@ export interface BinarySectionView {
   readonly data: Uint8Array;
 }
 
-export interface BinaryBundleView {
-  readonly kind: BinaryBundleKind;
+export interface BinaryArtifactFileView {
+  readonly kind: BinaryArtifactFileKind;
   readonly schemaVersion: number;
   readonly ffjavascriptVersion: typeof FFJAVASCRIPT_VERSION;
   readonly wasmcurvesVersion: typeof WASMCURVES_VERSION;
