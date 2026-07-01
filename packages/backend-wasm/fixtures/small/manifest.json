@@ -9,6 +9,13 @@
       "description": "Checks canonical BLS12-381 Fr arithmetic and FieldSerde encoding against the native backend.",
       "input": "input/scalar-ops-basic.json",
       "expected": "expected/scalar-ops-basic.json"
+    },
+    {
+      "id": "roots-of-unity-small",
+      "kind": "roots-of-unity",
+      "description": "Checks ICICLE BLS12-381 Fr roots of unity, inverse roots, and power tables for small NTT domains.",
+      "input": "input/roots-of-unity-small.json",
+      "expected": "expected/roots-of-unity-small.json"
     }
   ]
 }
