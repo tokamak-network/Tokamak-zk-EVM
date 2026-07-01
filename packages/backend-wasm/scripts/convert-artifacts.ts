@@ -22,7 +22,7 @@ Options:
   --output <path>             Output file path. Defaults to stdout for JSON output.
   --include-section-data      Include section payload hex in binary-to-debug-json output.
 
-The CLI is only a Node.js file I/O wrapper around the web-compatible converter library exported from src/libs/artifact-converters/.`);
+The CLI is only a Node.js file I/O wrapper around the web-compatible converter library exported from src/tools/artifact-converters/.`);
 }
 
 async function main(argv: readonly string[]): Promise<void> {
