@@ -26,6 +26,19 @@ interface MsmFixtureInput {
   readonly scalars: readonly string[];
 }
 
+interface RootsOfUnityFixtureInput {
+  readonly sizes: readonly number[];
+}
+
+interface RootsOfUnityFixtureExpected {
+  readonly cases: readonly RootsOfUnityExpectedCase[];
+}
+
+interface RootsOfUnityExpectedCase {
+  readonly size: number;
+  readonly root: string;
+}
+
 interface MsmFixtureExpected {
   readonly result: AffinePointJson;
 }
@@ -113,6 +126,21 @@ async function main(): Promise<void> {
     assertEqual(runtime.Fr.toHex(runtime.Fr.inv(b)), scalarExpected.results.inv_b, "scalar inv");
     assertEqual(runtime.Fr.toHex(runtime.Fr.pow(a, 5n)), scalarExpected.results.pow_a_5, "scalar pow");
     assertEqual(runtime.Fr.toHex(runtime.Fr.fromHex(runtime.Fr.toHex(c))), scalarExpected.results.round_trip_c, "scalar round trip");
+
+    const rootsInput = await readJson<RootsOfUnityFixtureInput>(
+      path.join(fixturesDir, "input/roots-of-unity-small.json"),
+    );
+    const rootsExpected = await readJson<RootsOfUnityFixtureExpected>(
+      path.join(fixturesDir, "expected/roots-of-unity-small.json"),
+    );
+    for (const size of rootsInput.sizes) {
+      const expectedCase = rootsExpected.cases.find((candidate) => candidate.size === size);
+      if (expectedCase === undefined) {
+        throw new Error(`Missing expected root-of-unity case: ${size}.`);
+      }
+
+      assertEqual(runtime.Fr.toHex(runtime.Fr.rootOfUnity(size)), expectedCase.root, `root of unity ${size}`);
+    }
 
     const msmInput = await readJson<MsmFixtureInput>(path.join(fixturesDir, "input/msm-small.json"));
     const msmExpected = await readJson<MsmFixtureExpected>(

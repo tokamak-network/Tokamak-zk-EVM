@@ -19,6 +19,17 @@
     "mpcSetupUsed": false
   },
   "artifacts": {
+    "setupParams": {
+      "l_free": 128,
+      "l_user_out": 65,
+      "l_user": 85,
+      "l": 728,
+      "l_D": 4824,
+      "m_D": 26591,
+      "n": 4096,
+      "s_D": 14,
+      "s_max": 256
+    },
     "instance": {
       "a_pub_user": [
         "0x952ba7f163c4a11628f55a4df523b3ef",
