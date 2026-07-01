@@ -19,6 +19,16 @@ const SPEC_JOBS: readonly SpecJob[] = [
     constName: "VERIFIER_PREPROCESS_V1_SPEC",
   },
   {
+    jsonPath: "src/libs/artifact-loaders/specs/verifier-proof.v1.json",
+    generatedPath: "src/libs/artifact-loaders/specs/verifier-proof.v1.generated.ts",
+    constName: "VERIFIER_PROOF_V1_SPEC",
+  },
+  {
+    jsonPath: "src/libs/artifact-loaders/specs/verifier-instance.v1.json",
+    generatedPath: "src/libs/artifact-loaders/specs/verifier-instance.v1.generated.ts",
+    constName: "VERIFIER_INSTANCE_V1_SPEC",
+  },
+  {
     jsonPath: "src/libs/artifact-loaders/specs/prover-crs.v1.json",
     generatedPath: "src/libs/artifact-loaders/specs/prover-crs.v1.generated.ts",
     constName: "PROVER_CRS_V1_SPEC",
@@ -76,7 +86,13 @@ function parseRawSpec(raw: unknown, sourcePath: string): RawSpec {
     throw new Error(`${sourcePath} spec schemaVersion must be 1.`);
   }
 
-  if (raw.name !== "sigma_verify" && raw.name !== "verifier_preprocess" && raw.name !== "prover_crs") {
+  if (
+    raw.name !== "sigma_verify" &&
+    raw.name !== "verifier_preprocess" &&
+    raw.name !== "verifier_proof" &&
+    raw.name !== "verifier_instance" &&
+    raw.name !== "prover_crs"
+  ) {
     throw new Error(`${sourcePath} has unsupported spec name: ${String(raw.name)}.`);
   }
 
@@ -215,6 +231,9 @@ function parseSectionType(value: unknown, sourcePath: string): string {
     case "CrsG1":
     case "CrsG2":
     case "Preprocess":
+    case "Proof":
+    case "Instance":
+    case "SetupParams":
       return value;
     default:
       throw new Error(`${sourcePath} has unsupported section type: ${String(value)}.`);
@@ -223,10 +242,14 @@ function parseSectionType(value: unknown, sourcePath: string): string {
 
 function parseSectionEncoding(value: unknown, sourcePath: string): string {
   switch (value) {
+    case "ffjs-fr-montgomery-le-32":
+      return "FfjsFrMontgomeryLe32";
     case "ffjs-g1-affine-96":
       return "FfjsG1Affine96";
     case "ffjs-g2-affine-192":
       return "FfjsG2Affine192";
+    case "bytes":
+      return "Bytes";
     default:
       throw new Error(`${sourcePath} has unsupported section encoding: ${String(value)}.`);
   }

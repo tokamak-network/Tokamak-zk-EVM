@@ -6,7 +6,12 @@ export interface RuntimeArtifactFormatSpec {
   readonly sections: readonly RuntimeArtifactSectionSpec[];
 }
 
-export type RuntimeArtifactFormatSpecName = "sigma_verify" | "verifier_preprocess" | "prover_crs";
+export type RuntimeArtifactFormatSpecName =
+  | "sigma_verify"
+  | "verifier_preprocess"
+  | "verifier_proof"
+  | "verifier_instance"
+  | "prover_crs";
 
 export interface RuntimeArtifactSectionSpec {
   readonly label: string;
