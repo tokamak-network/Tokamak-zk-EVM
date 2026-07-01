@@ -27,7 +27,7 @@ export interface RuntimeArtifactBundleFile {
   readonly digestHex: string;
   readonly byteLength?: number;
   readonly artifactKind?: BinaryArtifactFileKind;
-  readonly metadata?: Record<string, unknown>;
+  readonly metadata: Record<string, unknown>;
 }
 
 export function parseRuntimeArtifactBundleManifest(raw: unknown): RuntimeArtifactBundleManifest {
@@ -91,7 +91,7 @@ function parseBundleFile(raw: unknown, index: number): RuntimeArtifactBundleFile
     digestHex: parseDigestHex(raw.digestHex, index),
     byteLength: parseOptionalByteLength(raw.byteLength, index),
     artifactKind: parseOptionalArtifactKind(raw.artifactKind, index),
-    metadata: parseOptionalMetadata(raw.metadata, `Runtime artifact bundle file at index ${index} metadata`),
+    metadata: parseRequiredMetadata(raw.metadata, `Runtime artifact bundle file at index ${index} metadata`),
   };
 
   validateRoleMatchesArtifactKind(file, index);
@@ -221,6 +221,14 @@ function parseOptionalMetadata(value: unknown, label: string): Record<string, un
     return undefined;
   }
 
+  if (!isRecord(value)) {
+    throw new Error(`${label} must be a JSON object.`);
+  }
+
+  return value;
+}
+
+function parseRequiredMetadata(value: unknown, label: string): Record<string, unknown> {
   if (!isRecord(value)) {
     throw new Error(`${label} must be a JSON object.`);
   }

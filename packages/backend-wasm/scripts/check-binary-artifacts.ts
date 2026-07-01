@@ -140,12 +140,20 @@ function checkRuntimeBundleManifests(): void {
         path: "instance.bin",
         digestHex,
         artifactKind: BinaryArtifactFileKind.VerifierInstance,
+        metadata: {
+          circuitId: "test-circuit",
+          setupId: "test-setup",
+        },
       },
       {
         role: RuntimeArtifactFileRole.Proof,
         path: "proof.bin",
         digestHex,
         artifactKind: BinaryArtifactFileKind.VerifierProof,
+        metadata: {
+          circuitId: "test-circuit",
+          setupId: "test-setup",
+        },
       },
     ],
   });
@@ -159,12 +167,20 @@ function checkRuntimeBundleManifests(): void {
         path: "crs.bin",
         digestHex,
         artifactKind: BinaryArtifactFileKind.VerifierCrs,
+        metadata: {
+          circuitId: "test-circuit",
+          setupId: "test-setup",
+        },
       },
       {
         role: RuntimeArtifactFileRole.Preprocess,
         path: "preprocess.bin",
         digestHex,
         artifactKind: BinaryArtifactFileKind.VerifierPreprocess,
+        metadata: {
+          circuitId: "test-circuit",
+          setupId: "test-setup",
+        },
       },
     ],
   });
@@ -179,15 +195,39 @@ function checkRuntimeBundleManifests(): void {
             role: RuntimeArtifactFileRole.Instance,
             path: "instance.bin",
             digestHex,
+            metadata: {},
           },
           {
             role: RuntimeArtifactFileRole.Crs,
             path: "crs.bin",
             digestHex,
+            metadata: {},
           },
         ],
       }),
     "VerifierProofInput bundle manifest must not include CRS files",
+  );
+
+  assertThrows(
+    () =>
+      parseRuntimeArtifactBundleManifest({
+        schemaVersion: 1,
+        kind: RuntimeArtifactBundleKind.VerifierProofInput,
+        files: [
+          {
+            role: RuntimeArtifactFileRole.Instance,
+            path: "instance.bin",
+            digestHex,
+          },
+          {
+            role: RuntimeArtifactFileRole.Proof,
+            path: "proof.bin",
+            digestHex,
+            metadata: {},
+          },
+        ],
+      }),
+    "Runtime artifact bundle file metadata must be required",
   );
 }
 
