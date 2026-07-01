@@ -1,20 +1,22 @@
 import type { BinarySectionEncoding, BinarySectionType } from "../../serialization/binary-format.js";
 
-export interface SigmaVerifyFormatSpec {
+export interface RuntimeArtifactFormatSpec {
   readonly schemaVersion: 1;
-  readonly name: "sigma_verify";
-  readonly sections: readonly SigmaVerifySectionSpec[];
+  readonly name: RuntimeArtifactFormatSpecName;
+  readonly sections: readonly RuntimeArtifactSectionSpec[];
 }
 
-export interface SigmaVerifySectionSpec {
+export type RuntimeArtifactFormatSpecName = "sigma_verify" | "verifier_preprocess" | "prover_crs";
+
+export interface RuntimeArtifactSectionSpec {
   readonly label: string;
   readonly type: BinarySectionType;
   readonly encoding: BinarySectionEncoding;
-  readonly elementCount: number;
-  readonly points: readonly SigmaVerifyPointSpec[];
+  readonly elementCount: number | null;
+  readonly points: readonly RuntimeArtifactPointSpec[];
 }
 
-export interface SigmaVerifyPointSpec {
+export interface RuntimeArtifactPointSpec {
   readonly index: number;
   readonly name: string;
 }

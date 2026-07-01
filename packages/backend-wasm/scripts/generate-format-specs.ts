@@ -1,8 +1,29 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
-const SIGMA_VERIFY_JSON_PATH = "src/libs/artifact-loaders/specs/sigma-verify.v1.json";
-const SIGMA_VERIFY_GENERATED_PATH = "src/libs/artifact-loaders/specs/sigma-verify.v1.generated.ts";
+interface SpecJob {
+  readonly jsonPath: string;
+  readonly generatedPath: string;
+  readonly constName: string;
+}
+
+const SPEC_JOBS: readonly SpecJob[] = [
+  {
+    jsonPath: "src/libs/artifact-loaders/specs/sigma-verify.v1.json",
+    generatedPath: "src/libs/artifact-loaders/specs/sigma-verify.v1.generated.ts",
+    constName: "SIGMA_VERIFY_V1_SPEC",
+  },
+  {
+    jsonPath: "src/libs/artifact-loaders/specs/verifier-preprocess.v1.json",
+    generatedPath: "src/libs/artifact-loaders/specs/verifier-preprocess.v1.generated.ts",
+    constName: "VERIFIER_PREPROCESS_V1_SPEC",
+  },
+  {
+    jsonPath: "src/libs/artifact-loaders/specs/prover-crs.v1.json",
+    generatedPath: "src/libs/artifact-loaders/specs/prover-crs.v1.generated.ts",
+    constName: "PROVER_CRS_V1_SPEC",
+  },
+];
 
 interface RawSpec {
   readonly schemaVersion: number;
@@ -14,7 +35,7 @@ interface RawSectionSpec {
   readonly label: string;
   readonly type: string;
   readonly encoding: string;
-  readonly elementCount: number;
+  readonly elementCount: number | null;
   readonly points: readonly RawPointSpec[];
 }
 
@@ -25,86 +46,105 @@ interface RawPointSpec {
 
 async function main(argv: readonly string[]): Promise<void> {
   const checkOnly = argv.includes("--check");
-  const spec = parseRawSpec(JSON.parse(await readFile(SIGMA_VERIFY_JSON_PATH, "utf8")) as unknown);
-  const generated = renderSigmaVerifySpec(spec);
 
-  if (checkOnly) {
-    const current = await readFile(SIGMA_VERIFY_GENERATED_PATH, "utf8");
-    if (current !== generated) {
-      throw new Error(`${SIGMA_VERIFY_GENERATED_PATH} is out of date. Run npm run specs:generate.`);
+  for (const job of SPEC_JOBS) {
+    const spec = parseRawSpec(JSON.parse(await readFile(job.jsonPath, "utf8")) as unknown, job.jsonPath);
+    const generated = renderSpec(job.constName, spec);
+
+    if (checkOnly) {
+      const current = await readFile(job.generatedPath, "utf8");
+      if (current !== generated) {
+        throw new Error(`${job.generatedPath} is out of date. Run npm run specs:generate.`);
+      }
+    } else {
+      await writeFile(job.generatedPath, generated);
+      console.log(`Generated ${job.generatedPath}`);
     }
-    console.log("Checked generated artifact-loader format specs");
-    return;
   }
 
-  await writeFile(SIGMA_VERIFY_GENERATED_PATH, generated);
-  console.log(`Generated ${SIGMA_VERIFY_GENERATED_PATH}`);
+  if (checkOnly) {
+    console.log("Checked generated artifact-loader format specs");
+  }
 }
 
-function parseRawSpec(raw: unknown): RawSpec {
+function parseRawSpec(raw: unknown, sourcePath: string): RawSpec {
   if (!isRecord(raw)) {
-    throw new Error("sigma_verify spec must be a JSON object.");
+    throw new Error(`${sourcePath} spec must be a JSON object.`);
   }
 
   if (raw.schemaVersion !== 1) {
-    throw new Error("sigma_verify spec schemaVersion must be 1.");
+    throw new Error(`${sourcePath} spec schemaVersion must be 1.`);
   }
 
-  if (raw.name !== "sigma_verify") {
-    throw new Error("sigma_verify spec name must be 'sigma_verify'.");
+  if (raw.name !== "sigma_verify" && raw.name !== "verifier_preprocess" && raw.name !== "prover_crs") {
+    throw new Error(`${sourcePath} has unsupported spec name: ${String(raw.name)}.`);
   }
 
   if (!Array.isArray(raw.sections) || raw.sections.length === 0) {
-    throw new Error("sigma_verify spec sections must be a non-empty array.");
+    throw new Error(`${sourcePath} spec sections must be a non-empty array.`);
   }
 
   return {
     schemaVersion: 1,
-    name: "sigma_verify",
-    sections: raw.sections.map(parseRawSectionSpec),
+    name: raw.name,
+    sections: raw.sections.map((section, index) => parseRawSectionSpec(section, sourcePath, index)),
   };
 }
 
-function parseRawSectionSpec(raw: unknown): RawSectionSpec {
+function parseRawSectionSpec(raw: unknown, sourcePath: string, index: number): RawSectionSpec {
   if (!isRecord(raw)) {
-    throw new Error("sigma_verify section spec must be an object.");
+    throw new Error(`${sourcePath} section spec at index ${index} must be an object.`);
   }
 
   if (typeof raw.label !== "string" || raw.label.trim() === "") {
-    throw new Error("sigma_verify section label must be a non-empty string.");
+    throw new Error(`${sourcePath} section at index ${index} label must be a non-empty string.`);
   }
 
-  const type = parseSectionType(raw.type);
-  const encoding = parseSectionEncoding(raw.encoding);
-
-  if (typeof raw.elementCount !== "number" || !Number.isSafeInteger(raw.elementCount) || raw.elementCount < 0) {
-    throw new Error(`sigma_verify section '${raw.label}' elementCount must be a non-negative integer.`);
-  }
+  const type = parseSectionType(raw.type, sourcePath);
+  const encoding = parseSectionEncoding(raw.encoding, sourcePath);
+  const elementCount = parseElementCount(raw.elementCount, raw.label, sourcePath);
 
   if (!Array.isArray(raw.points)) {
-    throw new Error(`sigma_verify section '${raw.label}' points must be an array.`);
+    throw new Error(`${sourcePath} section '${raw.label}' points must be an array.`);
   }
+
+  const points = raw.points.map((point, pointIndex) =>
+    parseRawPointSpec(point, sourcePath, raw.label as string, pointIndex),
+  );
+  validatePointIndexes(points, elementCount, raw.label, sourcePath);
 
   return {
     label: raw.label,
     type,
     encoding,
-    elementCount: raw.elementCount,
-    points: raw.points.map(parseRawPointSpec),
+    elementCount,
+    points,
   };
 }
 
-function parseRawPointSpec(raw: unknown): RawPointSpec {
+function parseElementCount(value: unknown, label: string, sourcePath: string): number | null {
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    throw new Error(`${sourcePath} section '${label}' elementCount must be a non-negative integer or null.`);
+  }
+
+  return value;
+}
+
+function parseRawPointSpec(raw: unknown, sourcePath: string, sectionLabel: string, index: number): RawPointSpec {
   if (!isRecord(raw)) {
-    throw new Error("sigma_verify point spec must be an object.");
+    throw new Error(`${sourcePath} point spec at ${sectionLabel}[${index}] must be an object.`);
   }
 
   if (typeof raw.index !== "number" || !Number.isSafeInteger(raw.index) || raw.index < 0) {
-    throw new Error("sigma_verify point index must be a non-negative integer.");
+    throw new Error(`${sourcePath} point index at ${sectionLabel}[${index}] must be a non-negative integer.`);
   }
 
   if (typeof raw.name !== "string" || raw.name.trim() === "") {
-    throw new Error("sigma_verify point name must be a non-empty string.");
+    throw new Error(`${sourcePath} point name at ${sectionLabel}[${index}] must be a non-empty string.`);
   }
 
   return {
@@ -113,16 +153,43 @@ function parseRawPointSpec(raw: unknown): RawPointSpec {
   };
 }
 
-function renderSigmaVerifySpec(spec: RawSpec): string {
-  return `import { BinarySectionEncoding, BinarySectionType } from "../../serialization/binary-format.js";
-import type { SigmaVerifyFormatSpec } from "./types.js";
+function validatePointIndexes(
+  points: readonly RawPointSpec[],
+  elementCount: number | null,
+  label: string,
+  sourcePath: string,
+): void {
+  const indexes = new Set<number>();
+  const names = new Set<string>();
 
-export const SIGMA_VERIFY_V1_SPEC = {
+  for (const point of points) {
+    if (indexes.has(point.index)) {
+      throw new Error(`${sourcePath} section '${label}' has duplicate point index ${point.index}.`);
+    }
+
+    if (names.has(point.name)) {
+      throw new Error(`${sourcePath} section '${label}' has duplicate point name '${point.name}'.`);
+    }
+
+    if (elementCount !== null && point.index >= elementCount) {
+      throw new Error(`${sourcePath} section '${label}' point '${point.name}' index exceeds elementCount.`);
+    }
+
+    indexes.add(point.index);
+    names.add(point.name);
+  }
+}
+
+function renderSpec(constName: string, spec: RawSpec): string {
+  return `import { BinarySectionEncoding, BinarySectionType } from "../../serialization/binary-format.js";
+import type { RuntimeArtifactFormatSpec } from "./types.js";
+
+export const ${constName} = {
   schemaVersion: ${spec.schemaVersion},
   name: ${formatString(spec.name)},
   sections: [
 ${spec.sections.map(renderSection).join("")}  ],
-} as const satisfies SigmaVerifyFormatSpec;
+} as const satisfies RuntimeArtifactFormatSpec;
 `;
 }
 
@@ -131,7 +198,7 @@ function renderSection(section: RawSectionSpec): string {
       label: ${formatString(section.label)},
       type: BinarySectionType.${section.type},
       encoding: BinarySectionEncoding.${section.encoding},
-      elementCount: ${section.elementCount},
+      elementCount: ${section.elementCount === null ? "null" : section.elementCount},
       points: [
 ${section.points.map(renderPoint).join("")}      ],
     },
@@ -143,24 +210,25 @@ function renderPoint(point: RawPointSpec): string {
 `;
 }
 
-function parseSectionType(value: unknown): string {
+function parseSectionType(value: unknown, sourcePath: string): string {
   switch (value) {
     case "CrsG1":
     case "CrsG2":
+    case "Preprocess":
       return value;
     default:
-      throw new Error(`Unsupported sigma_verify section type: ${String(value)}.`);
+      throw new Error(`${sourcePath} has unsupported section type: ${String(value)}.`);
   }
 }
 
-function parseSectionEncoding(value: unknown): string {
+function parseSectionEncoding(value: unknown, sourcePath: string): string {
   switch (value) {
     case "ffjs-g1-affine-96":
       return "FfjsG1Affine96";
     case "ffjs-g2-affine-192":
       return "FfjsG2Affine192";
     default:
-      throw new Error(`Unsupported sigma_verify section encoding: ${String(value)}.`);
+      throw new Error(`${sourcePath} has unsupported section encoding: ${String(value)}.`);
   }
 }
 

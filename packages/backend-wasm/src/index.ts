@@ -1,4 +1,6 @@
+export * from "./libs/artifact-loaders/format-spec-loader.js";
 export * from "./libs/artifact-loaders/loaders.js";
+export * from "./libs/artifact-loaders/prepared-data.js";
 export * from "./libs/artifact-loaders/sigma-verify.js";
 export * from "./libs/artifact-loaders/types.js";
 export * from "./libs/crypto/keccak.js";

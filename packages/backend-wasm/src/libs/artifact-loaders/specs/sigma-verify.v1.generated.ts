@@ -1,5 +1,5 @@
 import { BinarySectionEncoding, BinarySectionType } from "../../serialization/binary-format.js";
-import type { SigmaVerifyFormatSpec } from "./types.js";
+import type { RuntimeArtifactFormatSpec } from "./types.js";
 
 export const SIGMA_VERIFY_V1_SPEC = {
   schemaVersion: 1,
@@ -36,4 +36,4 @@ export const SIGMA_VERIFY_V1_SPEC = {
       ],
     },
   ],
-} as const satisfies SigmaVerifyFormatSpec;
+} as const satisfies RuntimeArtifactFormatSpec;
