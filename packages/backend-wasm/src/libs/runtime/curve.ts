@@ -10,6 +10,8 @@ export interface FfField {
   readonly zero: Uint8Array;
   readonly one: Uint8Array;
   readonly p: bigint;
+  readonly s: number;
+  readonly w: readonly Uint8Array[];
   e(value: string | number | bigint | Uint8Array, radix?: number): Uint8Array;
   add(left: Uint8Array, right: Uint8Array): Uint8Array;
   sub(left: Uint8Array, right: Uint8Array): Uint8Array;

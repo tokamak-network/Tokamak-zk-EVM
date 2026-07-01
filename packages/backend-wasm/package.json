@@ -17,11 +17,12 @@
   "scripts": {
     "build": "tsc -p tsconfig.json --pretty false",
     "typecheck": "tsc -p tsconfig.json --pretty false --noEmit",
-    "typecheck:scripts": "tsc --pretty false --noEmit --module NodeNext --moduleResolution NodeNext --target ES2022 --types node scripts/check-binary-artifacts.ts scripts/check-fixtures.ts scripts/check-polynomial-fixtures.ts scripts/check-runtime-fixtures.ts scripts/convert-artifacts.ts",
+    "typecheck:scripts": "tsc --pretty false --noEmit --module NodeNext --moduleResolution NodeNext --target ES2022 --types node scripts/check-binary-artifacts.ts scripts/check-fixtures.ts scripts/check-polynomial-fixtures.ts scripts/check-runtime-fixtures.ts scripts/check-verifier-fixture.ts scripts/convert-artifacts.ts",
     "binary:check": "tsx scripts/check-binary-artifacts.ts",
     "fixtures:check": "tsx scripts/check-fixtures.ts fixtures/small/manifest.json",
     "polynomial:check": "tsx scripts/check-polynomial-fixtures.ts",
     "runtime:check": "tsx scripts/check-runtime-fixtures.ts",
+    "verifier:check": "tsx scripts/check-verifier-fixture.ts",
     "clean": "rm -rf dist"
   },
   "dependencies": {

@@ -12,6 +12,7 @@ export interface FieldRuntime {
   toBigInt(value: FieldElement): bigint;
   toHex(value: FieldElement): string;
   toRawLittleEndian(value: FieldElement): Uint8Array;
+  rootOfUnity(size: number): FieldElement;
   fft(values: readonly FieldElement[]): Promise<FieldElement[]>;
   ifft(values: readonly FieldElement[]): Promise<FieldElement[]>;
   add(left: FieldElement, right: FieldElement): FieldElement;
@@ -50,6 +51,14 @@ export function createFieldRuntime(field: FfField): FieldRuntime {
       const output = new Uint8Array(field.n8);
       field.toRprLE(output, 0, value);
       return output;
+    },
+    rootOfUnity(size) {
+      const logSize = checkedPowerOfTwoLog(size);
+      if (logSize > field.s || field.w[logSize] === undefined) {
+        throw new Error(`No root of unity is available for size ${size}.`);
+      }
+
+      return field.w[logSize].slice();
     },
     async fft(values) {
       return splitFieldBuffer(await field.fft(concatFieldElements(values, field.n8)), field.n8);
@@ -91,6 +100,25 @@ export function createFieldRuntime(field: FfField): FieldRuntime {
       return field.random();
     },
   };
+}
+
+function checkedPowerOfTwoLog(size: number): number {
+  if (!Number.isSafeInteger(size) || size <= 0) {
+    throw new Error("Root of unity size must be a positive safe integer.");
+  }
+
+  let current = 1;
+  let log = 0;
+  while (current < size) {
+    current *= 2;
+    log += 1;
+  }
+
+  if (current !== size) {
+    throw new Error("Root of unity size must be a power of two.");
+  }
+
+  return log;
 }
 
 function concatFieldElements(values: readonly FieldElement[], byteLength: number): Uint8Array {

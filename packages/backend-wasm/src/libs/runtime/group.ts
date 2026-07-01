@@ -76,7 +76,7 @@ export function createG1Runtime(group: FfGroup, scalarField: FieldRuntime): G1Ru
       return group.add(left, right);
     },
     sub(left, right) {
-      return group.sub(left, right);
+      return group.add(left, group.neg(right));
     },
     neg(value) {
       return group.neg(value);
@@ -88,7 +88,7 @@ export function createG1Runtime(group: FfGroup, scalarField: FieldRuntime): G1Ru
       return group.isZero(value);
     },
     mulScalar(point, scalar) {
-      return group.timesFr(point, scalar);
+      return group.timesFr(group.toAffine(point), scalar);
     },
     async msmAffine(bases, scalars) {
       if (bases.length !== scalars.length) {
@@ -155,7 +155,7 @@ export function createG2Runtime(group: FfGroup): G2Runtime {
       return group.add(left, right);
     },
     sub(left, right) {
-      return group.sub(left, right);
+      return group.add(left, group.neg(right));
     },
     neg(value) {
       return group.neg(value);
@@ -167,7 +167,7 @@ export function createG2Runtime(group: FfGroup): G2Runtime {
       return group.isZero(value);
     },
     mulScalar(point, scalar) {
-      return group.timesFr(point, scalar);
+      return group.timesFr(group.toAffine(point), scalar);
     },
   };
 }
