@@ -17,9 +17,13 @@
   "scripts": {
     "build": "tsc -p tsconfig.json --pretty false",
     "typecheck": "tsc -p tsconfig.json --pretty false --noEmit",
-    "typecheck:scripts": "tsc --pretty false --noEmit --module NodeNext --moduleResolution NodeNext --target ES2022 --types node scripts/check-fixtures.ts scripts/convert-artifacts.ts",
+    "typecheck:scripts": "tsc --pretty false --noEmit --module NodeNext --moduleResolution NodeNext --target ES2022 --types node scripts/check-fixtures.ts scripts/check-runtime-fixtures.ts scripts/convert-artifacts.ts",
     "fixtures:check": "tsx scripts/check-fixtures.ts fixtures/small/manifest.json",
+    "runtime:check": "tsx scripts/check-runtime-fixtures.ts",
     "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "ffjavascript": "^0.3.1"
   },
   "devDependencies": {
     "@types/node": "^22.15.14",
