@@ -1,4 +1,4 @@
-import { decodeBinaryBundle } from "../serialization/binary-bundle.js";
+import { decodeBinaryBundle } from "../../libs/serialization/binary-bundle.js";
 import type {
   ArtifactConverterCommand,
   ArtifactConverterOutput,

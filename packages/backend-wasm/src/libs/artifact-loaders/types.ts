@@ -5,8 +5,6 @@ import type {
   BinarySectionView,
 } from "../serialization/binary-format.js";
 
-export type NativeArtifactJson = Record<string, unknown>;
-
 export interface RuntimeArtifactBundle {
   readonly kind: BinaryBundleKind;
   readonly byteLength: number;

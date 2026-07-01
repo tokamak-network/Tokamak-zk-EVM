@@ -1,4 +1,3 @@
-export * from "./libs/artifact-converters/converters.js";
 export * from "./libs/artifact-loaders/loaders.js";
 export * from "./libs/artifact-loaders/types.js";
 export * from "./libs/runtime/curve.js";
@@ -8,5 +7,6 @@ export * from "./libs/runtime/pairing.js";
 export * from "./libs/runtime/random.js";
 export * from "./libs/serialization/binary-bundle.js";
 export * from "./libs/serialization/binary-format.js";
+export * from "./tools/artifact-converters/converters.js";
 export * from "./verifier/index.js";
 export * from "./prover/index.js";
