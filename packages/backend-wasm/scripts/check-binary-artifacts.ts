@@ -76,19 +76,23 @@ async function main(): Promise<void> {
       path.join(fixturesDir, "expected/pairing-small.json"),
     );
 
-    const binary = await createBinaryArtifactFile(BinaryArtifactFileKind.Test, [
-      createScalarSection(runtime, scalarInput),
-      createMsmBaseSection(runtime, msmInput),
-      createMsmScalarSection(runtime, msmInput),
-      createPairingG1Section(runtime, "pairing.true.left.g1", pairingInput.true_case.left),
-      createPairingG2Section(runtime, "pairing.true.left.g2", pairingInput.true_case.left),
-      createPairingG1Section(runtime, "pairing.true.right.g1", pairingInput.true_case.right),
-      createPairingG2Section(runtime, "pairing.true.right.g2", pairingInput.true_case.right),
-      createPairingG1Section(runtime, "pairing.false.left.g1", pairingInput.false_case.left),
-      createPairingG2Section(runtime, "pairing.false.left.g2", pairingInput.false_case.left),
-      createPairingG1Section(runtime, "pairing.false.right.g1", pairingInput.false_case.right),
-      createPairingG2Section(runtime, "pairing.false.right.g2", pairingInput.false_case.right),
-    ]);
+    const binary = await createBinaryArtifactFile({
+      kind: BinaryArtifactFileKind.Test,
+      sourcePackageVersion: "0.0.0",
+      sections: [
+        createScalarSection(runtime, scalarInput),
+        createMsmBaseSection(runtime, msmInput),
+        createMsmScalarSection(runtime, msmInput),
+        createPairingG1Section(runtime, "pairing.true.left.g1", pairingInput.true_case.left),
+        createPairingG2Section(runtime, "pairing.true.left.g2", pairingInput.true_case.left),
+        createPairingG1Section(runtime, "pairing.true.right.g1", pairingInput.true_case.right),
+        createPairingG2Section(runtime, "pairing.true.right.g2", pairingInput.true_case.right),
+        createPairingG1Section(runtime, "pairing.false.left.g1", pairingInput.false_case.left),
+        createPairingG2Section(runtime, "pairing.false.left.g2", pairingInput.false_case.left),
+        createPairingG1Section(runtime, "pairing.false.right.g1", pairingInput.false_case.right),
+        createPairingG2Section(runtime, "pairing.false.right.g2", pairingInput.false_case.right),
+      ],
+    });
     const artifactFile = await loadRuntimeArtifactFile(binary);
 
     const msmBases = requireRuntimeSection(artifactFile, {
@@ -131,8 +135,6 @@ async function main(): Promise<void> {
 }
 
 function checkRuntimeBundleManifests(): void {
-  const digestHex = "00".repeat(32);
-
   parseRuntimeArtifactBundleManifest({
     schemaVersion: 1,
     kind: RuntimeArtifactBundleKind.VerifierProofInput,
@@ -140,22 +142,12 @@ function checkRuntimeBundleManifests(): void {
       {
         role: RuntimeArtifactFileRole.Instance,
         path: "instance.bin",
-        digestHex,
         artifactKind: BinaryArtifactFileKind.VerifierInstance,
-        metadata: {
-          circuitId: "test-circuit",
-          setupId: "test-setup",
-        },
       },
       {
         role: RuntimeArtifactFileRole.Proof,
         path: "proof.bin",
-        digestHex,
         artifactKind: BinaryArtifactFileKind.VerifierProof,
-        metadata: {
-          circuitId: "test-circuit",
-          setupId: "test-setup",
-        },
       },
     ],
   });
@@ -167,22 +159,12 @@ function checkRuntimeBundleManifests(): void {
       {
         role: RuntimeArtifactFileRole.Crs,
         path: "crs.bin",
-        digestHex,
         artifactKind: BinaryArtifactFileKind.VerifierCrs,
-        metadata: {
-          circuitId: "test-circuit",
-          setupId: "test-setup",
-        },
       },
       {
         role: RuntimeArtifactFileRole.Preprocess,
         path: "preprocess.bin",
-        digestHex,
         artifactKind: BinaryArtifactFileKind.VerifierPreprocess,
-        metadata: {
-          circuitId: "test-circuit",
-          setupId: "test-setup",
-        },
       },
     ],
   });
@@ -196,14 +178,10 @@ function checkRuntimeBundleManifests(): void {
           {
             role: RuntimeArtifactFileRole.Instance,
             path: "instance.bin",
-            digestHex,
-            metadata: {},
           },
           {
             role: RuntimeArtifactFileRole.Crs,
             path: "crs.bin",
-            digestHex,
-            metadata: {},
           },
         ],
       }),
@@ -218,42 +196,43 @@ function checkRuntimeBundleManifests(): void {
         files: [
           {
             role: RuntimeArtifactFileRole.Instance,
-            path: "instance.bin",
-            digestHex,
+            path: "../instance.bin",
           },
           {
             role: RuntimeArtifactFileRole.Proof,
             path: "proof.bin",
-            digestHex,
-            metadata: {},
           },
         ],
       }),
-    "Runtime artifact bundle file metadata must be required",
+    "Runtime artifact bundle file path must reject parent-directory traversal",
   );
 }
 
 async function checkSigmaVerifyArtifact(runtime: CurveRuntime): Promise<void> {
-  const binary = await createBinaryArtifactFile(BinaryArtifactFileKind.VerifierCrs, [
-    {
-      type: BinarySectionType.CrsG1,
-      encoding: BinarySectionEncoding.FfjsG1Affine96,
-      label: "sigma.g1",
-      elementCount: 4,
-      elementByteLength: 96,
-      data: concatBytes([runtime.G1.generator, runtime.G1.generator, runtime.G1.generator, runtime.G1.generator]),
-    },
-    {
-      type: BinarySectionType.CrsG2,
-      encoding: BinarySectionEncoding.FfjsG2Affine192,
-      label: "sigma.g2",
-      elementCount: 10,
-      elementByteLength: 192,
-      data: concatBytes(
-        Array.from({ length: 10 }, () => runtime.G2.generator),
-      ),
-    },
-  ]);
+  const binary = await createBinaryArtifactFile({
+    kind: BinaryArtifactFileKind.VerifierCrs,
+    sourcePackageVersion: "0.0.0",
+    sections: [
+      {
+        type: BinarySectionType.CrsG1,
+        encoding: BinarySectionEncoding.FfjsG1Affine96,
+        label: "sigma.g1",
+        elementCount: 4,
+        elementByteLength: 96,
+        data: concatBytes([runtime.G1.generator, runtime.G1.generator, runtime.G1.generator, runtime.G1.generator]),
+      },
+      {
+        type: BinarySectionType.CrsG2,
+        encoding: BinarySectionEncoding.FfjsG2Affine192,
+        label: "sigma.g2",
+        elementCount: 10,
+        elementByteLength: 192,
+        data: concatBytes(
+          Array.from({ length: 10 }, () => runtime.G2.generator),
+        ),
+      },
+    ],
+  });
   const artifactFile = await loadRuntimeArtifactFile(binary);
   const sigma = loadSigmaVerifyArtifact(artifactFile);
 

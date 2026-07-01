@@ -18,16 +18,13 @@ export interface RuntimeArtifactBundleManifest {
   readonly schemaVersion: typeof RUNTIME_ARTIFACT_BUNDLE_SCHEMA_VERSION;
   readonly kind: RuntimeArtifactBundleKind;
   readonly files: readonly RuntimeArtifactBundleFile[];
-  readonly metadata?: Record<string, unknown>;
 }
 
 export interface RuntimeArtifactBundleFile {
   readonly role: RuntimeArtifactFileRole;
   readonly path: string;
-  readonly digestHex: string;
   readonly byteLength?: number;
   readonly artifactKind?: BinaryArtifactFileKind;
-  readonly metadata: Record<string, unknown>;
 }
 
 export function parseRuntimeArtifactBundleManifest(raw: unknown): RuntimeArtifactBundleManifest {
@@ -51,7 +48,6 @@ export function parseRuntimeArtifactBundleManifest(raw: unknown): RuntimeArtifac
     schemaVersion: RUNTIME_ARTIFACT_BUNDLE_SCHEMA_VERSION,
     kind,
     files: raw.files.map((file, index) => parseBundleFile(file, index)),
-    metadata: parseOptionalMetadata(raw.metadata, "Runtime artifact bundle manifest metadata"),
   };
 
   validateBundleRolePolicy(manifest);
@@ -88,10 +84,8 @@ function parseBundleFile(raw: unknown, index: number): RuntimeArtifactBundleFile
   const file: RuntimeArtifactBundleFile = {
     role: parseFileRole(raw.role, index),
     path: parseSafeRelativePath(raw.path, `Runtime artifact bundle file at index ${index} path`),
-    digestHex: parseDigestHex(raw.digestHex, index),
     byteLength: parseOptionalByteLength(raw.byteLength, index),
     artifactKind: parseOptionalArtifactKind(raw.artifactKind, index),
-    metadata: parseRequiredMetadata(raw.metadata, `Runtime artifact bundle file at index ${index} metadata`),
   };
 
   validateRoleMatchesArtifactKind(file, index);
@@ -196,14 +190,6 @@ function parseOptionalByteLength(value: unknown, index: number): number | undefi
   return value;
 }
 
-function parseDigestHex(value: unknown, index: number): string {
-  if (typeof value !== "string" || !/^[0-9a-f]{64}$/i.test(value)) {
-    throw new Error(`Runtime artifact bundle file at index ${index} digestHex must be a 32-byte hex digest.`);
-  }
-
-  return value.toLowerCase();
-}
-
 function parseSafeRelativePath(value: unknown, label: string): string {
   if (typeof value !== "string" || value.trim() === "") {
     throw new Error(`${label} must be a non-empty string.`);
@@ -211,26 +197,6 @@ function parseSafeRelativePath(value: unknown, label: string): string {
 
   if (value.startsWith("/") || value.includes("\\") || value.split("/").includes("..")) {
     throw new Error(`${label} must be a safe relative POSIX path.`);
-  }
-
-  return value;
-}
-
-function parseOptionalMetadata(value: unknown, label: string): Record<string, unknown> | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  if (!isRecord(value)) {
-    throw new Error(`${label} must be a JSON object.`);
-  }
-
-  return value;
-}
-
-function parseRequiredMetadata(value: unknown, label: string): Record<string, unknown> {
-  if (!isRecord(value)) {
-    throw new Error(`${label} must be a JSON object.`);
   }
 
   return value;

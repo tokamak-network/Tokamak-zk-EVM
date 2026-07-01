@@ -1,10 +1,13 @@
 export const BINARY_ARTIFACT_MAGIC = "TZBWASM1";
-export const BINARY_ARTIFACT_SCHEMA_VERSION = 1;
+export const BINARY_ARTIFACT_FORMAT_VERSION = 1;
 export const BINARY_HEADER_BYTES = 64;
+export const BINARY_FILE_KIND_TABLE_BYTES = 8;
+export const BINARY_VERSION_TABLE_BYTES = 72;
+export const BINARY_SOURCE_PACKAGE_VERSION_BYTES = 64;
+export const BINARY_DIGEST_ENTRY_BYTES = 40;
 export const BINARY_SECTION_ENTRY_BYTES = 96;
 export const BINARY_SECTION_LABEL_BYTES = 40;
-export const FFJAVASCRIPT_VERSION = "0.3.1";
-export const WASMCURVES_VERSION = "0.2.2";
+export const BINARY_DIGEST_BYTES = 32;
 
 export enum BinaryArtifactFileKind {
   VerifierInstance = 1,
@@ -17,6 +20,23 @@ export enum BinaryArtifactFileKind {
   ProofOutput = 8,
   VerifierOutput = 9,
   Test = 255,
+}
+
+export enum BinaryDigestEntryType {
+  SelfDigest = 1,
+  SourceArtifactDigest = 2,
+  SectionDigest = 3,
+  SetupParamsDigest = 4,
+  SubcircuitLibraryDigest = 5,
+  CombinedSigmaDigest = 6,
+  SigmaVerifyDigest = 7,
+  SigmaPreprocessDigest = 8,
+  InstanceDigest = 9,
+  PublicFunctionDigest = 10,
+  PermutationDigest = 11,
+  PlacementVariablesDigest = 12,
+  ProofDigest = 13,
+  PreprocessDigest = 14,
 }
 
 export enum BinarySectionEncoding {
@@ -62,6 +82,25 @@ export interface BinarySectionInput {
   readonly flags?: number;
 }
 
+export interface BinaryDigestInput {
+  readonly type: BinaryDigestEntryType;
+  readonly digest: Uint8Array;
+  readonly sectionIndex?: number;
+}
+
+export interface BinaryArtifactFileInput {
+  readonly kind: BinaryArtifactFileKind;
+  readonly sourcePackageVersion: string;
+  readonly sections: readonly BinarySectionInput[];
+  readonly digests?: readonly BinaryDigestInput[];
+}
+
+export interface BinaryDigestEntryView {
+  readonly type: BinaryDigestEntryType;
+  readonly sectionIndex?: number;
+  readonly digest: Uint8Array;
+}
+
 export interface BinarySectionView {
   readonly type: BinarySectionType;
   readonly encoding: BinarySectionEncoding;
@@ -77,10 +116,10 @@ export interface BinarySectionView {
 
 export interface BinaryArtifactFileView {
   readonly kind: BinaryArtifactFileKind;
-  readonly schemaVersion: number;
-  readonly ffjavascriptVersion: typeof FFJAVASCRIPT_VERSION;
-  readonly wasmcurvesVersion: typeof WASMCURVES_VERSION;
+  readonly formatVersion: typeof BINARY_ARTIFACT_FORMAT_VERSION;
+  readonly sourcePackageVersion: string;
   readonly byteLength: number;
+  readonly digests: readonly BinaryDigestEntryView[];
   readonly sections: readonly BinarySectionView[];
 }
 

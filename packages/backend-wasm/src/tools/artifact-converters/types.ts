@@ -39,11 +39,17 @@ export interface BinaryArtifactFileToDebugJsonInput {
 
 export interface BinaryArtifactFileDebugJson {
   readonly kind: number;
-  readonly schemaVersion: number;
-  readonly ffjavascriptVersion: string;
-  readonly wasmcurvesVersion: string;
+  readonly formatVersion: number;
+  readonly sourcePackageVersion: string;
   readonly byteLength: number;
+  readonly digests: readonly BinaryDigestDebugJson[];
   readonly sections: readonly BinarySectionDebugJson[];
+}
+
+export interface BinaryDigestDebugJson {
+  readonly type: number;
+  readonly sectionIndex?: number;
+  readonly digestHex: string;
 }
 
 export interface BinarySectionDebugJson {
