@@ -16,6 +16,34 @@
       "description": "Checks ICICLE BLS12-381 Fr roots of unity, inverse roots, and power tables for small NTT domains.",
       "input": "input/roots-of-unity-small.json",
       "expected": "expected/roots-of-unity-small.json"
+    },
+    {
+      "id": "ntt-1d-small",
+      "kind": "ntt-1d",
+      "description": "Checks native 1D NTT forward and inverse behavior for both X-axis and Y-axis polynomial shapes.",
+      "input": "input/ntt-1d-small.json",
+      "expected": "expected/ntt-1d-small.json"
+    },
+    {
+      "id": "ntt-2d-small",
+      "kind": "ntt-2d",
+      "description": "Checks native 2D NTT forward and inverse behavior for row-major bivariate polynomial coefficients.",
+      "input": "input/ntt-2d-small.json",
+      "expected": "expected/ntt-2d-small.json"
+    },
+    {
+      "id": "coset-ntt-small",
+      "kind": "coset-ntt",
+      "description": "Checks native 2D coset NTT behavior and coefficient-scaling equivalence.",
+      "input": "input/coset-ntt-small.json",
+      "expected": "expected/coset-ntt-small.json"
+    },
+    {
+      "id": "polynomial-eval-small",
+      "kind": "polynomial-eval",
+      "description": "Checks native DensePolynomialExt bivariate evaluation over deterministic points.",
+      "input": "input/polynomial-eval-small.json",
+      "expected": "expected/polynomial-eval-small.json"
     }
   ]
 }

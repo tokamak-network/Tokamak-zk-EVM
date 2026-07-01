@@ -12,6 +12,7 @@ publish = false
 clap = { workspace = true }
 icicle-bls12-381 = { workspace = true }
 icicle-core = { workspace = true }
+icicle-runtime = { workspace = true }
 libs = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
