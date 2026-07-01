@@ -8,8 +8,10 @@ import {
   BinarySectionType,
   createBinaryArtifactFile,
   createCurveRuntime,
+  loadProverCrsArtifact,
   loadRuntimeArtifactFile,
   loadSigmaVerifyArtifact,
+  loadVerifierPreprocessArtifact,
   parseRuntimeArtifactBundleManifest,
   requireRuntimeSection,
   RuntimeArtifactBundleKind,
@@ -108,6 +110,8 @@ async function main(): Promise<void> {
     const msmResult = await runtime.G1.msmAffineRaw(msmBases.data, msmScalars.data);
     assertEqual(runtime.G1.formatAffine(msmResult), msmExpected.result, "binary G1 MSM");
     await checkSigmaVerifyArtifact(runtime);
+    await checkVerifierPreprocessArtifact(runtime);
+    await checkProverCrsArtifact(runtime);
 
     assertEqual(
       await runtime.pairing.productsEqual(
@@ -241,6 +245,61 @@ async function checkSigmaVerifyArtifact(runtime: CurveRuntime): Promise<void> {
   assertEqual(sigma.pointsByName["sigma2.y"].byteLength, 192, "sigma_verify sigma2.y byte length");
 }
 
+async function checkVerifierPreprocessArtifact(runtime: CurveRuntime): Promise<void> {
+  const binary = await createBinaryArtifactFile({
+    kind: BinaryArtifactFileKind.VerifierPreprocess,
+    sourcePackageVersion: "0.0.0",
+    sections: [
+      {
+        type: BinarySectionType.Preprocess,
+        encoding: BinarySectionEncoding.FfjsG1Affine96,
+        label: "preprocess.g1",
+        elementCount: 3,
+        elementByteLength: 96,
+        data: concatBytes([runtime.G1.generator, runtime.G1.generator, runtime.G1.generator]),
+      },
+    ],
+  });
+  const artifactFile = await loadRuntimeArtifactFile(binary);
+  const preprocess = loadVerifierPreprocessArtifact(artifactFile);
+
+  assertEqual(preprocess.sections.length, 1, "verifier_preprocess section count");
+  assertEqual(preprocess.pointsByName.s0.byteLength, 96, "verifier_preprocess s0 byte length");
+  assertEqual(preprocess.pointsByName.O_pub_fix.byteLength, 96, "verifier_preprocess O_pub_fix byte length");
+}
+
+async function checkProverCrsArtifact(runtime: CurveRuntime): Promise<void> {
+  const binary = await createBinaryArtifactFile({
+    kind: BinaryArtifactFileKind.ProverCrs,
+    sourcePackageVersion: "0.0.0",
+    sections: [
+      createRepeatedG1Section(runtime, "sigma.g1", BinarySectionType.CrsG1, 6),
+      createRepeatedG1Section(runtime, "sigma1.xy-powers", BinarySectionType.CrsG1, 2),
+      createRepeatedG1Section(runtime, "sigma1.gamma-inv-o-inst", BinarySectionType.CrsG1, 1),
+      createRepeatedG1Section(runtime, "sigma1.eta-inv-li-o-inter-alpha4-kj", BinarySectionType.CrsG1, 1),
+      createRepeatedG1Section(runtime, "sigma1.delta-inv-li-o-prv", BinarySectionType.CrsG1, 1),
+      createRepeatedG1Section(runtime, "sigma1.delta-inv-alphak-xh-tx", BinarySectionType.CrsG1, 1),
+      createRepeatedG1Section(runtime, "sigma1.delta-inv-alpha4-xj-tx", BinarySectionType.CrsG1, 1),
+      createRepeatedG1Section(runtime, "sigma1.delta-inv-alphak-yi-ty", BinarySectionType.CrsG1, 1),
+      {
+        type: BinarySectionType.CrsG2,
+        encoding: BinarySectionEncoding.FfjsG2Affine192,
+        label: "sigma.g2",
+        elementCount: 10,
+        elementByteLength: 192,
+        data: concatBytes(Array.from({ length: 10 }, () => runtime.G2.generator)),
+      },
+    ],
+  });
+  const artifactFile = await loadRuntimeArtifactFile(binary);
+  const proverCrs = loadProverCrsArtifact(artifactFile);
+
+  assertEqual(proverCrs.sections.length, 9, "prover_crs section count");
+  assertEqual(proverCrs.pointsByName.G.byteLength, 96, "prover_crs G byte length");
+  assertEqual(proverCrs.pointsByName["sigma1.delta"].byteLength, 96, "prover_crs sigma1.delta byte length");
+  assertEqual(proverCrs.pointsByName["sigma2.y"].byteLength, 192, "prover_crs sigma2.y byte length");
+}
+
 function createScalarSection(runtime: CurveRuntime, input: ScalarFixtureInput): BinarySectionInput {
   const values = [input.operands.a, input.operands.b, input.operands.c].map((value) =>
     runtime.Fr.fromHex(value),
@@ -313,6 +372,22 @@ function createPairingG2Section(
     elementCount: points.length,
     elementByteLength: 192,
     data: concatBytes(points),
+  };
+}
+
+function createRepeatedG1Section(
+  runtime: CurveRuntime,
+  label: string,
+  type: BinarySectionType,
+  elementCount: number,
+): BinarySectionInput {
+  return {
+    type,
+    encoding: BinarySectionEncoding.FfjsG1Affine96,
+    label,
+    elementCount,
+    elementByteLength: 96,
+    data: concatBytes(Array.from({ length: elementCount }, () => runtime.G1.generator)),
   };
 }
 
