@@ -6,6 +6,14 @@ The initial implementation order is verifier-first. Shared protocol primitives l
 
 The native ICICLE/arkworks backend remains in `packages/backend`.
 
+## Artifact Sources
+
+Runtime subcircuit artifacts are sourced through the package dependency on `@tokamak-zk-evm/subcircuit-library`. CRS artifacts from Google Drive are not fetched by `src/prover` or `src/verifier`; applications using this package must prepare the required CRS inputs and pass them to the runtime artifact loaders.
+
+Backend-wasm performs its own binary header, section, digest, and compatibility checks after npm or Google Drive provenance checks have already been handled by the artifact provider. If a required artifact section or compatibility marker is missing, backend-wasm must fail with an explicit error.
+
+Test fixtures are copy-only. This package must not regenerate test artifacts by running native binaries, setup flows, prover flows, verifier flows, or fixture exporters.
+
 ## License
 
 This package is licensed as `GPL-3.0-or-later`.

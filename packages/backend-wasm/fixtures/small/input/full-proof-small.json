@@ -2,21 +2,11 @@
   "schemaVersion": 1,
   "caseId": "full-proof-small",
   "kind": "full-proof",
-  "description": "A CLI-generated L2StateChannel proof bundle verified by the native backend verifier.",
+  "description": "A prepared L2StateChannel proof bundle copied for backend-wasm verifier parity.",
   "source": {
-    "generator": "packages/cli/dist/cli.js",
-    "inputDirectory": "packages/frontend/synthesizer/examples/L2StateChannel",
-    "runtimeCacheDirectory": "packages/backend-wasm/tmp/full-proof-runtime",
-    "commands": [
-      "--install --trusted-setup",
-      "--synthesize packages/frontend/synthesizer/examples/L2StateChannel",
-      "--preprocess",
-      "--prove",
-      "--verify",
-      "--extract-proof packages/backend-wasm/tmp/full-proof-bundle.zip"
-    ],
-    "setup": "trusted-setup --fixed-tau",
-    "mpcSetupUsed": false
+    "policy": "copy-only",
+    "copyManifest": "fixtures/small/copy-manifest.json",
+    "sourceDirectory": "packages/backend/fixtures/backend-wasm/small"
   },
   "artifacts": {
     "setupParams": {
