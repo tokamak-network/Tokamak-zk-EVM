@@ -3,6 +3,13 @@
   "name": "verifier_preprocess",
   "sections": [
     {
+      "label": "setup.params",
+      "type": "SetupParams",
+      "encoding": "bytes",
+      "elementCount": 1,
+      "points": []
+    },
+    {
       "label": "preprocess.g1",
       "type": "Preprocess",
       "encoding": "ffjs-g1-affine-96",

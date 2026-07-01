@@ -6,6 +6,14 @@ export const VERIFIER_PREPROCESS_V1_SPEC = {
   name: "verifier_preprocess",
   sections: [
     {
+      label: "setup.params",
+      type: BinarySectionType.SetupParams,
+      encoding: BinarySectionEncoding.Bytes,
+      elementCount: 1,
+      points: [
+      ],
+    },
+    {
       label: "preprocess.g1",
       type: BinarySectionType.Preprocess,
       encoding: BinarySectionEncoding.FfjsG1Affine96,
