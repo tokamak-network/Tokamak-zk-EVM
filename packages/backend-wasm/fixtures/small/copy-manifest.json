@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "suite": "small",
+  "description": "Copy-only source map for backend-wasm small parity fixtures. Source files must be prepared by the owning packages before this script runs.",
+  "files": [
+    {
+      "source": "packages/backend/fixtures/backend-wasm/small/input/scalar-ops-basic.json",
+      "destination": "input/scalar-ops-basic.json"
+    },
+    {
+      "source": "packages/backend/fixtures/backend-wasm/small/expected/scalar-ops-basic.json",
+      "destination": "expected/scalar-ops-basic.json"
+    },
+    {
+      "source": "packages/backend/fixtures/backend-wasm/small/input/roots-of-unity-small.json",
+      "destination": "input/roots-of-unity-small.json"
+    },
+    {
+      "source": "packages/backend/fixtures/backend-wasm/small/expected/roots-of-unity-small.json",
+      "destination": "expected/roots-of-unity-small.json"
+    },
+    {
+      "source": "packages/backend/fixtures/backend-wasm/small/input/ntt-1d-small.json",
+      "destination": "input/ntt-1d-small.json"
+    },
+    {
+      "source": "packages/backend/fixtures/backend-wasm/small/expected/ntt-1d-small.json",
+      "destination": "expected/ntt-1d-small.json"
+    },
+    {
+      "source": "packages/backend/fixtures/backend-wasm/small/input/ntt-2d-small.json",
+      "destination": "input/ntt-2d-small.json"
+    },
+    {
+      "source": "packages/backend/fixtures/backend-wasm/small/expected/ntt-2d-small.json",
+      "destination": "expected/ntt-2d-small.json"
+    },
+    {
+      "source": "packages/backend/fixtures/backend-wasm/small/input/coset-ntt-small.json",
+      "destination": "input/coset-ntt-small.json"
+    },
+    {
+      "source": "packages/backend/fixtures/backend-wasm/small/expected/coset-ntt-small.json",
+      "destination": "expected/coset-ntt-small.json"
+    },
+    {
+      "source": "packages/backend/fixtures/backend-wasm/small/input/polynomial-eval-small.json",
+      "destination": "input/polynomial-eval-small.json"
+    },
+    {
+      "source": "packages/backend/fixtures/backend-wasm/small/expected/polynomial-eval-small.json",
+      "destination": "expected/polynomial-eval-small.json"
+    },
+    {
+      "source": "packages/backend/fixtures/backend-wasm/small/input/msm-small.json",
+      "destination": "input/msm-small.json"
+    },
+    {
+      "source": "packages/backend/fixtures/backend-wasm/small/expected/msm-small.json",
+      "destination": "expected/msm-small.json"
+    },
+    {
+      "source": "packages/backend/fixtures/backend-wasm/small/input/pairing-small.json",
+      "destination": "input/pairing-small.json"
+    },
+    {
+      "source": "packages/backend/fixtures/backend-wasm/small/expected/pairing-small.json",
+      "destination": "expected/pairing-small.json"
+    },
+    {
+      "source": "packages/backend/fixtures/backend-wasm/small/input/transcript-small.json",
+      "destination": "input/transcript-small.json"
+    },
+    {
+      "source": "packages/backend/fixtures/backend-wasm/small/expected/transcript-small.json",
+      "destination": "expected/transcript-small.json"
+    },
+    {
+      "source": "packages/backend/fixtures/backend-wasm/small/input/full-proof-small.json",
+      "destination": "input/full-proof-small.json"
+    },
+    {
+      "source": "packages/backend/fixtures/backend-wasm/small/expected/full-proof-small.json",
+      "destination": "expected/full-proof-small.json"
+    }
+  ]
+}

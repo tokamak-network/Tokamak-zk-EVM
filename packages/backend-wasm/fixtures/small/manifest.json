@@ -69,7 +69,7 @@
     {
       "id": "full-proof-small",
       "kind": "full-proof",
-      "description": "Checks a CLI-generated L2StateChannel proof bundle that the native backend verifier accepts.",
+      "description": "Checks a prepared L2StateChannel proof bundle that the native backend verifier accepts.",
       "input": "input/full-proof-small.json",
       "expected": "expected/full-proof-small.json"
     }

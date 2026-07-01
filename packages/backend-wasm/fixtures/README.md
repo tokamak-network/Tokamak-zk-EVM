@@ -2,7 +2,7 @@
 
 This directory will contain curated parity fixtures used to compare the TypeScript implementation against deterministic native Rust outputs.
 
-Large generated artifacts should stay outside git unless they are intentionally selected as minimal fixtures.
+Large artifacts should stay outside git unless they are intentionally selected as minimal fixtures.
 
 ## Manifest Format
 
@@ -40,37 +40,14 @@ Supported `kind` values are:
 
 Input and expected paths are relative to the manifest directory. They must not be absolute paths or contain parent-directory traversal. Expected files must contain the deterministic native Rust outputs that TypeScript code will compare against.
 
-## Regenerating Native Fixtures
+## Updating Fixtures
 
-Generate native parity fixtures from the backend helper crate with:
+Backend-wasm test fixtures are copy-only. Do not regenerate them from this package by running native scripts, Rust binaries, CLI proof flows, setup commands, or prover/verifier execution.
 
-```sh
-cd ../backend
-cargo run -p export-fixtures --bin export_scalar_fixture -- --output-dir ../backend-wasm/fixtures/small
-cargo run -p export-fixtures --bin export_roots_of_unity_fixture -- --output-dir ../backend-wasm/fixtures/small
-cargo run -p export-fixtures --bin export_ntt_1d_fixture -- --output-dir ../backend-wasm/fixtures/small
-cargo run -p export-fixtures --bin export_ntt_2d_fixture -- --output-dir ../backend-wasm/fixtures/small
-cargo run -p export-fixtures --bin export_coset_ntt_fixture -- --output-dir ../backend-wasm/fixtures/small
-cargo run -p export-fixtures --bin export_polynomial_eval_fixture -- --output-dir ../backend-wasm/fixtures/small
-cargo run -p export-fixtures --bin export_msm_fixture -- --output-dir ../backend-wasm/fixtures/small
-cargo run -p export-fixtures --bin export_pairing_fixture -- --output-dir ../backend-wasm/fixtures/small
-cargo run -p export-fixtures --bin export_transcript_fixture -- --output-dir ../backend-wasm/fixtures/small
-```
-
-Generate the full proof fixture through the CLI runtime path:
+The owning packages under the repository `packages/` directory must prepare fixture source files first. Backend-wasm only copies those prepared files according to `fixtures/small/copy-manifest.json`:
 
 ```sh
-cd ../..
-TOKAMAK_ZKEVM_CLI_CACHE_DIR=packages/backend-wasm/tmp/full-proof-runtime \
-  node packages/cli/dist/cli.js --install --trusted-setup
-TOKAMAK_ZKEVM_CLI_CACHE_DIR=packages/backend-wasm/tmp/full-proof-runtime \
-  node packages/cli/dist/cli.js --synthesize packages/frontend/synthesizer/examples/L2StateChannel
-TOKAMAK_ZKEVM_CLI_CACHE_DIR=packages/backend-wasm/tmp/full-proof-runtime \
-  node packages/cli/dist/cli.js --preprocess
-TOKAMAK_ZKEVM_CLI_CACHE_DIR=packages/backend-wasm/tmp/full-proof-runtime \
-  node packages/cli/dist/cli.js --prove
-TOKAMAK_ZKEVM_CLI_CACHE_DIR=packages/backend-wasm/tmp/full-proof-runtime \
-  node packages/cli/dist/cli.js --verify
+npm run fixtures:copy
 ```
 
-The CLI full-proof fixture must use `trusted-setup --fixed-tau`. Do not run `mpc-setup` for this fixture. Large setup outputs such as `combined_sigma.rkyv` and `sigma_preprocess.rkyv` must remain under `tmp`; only the curated small JSON artifacts belong in git.
+If a source file is missing, the copy script fails and reports the exact artifact path that must be prepared by the owning package. This package must not fall back to generating the missing artifact.
