@@ -87,6 +87,8 @@ Verifier runtime input is split into two runtime bundles:
 - `VerifierProofInput`: separate instance and proof binary artifact files plus related metadata.
 - `VerifierSetupInput`: separate CRS and preprocess binary artifact files plus setup/domain/compatibility metadata.
 
+Each file entry in a runtime bundle manifest must have its own metadata object. Cross-file compatibility metadata belongs in those per-file metadata entries. Binary artifact files should only carry the information needed to parse and validate the file itself, such as schema/runtime versions, file kind, section layout, encodings, bounds, and section digests.
+
 Proof, instance, CRS, and preprocess data must remain in separate binary artifact files.
 
 The `sigma_verify` binary layout must be managed by `src/libs/artifact-loaders/specs/sigma-verify.v1.json`. Loader code should validate against that JSON spec rather than hardcoding the point layout directly.
