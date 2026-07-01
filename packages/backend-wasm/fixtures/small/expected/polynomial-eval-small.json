@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "case_id": "polynomial-eval-small",
+  "kind": "polynomial-eval",
+  "encoding": "FieldSerde",
+  "evaluations": [
+    {
+      "id": "low-values",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000043b15"
+    },
+    {
+      "id": "mixed-values",
+      "value": "0x0000000000000000000000000000000000000000000000000000000196fb764d"
+    },
+    {
+      "id": "wide-values",
+      "value": "0x6dbe020cb24eab08d410903bcee49219f50520b151c3e6bea2a861ab848597b0"
+    }
+  ]
+}
