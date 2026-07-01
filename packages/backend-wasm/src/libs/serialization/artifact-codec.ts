@@ -1,5 +1,6 @@
-import type { ArtifactJson } from "../artifact-loaders/types.js";
+import type { BinaryBundleKind, BinarySectionInput } from "./binary-format.js";
 
 export interface ArtifactCodec {
-  parse(value: unknown): ArtifactJson;
+  readonly kind: BinaryBundleKind;
+  readonly sections: readonly BinarySectionInput[];
 }

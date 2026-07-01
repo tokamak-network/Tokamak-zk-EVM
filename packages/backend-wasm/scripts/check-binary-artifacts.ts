@@ -1,0 +1,262 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import {
+  BinaryBundleKind,
+  BinarySectionEncoding,
+  BinarySectionType,
+  createBinaryBundle,
+  createCurveRuntime,
+  loadRuntimeArtifactBundle,
+  requireRuntimeSection,
+  type AffinePointJson,
+  type BinarySectionInput,
+  type CurveRuntime,
+  type PairingTerm,
+} from "../src/index.js";
+
+interface ScalarFixtureInput {
+  readonly operands: {
+    readonly a: string;
+    readonly b: string;
+    readonly c: string;
+  };
+}
+
+interface MsmFixtureInput {
+  readonly bases: readonly AffinePointJson[];
+  readonly scalars: readonly string[];
+}
+
+interface MsmFixtureExpected {
+  readonly result: AffinePointJson;
+}
+
+interface PairingFixtureInput {
+  readonly true_case: PairingFixtureCase;
+  readonly false_case: PairingFixtureCase;
+}
+
+interface PairingFixtureCase {
+  readonly left: readonly PairingTermJson[];
+  readonly right: readonly PairingTermJson[];
+}
+
+interface PairingTermJson {
+  readonly g1: AffinePointJson;
+  readonly g2: AffinePointJson;
+}
+
+interface PairingFixtureExpected {
+  readonly true_case_products_equal: boolean;
+  readonly false_case_products_equal: boolean;
+}
+
+async function main(): Promise<void> {
+  const fixturesDir = path.resolve("fixtures/small");
+  const runtime = await createCurveRuntime();
+
+  try {
+    const scalarInput = await readJson<ScalarFixtureInput>(
+      path.join(fixturesDir, "input/scalar-ops-basic.json"),
+    );
+    const msmInput = await readJson<MsmFixtureInput>(path.join(fixturesDir, "input/msm-small.json"));
+    const msmExpected = await readJson<MsmFixtureExpected>(
+      path.join(fixturesDir, "expected/msm-small.json"),
+    );
+    const pairingInput = await readJson<PairingFixtureInput>(
+      path.join(fixturesDir, "input/pairing-small.json"),
+    );
+    const pairingExpected = await readJson<PairingFixtureExpected>(
+      path.join(fixturesDir, "expected/pairing-small.json"),
+    );
+
+    const binary = await createBinaryBundle(BinaryBundleKind.Test, [
+      createScalarSection(runtime, scalarInput),
+      createMsmBaseSection(runtime, msmInput),
+      createMsmScalarSection(runtime, msmInput),
+      createPairingG1Section(runtime, "pairing.true.left.g1", pairingInput.true_case.left),
+      createPairingG2Section(runtime, "pairing.true.left.g2", pairingInput.true_case.left),
+      createPairingG1Section(runtime, "pairing.true.right.g1", pairingInput.true_case.right),
+      createPairingG2Section(runtime, "pairing.true.right.g2", pairingInput.true_case.right),
+      createPairingG1Section(runtime, "pairing.false.left.g1", pairingInput.false_case.left),
+      createPairingG2Section(runtime, "pairing.false.left.g2", pairingInput.false_case.left),
+      createPairingG1Section(runtime, "pairing.false.right.g1", pairingInput.false_case.right),
+      createPairingG2Section(runtime, "pairing.false.right.g2", pairingInput.false_case.right),
+    ]);
+    const bundle = await loadRuntimeArtifactBundle(binary);
+
+    const msmBases = requireRuntimeSection(bundle, {
+      type: BinarySectionType.MsmBases,
+      encoding: BinarySectionEncoding.FfjsG1Affine96,
+      label: "msm.bases",
+    });
+    const msmScalars = requireRuntimeSection(bundle, {
+      type: BinarySectionType.MsmScalars,
+      encoding: BinarySectionEncoding.ScalarRawLe32,
+      label: "msm.scalars",
+    });
+    const msmResult = await runtime.G1.msmAffineRaw(msmBases.data, msmScalars.data);
+    assertEqual(runtime.G1.formatAffine(msmResult), msmExpected.result, "binary G1 MSM");
+
+    assertEqual(
+      await runtime.pairing.productsEqual(
+        readPairingTerms(bundle, "pairing.true.left"),
+        readPairingTerms(bundle, "pairing.true.right"),
+      ),
+      pairingExpected.true_case_products_equal,
+      "binary pairing true case",
+    );
+    assertEqual(
+      await runtime.pairing.productsEqual(
+        readPairingTerms(bundle, "pairing.false.left"),
+        readPairingTerms(bundle, "pairing.false.right"),
+      ),
+      pairingExpected.false_case_products_equal,
+      "binary pairing false case",
+    );
+  } finally {
+    await runtime.terminate();
+  }
+
+  console.log("Checked runtime-ready binary artifact bundle round-trip");
+}
+
+function createScalarSection(runtime: CurveRuntime, input: ScalarFixtureInput): BinarySectionInput {
+  const values = [input.operands.a, input.operands.b, input.operands.c].map((value) =>
+    runtime.Fr.fromHex(value),
+  );
+
+  return {
+    type: BinarySectionType.TestScalars,
+    encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
+    label: "scalar.operands",
+    elementCount: values.length,
+    elementByteLength: 32,
+    data: concatBytes(values),
+  };
+}
+
+function createMsmBaseSection(runtime: CurveRuntime, input: MsmFixtureInput): BinarySectionInput {
+  const bases = input.bases.map((base) => runtime.G1.parseAffine(base));
+
+  return {
+    type: BinarySectionType.MsmBases,
+    encoding: BinarySectionEncoding.FfjsG1Affine96,
+    label: "msm.bases",
+    elementCount: bases.length,
+    elementByteLength: 96,
+    data: concatBytes(bases),
+  };
+}
+
+function createMsmScalarSection(runtime: CurveRuntime, input: MsmFixtureInput): BinarySectionInput {
+  const scalars = input.scalars.map((scalar) => runtime.Fr.toRawLittleEndian(runtime.Fr.fromHex(scalar)));
+
+  return {
+    type: BinarySectionType.MsmScalars,
+    encoding: BinarySectionEncoding.ScalarRawLe32,
+    label: "msm.scalars",
+    elementCount: scalars.length,
+    elementByteLength: 32,
+    data: concatBytes(scalars),
+  };
+}
+
+function createPairingG1Section(
+  runtime: CurveRuntime,
+  label: string,
+  terms: readonly PairingTermJson[],
+): BinarySectionInput {
+  const points = terms.map((term) => runtime.G1.parseAffine(term.g1));
+
+  return {
+    type: BinarySectionType.PairingG1Terms,
+    encoding: BinarySectionEncoding.FfjsG1Affine96,
+    label,
+    elementCount: points.length,
+    elementByteLength: 96,
+    data: concatBytes(points),
+  };
+}
+
+function createPairingG2Section(
+  runtime: CurveRuntime,
+  label: string,
+  terms: readonly PairingTermJson[],
+): BinarySectionInput {
+  const points = terms.map((term) => runtime.G2.parseAffine(term.g2));
+
+  return {
+    type: BinarySectionType.PairingG2Terms,
+    encoding: BinarySectionEncoding.FfjsG2Affine192,
+    label,
+    elementCount: points.length,
+    elementByteLength: 192,
+    data: concatBytes(points),
+  };
+}
+
+function readPairingTerms(
+  bundle: Awaited<ReturnType<typeof loadRuntimeArtifactBundle>>,
+  labelPrefix: string,
+): PairingTerm[] {
+  const g1 = requireRuntimeSection(bundle, {
+    type: BinarySectionType.PairingG1Terms,
+    encoding: BinarySectionEncoding.FfjsG1Affine96,
+    label: `${labelPrefix}.g1`,
+  });
+  const g2 = requireRuntimeSection(bundle, {
+    type: BinarySectionType.PairingG2Terms,
+    encoding: BinarySectionEncoding.FfjsG2Affine192,
+    label: `${labelPrefix}.g2`,
+  });
+
+  if (g1.elementCount !== g2.elementCount) {
+    throw new Error(`Pairing section count mismatch for ${labelPrefix}.`);
+  }
+
+  const terms: PairingTerm[] = [];
+  for (let index = 0; index < g1.elementCount; index += 1) {
+    terms.push({
+      g1: g1.data.subarray(index * 96, (index + 1) * 96),
+      g2: g2.data.subarray(index * 192, (index + 1) * 192),
+    });
+  }
+
+  return terms;
+}
+
+async function readJson<T>(filePath: string): Promise<T> {
+  return JSON.parse(await readFile(filePath, "utf8")) as T;
+}
+
+function concatBytes(chunks: readonly Uint8Array[]): Uint8Array {
+  const size = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
+  const output = new Uint8Array(size);
+  let offset = 0;
+
+  for (const chunk of chunks) {
+    output.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  return output;
+}
+
+function assertEqual(actual: unknown, expected: unknown, label: string): void {
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new Error(`${label} mismatch: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  }
+}
+
+const entrypoint = fileURLToPath(import.meta.url);
+
+if (process.argv[1] === entrypoint) {
+  main().catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Binary artifact check failed: ${message}`);
+    process.exitCode = 1;
+  });
+}

@@ -23,6 +23,7 @@ export interface G1Runtime {
   isZero(value: G1Point): boolean;
   mulScalar(point: G1Point, scalar: FieldElement): G1Point;
   msmAffine(bases: readonly G1Point[], scalars: readonly FieldElement[]): Promise<G1Point>;
+  msmAffineRaw(bases: Uint8Array, scalars: Uint8Array): Promise<G1Point>;
 }
 
 export interface G2Runtime {
@@ -98,6 +99,18 @@ export function createG1Runtime(group: FfGroup, scalarField: FieldRuntime): G1Ru
       const rawScalars = scalars.map((scalar) => scalarField.toRawLittleEndian(scalar));
       return group.multiExpAffine(concatBytes(affineBases), concatBytes(rawScalars));
     },
+    async msmAffineRaw(bases, scalars) {
+      if (bases.byteLength % G1_AFFINE_BYTES !== 0) {
+        throw new Error("G1 MSM base buffer must contain whole affine G1 points.");
+      }
+
+      const count = bases.byteLength / G1_AFFINE_BYTES;
+      if (scalars.byteLength !== count * SCALAR_RAW_BYTES) {
+        throw new Error("G1 MSM scalar buffer length does not match the base count.");
+      }
+
+      return group.multiExpAffine(bases, scalars);
+    },
   };
 }
 
@@ -160,8 +173,10 @@ export function createG2Runtime(group: FfGroup): G2Runtime {
 }
 
 const G1_COORDINATE_BYTES = 48;
+const G1_AFFINE_BYTES = G1_COORDINATE_BYTES * 2;
 const FQ_COORDINATE_BYTES = 48;
 const G2_COORDINATE_BYTES = FQ_COORDINATE_BYTES * 2;
+const SCALAR_RAW_BYTES = 32;
 
 function parseAffineJson(value: unknown): AffinePointJson {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
