@@ -9,15 +9,19 @@ import {
   DensePolynomialExt,
   RuntimeArtifactBundleKind,
   RuntimeArtifactFileRole,
+  buildDomainContext,
+  collectChallenges,
   createBinaryArtifactFile,
   createCurveRuntime,
   encodeVerifierSetupParams,
+  evalLagrangeK0,
   loadVerifierInputFromRuntimeBundles,
   parseRuntimeArtifactBundleManifest,
   verifySnark,
   type AffinePointJson,
   type BinarySectionInput,
   type CurveRuntime,
+  type FieldElement,
   type VerifierInput,
   type VerifierPreprocess,
   type VerifierProof,
@@ -84,11 +88,18 @@ async function main(): Promise<void> {
 
   try {
     const verifierInput = await buildVerifierInput(runtime, input);
+    await checkLagrangeK0Formula(runtime, verifierInput);
+
     const result = await verifySnark(runtime, verifierInput, {
       randomScalar: () => runtime.Fr.one,
     });
+
     const binaryVerifierInput = await buildBinaryVerifierInput(runtime, input);
     const binaryResult = await verifySnark(runtime, binaryVerifierInput, {
+      randomScalar: () => runtime.Fr.one,
+    });
+    const flippedProofInput = await buildVerifierInput(runtime, fixtureWithFlippedProofScalar(input));
+    const flippedResult = await verifySnark(runtime, flippedProofInput, {
       randomScalar: () => runtime.Fr.one,
     });
 
@@ -102,6 +113,10 @@ async function main(): Promise<void> {
       throw new Error(
         `Binary verifier result mismatch: expected ${expected.verification.nativeVerifierResult}, got ${binaryResult.valid}`,
       );
+    }
+
+    if (flippedResult.valid !== false) {
+      throw new Error("Verifier accepted a proof after one proof scalar bit was flipped.");
     }
   } finally {
     await runtime.terminate();
@@ -129,6 +144,72 @@ async function buildVerifierInput(
       1,
     ),
   };
+}
+
+async function checkLagrangeK0Formula(runtime: CurveRuntime, input: VerifierInput): Promise<void> {
+  const challenges = await collectChallenges(runtime.Fr, runtime.G1, () => runtime.Fr.one, input.proof);
+  const domain = buildDomainContext(runtime.Fr, input.setup, challenges);
+  assertFieldEqual(
+    runtime,
+    evalLagrangeK0(runtime.Fr, domain, challenges),
+    await evalLagrangeK0ByReconstruction(runtime, domain.mI, challenges.chi),
+    "Fixture Lagrange K0",
+  );
+
+  for (const size of [1, 2, 4, 8, 16]) {
+    const root = runtime.Fr.rootOfUnity(size);
+    const points = [
+      runtime.Fr.one,
+      root,
+      runtime.Fr.add(root, runtime.Fr.one),
+      runtime.Fr.fromBigInt(5n),
+      challenges.chi,
+    ];
+
+    for (const point of points) {
+      const tMIEval = runtime.Fr.sub(runtime.Fr.pow(point, size), runtime.Fr.one);
+      const actual = evalLagrangeK0(
+        runtime.Fr,
+        {
+          mI: size,
+          omegaMI: root,
+          omegaSMax: runtime.Fr.one,
+          tNEval: runtime.Fr.zero,
+          tMIEval,
+          tSMaxEval: runtime.Fr.zero,
+        },
+        {
+          ...challenges,
+          chi: point,
+        },
+      );
+      const expected = await evalLagrangeK0ByReconstruction(runtime, size, point);
+      assertFieldEqual(runtime, actual, expected, `Synthetic Lagrange K0 size ${size}`);
+    }
+  }
+}
+
+async function evalLagrangeK0ByReconstruction(
+  runtime: CurveRuntime,
+  size: number,
+  point: FieldElement,
+): Promise<FieldElement> {
+  const evaluations = Array.from({ length: size }, () => runtime.Fr.zero);
+  evaluations[0] = runtime.Fr.one;
+  const polynomial = await DensePolynomialExt.fromRouEvals(runtime.Fr, evaluations, size, 1);
+
+  return polynomial.eval(point, runtime.Fr.one);
+}
+
+function assertFieldEqual(
+  runtime: CurveRuntime,
+  actual: FieldElement,
+  expected: FieldElement,
+  label: string,
+): void {
+  if (!runtime.Fr.eq(actual, expected)) {
+    throw new Error(`${label} mismatch: expected ${runtime.Fr.toHex(expected)}, got ${runtime.Fr.toHex(actual)}.`);
+  }
 }
 
 async function buildBinaryVerifierInput(
@@ -390,6 +471,35 @@ function parseProof(runtime: CurveRuntime, value: FormattedProofJson): VerifierP
       N_Y: points[15],
     },
   };
+}
+
+function fixtureWithFlippedProofScalar(fixture: FullProofFixtureInput): FullProofFixtureInput {
+  const proofEntriesPart2 = [...fixture.artifacts.proof.proof_entries_part2];
+  const firstScalarIndex = 38;
+
+  if (proofEntriesPart2[firstScalarIndex] === undefined) {
+    throw new Error("Formatted proof does not contain the first scalar evaluation to flip.");
+  }
+
+  proofEntriesPart2[firstScalarIndex] = flipLowestHexBit(proofEntriesPart2[firstScalarIndex]);
+
+  return {
+    ...fixture,
+    artifacts: {
+      ...fixture.artifacts,
+      proof: {
+        ...fixture.artifacts.proof,
+        proof_entries_part2: proofEntriesPart2,
+      },
+    },
+  };
+}
+
+function flipLowestHexBit(value: string): string {
+  const digits = stripHex(value);
+  const parsed = BigInt(`0x${digits}`) ^ 1n;
+
+  return `0x${parsed.toString(16).padStart(digits.length, "0")}`;
 }
 
 function recoverG1Points(

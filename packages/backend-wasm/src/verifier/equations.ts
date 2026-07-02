@@ -1,19 +1,21 @@
-import { DensePolynomialExt } from "../libs/polynomial/dense-polynomial.js";
+import type { DensePolynomialExt } from "../libs/polynomial/dense-polynomial.js";
 import type { FieldElement, FieldRuntime } from "../libs/runtime/field.js";
 import type { G1Point, G1Runtime } from "../libs/runtime/group.js";
 import type { VerifierChallenges } from "./challenges.js";
 import type { VerifierDomainContext } from "./domain-context.js";
 import type { VerifierInput, VerifierProof } from "./verify-snark.js";
 
-export async function evalLagrangeK0(
+export function evalLagrangeK0(
   field: FieldRuntime,
   domain: VerifierDomainContext,
   challenges: VerifierChallenges,
-): Promise<FieldElement> {
-  const evaluations = Array.from({ length: domain.mI }, () => field.zero);
-  evaluations[0] = field.one;
-  const polynomial = await DensePolynomialExt.fromRouEvals(field, evaluations, domain.mI, 1);
-  return polynomial.eval(challenges.chi, challenges.zeta);
+): FieldElement {
+  if (field.eq(challenges.chi, field.one)) {
+    return field.one;
+  }
+
+  const denominator = field.mul(field.fromBigInt(BigInt(domain.mI)), field.sub(challenges.chi, field.one));
+  return field.div(domain.tMIEval, denominator);
 }
 
 export function evalAPub(aPubX: DensePolynomialExt, challenges: VerifierChallenges): FieldElement {
