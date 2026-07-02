@@ -40,7 +40,10 @@ async function main(): Promise<void> {
       }
     });
 
-    await page.goto(`http://127.0.0.1:${address.port}/browser/verifier.html`, { waitUntil: "networkidle" });
+    const benchQuery = process.env.BACKEND_WASM_BENCH_G1_OVERHEAD === "1" ? "?benchG1=1" : "";
+    await page.goto(`http://127.0.0.1:${address.port}/browser/verifier.html${benchQuery}`, {
+      waitUntil: "networkidle",
+    });
     const result = await page.waitForFunction(() => {
       return window.__tokamakVerifierResult?.status !== "pending" ? window.__tokamakVerifierResult : undefined;
     }, undefined, { timeout: 120_000 });
@@ -52,6 +55,18 @@ async function main(): Promise<void> {
 
     if (errors.length > 0) {
       throw new Error(`Browser verifier emitted console/page errors:\n${errors.join("\n")}`);
+    }
+
+    if (value.g1Timings !== undefined) {
+      console.log(
+        [
+          "Browser G1 combination timing:",
+          `lhsCopy baseline ${value.g1Timings.lhsCopyBaselineMs.toFixed(3)} ms/op`,
+          `lhsCopy MSM ${value.g1Timings.lhsCopyMsmMs.toFixed(3)} ms/op`,
+          `snarkAux baseline ${value.g1Timings.snarkAuxBaselineMs.toFixed(3)} ms/op`,
+          `snarkAux MSM ${value.g1Timings.snarkAuxMsmMs.toFixed(3)} ms/op`,
+        ].join(" "),
+      );
     }
   } finally {
     await browser?.close();
@@ -65,6 +80,14 @@ interface BrowserVerifierResult {
   readonly status: "pending" | "ok" | "error";
   readonly valid?: boolean;
   readonly error?: string;
+  readonly g1Timings?: BrowserG1Timings;
+}
+
+interface BrowserG1Timings {
+  readonly lhsCopyBaselineMs: number;
+  readonly lhsCopyMsmMs: number;
+  readonly snarkAuxBaselineMs: number;
+  readonly snarkAuxMsmMs: number;
 }
 
 async function handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {

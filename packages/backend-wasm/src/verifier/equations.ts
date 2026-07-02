@@ -114,6 +114,70 @@ export function lhsCopy(
   ]);
 }
 
+export async function lhsCopyMsm(
+  field: FieldRuntime,
+  g1: G1Runtime,
+  input: VerifierInput,
+  domain: VerifierDomainContext,
+  challenges: VerifierChallenges,
+  lagrangeK0Eval: FieldElement,
+): Promise<G1Point> {
+  const proof1 = input.proof.proof1;
+  const proof2 = input.proof.proof2;
+  const proof3 = input.proof.proof3;
+  const theta0 = challenges.thetas[0];
+  const theta1 = challenges.thetas[1];
+  const theta2 = challenges.thetas[2];
+  const kappa0Squared = field.square(challenges.kappa0);
+  const kappa1Squared = field.square(challenges.kappa1);
+  const kappa1Cubed = field.mul(kappa1Squared, challenges.kappa1);
+  const kappa2Squared = field.square(challenges.kappa2);
+  const chiMinusOne = field.sub(challenges.chi, field.one);
+  const firstCopyScalar = field.mul(challenges.kappa0, chiMinusOne);
+  const secondCopyScalar = field.mul(kappa0Squared, lagrangeK0Eval);
+  const gCombinedCoeff = field.mul(proof3.R_eval, field.add(firstCopyScalar, secondCopyScalar));
+  const fCombinedCoeff = field.neg(
+    field.add(
+      field.mul(firstCopyScalar, proof3.R_omegaX_eval),
+      field.mul(secondCopyScalar, proof3.R_omegaX_omegaY_eval),
+    ),
+  );
+  const sharedCoeff = field.add(gCombinedCoeff, fCombinedCoeff);
+  const sigmaGOpenCoeff = field.neg(
+    field.add(
+      field.add(field.mul(kappa1Cubed, proof3.R_eval), field.mul(challenges.kappa2, proof3.R_omegaX_eval)),
+      field.mul(kappa2Squared, proof3.R_omegaX_omegaY_eval),
+    ),
+  );
+
+  return g1.msmAffine(
+    [
+      input.sigma.lagrangeKL,
+      input.proof.proof0.B,
+      input.sigma.sigma1.x,
+      input.sigma.sigma1.y,
+      input.preprocess.s0,
+      input.preprocess.s1,
+      input.sigma.G,
+      proof2.Q_CX,
+      proof2.Q_CY,
+      proof1.R,
+    ],
+    [
+      field.mul(kappa1Squared, field.sub(proof3.R_eval, field.one)),
+      field.mul(kappa1Squared, sharedCoeff),
+      field.mul(kappa1Squared, field.mul(gCombinedCoeff, theta0)),
+      field.mul(kappa1Squared, field.mul(gCombinedCoeff, theta1)),
+      field.mul(kappa1Squared, field.mul(fCombinedCoeff, theta0)),
+      field.mul(kappa1Squared, field.mul(fCombinedCoeff, theta1)),
+      field.add(field.mul(kappa1Squared, field.mul(sharedCoeff, theta2)), sigmaGOpenCoeff),
+      field.neg(field.mul(kappa1Squared, domain.tMIEval)),
+      field.neg(field.mul(kappa1Squared, domain.tSMaxEval)),
+      field.add(field.add(kappa1Cubed, challenges.kappa2), kappa2Squared),
+    ],
+  );
+}
+
 export function lhsBinding(
   field: FieldRuntime,
   g1: G1Runtime,
@@ -168,6 +232,41 @@ export function snarkAux(
     g1Mul(g1, proof4.M_Y, kappa2Squared),
     g1Mul(g1, proof4.N_Y, kappa2Cubed),
   ]);
+
+  return { aux, auxX, auxY };
+}
+
+export async function snarkAuxMsm(
+  field: FieldRuntime,
+  g1: G1Runtime,
+  proof: VerifierProof,
+  domain: VerifierDomainContext,
+  challenges: VerifierChallenges,
+): Promise<SnarkAuxResult> {
+  const proof4 = proof.proof4;
+  const kappa2Squared = field.square(challenges.kappa2);
+  const kappa2Cubed = field.mul(kappa2Squared, challenges.kappa2);
+  const omegaMIInv = field.inv(domain.omegaMI);
+  const omegaSMaxInv = field.inv(domain.omegaSMax);
+  const aux = await g1.msmAffine(
+    [proof4.Pi_X, proof4.Pi_Y, proof4.M_X, proof4.M_Y, proof4.N_X, proof4.N_Y],
+    [
+      field.mul(challenges.kappa2, challenges.chi),
+      field.mul(challenges.kappa2, challenges.zeta),
+      field.mul(field.mul(kappa2Squared, omegaMIInv), challenges.chi),
+      field.mul(kappa2Squared, challenges.zeta),
+      field.mul(field.mul(kappa2Cubed, omegaMIInv), challenges.chi),
+      field.mul(field.mul(kappa2Cubed, omegaSMaxInv), challenges.zeta),
+    ],
+  );
+  const auxX = await g1.msmAffine(
+    [proof4.Pi_X, proof4.M_X, proof4.N_X],
+    [challenges.kappa2, kappa2Squared, kappa2Cubed],
+  );
+  const auxY = await g1.msmAffine(
+    [proof4.Pi_Y, proof4.M_Y, proof4.N_Y],
+    [challenges.kappa2, kappa2Squared, kappa2Cubed],
+  );
 
   return { aux, auxX, auxY };
 }

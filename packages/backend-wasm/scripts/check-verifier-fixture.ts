@@ -15,8 +15,12 @@ import {
   createCurveRuntime,
   encodeVerifierSetupParams,
   evalLagrangeK0,
+  lhsCopy,
+  lhsCopyMsm,
   loadVerifierInputFromRuntimeBundles,
   parseRuntimeArtifactBundleManifest,
+  snarkAux,
+  snarkAuxMsm,
   verifySnark,
   type AffinePointJson,
   type BinarySectionInput,
@@ -89,6 +93,7 @@ async function main(): Promise<void> {
   try {
     const verifierInput = await buildVerifierInput(runtime, input);
     await checkLagrangeK0Formula(runtime, verifierInput);
+    await checkG1CombinationCandidates(runtime, verifierInput);
 
     const result = await verifySnark(runtime, verifierInput, {
       randomScalar: () => runtime.Fr.one,
@@ -189,6 +194,70 @@ async function checkLagrangeK0Formula(runtime: CurveRuntime, input: VerifierInpu
   }
 }
 
+async function checkG1CombinationCandidates(runtime: CurveRuntime, input: VerifierInput): Promise<void> {
+  const challenges = await collectChallenges(runtime.Fr, runtime.G1, () => runtime.Fr.one, input.proof);
+  const domain = buildDomainContext(runtime.Fr, input.setup, challenges);
+  const lagrangeK0Eval = evalLagrangeK0(runtime.Fr, domain, challenges);
+  const lhsCopyBaseline = lhsCopy(runtime.Fr, runtime.G1, input, domain, challenges, lagrangeK0Eval);
+  const lhsCopyCandidate = await lhsCopyMsm(runtime.Fr, runtime.G1, input, domain, challenges, lagrangeK0Eval);
+  const snarkAuxBaseline = snarkAux(runtime.Fr, runtime.G1, input.proof, domain, challenges);
+  const snarkAuxCandidate = await snarkAuxMsm(runtime.Fr, runtime.G1, input.proof, domain, challenges);
+
+  assertG1Equal(runtime, lhsCopyCandidate, lhsCopyBaseline, "lhsCopy MSM candidate");
+  assertG1Equal(runtime, snarkAuxCandidate.aux, snarkAuxBaseline.aux, "snarkAux MSM candidate aux");
+  assertG1Equal(runtime, snarkAuxCandidate.auxX, snarkAuxBaseline.auxX, "snarkAux MSM candidate auxX");
+  assertG1Equal(runtime, snarkAuxCandidate.auxY, snarkAuxBaseline.auxY, "snarkAux MSM candidate auxY");
+
+  if (process.env.BACKEND_WASM_BENCH_G1_OVERHEAD === "1") {
+    await benchmarkG1CombinationCandidates(runtime, input, domain, challenges, lagrangeK0Eval);
+  }
+}
+
+async function benchmarkG1CombinationCandidates(
+  runtime: CurveRuntime,
+  input: VerifierInput,
+  domain: ReturnType<typeof buildDomainContext>,
+  challenges: Awaited<ReturnType<typeof collectChallenges>>,
+  lagrangeK0Eval: FieldElement,
+): Promise<void> {
+  const iterations = 50;
+  const lhsCopyBaselineMs = await measure(iterations, () => {
+    lhsCopy(runtime.Fr, runtime.G1, input, domain, challenges, lagrangeK0Eval);
+  });
+  const lhsCopyMsmMs = await measure(iterations, async () => {
+    await lhsCopyMsm(runtime.Fr, runtime.G1, input, domain, challenges, lagrangeK0Eval);
+  });
+  const snarkAuxBaselineMs = await measure(iterations, () => {
+    snarkAux(runtime.Fr, runtime.G1, input.proof, domain, challenges);
+  });
+  const snarkAuxMsmMs = await measure(iterations, async () => {
+    await snarkAuxMsm(runtime.Fr, runtime.G1, input.proof, domain, challenges);
+  });
+
+  console.log(
+    [
+      "G1 combination timing:",
+      `lhsCopy baseline ${lhsCopyBaselineMs.toFixed(3)} ms/op`,
+      `lhsCopy MSM ${lhsCopyMsmMs.toFixed(3)} ms/op`,
+      `snarkAux baseline ${snarkAuxBaselineMs.toFixed(3)} ms/op`,
+      `snarkAux MSM ${snarkAuxMsmMs.toFixed(3)} ms/op`,
+    ].join(" "),
+  );
+}
+
+async function measure(iterations: number, callback: () => void | Promise<void>): Promise<number> {
+  for (let index = 0; index < 5; index += 1) {
+    await callback();
+  }
+
+  const start = performance.now();
+  for (let index = 0; index < iterations; index += 1) {
+    await callback();
+  }
+
+  return (performance.now() - start) / iterations;
+}
+
 async function evalLagrangeK0ByReconstruction(
   runtime: CurveRuntime,
   size: number,
@@ -209,6 +278,12 @@ function assertFieldEqual(
 ): void {
   if (!runtime.Fr.eq(actual, expected)) {
     throw new Error(`${label} mismatch: expected ${runtime.Fr.toHex(expected)}, got ${runtime.Fr.toHex(actual)}.`);
+  }
+}
+
+function assertG1Equal(runtime: CurveRuntime, actual: Uint8Array, expected: Uint8Array, label: string): void {
+  if (!runtime.G1.eq(actual, expected)) {
+    throw new Error(`${label} mismatch.`);
   }
 }
 
