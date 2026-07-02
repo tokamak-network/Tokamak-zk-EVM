@@ -49,6 +49,7 @@ export interface FfGroup {
   timesFr(point: Uint8Array, scalar: Uint8Array): Uint8Array;
   toObject(value: Uint8Array): unknown[];
   fromObject(value: unknown[]): Uint8Array;
+  multiExp(bases: Uint8Array, scalars: Uint8Array): Promise<Uint8Array>;
   multiExpAffine(bases: Uint8Array, scalars: Uint8Array): Promise<Uint8Array>;
 }
 

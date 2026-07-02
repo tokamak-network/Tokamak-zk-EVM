@@ -1,4 +1,6 @@
-import { createCurveRuntime, type CurveRuntime, type FieldElement, type G1Point } from "../../index.js";
+import { getCurveFromName } from "ffjavascript";
+
+import { createCurveRuntime, type CurveRuntime, type FfCurve, type FieldElement, type G1Point } from "../../index.js";
 
 declare const process: {
   readonly argv: readonly string[];
@@ -17,6 +19,7 @@ interface BenchmarkCase {
   readonly bases: readonly G1Point[];
   readonly scalars: readonly FieldElement[];
   readonly rawBases: Uint8Array;
+  readonly rawProjectiveBases: Uint8Array;
   readonly rawScalars: Uint8Array;
 }
 
@@ -25,22 +28,25 @@ interface TimingRow {
   readonly sequentialMs: number;
   readonly msmAffineMs: number;
   readonly msmAffineRawMs: number;
+  readonly msmProjectiveRawMs: number;
 }
 
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2));
   const runtime = await createCurveRuntime({ singleThread: options.singleThread });
+  const rawCurve = (await getCurveFromName("bls12381", options.singleThread)) as FfCurve;
 
   try {
     const rows: TimingRow[] = [];
     for (const length of options.lengths) {
-      const benchmarkCase = buildBenchmarkCase(runtime, length, options.seed);
-      await assertEqualResults(runtime, benchmarkCase);
-      rows.push(await measureCase(runtime, benchmarkCase, options));
+      const benchmarkCase = buildBenchmarkCase(runtime, rawCurve, length, options.seed);
+      await assertEqualResults(runtime, rawCurve, benchmarkCase);
+      rows.push(await measureCase(runtime, rawCurve, benchmarkCase, options));
     }
 
     printRows(rows, options);
   } finally {
+    await rawCurve.terminate?.();
     await runtime.terminate();
   }
 }
@@ -102,7 +108,7 @@ function parsePositiveInteger(value: string, label: string): number {
   return parsed;
 }
 
-function buildBenchmarkCase(runtime: CurveRuntime, length: number, seed: bigint): BenchmarkCase {
+function buildBenchmarkCase(runtime: CurveRuntime, rawCurve: FfCurve, length: number, seed: bigint): BenchmarkCase {
   const random = createSplitMix64(seed + BigInt(length) * 0x9e3779b97f4a7c15n);
   const bases: G1Point[] = [];
   const scalars: FieldElement[] = [];
@@ -118,6 +124,7 @@ function buildBenchmarkCase(runtime: CurveRuntime, length: number, seed: bigint)
     bases,
     scalars,
     rawBases: concatBytes(bases.map((base) => runtime.G1.toAffine(base))),
+    rawProjectiveBases: concatBytes(bases.map((base) => rawCurve.G1.toJacobian(base))),
     rawScalars: concatBytes(scalars.map((scalar) => runtime.Fr.toRawLittleEndian(scalar))),
   };
 }
@@ -143,10 +150,11 @@ function randomFieldElement(runtime: CurveRuntime, random: () => bigint): FieldE
   return runtime.Fr.fromBigInt((value % (runtime.Fr.modulus - 1n)) + 1n);
 }
 
-async function assertEqualResults(runtime: CurveRuntime, benchmarkCase: BenchmarkCase): Promise<void> {
+async function assertEqualResults(runtime: CurveRuntime, rawCurve: FfCurve, benchmarkCase: BenchmarkCase): Promise<void> {
   const sequential = sequentialInnerProduct(runtime, benchmarkCase);
   const msmAffine = await runtime.G1.msmAffine(benchmarkCase.bases, benchmarkCase.scalars);
   const msmAffineRaw = await runtime.G1.msmAffineRaw(benchmarkCase.rawBases, benchmarkCase.rawScalars);
+  const msmProjectiveRaw = await rawCurve.G1.multiExp(benchmarkCase.rawProjectiveBases, benchmarkCase.rawScalars);
 
   if (!runtime.G1.eq(sequential, msmAffine)) {
     throw new Error("Sequential inner product and msmAffine result differ.");
@@ -154,6 +162,10 @@ async function assertEqualResults(runtime: CurveRuntime, benchmarkCase: Benchmar
 
   if (!runtime.G1.eq(sequential, msmAffineRaw)) {
     throw new Error("Sequential inner product and msmAffineRaw result differ.");
+  }
+
+  if (!runtime.G1.eq(sequential, msmProjectiveRaw)) {
+    throw new Error("Sequential inner product and projective multiExp result differ.");
   }
 }
 
@@ -171,6 +183,7 @@ function sequentialInnerProduct(runtime: CurveRuntime, benchmarkCase: BenchmarkC
 
 async function measureCase(
   runtime: CurveRuntime,
+  rawCurve: FfCurve,
   benchmarkCase: BenchmarkCase,
   options: BenchmarkOptions,
 ): Promise<TimingRow> {
@@ -183,12 +196,16 @@ async function measureCase(
   const msmAffineRawMs = await measure(options, async () => {
     await runtime.G1.msmAffineRaw(benchmarkCase.rawBases, benchmarkCase.rawScalars);
   });
+  const msmProjectiveRawMs = await measure(options, async () => {
+    await rawCurve.G1.multiExp(benchmarkCase.rawProjectiveBases, benchmarkCase.rawScalars);
+  });
 
   return {
     length: benchmarkCase.bases.length,
     sequentialMs,
     msmAffineMs,
     msmAffineRawMs,
+    msmProjectiveRawMs,
   };
 }
 
@@ -211,20 +228,25 @@ function printRows(rows: readonly TimingRow[], options: BenchmarkOptions): void 
       options.singleThread ? "single-thread" : "multi-thread"
     }`,
   );
-  console.log("length | sequential ms/op | msmAffine ms/op | msmAffineRaw ms/op | best | raw speedup");
-  console.log("---: | ---: | ---: | ---: | :--- | ---:");
+  console.log(
+    "length | sequential ms/op | msmAffine ms/op | msmAffineRaw ms/op | msmProjectiveRaw ms/op | best | affine raw speedup | projective raw speedup",
+  );
+  console.log("---: | ---: | ---: | ---: | ---: | :--- | ---: | ---:");
 
   for (const row of rows) {
     const best = bestMethod(row);
-    const rawSpeedup = row.sequentialMs / row.msmAffineRawMs;
+    const affineRawSpeedup = row.sequentialMs / row.msmAffineRawMs;
+    const projectiveRawSpeedup = row.sequentialMs / row.msmProjectiveRawMs;
     console.log(
       [
         row.length.toString(),
         row.sequentialMs.toFixed(3),
         row.msmAffineMs.toFixed(3),
         row.msmAffineRawMs.toFixed(3),
+        row.msmProjectiveRawMs.toFixed(3),
         best,
-        `${rawSpeedup.toFixed(2)}x`,
+        `${affineRawSpeedup.toFixed(2)}x`,
+        `${projectiveRawSpeedup.toFixed(2)}x`,
       ].join(" | "),
     );
   }
@@ -235,6 +257,7 @@ function bestMethod(row: TimingRow): string {
     ["sequential", row.sequentialMs],
     ["msmAffine", row.msmAffineMs],
     ["msmAffineRaw", row.msmAffineRawMs],
+    ["msmProjectiveRaw", row.msmProjectiveRawMs],
   ] as const;
 
   return entries.reduce((best, entry) => (entry[1] < best[1] ? entry : best))[0];

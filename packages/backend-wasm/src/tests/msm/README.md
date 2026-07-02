@@ -2,13 +2,14 @@
 
 Audience: backend-wasm developers evaluating whether a G1 linear combination should use repeated scalar multiplication or the ffjavascript MSM path.
 
-This directory contains a standalone benchmark for comparing three ways to compute a G1 inner product:
+This directory contains a standalone benchmark for comparing four ways to compute a G1 inner product:
 
 - sequential: repeated `G1.mulScalar()` followed by `G1.add()`.
 - `msmAffine`: `G1.msmAffine()` with point and scalar arrays.
 - `msmAffineRaw`: `G1.msmAffineRaw()` with runtime-ready byte buffers.
+- `msmProjectiveRaw`: `ffjavascript` `G1.multiExp()` with runtime-ready projective/Jacobian point buffers.
 
-The benchmark asserts that all three methods return the same G1 point before it reports timing.
+The benchmark asserts that all methods return the same G1 point before it reports timing.
 
 ## Usage
 
@@ -34,29 +35,30 @@ npm run bench:msm -- --lengths=4,8,16,32,64,128,256,512,1024,2048,4096,8192,1638
 
 Environment: local Node.js run, backend-wasm single-thread curve runtime.
 
-| length | sequential ms/op | msmAffine ms/op | msmAffineRaw ms/op | best | raw speedup |
-| ---: | ---: | ---: | ---: | :--- | ---: |
-| 4 | 1.833 | 2.333 | 1.940 | sequential | 0.94x |
-| 8 | 3.403 | 2.792 | 2.647 | msmAffineRaw | 1.29x |
-| 16 | 7.005 | 4.253 | 4.115 | msmAffineRaw | 1.70x |
-| 32 | 13.804 | 6.094 | 6.102 | msmAffine | 2.26x |
-| 64 | 28.502 | 10.298 | 10.346 | msmAffine | 2.75x |
-| 128 | 55.461 | 16.914 | 16.783 | msmAffineRaw | 3.30x |
-| 256 | 112.037 | 28.481 | 28.344 | msmAffineRaw | 3.95x |
-| 512 | 220.357 | 47.712 | 47.479 | msmAffineRaw | 4.64x |
-| 1024 | 446.110 | 85.734 | 85.552 | msmAffineRaw | 5.21x |
-| 2048 | 889.056 | 149.454 | 146.344 | msmAffineRaw | 6.08x |
-| 4096 | 1784.860 | 263.249 | 265.482 | msmAffine | 6.72x |
-| 8192 | 3585.457 | 470.385 | 477.631 | msmAffine | 7.51x |
-| 16384 | 7122.985 | 859.496 | 863.269 | msmAffine | 8.25x |
-| 32768 | 14559.438 | 1588.864 | 1613.796 | msmAffine | 9.02x |
-| 65536 | 28587.259 | 2973.003 | 2964.848 | msmAffineRaw | 9.64x |
+| length | sequential ms/op | msmAffine ms/op | msmAffineRaw ms/op | msmProjectiveRaw ms/op | best | affine raw speedup | projective raw speedup |
+| ---: | ---: | ---: | ---: | ---: | :--- | ---: | ---: |
+| 4 | 1.735 | 2.997 | 1.898 | 1.710 | msmProjectiveRaw | 0.91x | 1.01x |
+| 8 | 3.538 | 3.323 | 2.977 | 2.763 | msmProjectiveRaw | 1.19x | 1.28x |
+| 16 | 6.843 | 4.076 | 3.912 | 4.109 | msmAffineRaw | 1.75x | 1.67x |
+| 32 | 13.661 | 6.134 | 6.051 | 6.096 | msmAffineRaw | 2.26x | 2.24x |
+| 64 | 27.265 | 10.131 | 9.911 | 10.089 | msmAffineRaw | 2.75x | 2.70x |
+| 128 | 55.151 | 16.664 | 16.736 | 16.677 | msmAffine | 3.30x | 3.31x |
+| 256 | 109.872 | 27.841 | 27.870 | 28.643 | msmAffine | 3.94x | 3.84x |
+| 512 | 218.491 | 48.181 | 47.189 | 47.222 | msmAffineRaw | 4.63x | 4.63x |
+| 1024 | 458.793 | 83.520 | 87.474 | 89.349 | msmAffine | 5.24x | 5.13x |
+| 2048 | 878.733 | 143.592 | 151.845 | 144.445 | msmAffine | 5.79x | 6.08x |
+| 4096 | 1779.343 | 262.013 | 260.508 | 264.120 | msmAffineRaw | 6.83x | 6.74x |
+| 8192 | 3547.007 | 465.636 | 464.609 | 469.549 | msmAffineRaw | 7.63x | 7.55x |
+| 16384 | 7085.858 | 865.400 | 854.219 | 860.083 | msmAffineRaw | 8.30x | 8.24x |
+| 32768 | 14212.916 | 1594.495 | 1589.499 | 1588.188 | msmProjectiveRaw | 8.94x | 8.95x |
+| 65536 | 28335.231 | 2945.946 | 2913.222 | 2921.116 | msmAffineRaw | 9.73x | 9.70x |
 
 Interpretation:
 
-- For this run, sequential scalar multiplication was best only at length `4`.
-- MSM became faster at length `8`.
-- The advantage of MSM increased with vector length, reaching about `9.6x` at length `65536`.
-- `msmAffine` and `msmAffineRaw` are close; `msmAffineRaw` is preferable when the caller already has runtime-ready contiguous buffers.
+- For this run, MSM was at least competitive at length `4` and became clearly faster than sequential scalar multiplication from length `8`.
+- The advantage of MSM increased with vector length, reaching about `9.7x` at length `65536`.
+- `msmAffine`, `msmAffineRaw`, and `msmProjectiveRaw` were close across most lengths.
+- Projective raw MSM won at lengths `4`, `8`, and `32768`, but the margin was small and not monotonic.
+- This table does not justify a global switch to projective internal representation by itself. Use stage-specific verifier/prover timing before migrating production paths.
 
 Timing is environment-dependent. Use these numbers as a local crossover snapshot, not as a permanent threshold.
