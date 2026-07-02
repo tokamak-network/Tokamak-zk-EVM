@@ -19,8 +19,6 @@ import {
   lhsCopyMsm,
   loadVerifierInputFromRuntimeBundles,
   parseRuntimeArtifactBundleManifest,
-  snarkAux,
-  snarkAuxMsm,
   verifySnark,
   type AffinePointJson,
   type BinarySectionInput,
@@ -200,13 +198,8 @@ async function checkG1CombinationCandidates(runtime: CurveRuntime, input: Verifi
   const lagrangeK0Eval = evalLagrangeK0(runtime.Fr, domain, challenges);
   const lhsCopyBaseline = lhsCopy(runtime.Fr, runtime.G1, input, domain, challenges, lagrangeK0Eval);
   const lhsCopyCandidate = await lhsCopyMsm(runtime.Fr, runtime.G1, input, domain, challenges, lagrangeK0Eval);
-  const snarkAuxBaseline = snarkAux(runtime.Fr, runtime.G1, input.proof, domain, challenges);
-  const snarkAuxCandidate = await snarkAuxMsm(runtime.Fr, runtime.G1, input.proof, domain, challenges);
 
   assertG1Equal(runtime, lhsCopyCandidate, lhsCopyBaseline, "lhsCopy MSM candidate");
-  assertG1Equal(runtime, snarkAuxCandidate.aux, snarkAuxBaseline.aux, "snarkAux MSM candidate aux");
-  assertG1Equal(runtime, snarkAuxCandidate.auxX, snarkAuxBaseline.auxX, "snarkAux MSM candidate auxX");
-  assertG1Equal(runtime, snarkAuxCandidate.auxY, snarkAuxBaseline.auxY, "snarkAux MSM candidate auxY");
 
   if (process.env.BACKEND_WASM_BENCH_G1_OVERHEAD === "1") {
     await benchmarkG1CombinationCandidates(runtime, input, domain, challenges, lagrangeK0Eval);
@@ -227,20 +220,12 @@ async function benchmarkG1CombinationCandidates(
   const lhsCopyMsmMs = await measure(iterations, async () => {
     await lhsCopyMsm(runtime.Fr, runtime.G1, input, domain, challenges, lagrangeK0Eval);
   });
-  const snarkAuxBaselineMs = await measure(iterations, () => {
-    snarkAux(runtime.Fr, runtime.G1, input.proof, domain, challenges);
-  });
-  const snarkAuxMsmMs = await measure(iterations, async () => {
-    await snarkAuxMsm(runtime.Fr, runtime.G1, input.proof, domain, challenges);
-  });
 
   console.log(
     [
       "G1 combination timing:",
       `lhsCopy baseline ${lhsCopyBaselineMs.toFixed(3)} ms/op`,
       `lhsCopy MSM ${lhsCopyMsmMs.toFixed(3)} ms/op`,
-      `snarkAux baseline ${snarkAuxBaselineMs.toFixed(3)} ms/op`,
-      `snarkAux MSM ${snarkAuxMsmMs.toFixed(3)} ms/op`,
     ].join(" "),
   );
 }

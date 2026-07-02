@@ -63,8 +63,6 @@ async function main(): Promise<void> {
           "Browser G1 combination timing:",
           `lhsCopy baseline ${value.g1Timings.lhsCopyBaselineMs.toFixed(3)} ms/op`,
           `lhsCopy MSM ${value.g1Timings.lhsCopyMsmMs.toFixed(3)} ms/op`,
-          `snarkAux baseline ${value.g1Timings.snarkAuxBaselineMs.toFixed(3)} ms/op`,
-          `snarkAux MSM ${value.g1Timings.snarkAuxMsmMs.toFixed(3)} ms/op`,
         ].join(" "),
       );
     }
@@ -86,8 +84,6 @@ interface BrowserVerifierResult {
 interface BrowserG1Timings {
   readonly lhsCopyBaselineMs: number;
   readonly lhsCopyMsmMs: number;
-  readonly snarkAuxBaselineMs: number;
-  readonly snarkAuxMsmMs: number;
 }
 
 async function handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
