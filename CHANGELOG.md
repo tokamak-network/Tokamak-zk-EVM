@@ -8,6 +8,11 @@ The format is based on Keep a Changelog.
 
 ## Unreleased
 
+### Backend Workspace
+
+- Optimized verifier Lagrange K0 evaluation by using the direct basis-polynomial formula instead of reconstructing coefficients through NTT.
+- Optimized backend-wasm verifier copy-constraint G1 combination by using an MSM-backed linear-combination path.
+
 ## [2.1.0] - 2026-05-02
 
 ### Repository

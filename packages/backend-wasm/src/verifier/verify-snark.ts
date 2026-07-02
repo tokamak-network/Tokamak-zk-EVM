@@ -11,7 +11,7 @@ import {
   g1Add,
   lhsArith,
   lhsBinding,
-  lhsCopy,
+  lhsCopyMsm,
   snarkAux,
 } from "./equations.js";
 import { pairingProductsEqual } from "./pairings.js";
@@ -105,10 +105,10 @@ export async function verifySnark(
   const randomScalar = options.randomScalar ?? runtime.randomScalar;
   const challenges = await collectChallenges(runtime.Fr, runtime.G1, randomScalar, input.proof);
   const domain = buildDomainContext(runtime.Fr, input.setup, challenges);
-  const lagrangeK0Eval = await evalLagrangeK0(runtime.Fr, domain, challenges);
+  const lagrangeK0Eval = evalLagrangeK0(runtime.Fr, domain, challenges);
   const aEval = evalAPub(input.aPubX, challenges);
   const lhsA = lhsArith(runtime.Fr, runtime.G1, input, domain, challenges);
-  const lhsC = lhsCopy(runtime.Fr, runtime.G1, input, domain, challenges, lagrangeK0Eval);
+  const lhsC = await lhsCopyMsm(runtime.Fr, runtime.G1, input, domain, challenges, lagrangeK0Eval);
   const lhsB = lhsBinding(runtime.Fr, runtime.G1, input.proof, input.sigma.G, challenges, aEval);
   const lhs = g1Add(runtime.G1, lhsB, runtime.G1.mulScalar(g1Add(runtime.G1, lhsA, lhsC), challenges.kappa2));
   const { aux, auxX, auxY } = snarkAux(runtime.Fr, runtime.G1, input.proof, domain, challenges);

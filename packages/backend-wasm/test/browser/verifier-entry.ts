@@ -4,15 +4,24 @@ import {
   BinarySectionType,
   RuntimeArtifactBundleKind,
   RuntimeArtifactFileRole,
+  buildDomainContext,
+  collectChallenges,
   createBinaryArtifactFile,
   createCurveRuntime,
   encodeVerifierSetupParams,
+  evalLagrangeK0,
+  lhsCopy,
+  lhsCopyMsm,
   loadVerifierInputFromRuntimeBundles,
   parseRuntimeArtifactBundleManifest,
+  snarkAux,
+  snarkAuxMsm,
   verifySnark,
   type AffinePointJson,
   type BinarySectionInput,
   type CurveRuntime,
+  type FieldElement,
+  type VerifierInput,
   type VerifierSetupParams,
 } from "../../src/index.js";
 
@@ -71,9 +80,17 @@ declare global {
     __tokamakVerifierResult?: {
       readonly status: "pending" | "ok" | "error";
       readonly valid?: boolean;
+      readonly g1Timings?: BrowserG1Timings;
       readonly error?: string;
     };
   }
+}
+
+interface BrowserG1Timings {
+  readonly lhsCopyBaselineMs: number;
+  readonly lhsCopyMsmMs: number;
+  readonly snarkAuxBaselineMs: number;
+  readonly snarkAuxMsmMs: number;
 }
 
 window.__tokamakVerifierResult = { status: "pending" };
@@ -94,6 +111,10 @@ async function main(): Promise<void> {
 
   try {
     const verifierInput = await buildBinaryVerifierInput(runtime, input);
+    const g1Timings =
+      new URLSearchParams(window.location.search).get("benchG1") === "1"
+        ? await checkAndBenchmarkG1CombinationCandidates(runtime, verifierInput)
+        : undefined;
     const result = await verifySnark(runtime, verifierInput, {
       randomScalar: () => runtime.Fr.one,
     });
@@ -107,9 +128,74 @@ async function main(): Promise<void> {
     window.__tokamakVerifierResult = {
       status: "ok",
       valid: result.valid,
+      g1Timings,
     };
   } finally {
     await runtime.terminate();
+  }
+}
+
+async function checkAndBenchmarkG1CombinationCandidates(
+  runtime: CurveRuntime,
+  input: VerifierInput,
+): Promise<BrowserG1Timings> {
+  const challenges = await collectChallenges(runtime.Fr, runtime.G1, () => runtime.Fr.one, input.proof);
+  const domain = buildDomainContext(runtime.Fr, input.setup, challenges);
+  const lagrangeK0Eval = evalLagrangeK0(runtime.Fr, domain, challenges);
+  const lhsCopyBaseline = lhsCopy(runtime.Fr, runtime.G1, input, domain, challenges, lagrangeK0Eval);
+  const lhsCopyCandidate = await lhsCopyMsm(runtime.Fr, runtime.G1, input, domain, challenges, lagrangeK0Eval);
+  const snarkAuxBaseline = snarkAux(runtime.Fr, runtime.G1, input.proof, domain, challenges);
+  const snarkAuxCandidate = await snarkAuxMsm(runtime.Fr, runtime.G1, input.proof, domain, challenges);
+
+  assertG1Equal(runtime, lhsCopyCandidate, lhsCopyBaseline, "lhsCopy MSM candidate");
+  assertG1Equal(runtime, snarkAuxCandidate.aux, snarkAuxBaseline.aux, "snarkAux MSM candidate aux");
+  assertG1Equal(runtime, snarkAuxCandidate.auxX, snarkAuxBaseline.auxX, "snarkAux MSM candidate auxX");
+  assertG1Equal(runtime, snarkAuxCandidate.auxY, snarkAuxBaseline.auxY, "snarkAux MSM candidate auxY");
+
+  return benchmarkG1CombinationCandidates(runtime, input, domain, challenges, lagrangeK0Eval);
+}
+
+async function benchmarkG1CombinationCandidates(
+  runtime: CurveRuntime,
+  input: VerifierInput,
+  domain: ReturnType<typeof buildDomainContext>,
+  challenges: Awaited<ReturnType<typeof collectChallenges>>,
+  lagrangeK0Eval: FieldElement,
+): Promise<BrowserG1Timings> {
+  const iterations = 50;
+
+  return {
+    lhsCopyBaselineMs: await measure(iterations, () => {
+      lhsCopy(runtime.Fr, runtime.G1, input, domain, challenges, lagrangeK0Eval);
+    }),
+    lhsCopyMsmMs: await measure(iterations, async () => {
+      await lhsCopyMsm(runtime.Fr, runtime.G1, input, domain, challenges, lagrangeK0Eval);
+    }),
+    snarkAuxBaselineMs: await measure(iterations, () => {
+      snarkAux(runtime.Fr, runtime.G1, input.proof, domain, challenges);
+    }),
+    snarkAuxMsmMs: await measure(iterations, async () => {
+      await snarkAuxMsm(runtime.Fr, runtime.G1, input.proof, domain, challenges);
+    }),
+  };
+}
+
+async function measure(iterations: number, callback: () => void | Promise<void>): Promise<number> {
+  for (let index = 0; index < 5; index += 1) {
+    await callback();
+  }
+
+  const start = performance.now();
+  for (let index = 0; index < iterations; index += 1) {
+    await callback();
+  }
+
+  return (performance.now() - start) / iterations;
+}
+
+function assertG1Equal(runtime: CurveRuntime, actual: Uint8Array, expected: Uint8Array, label: string): void {
+  if (!runtime.G1.eq(actual, expected)) {
+    throw new Error(`${label} mismatch.`);
   }
 }
 
