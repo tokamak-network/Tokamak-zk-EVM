@@ -148,6 +148,11 @@ async function main(): Promise<void> {
     );
     const msmBases = msmInput.bases.map((base) => runtime.G1.parseAffine(base));
     const msmScalars = msmInput.scalars.map((scalar) => runtime.Fr.fromHex(scalar));
+    checkAffineScalarMultiplication(runtime, msmBases, msmScalars);
+    if (process.env.BACKEND_WASM_BENCH_AFFINE_MUL === "1") {
+      await benchmarkAffineScalarMultiplication(runtime, msmBases, msmScalars);
+    }
+
     const msmResult = await runtime.G1.msmAffine(msmBases, msmScalars);
     assertEqual(runtime.G1.formatAffine(msmResult), msmExpected.result, "G1 MSM");
 
@@ -206,6 +211,61 @@ async function main(): Promise<void> {
   }
 
   console.log("Checked runtime field, MSM, pairing, and transcript fixtures");
+}
+
+function checkAffineScalarMultiplication(
+  runtime: Awaited<ReturnType<typeof createCurveRuntime>>,
+  bases: readonly Uint8Array[],
+  scalars: readonly Uint8Array[],
+): void {
+  if (bases.length !== scalars.length) {
+    throw new Error("Affine scalar multiplication check requires equal point and scalar counts.");
+  }
+
+  for (let index = 0; index < bases.length; index += 1) {
+    const generic = runtime.G1.mulScalar(bases[index], scalars[index]);
+    const affine = runtime.G1.mulAffineScalar(bases[index], scalars[index]);
+    if (!runtime.G1.eq(generic, affine)) {
+      throw new Error(`G1 affine scalar multiplication mismatch at index ${index}.`);
+    }
+  }
+}
+
+async function benchmarkAffineScalarMultiplication(
+  runtime: Awaited<ReturnType<typeof createCurveRuntime>>,
+  bases: readonly Uint8Array[],
+  scalars: readonly Uint8Array[],
+): Promise<void> {
+  const iterations = 200;
+  const genericMs = await measure(iterations, () => {
+    for (let index = 0; index < bases.length; index += 1) {
+      runtime.G1.mulScalar(bases[index], scalars[index]);
+    }
+  });
+  const affineMs = await measure(iterations, () => {
+    for (let index = 0; index < bases.length; index += 1) {
+      runtime.G1.mulAffineScalar(bases[index], scalars[index]);
+    }
+  });
+
+  console.log(
+    `G1 affine scalar multiplication timing: generic ${genericMs.toFixed(3)} ms/op affine ${affineMs.toFixed(
+      3,
+    )} ms/op`,
+  );
+}
+
+async function measure(iterations: number, callback: () => void): Promise<number> {
+  for (let index = 0; index < 10; index += 1) {
+    callback();
+  }
+
+  const start = performance.now();
+  for (let index = 0; index < iterations; index += 1) {
+    callback();
+  }
+
+  return (performance.now() - start) / iterations;
 }
 
 function parsePairingTerms(

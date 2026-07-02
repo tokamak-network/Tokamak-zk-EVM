@@ -22,6 +22,7 @@ export interface G1Runtime {
   eq(left: G1Point, right: G1Point): boolean;
   isZero(value: G1Point): boolean;
   mulScalar(point: G1Point, scalar: FieldElement): G1Point;
+  mulAffineScalar(point: G1Point, scalar: FieldElement): G1Point;
   msmAffine(bases: readonly G1Point[], scalars: readonly FieldElement[]): Promise<G1Point>;
   msmAffineRaw(bases: Uint8Array, scalars: Uint8Array): Promise<G1Point>;
 }
@@ -89,6 +90,13 @@ export function createG1Runtime(group: FfGroup, scalarField: FieldRuntime): G1Ru
     },
     mulScalar(point, scalar) {
       return group.timesFr(group.toAffine(point), scalar);
+    },
+    mulAffineScalar(point, scalar) {
+      if (point.byteLength !== G1_AFFINE_BYTES) {
+        throw new Error("G1 affine scalar multiplication requires a 96-byte affine point.");
+      }
+
+      return group.timesFr(point, scalar);
     },
     async msmAffine(bases, scalars) {
       if (bases.length !== scalars.length) {
