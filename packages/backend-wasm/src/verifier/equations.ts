@@ -236,41 +236,6 @@ export function snarkAux(
   return { aux, auxX, auxY };
 }
 
-export async function snarkAuxMsm(
-  field: FieldRuntime,
-  g1: G1Runtime,
-  proof: VerifierProof,
-  domain: VerifierDomainContext,
-  challenges: VerifierChallenges,
-): Promise<SnarkAuxResult> {
-  const proof4 = proof.proof4;
-  const kappa2Squared = field.square(challenges.kappa2);
-  const kappa2Cubed = field.mul(kappa2Squared, challenges.kappa2);
-  const omegaMIInv = field.inv(domain.omegaMI);
-  const omegaSMaxInv = field.inv(domain.omegaSMax);
-  const aux = await g1.msmAffine(
-    [proof4.Pi_X, proof4.Pi_Y, proof4.M_X, proof4.M_Y, proof4.N_X, proof4.N_Y],
-    [
-      field.mul(challenges.kappa2, challenges.chi),
-      field.mul(challenges.kappa2, challenges.zeta),
-      field.mul(field.mul(kappa2Squared, omegaMIInv), challenges.chi),
-      field.mul(kappa2Squared, challenges.zeta),
-      field.mul(field.mul(kappa2Cubed, omegaMIInv), challenges.chi),
-      field.mul(field.mul(kappa2Cubed, omegaSMaxInv), challenges.zeta),
-    ],
-  );
-  const auxX = await g1.msmAffine(
-    [proof4.Pi_X, proof4.M_X, proof4.N_X],
-    [challenges.kappa2, kappa2Squared, kappa2Cubed],
-  );
-  const auxY = await g1.msmAffine(
-    [proof4.Pi_Y, proof4.M_Y, proof4.N_Y],
-    [challenges.kappa2, kappa2Squared, kappa2Cubed],
-  );
-
-  return { aux, auxX, auxY };
-}
-
 export function g1Add(g1: G1Runtime, left: G1Point, right: G1Point): G1Point {
   return g1.add(left, right);
 }

@@ -14,8 +14,6 @@ import {
   lhsCopyMsm,
   loadVerifierInputFromRuntimeBundles,
   parseRuntimeArtifactBundleManifest,
-  snarkAux,
-  snarkAuxMsm,
   verifySnark,
   type AffinePointJson,
   type BinarySectionInput,
@@ -89,8 +87,6 @@ declare global {
 interface BrowserG1Timings {
   readonly lhsCopyBaselineMs: number;
   readonly lhsCopyMsmMs: number;
-  readonly snarkAuxBaselineMs: number;
-  readonly snarkAuxMsmMs: number;
 }
 
 window.__tokamakVerifierResult = { status: "pending" };
@@ -144,13 +140,8 @@ async function checkAndBenchmarkG1CombinationCandidates(
   const lagrangeK0Eval = evalLagrangeK0(runtime.Fr, domain, challenges);
   const lhsCopyBaseline = lhsCopy(runtime.Fr, runtime.G1, input, domain, challenges, lagrangeK0Eval);
   const lhsCopyCandidate = await lhsCopyMsm(runtime.Fr, runtime.G1, input, domain, challenges, lagrangeK0Eval);
-  const snarkAuxBaseline = snarkAux(runtime.Fr, runtime.G1, input.proof, domain, challenges);
-  const snarkAuxCandidate = await snarkAuxMsm(runtime.Fr, runtime.G1, input.proof, domain, challenges);
 
   assertG1Equal(runtime, lhsCopyCandidate, lhsCopyBaseline, "lhsCopy MSM candidate");
-  assertG1Equal(runtime, snarkAuxCandidate.aux, snarkAuxBaseline.aux, "snarkAux MSM candidate aux");
-  assertG1Equal(runtime, snarkAuxCandidate.auxX, snarkAuxBaseline.auxX, "snarkAux MSM candidate auxX");
-  assertG1Equal(runtime, snarkAuxCandidate.auxY, snarkAuxBaseline.auxY, "snarkAux MSM candidate auxY");
 
   return benchmarkG1CombinationCandidates(runtime, input, domain, challenges, lagrangeK0Eval);
 }
@@ -170,12 +161,6 @@ async function benchmarkG1CombinationCandidates(
     }),
     lhsCopyMsmMs: await measure(iterations, async () => {
       await lhsCopyMsm(runtime.Fr, runtime.G1, input, domain, challenges, lagrangeK0Eval);
-    }),
-    snarkAuxBaselineMs: await measure(iterations, () => {
-      snarkAux(runtime.Fr, runtime.G1, input.proof, domain, challenges);
-    }),
-    snarkAuxMsmMs: await measure(iterations, async () => {
-      await snarkAuxMsm(runtime.Fr, runtime.G1, input.proof, domain, challenges);
     }),
   };
 }
