@@ -40,16 +40,16 @@ export function lhsArith(
         g1,
         g1Add(
           g1,
-          g1Sub(g1, g1Mul(g1, proof0.U, proof3.V_eval), proof0.W),
+          g1Sub(g1, g1MulAffine(g1, proof0.U, proof3.V_eval), proof0.W),
           g1Mul(
             g1,
-            g1Sub(g1, proof0.V, g1Mul(g1, input.sigma.G, proof3.V_eval)),
+            g1Sub(g1, proof0.V, g1MulAffine(g1, input.sigma.G, proof3.V_eval)),
             challenges.kappa1,
           ),
         ),
-        g1Mul(g1, proof0.Q_AX, domain.tNEval),
+        g1MulAffine(g1, proof0.Q_AX, domain.tNEval),
       ),
-      g1Mul(g1, proof0.Q_AY, domain.tSMaxEval),
+      g1MulAffine(g1, proof0.Q_AY, domain.tSMaxEval),
     ),
     g1.zero,
   );
@@ -190,8 +190,8 @@ export function lhsBinding(
   const bindingScalar = field.mul(challenges.kappa2, kappa1Fourth);
   return g1Sub(
     g1,
-    g1Mul(g1, proof.binding.A_free, field.add(field.one, bindingScalar)),
-    g1Mul(g1, sigmaG, field.mul(bindingScalar, aEval)),
+    g1MulAffine(g1, proof.binding.A_free, field.add(field.one, bindingScalar)),
+    g1MulAffine(g1, sigmaG, field.mul(bindingScalar, aEval)),
   );
 }
 
@@ -215,22 +215,22 @@ export function snarkAux(
   const omegaSMaxInv = field.inv(domain.omegaSMax);
 
   const aux = g1AddMany(g1, [
-    g1Mul(g1, proof4.Pi_X, field.mul(challenges.kappa2, challenges.chi)),
-    g1Mul(g1, proof4.Pi_Y, field.mul(challenges.kappa2, challenges.zeta)),
-    g1Mul(g1, proof4.M_X, field.mul(field.mul(kappa2Squared, omegaMIInv), challenges.chi)),
-    g1Mul(g1, proof4.M_Y, field.mul(kappa2Squared, challenges.zeta)),
-    g1Mul(g1, proof4.N_X, field.mul(field.mul(kappa2Cubed, omegaMIInv), challenges.chi)),
-    g1Mul(g1, proof4.N_Y, field.mul(field.mul(kappa2Cubed, omegaSMaxInv), challenges.zeta)),
+    g1MulAffine(g1, proof4.Pi_X, field.mul(challenges.kappa2, challenges.chi)),
+    g1MulAffine(g1, proof4.Pi_Y, field.mul(challenges.kappa2, challenges.zeta)),
+    g1MulAffine(g1, proof4.M_X, field.mul(field.mul(kappa2Squared, omegaMIInv), challenges.chi)),
+    g1MulAffine(g1, proof4.M_Y, field.mul(kappa2Squared, challenges.zeta)),
+    g1MulAffine(g1, proof4.N_X, field.mul(field.mul(kappa2Cubed, omegaMIInv), challenges.chi)),
+    g1MulAffine(g1, proof4.N_Y, field.mul(field.mul(kappa2Cubed, omegaSMaxInv), challenges.zeta)),
   ]);
   const auxX = g1AddMany(g1, [
-    g1Mul(g1, proof4.Pi_X, challenges.kappa2),
-    g1Mul(g1, proof4.M_X, kappa2Squared),
-    g1Mul(g1, proof4.N_X, kappa2Cubed),
+    g1MulAffine(g1, proof4.Pi_X, challenges.kappa2),
+    g1MulAffine(g1, proof4.M_X, kappa2Squared),
+    g1MulAffine(g1, proof4.N_X, kappa2Cubed),
   ]);
   const auxY = g1AddMany(g1, [
-    g1Mul(g1, proof4.Pi_Y, challenges.kappa2),
-    g1Mul(g1, proof4.M_Y, kappa2Squared),
-    g1Mul(g1, proof4.N_Y, kappa2Cubed),
+    g1MulAffine(g1, proof4.Pi_Y, challenges.kappa2),
+    g1MulAffine(g1, proof4.M_Y, kappa2Squared),
+    g1MulAffine(g1, proof4.N_Y, kappa2Cubed),
   ]);
 
   return { aux, auxX, auxY };
@@ -250,6 +250,10 @@ export function g1Neg(g1: G1Runtime, value: G1Point): G1Point {
 
 export function g1Mul(g1: G1Runtime, point: G1Point, scalar: FieldElement): G1Point {
   return g1.mulScalar(point, scalar);
+}
+
+export function g1MulAffine(g1: G1Runtime, point: G1Point, scalar: FieldElement): G1Point {
+  return g1.mulAffineScalar(point, scalar);
 }
 
 export function g1AddMany(g1: G1Runtime, points: readonly G1Point[]): G1Point {
