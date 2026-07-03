@@ -32,24 +32,19 @@ export function lhsArith(
   const proof0 = input.proof.proof0;
   const proof3 = input.proof.proof3;
 
-  return g1Sub(
-    g1,
-    g1Sub(
-      g1,
-      g1Sub(
-        g1,
-        g1Add(
-          g1,
-          g1Sub(g1, g1MulAffine(g1, proof0.U, proof3.V_eval), proof0.W),
-          g1Mul(
-            g1,
-            g1Sub(g1, proof0.V, g1MulAffine(g1, input.sigma.G, proof3.V_eval)),
+  return g1.sub(
+    g1.sub(
+      g1.sub(
+        g1.add(
+          g1.sub(g1.mulAffineScalar(proof0.U, proof3.V_eval), proof0.W),
+          g1.mulScalar(
+            g1.sub(proof0.V, g1.mulAffineScalar(input.sigma.G, proof3.V_eval)),
             challenges.kappa1,
           ),
         ),
-        g1MulAffine(g1, proof0.Q_AX, domain.tNEval),
+        g1.mulAffineScalar(proof0.Q_AX, domain.tNEval),
       ),
-      g1MulAffine(g1, proof0.Q_AY, domain.tSMaxEval),
+      g1.mulAffineScalar(proof0.Q_AY, domain.tSMaxEval),
     ),
     g1.zero,
   );
@@ -74,41 +69,38 @@ export function lhsCopy(
 
   const F = g1AddMany(g1, [
     proof0.B,
-    g1Mul(g1, input.preprocess.s0, challenges.thetas[0]),
-    g1Mul(g1, input.preprocess.s1, challenges.thetas[1]),
-    g1Mul(g1, input.sigma.G, challenges.thetas[2]),
+    g1.mulScalar(input.preprocess.s0, challenges.thetas[0]),
+    g1.mulScalar(input.preprocess.s1, challenges.thetas[1]),
+    g1.mulScalar(input.sigma.G, challenges.thetas[2]),
   ]);
   const G = g1AddMany(g1, [
     proof0.B,
-    g1Mul(g1, input.sigma.sigma1.x, challenges.thetas[0]),
-    g1Mul(g1, input.sigma.sigma1.y, challenges.thetas[1]),
-    g1Mul(g1, input.sigma.G, challenges.thetas[2]),
+    g1.mulScalar(input.sigma.sigma1.x, challenges.thetas[0]),
+    g1.mulScalar(input.sigma.sigma1.y, challenges.thetas[1]),
+    g1.mulScalar(input.sigma.G, challenges.thetas[2]),
   ]);
-  const gTimesREval = g1Mul(g1, G, proof3.R_eval);
+  const gTimesREval = g1.mulScalar(G, proof3.R_eval);
 
   const lhsCTerm1 = g1AddMany(g1, [
-    g1Mul(g1, input.sigma.lagrangeKL, field.sub(proof3.R_eval, field.one)),
-    g1Mul(
-      g1,
-      g1Sub(g1, gTimesREval, g1Mul(g1, F, proof3.R_omegaX_eval)),
+    g1.mulScalar(input.sigma.lagrangeKL, field.sub(proof3.R_eval, field.one)),
+    g1.mulScalar(
+      g1.sub(gTimesREval, g1.mulScalar(F, proof3.R_omegaX_eval)),
       field.mul(challenges.kappa0, field.sub(challenges.chi, field.one)),
     ),
-    g1Mul(
-      g1,
-      g1Sub(g1, gTimesREval, g1Mul(g1, F, proof3.R_omegaX_omegaY_eval)),
+    g1.mulScalar(
+      g1.sub(gTimesREval, g1.mulScalar(F, proof3.R_omegaX_omegaY_eval)),
       field.mul(kappa0Squared, lagrangeK0Eval),
     ),
-    g1Neg(g1, g1Mul(g1, proof2.Q_CX, domain.tMIEval)),
-    g1Neg(g1, g1Mul(g1, proof2.Q_CY, domain.tSMaxEval)),
+    g1.neg(g1.mulScalar(proof2.Q_CX, domain.tMIEval)),
+    g1.neg(g1.mulScalar(proof2.Q_CY, domain.tSMaxEval)),
   ]);
 
   return g1AddMany(g1, [
-    g1Mul(g1, lhsCTerm1, kappa1Squared),
-    g1Mul(g1, g1Sub(g1, proof1.R, g1Mul(g1, input.sigma.G, proof3.R_eval)), kappa1Cubed),
-    g1Mul(g1, g1Sub(g1, proof1.R, g1Mul(g1, input.sigma.G, proof3.R_omegaX_eval)), challenges.kappa2),
-    g1Mul(
-      g1,
-      g1Sub(g1, proof1.R, g1Mul(g1, input.sigma.G, proof3.R_omegaX_omegaY_eval)),
+    g1.mulScalar(lhsCTerm1, kappa1Squared),
+    g1.mulScalar(g1.sub(proof1.R, g1.mulScalar(input.sigma.G, proof3.R_eval)), kappa1Cubed),
+    g1.mulScalar(g1.sub(proof1.R, g1.mulScalar(input.sigma.G, proof3.R_omegaX_eval)), challenges.kappa2),
+    g1.mulScalar(
+      g1.sub(proof1.R, g1.mulScalar(input.sigma.G, proof3.R_omegaX_omegaY_eval)),
       kappa2Squared,
     ),
   ]);
@@ -188,10 +180,9 @@ export function lhsBinding(
 ): G1Point {
   const kappa1Fourth = field.square(field.square(challenges.kappa1));
   const bindingScalar = field.mul(challenges.kappa2, kappa1Fourth);
-  return g1Sub(
-    g1,
-    g1MulAffine(g1, proof.binding.A_free, field.add(field.one, bindingScalar)),
-    g1MulAffine(g1, sigmaG, field.mul(bindingScalar, aEval)),
+  return g1.sub(
+    g1.mulAffineScalar(proof.binding.A_free, field.add(field.one, bindingScalar)),
+    g1.mulAffineScalar(sigmaG, field.mul(bindingScalar, aEval)),
   );
 }
 
@@ -215,45 +206,25 @@ export function snarkAux(
   const omegaSMaxInv = field.inv(domain.omegaSMax);
 
   const aux = g1AddMany(g1, [
-    g1MulAffine(g1, proof4.Pi_X, field.mul(challenges.kappa2, challenges.chi)),
-    g1MulAffine(g1, proof4.Pi_Y, field.mul(challenges.kappa2, challenges.zeta)),
-    g1MulAffine(g1, proof4.M_X, field.mul(field.mul(kappa2Squared, omegaMIInv), challenges.chi)),
-    g1MulAffine(g1, proof4.M_Y, field.mul(kappa2Squared, challenges.zeta)),
-    g1MulAffine(g1, proof4.N_X, field.mul(field.mul(kappa2Cubed, omegaMIInv), challenges.chi)),
-    g1MulAffine(g1, proof4.N_Y, field.mul(field.mul(kappa2Cubed, omegaSMaxInv), challenges.zeta)),
+    g1.mulAffineScalar(proof4.Pi_X, field.mul(challenges.kappa2, challenges.chi)),
+    g1.mulAffineScalar(proof4.Pi_Y, field.mul(challenges.kappa2, challenges.zeta)),
+    g1.mulAffineScalar(proof4.M_X, field.mul(field.mul(kappa2Squared, omegaMIInv), challenges.chi)),
+    g1.mulAffineScalar(proof4.M_Y, field.mul(kappa2Squared, challenges.zeta)),
+    g1.mulAffineScalar(proof4.N_X, field.mul(field.mul(kappa2Cubed, omegaMIInv), challenges.chi)),
+    g1.mulAffineScalar(proof4.N_Y, field.mul(field.mul(kappa2Cubed, omegaSMaxInv), challenges.zeta)),
   ]);
   const auxX = g1AddMany(g1, [
-    g1MulAffine(g1, proof4.Pi_X, challenges.kappa2),
-    g1MulAffine(g1, proof4.M_X, kappa2Squared),
-    g1MulAffine(g1, proof4.N_X, kappa2Cubed),
+    g1.mulAffineScalar(proof4.Pi_X, challenges.kappa2),
+    g1.mulAffineScalar(proof4.M_X, kappa2Squared),
+    g1.mulAffineScalar(proof4.N_X, kappa2Cubed),
   ]);
   const auxY = g1AddMany(g1, [
-    g1MulAffine(g1, proof4.Pi_Y, challenges.kappa2),
-    g1MulAffine(g1, proof4.M_Y, kappa2Squared),
-    g1MulAffine(g1, proof4.N_Y, kappa2Cubed),
+    g1.mulAffineScalar(proof4.Pi_Y, challenges.kappa2),
+    g1.mulAffineScalar(proof4.M_Y, kappa2Squared),
+    g1.mulAffineScalar(proof4.N_Y, kappa2Cubed),
   ]);
 
   return { aux, auxX, auxY };
-}
-
-export function g1Add(g1: G1Runtime, left: G1Point, right: G1Point): G1Point {
-  return g1.add(left, right);
-}
-
-export function g1Sub(g1: G1Runtime, left: G1Point, right: G1Point): G1Point {
-  return g1.sub(left, right);
-}
-
-export function g1Neg(g1: G1Runtime, value: G1Point): G1Point {
-  return g1.neg(value);
-}
-
-export function g1Mul(g1: G1Runtime, point: G1Point, scalar: FieldElement): G1Point {
-  return g1.mulScalar(point, scalar);
-}
-
-export function g1MulAffine(g1: G1Runtime, point: G1Point, scalar: FieldElement): G1Point {
-  return g1.mulAffineScalar(point, scalar);
 }
 
 export function g1AddMany(g1: G1Runtime, points: readonly G1Point[]): G1Point {
