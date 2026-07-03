@@ -8,13 +8,11 @@ import { buildDomainContext, type VerifierSetupParams } from "./domain-context.j
 import {
   evalAPub,
   evalLagrangeK0,
-  g1Add,
   lhsArith,
   lhsBinding,
   lhsCopyMsm,
   snarkAux,
 } from "./equations.js";
-import { pairingProductsEqual } from "./pairings.js";
 
 export interface VerifySnarkResult {
   readonly valid: boolean;
@@ -110,22 +108,21 @@ export async function verifySnark(
   const lhsA = lhsArith(runtime.Fr, runtime.G1, input, domain, challenges);
   const lhsC = await lhsCopyMsm(runtime.Fr, runtime.G1, input, domain, challenges, lagrangeK0Eval);
   const lhsB = lhsBinding(runtime.Fr, runtime.G1, input.proof, input.sigma.G, challenges, aEval);
-  const lhs = g1Add(runtime.G1, lhsB, runtime.G1.mulScalar(g1Add(runtime.G1, lhsA, lhsC), challenges.kappa2));
+  const lhs = runtime.G1.add(lhsB, runtime.G1.mulScalar(runtime.G1.add(lhsA, lhsC), challenges.kappa2));
   const { aux, auxX, auxY } = snarkAux(runtime.Fr, runtime.G1, input.proof, domain, challenges);
   const proof0 = input.proof.proof0;
   const binding = input.proof.binding;
 
-  const valid = await pairingProductsEqual(
-    runtime.pairing,
+  const valid = await runtime.pairing.productsEqual(
     [
-      { g1: g1Add(runtime.G1, lhs, aux), g2: input.sigma.H },
+      { g1: runtime.G1.add(lhs, aux), g2: input.sigma.H },
       { g1: proof0.B, g2: input.sigma.sigma2.alpha4 },
       { g1: proof0.U, g2: input.sigma.sigma2.alpha },
       { g1: proof0.V, g2: input.sigma.sigma2.alpha2 },
       { g1: proof0.W, g2: input.sigma.sigma2.alpha3 },
     ],
     [
-      { g1: g1Add(runtime.G1, input.preprocess.O_pub_fix, binding.O_pub_free), g2: input.sigma.sigma2.gamma },
+      { g1: runtime.G1.add(input.preprocess.O_pub_fix, binding.O_pub_free), g2: input.sigma.sigma2.gamma },
       { g1: binding.O_mid, g2: input.sigma.sigma2.eta },
       { g1: binding.O_prv, g2: input.sigma.sigma2.delta },
       { g1: auxX, g2: input.sigma.sigma2.x },
