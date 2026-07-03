@@ -149,6 +149,7 @@ async function main(): Promise<void> {
     const msmBases = msmInput.bases.map((base) => runtime.G1.parseAffine(base));
     const msmScalars = msmInput.scalars.map((scalar) => runtime.Fr.fromHex(scalar));
     checkAffineScalarMultiplication(runtime, msmBases, msmScalars);
+    await checkCoordinateFormPreservation(runtime, msmBases, msmScalars);
     if (process.env.BACKEND_WASM_BENCH_AFFINE_MUL === "1") {
       await benchmarkAffineScalarMultiplication(runtime, msmBases, msmScalars);
     }
@@ -228,6 +229,40 @@ function checkAffineScalarMultiplication(
     if (!runtime.G1.eq(generic, affine)) {
       throw new Error(`G1 affine scalar multiplication mismatch at index ${index}.`);
     }
+  }
+}
+
+async function checkCoordinateFormPreservation(
+  runtime: Awaited<ReturnType<typeof createCurveRuntime>>,
+  bases: readonly Uint8Array[],
+  scalars: readonly Uint8Array[],
+): Promise<void> {
+  if (bases.length < 2 || scalars.length === 0) {
+    throw new Error("Coordinate-form preservation check requires at least two bases and one scalar.");
+  }
+
+  const projectiveBase = runtime.G1.add(bases[0], bases[1]);
+  const scalar = scalars[0];
+  const projectiveResult = runtime.G1.mulScalar(projectiveBase, scalar);
+  const affineResult = runtime.G1.mulAffineScalar(runtime.G1.toAffine(projectiveBase), scalar);
+
+  if (!runtime.G1.eq(projectiveResult, affineResult)) {
+    throw new Error("G1 projective scalar multiplication result does not match affine reference.");
+  }
+
+  let rejectedProjectiveBase = false;
+  try {
+    await runtime.G1.msmAffine([projectiveBase], [scalar]);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("affine G1 point")) {
+      rejectedProjectiveBase = true;
+    } else {
+      throw error;
+    }
+  }
+
+  if (!rejectedProjectiveBase) {
+    throw new Error("G1 msmAffine accepted a non-affine base.");
   }
 }
 

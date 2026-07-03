@@ -89,13 +89,10 @@ export function createG1Runtime(group: FfGroup, scalarField: FieldRuntime): G1Ru
       return group.isZero(value);
     },
     mulScalar(point, scalar) {
-      return group.timesFr(group.toAffine(point), scalar);
+      return group.timesFr(point, scalar);
     },
     mulAffineScalar(point, scalar) {
-      if (point.byteLength !== G1_AFFINE_BYTES) {
-        throw new Error("G1 affine scalar multiplication requires a 96-byte affine point.");
-      }
-
+      assertG1AffinePoint(point, "G1 affine scalar multiplication point");
       return group.timesFr(point, scalar);
     },
     async msmAffine(bases, scalars) {
@@ -103,9 +100,12 @@ export function createG1Runtime(group: FfGroup, scalarField: FieldRuntime): G1Ru
         throw new Error("MSM bases and scalars must have the same length.");
       }
 
-      const affineBases = bases.map((base) => group.toAffine(base));
+      for (let index = 0; index < bases.length; index += 1) {
+        assertG1AffinePoint(bases[index], `G1 MSM base ${index}`);
+      }
+
       const rawScalars = scalars.map((scalar) => scalarField.toRawLittleEndian(scalar));
-      return group.multiExpAffine(concatBytes(affineBases), concatBytes(rawScalars));
+      return group.multiExpAffine(concatBytes(bases), concatBytes(rawScalars));
     },
     async msmAffineRaw(bases, scalars) {
       if (bases.byteLength % G1_AFFINE_BYTES !== 0) {
@@ -175,7 +175,7 @@ export function createG2Runtime(group: FfGroup): G2Runtime {
       return group.isZero(value);
     },
     mulScalar(point, scalar) {
-      return group.timesFr(group.toAffine(point), scalar);
+      return group.timesFr(point, scalar);
     },
   };
 }
@@ -185,6 +185,12 @@ const G1_AFFINE_BYTES = G1_COORDINATE_BYTES * 2;
 const FQ_COORDINATE_BYTES = 48;
 const G2_COORDINATE_BYTES = FQ_COORDINATE_BYTES * 2;
 const SCALAR_RAW_BYTES = 32;
+
+function assertG1AffinePoint(point: G1Point, label: string): void {
+  if (point.byteLength !== G1_AFFINE_BYTES) {
+    throw new Error(`${label} must be a ${G1_AFFINE_BYTES}-byte affine G1 point.`);
+  }
+}
 
 function parseAffineJson(value: unknown): AffinePointJson {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
