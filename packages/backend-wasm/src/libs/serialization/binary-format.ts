@@ -14,11 +14,10 @@ export enum BinaryArtifactFileKind {
   VerifierProof = 2,
   VerifierCrs = 3,
   VerifierPreprocess = 4,
-  ProverWitness = 5,
+  ProverPlacementVariables = 5,
   ProverCrs = 6,
-  ProverPreprocess = 7,
-  ProofOutput = 8,
-  VerifierOutput = 9,
+  ProverInstance = 7,
+  ProverSetupParams = 8,
   Test = 255,
 }
 

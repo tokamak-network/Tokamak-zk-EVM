@@ -10,6 +10,7 @@ export const PROVER_CRS_V1_SPEC = {
       type: BinarySectionType.CrsG1,
       encoding: BinarySectionEncoding.FfjsG1Affine96,
       elementCount: 6,
+      elementByteLength: null,
       points: [
         { index: 0, name: "G" },
         { index: 1, name: "sigma1.x" },
@@ -24,6 +25,7 @@ export const PROVER_CRS_V1_SPEC = {
       type: BinarySectionType.CrsG1,
       encoding: BinarySectionEncoding.FfjsG1Affine96,
       elementCount: null,
+      elementByteLength: null,
       points: [
       ],
     },
@@ -32,6 +34,7 @@ export const PROVER_CRS_V1_SPEC = {
       type: BinarySectionType.CrsG1,
       encoding: BinarySectionEncoding.FfjsG1Affine96,
       elementCount: null,
+      elementByteLength: null,
       points: [
       ],
     },
@@ -40,6 +43,7 @@ export const PROVER_CRS_V1_SPEC = {
       type: BinarySectionType.CrsG1,
       encoding: BinarySectionEncoding.FfjsG1Affine96,
       elementCount: null,
+      elementByteLength: null,
       points: [
       ],
     },
@@ -48,6 +52,7 @@ export const PROVER_CRS_V1_SPEC = {
       type: BinarySectionType.CrsG1,
       encoding: BinarySectionEncoding.FfjsG1Affine96,
       elementCount: null,
+      elementByteLength: null,
       points: [
       ],
     },
@@ -56,6 +61,7 @@ export const PROVER_CRS_V1_SPEC = {
       type: BinarySectionType.CrsG1,
       encoding: BinarySectionEncoding.FfjsG1Affine96,
       elementCount: null,
+      elementByteLength: null,
       points: [
       ],
     },
@@ -64,6 +70,7 @@ export const PROVER_CRS_V1_SPEC = {
       type: BinarySectionType.CrsG1,
       encoding: BinarySectionEncoding.FfjsG1Affine96,
       elementCount: null,
+      elementByteLength: null,
       points: [
       ],
     },
@@ -72,6 +79,7 @@ export const PROVER_CRS_V1_SPEC = {
       type: BinarySectionType.CrsG1,
       encoding: BinarySectionEncoding.FfjsG1Affine96,
       elementCount: null,
+      elementByteLength: null,
       points: [
       ],
     },
@@ -80,6 +88,7 @@ export const PROVER_CRS_V1_SPEC = {
       type: BinarySectionType.CrsG2,
       encoding: BinarySectionEncoding.FfjsG2Affine192,
       elementCount: 10,
+      elementByteLength: null,
       points: [
         { index: 0, name: "H" },
         { index: 1, name: "sigma2.alpha" },

@@ -33,6 +33,26 @@ const SPEC_JOBS: readonly SpecJob[] = [
     generatedPath: "src/libs/artifact-loaders/specs/prover-crs.v1.generated.ts",
     constName: "PROVER_CRS_V1_SPEC",
   },
+  {
+    jsonPath: "src/libs/artifact-loaders/specs/prover-placement-variables.v1.json",
+    generatedPath: "src/libs/artifact-loaders/specs/prover-placement-variables.v1.generated.ts",
+    constName: "PROVER_PLACEMENT_VARIABLES_V1_SPEC",
+  },
+  {
+    jsonPath: "src/libs/artifact-loaders/specs/prover-instance.v1.json",
+    generatedPath: "src/libs/artifact-loaders/specs/prover-instance.v1.generated.ts",
+    constName: "PROVER_INSTANCE_V1_SPEC",
+  },
+  {
+    jsonPath: "src/libs/artifact-loaders/specs/prover-setup-params.v1.json",
+    generatedPath: "src/libs/artifact-loaders/specs/prover-setup-params.v1.generated.ts",
+    constName: "PROVER_SETUP_PARAMS_V1_SPEC",
+  },
+  {
+    jsonPath: "src/libs/artifact-loaders/specs/test-binary.v1.json",
+    generatedPath: "src/libs/artifact-loaders/specs/test-binary.v1.generated.ts",
+    constName: "TEST_BINARY_V1_SPEC",
+  },
 ];
 
 interface RawSpec {
@@ -46,6 +66,7 @@ interface RawSectionSpec {
   readonly type: string;
   readonly encoding: string;
   readonly elementCount: number | null;
+  readonly elementByteLength: number | null;
   readonly points: readonly RawPointSpec[];
 }
 
@@ -91,7 +112,11 @@ function parseRawSpec(raw: unknown, sourcePath: string): RawSpec {
     raw.name !== "verifier_preprocess" &&
     raw.name !== "verifier_proof" &&
     raw.name !== "verifier_instance" &&
-    raw.name !== "prover_crs"
+    raw.name !== "prover_crs" &&
+    raw.name !== "prover_placement_variables" &&
+    raw.name !== "prover_instance" &&
+    raw.name !== "prover_setup_params" &&
+    raw.name !== "test_binary"
   ) {
     throw new Error(`${sourcePath} has unsupported spec name: ${String(raw.name)}.`);
   }
@@ -119,6 +144,7 @@ function parseRawSectionSpec(raw: unknown, sourcePath: string, index: number): R
   const type = parseSectionType(raw.type, sourcePath);
   const encoding = parseSectionEncoding(raw.encoding, sourcePath);
   const elementCount = parseElementCount(raw.elementCount, raw.label, sourcePath);
+  const elementByteLength = parseElementByteLength(raw.elementByteLength, raw.label, sourcePath);
 
   if (!Array.isArray(raw.points)) {
     throw new Error(`${sourcePath} section '${raw.label}' points must be an array.`);
@@ -134,6 +160,7 @@ function parseRawSectionSpec(raw: unknown, sourcePath: string, index: number): R
     type,
     encoding,
     elementCount,
+    elementByteLength,
     points,
   };
 }
@@ -145,6 +172,18 @@ function parseElementCount(value: unknown, label: string, sourcePath: string): n
 
   if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
     throw new Error(`${sourcePath} section '${label}' elementCount must be a non-negative integer or null.`);
+  }
+
+  return value;
+}
+
+function parseElementByteLength(value: unknown, label: string, sourcePath: string): number | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`${sourcePath} section '${label}' elementByteLength must be a positive integer or null.`);
   }
 
   return value;
@@ -215,6 +254,7 @@ function renderSection(section: RawSectionSpec): string {
       type: BinarySectionType.${section.type},
       encoding: BinarySectionEncoding.${section.encoding},
       elementCount: ${section.elementCount === null ? "null" : section.elementCount},
+      elementByteLength: ${section.elementByteLength === null ? "null" : section.elementByteLength},
       points: [
 ${section.points.map(renderPoint).join("")}      ],
     },
@@ -234,6 +274,12 @@ function parseSectionType(value: unknown, sourcePath: string): string {
     case "Proof":
     case "Instance":
     case "SetupParams":
+    case "Placement":
+    case "MsmBases":
+    case "MsmScalars":
+    case "PairingG1Terms":
+    case "PairingG2Terms":
+    case "TestScalars":
       return value;
     default:
       throw new Error(`${sourcePath} has unsupported section type: ${String(value)}.`);
@@ -248,6 +294,8 @@ function parseSectionEncoding(value: unknown, sourcePath: string): string {
       return "FfjsG1Affine96";
     case "ffjs-g2-affine-192":
       return "FfjsG2Affine192";
+    case "scalar-raw-le-32":
+      return "ScalarRawLe32";
     case "bytes":
       return "Bytes";
     default:

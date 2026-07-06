@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "name": "prover_placement_variables",
+  "sections": [
+    {
+      "label": "placement.subcircuit_ids",
+      "type": "Placement",
+      "encoding": "bytes",
+      "elementCount": null,
+      "elementByteLength": 4,
+      "points": []
+    },
+    {
+      "label": "placement.variable_offsets",
+      "type": "Placement",
+      "encoding": "bytes",
+      "elementCount": null,
+      "elementByteLength": 4,
+      "points": []
+    },
+    {
+      "label": "placement.variables",
+      "type": "Placement",
+      "encoding": "ffjs-fr-montgomery-le-32",
+      "elementCount": null,
+      "elementByteLength": 32,
+      "points": []
+    }
+  ]
+}
