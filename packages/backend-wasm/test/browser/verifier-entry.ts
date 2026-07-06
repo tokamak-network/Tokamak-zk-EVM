@@ -287,14 +287,10 @@ async function buildBinaryVerifierInput(runtime: CurveRuntime, fixture: FullProo
       {
         role: RuntimeArtifactFileRole.Instance,
         path: "instance.bin",
-        byteLength: instanceFile.byteLength,
-        artifactKind: BinaryArtifactFileKind.VerifierInstance,
       },
       {
         role: RuntimeArtifactFileRole.Proof,
         path: "proof.bin",
-        byteLength: proofFile.byteLength,
-        artifactKind: BinaryArtifactFileKind.VerifierProof,
       },
     ],
   });
@@ -305,14 +301,10 @@ async function buildBinaryVerifierInput(runtime: CurveRuntime, fixture: FullProo
       {
         role: RuntimeArtifactFileRole.Crs,
         path: "crs.bin",
-        byteLength: crsFile.byteLength,
-        artifactKind: BinaryArtifactFileKind.VerifierCrs,
       },
       {
         role: RuntimeArtifactFileRole.Preprocess,
         path: "preprocess.bin",
-        byteLength: preprocessFile.byteLength,
-        artifactKind: BinaryArtifactFileKind.VerifierPreprocess,
       },
     ],
   });

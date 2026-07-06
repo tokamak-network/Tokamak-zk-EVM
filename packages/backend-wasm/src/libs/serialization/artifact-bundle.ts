@@ -1,5 +1,3 @@
-import { BinaryArtifactFileKind } from "./binary-format.js";
-
 export const RUNTIME_ARTIFACT_BUNDLE_SCHEMA_VERSION = 1;
 
 export enum RuntimeArtifactBundleKind {
@@ -23,8 +21,6 @@ export interface RuntimeArtifactBundleManifest {
 export interface RuntimeArtifactBundleFile {
   readonly role: RuntimeArtifactFileRole;
   readonly path: string;
-  readonly byteLength?: number;
-  readonly artifactKind?: BinaryArtifactFileKind;
 }
 
 export function parseRuntimeArtifactBundleManifest(raw: unknown): RuntimeArtifactBundleManifest {
@@ -84,11 +80,8 @@ function parseBundleFile(raw: unknown, index: number): RuntimeArtifactBundleFile
   const file: RuntimeArtifactBundleFile = {
     role: parseFileRole(raw.role, index),
     path: parseSafeRelativePath(raw.path, `Runtime artifact bundle file at index ${index} path`),
-    byteLength: parseOptionalByteLength(raw.byteLength, index),
-    artifactKind: parseOptionalArtifactKind(raw.artifactKind, index),
   };
 
-  validateRoleMatchesArtifactKind(file, index);
   return file;
 }
 
@@ -100,32 +93,6 @@ function validateBundleRolePolicy(manifest: RuntimeArtifactBundleManifest): void
     case RuntimeArtifactBundleKind.VerifierSetupInput:
       assertVerifierSetupInputBundle(manifest);
       return;
-  }
-}
-
-function validateRoleMatchesArtifactKind(file: RuntimeArtifactBundleFile, index: number): void {
-  if (file.artifactKind === undefined) {
-    return;
-  }
-
-  const expected = expectedArtifactKindForRole(file.role);
-  if (file.artifactKind !== expected) {
-    throw new Error(
-      `Runtime artifact bundle file at index ${index} role '${file.role}' requires artifactKind ${expected}.`,
-    );
-  }
-}
-
-function expectedArtifactKindForRole(role: RuntimeArtifactFileRole): BinaryArtifactFileKind {
-  switch (role) {
-    case RuntimeArtifactFileRole.Instance:
-      return BinaryArtifactFileKind.VerifierInstance;
-    case RuntimeArtifactFileRole.Proof:
-      return BinaryArtifactFileKind.VerifierProof;
-    case RuntimeArtifactFileRole.Crs:
-      return BinaryArtifactFileKind.VerifierCrs;
-    case RuntimeArtifactFileRole.Preprocess:
-      return BinaryArtifactFileKind.VerifierPreprocess;
   }
 }
 
@@ -164,30 +131,6 @@ function parseFileRole(value: unknown, index: number): RuntimeArtifactFileRole {
   }
 
   throw new Error(`Unsupported runtime artifact bundle file role at index ${index}: ${String(value)}.`);
-}
-
-function parseOptionalArtifactKind(value: unknown, index: number): BinaryArtifactFileKind | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  if (typeof value !== "number" || !Number.isInteger(value)) {
-    throw new Error(`Runtime artifact bundle file at index ${index} artifactKind must be an integer.`);
-  }
-
-  return value as BinaryArtifactFileKind;
-}
-
-function parseOptionalByteLength(value: unknown, index: number): number | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
-    throw new Error(`Runtime artifact bundle file at index ${index} byteLength must be a safe non-negative integer.`);
-  }
-
-  return value;
 }
 
 function parseSafeRelativePath(value: unknown, label: string): string {
