@@ -150,12 +150,10 @@ function checkRuntimeBundleManifests(): void {
       {
         role: RuntimeArtifactFileRole.Instance,
         path: "instance.bin",
-        artifactKind: BinaryArtifactFileKind.VerifierInstance,
       },
       {
         role: RuntimeArtifactFileRole.Proof,
         path: "proof.bin",
-        artifactKind: BinaryArtifactFileKind.VerifierProof,
       },
     ],
   });
@@ -167,12 +165,10 @@ function checkRuntimeBundleManifests(): void {
       {
         role: RuntimeArtifactFileRole.Crs,
         path: "crs.bin",
-        artifactKind: BinaryArtifactFileKind.VerifierCrs,
       },
       {
         role: RuntimeArtifactFileRole.Preprocess,
         path: "preprocess.bin",
-        artifactKind: BinaryArtifactFileKind.VerifierPreprocess,
       },
     ],
   });

@@ -97,11 +97,6 @@ async function loadBundleArtifactFile(
 ): Promise<RuntimeArtifactFile> {
   const file = requireSingleRoleFile(manifest, role);
   const bytes = await resolveFile(file.path);
-
-  if (file.byteLength !== undefined && file.byteLength !== bytes.byteLength) {
-    throw new Error(`Runtime bundle file '${file.path}' byteLength mismatch.`);
-  }
-
   const artifactFile = await loadRuntimeArtifactFile(bytes);
   assertArtifactKind(artifactFile, expectedKind, `runtime bundle file '${file.path}'`);
   return artifactFile;
