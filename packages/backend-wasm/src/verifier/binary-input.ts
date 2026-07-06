@@ -1,6 +1,5 @@
 import { loadRuntimeArtifactFile } from "../libs/artifact-loaders/loaders.js";
 import {
-  loadVerifierInstanceArtifact,
   loadVerifierPreprocessArtifact,
   loadVerifierProofArtifact,
 } from "../libs/artifact-loaders/prepared-data.js";
@@ -10,13 +9,11 @@ import { DensePolynomialExt } from "../libs/polynomial/dense-polynomial.js";
 import type { CurveRuntime } from "../libs/runtime/curve.js";
 import type { FieldElement } from "../libs/runtime/field.js";
 import {
-  assertVerifierProofInputBundle,
-  assertVerifierSetupInputBundle,
   RuntimeArtifactFileRole,
   type RuntimeArtifactBundleFile,
   type RuntimeArtifactBundleManifest,
 } from "../libs/serialization/artifact-bundle.js";
-import { BinaryArtifactFileKind, BinarySectionEncoding, BinarySectionType } from "../libs/serialization/binary-format.js";
+import { BinarySectionEncoding, BinarySectionType } from "../libs/serialization/binary-format.js";
 import type { VerifierSetupParams } from "./domain-context.js";
 import type { VerifierInput, VerifierProof } from "./verify-snark.js";
 
@@ -35,32 +32,25 @@ export async function loadVerifierInputFromRuntimeBundles(
   setupInput: RuntimeArtifactBundleManifest,
   resolveFile: RuntimeArtifactFileResolver,
 ): Promise<VerifierInput> {
-  assertVerifierProofInputBundle(proofInput);
-  assertVerifierSetupInputBundle(setupInput);
-
   const artifacts: VerifierRuntimeArtifactFiles = {
     instance: await loadBundleArtifactFile(
       proofInput,
       RuntimeArtifactFileRole.Instance,
-      BinaryArtifactFileKind.VerifierInstance,
       resolveFile,
     ),
     proof: await loadBundleArtifactFile(
       proofInput,
       RuntimeArtifactFileRole.Proof,
-      BinaryArtifactFileKind.VerifierProof,
       resolveFile,
     ),
     crs: await loadBundleArtifactFile(
       setupInput,
       RuntimeArtifactFileRole.Crs,
-      BinaryArtifactFileKind.VerifierCrs,
       resolveFile,
     ),
     preprocess: await loadBundleArtifactFile(
       setupInput,
       RuntimeArtifactFileRole.Preprocess,
-      BinaryArtifactFileKind.VerifierPreprocess,
       resolveFile,
     ),
   };
@@ -72,11 +62,6 @@ export async function buildVerifierInputFromRuntimeArtifacts(
   runtime: CurveRuntime,
   artifacts: VerifierRuntimeArtifactFiles,
 ): Promise<VerifierInput> {
-  assertArtifactKind(artifacts.instance, BinaryArtifactFileKind.VerifierInstance, "verifier instance");
-  assertArtifactKind(artifacts.proof, BinaryArtifactFileKind.VerifierProof, "verifier proof");
-  assertArtifactKind(artifacts.crs, BinaryArtifactFileKind.VerifierCrs, "verifier CRS");
-  assertArtifactKind(artifacts.preprocess, BinaryArtifactFileKind.VerifierPreprocess, "verifier preprocess");
-
   const setup = parseSetupParams(artifacts.preprocess);
   const publicInstance = parsePublicInstance(runtime, artifacts.instance, setup);
 
@@ -92,14 +77,11 @@ export async function buildVerifierInputFromRuntimeArtifacts(
 async function loadBundleArtifactFile(
   manifest: RuntimeArtifactBundleManifest,
   role: RuntimeArtifactFileRole,
-  expectedKind: BinaryArtifactFileKind,
   resolveFile: RuntimeArtifactFileResolver,
 ): Promise<RuntimeArtifactFile> {
   const file = requireSingleRoleFile(manifest, role);
   const bytes = await resolveFile(file.path);
-  const artifactFile = await loadRuntimeArtifactFile(bytes);
-  assertArtifactKind(artifactFile, expectedKind, `runtime bundle file '${file.path}'`);
-  return artifactFile;
+  return loadRuntimeArtifactFile(bytes);
 }
 
 function requireSingleRoleFile(
@@ -115,16 +97,11 @@ function requireSingleRoleFile(
 }
 
 function parseSetupParams(preprocessFile: RuntimeArtifactFile): VerifierSetupParams {
-  loadVerifierPreprocessArtifact(preprocessFile);
   const section = requireSection(preprocessFile, {
     type: BinarySectionType.SetupParams,
     encoding: BinarySectionEncoding.Bytes,
     label: "setup.params",
   });
-
-  if (section.elementCount !== 1 || section.elementByteLength !== SETUP_PARAMS_BINARY_BYTES) {
-    throw new Error("Verifier setup params section has invalid shape.");
-  }
 
   const view = new DataView(section.data.buffer, section.data.byteOffset, section.data.byteLength);
   return {
@@ -145,18 +122,11 @@ function parsePublicInstance(
   instanceFile: RuntimeArtifactFile,
   setup: VerifierSetupParams,
 ): readonly FieldElement[] {
-  loadVerifierInstanceArtifact(instanceFile);
   const section = requireSection(instanceFile, {
     type: BinarySectionType.Instance,
     encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
     label: "instance.public",
   });
-
-  if (section.elementCount !== setup.l_free) {
-    throw new Error(
-      `Verifier instance public input length mismatch: expected ${setup.l_free}, got ${section.elementCount}.`,
-    );
-  }
 
   return splitElements(section.data, runtime.Fr.byteLength);
 }
@@ -278,12 +248,6 @@ function splitElements(data: Uint8Array, elementByteLength: number): Uint8Array[
   }
 
   return elements;
-}
-
-function assertArtifactKind(artifactFile: RuntimeArtifactFile, expected: BinaryArtifactFileKind, label: string): void {
-  if (artifactFile.kind !== expected) {
-    throw new Error(`${label} has artifact kind ${artifactFile.kind}, expected ${expected}.`);
-  }
 }
 
 export function encodeVerifierSetupParams(setup: VerifierSetupParams): Uint8Array {

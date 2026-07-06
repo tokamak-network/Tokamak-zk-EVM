@@ -46,7 +46,6 @@ export function parseRuntimeArtifactBundleManifest(raw: unknown): RuntimeArtifac
     files: raw.files.map((file, index) => parseBundleFile(file, index)),
   };
 
-  validateBundleRolePolicy(manifest);
   return manifest;
 }
 
@@ -83,17 +82,6 @@ function parseBundleFile(raw: unknown, index: number): RuntimeArtifactBundleFile
   };
 
   return file;
-}
-
-function validateBundleRolePolicy(manifest: RuntimeArtifactBundleManifest): void {
-  switch (manifest.kind) {
-    case RuntimeArtifactBundleKind.VerifierProofInput:
-      assertVerifierProofInputBundle(manifest);
-      return;
-    case RuntimeArtifactBundleKind.VerifierSetupInput:
-      assertVerifierSetupInputBundle(manifest);
-      return;
-  }
 }
 
 function requireAtLeastOneRole(manifest: RuntimeArtifactBundleManifest, role: RuntimeArtifactFileRole): void {

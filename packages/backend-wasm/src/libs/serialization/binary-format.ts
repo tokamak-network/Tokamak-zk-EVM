@@ -115,7 +115,7 @@ export interface BinarySectionView {
 
 export interface BinaryArtifactFileView {
   readonly kind: BinaryArtifactFileKind;
-  readonly formatVersion: typeof BINARY_ARTIFACT_FORMAT_VERSION;
+  readonly formatVersion: number;
   readonly sourcePackageVersion: string;
   readonly byteLength: number;
   readonly digests: readonly BinaryDigestEntryView[];

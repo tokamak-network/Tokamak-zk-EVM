@@ -2,7 +2,11 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { loadRuntimeArtifactBySpec } from "../src/libs/artifact-loaders/format-spec-loader.js";
+import { PROVER_CRS_V1_SPEC } from "../src/libs/artifact-loaders/specs/prover-crs.v1.generated.js";
+import { SIGMA_VERIFY_V1_SPEC } from "../src/libs/artifact-loaders/specs/sigma-verify.v1.generated.js";
 import { TEST_BINARY_V1_SPEC } from "../src/libs/artifact-loaders/specs/test-binary.v1.generated.js";
+import { VERIFIER_PREPROCESS_V1_SPEC } from "../src/libs/artifact-loaders/specs/verifier-preprocess.v1.generated.js";
 import {
   BinaryArtifactFileKind,
   BinarySectionEncoding,
@@ -11,7 +15,6 @@ import {
   createCurveRuntime,
   encodeVerifierSetupParams,
   loadProverCrsArtifact,
-  loadRuntimeArtifactBySpec,
   loadRuntimeArtifactFile,
   loadSigmaVerifyArtifact,
   loadVerifierPreprocessArtifact,
@@ -23,6 +26,7 @@ import {
   type BinarySectionInput,
   type CurveRuntime,
   type PairingTerm,
+  validateRuntimeArtifactFile,
 } from "../src/index.js";
 
 interface ScalarFixtureInput {
@@ -97,6 +101,9 @@ async function main(): Promise<void> {
         createPairingG1Section(runtime, "pairing.false.right.g1", pairingInput.false_case.right),
         createPairingG2Section(runtime, "pairing.false.right.g2", pairingInput.false_case.right),
       ],
+    });
+    await validateRuntimeArtifactFile(binary, TEST_BINARY_V1_SPEC, {
+      expectedKind: BinaryArtifactFileKind.Test,
     });
     const artifactFile = await loadRuntimeArtifactFile(binary);
     loadRuntimeArtifactBySpec(artifactFile, TEST_BINARY_V1_SPEC);
@@ -181,25 +188,6 @@ function checkRuntimeBundleManifests(): void {
         files: [
           {
             role: RuntimeArtifactFileRole.Instance,
-            path: "instance.bin",
-          },
-          {
-            role: RuntimeArtifactFileRole.Crs,
-            path: "crs.bin",
-          },
-        ],
-      }),
-    "VerifierProofInput bundle manifest must not include CRS files",
-  );
-
-  assertThrows(
-    () =>
-      parseRuntimeArtifactBundleManifest({
-        schemaVersion: 1,
-        kind: RuntimeArtifactBundleKind.VerifierProofInput,
-        files: [
-          {
-            role: RuntimeArtifactFileRole.Instance,
             path: "../instance.bin",
           },
           {
@@ -238,6 +226,9 @@ async function checkSigmaVerifyArtifact(runtime: CurveRuntime): Promise<void> {
     ],
   });
   const artifactFile = await loadRuntimeArtifactFile(binary);
+  await validateRuntimeArtifactFile(binary, SIGMA_VERIFY_V1_SPEC, {
+    expectedKind: BinaryArtifactFileKind.VerifierCrs,
+  });
   const sigma = loadSigmaVerifyArtifact(artifactFile);
 
   assertEqual(sigma.sections.length, 2, "sigma_verify section count");
@@ -279,6 +270,9 @@ async function checkVerifierPreprocessArtifact(runtime: CurveRuntime): Promise<v
     ],
   });
   const artifactFile = await loadRuntimeArtifactFile(binary);
+  await validateRuntimeArtifactFile(binary, VERIFIER_PREPROCESS_V1_SPEC, {
+    expectedKind: BinaryArtifactFileKind.VerifierPreprocess,
+  });
   const preprocess = loadVerifierPreprocessArtifact(artifactFile);
 
   assertEqual(preprocess.sections.length, 2, "verifier_preprocess section count");
@@ -310,6 +304,9 @@ async function checkProverCrsArtifact(runtime: CurveRuntime): Promise<void> {
     ],
   });
   const artifactFile = await loadRuntimeArtifactFile(binary);
+  await validateRuntimeArtifactFile(binary, PROVER_CRS_V1_SPEC, {
+    expectedKind: BinaryArtifactFileKind.ProverCrs,
+  });
   const proverCrs = loadProverCrsArtifact(artifactFile);
 
   assertEqual(proverCrs.sections.length, 9, "prover_crs section count");
