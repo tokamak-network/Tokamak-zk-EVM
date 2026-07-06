@@ -1,14 +1,7 @@
 import {
-  BinaryArtifactFileKind,
-  BinarySectionEncoding,
-  BinarySectionType,
-  RuntimeArtifactBundleKind,
-  RuntimeArtifactFileRole,
   buildDomainContext,
   collectChallenges,
-  createBinaryArtifactFile,
   createCurveRuntime,
-  encodeVerifierSetupParams,
   evalLagrangeK0,
   lhsCopy,
   lhsCopyMsm,
@@ -16,63 +9,16 @@ import {
   parseRuntimeArtifactBundleManifest,
   decodeVerifierBinaryResult,
   verifyBinary,
-  type AffinePointJson,
-  type BinarySectionInput,
   type CurveRuntime,
   type FieldElement,
   type RuntimeArtifactBundleManifest,
-  type VerifierSetupParams,
 } from "../../src/index.js";
 import type { VerifierInput } from "../../src/verifier/verify-snark.js";
-
-interface FullProofFixtureInput {
-  readonly artifacts: {
-    readonly setupParams: VerifierSetupParams;
-    readonly instance: {
-      readonly a_pub_user: readonly string[];
-      readonly a_pub_block: readonly string[];
-    };
-    readonly preprocess: FormattedPreprocessJson;
-    readonly proof: FormattedProofJson;
-    readonly sigmaVerify: SigmaVerifyJson;
-  };
-}
 
 interface FullProofFixtureExpected {
   readonly verification: {
     readonly nativeVerifierResult: boolean;
   };
-}
-
-interface FormattedPreprocessJson {
-  readonly preprocess_entries_part1: readonly string[];
-  readonly preprocess_entries_part2: readonly string[];
-}
-
-interface FormattedProofJson {
-  readonly proof_entries_part1: readonly string[];
-  readonly proof_entries_part2: readonly string[];
-}
-
-interface SigmaVerifyJson {
-  readonly G: AffinePointJson;
-  readonly H: AffinePointJson;
-  readonly sigma_1: {
-    readonly x: AffinePointJson;
-    readonly y: AffinePointJson;
-  };
-  readonly sigma_2: {
-    readonly alpha: AffinePointJson;
-    readonly alpha2: AffinePointJson;
-    readonly alpha3: AffinePointJson;
-    readonly alpha4: AffinePointJson;
-    readonly gamma: AffinePointJson;
-    readonly delta: AffinePointJson;
-    readonly eta: AffinePointJson;
-    readonly x: AffinePointJson;
-    readonly y: AffinePointJson;
-  };
-  readonly lagrange_KL: AffinePointJson;
 }
 
 declare global {
@@ -94,8 +40,7 @@ interface BrowserG1Timings {
 interface BinaryVerifierFixture {
   readonly proofManifest: RuntimeArtifactBundleManifest;
   readonly setupManifest: RuntimeArtifactBundleManifest;
-  readonly resolveFile: (path: string) => Uint8Array;
-  readonly verifierInput: VerifierInput;
+  readonly resolveFile: (path: string) => Promise<Uint8Array>;
 }
 
 window.__tokamakVerifierResult = { status: "pending" };
@@ -108,15 +53,19 @@ main().catch((error: unknown) => {
 });
 
 async function main(): Promise<void> {
-  const [input, expected] = await Promise.all([
-    fetchJson<FullProofFixtureInput>("/fixtures/small/input/full-proof-small.json"),
+  const [binaryFixture, expected] = await Promise.all([
+    loadPreparedBinaryVerifierFixture(),
     fetchJson<FullProofFixtureExpected>("/fixtures/small/expected/full-proof-small.json"),
   ]);
   const runtime = await createCurveRuntime({ singleThread: true });
 
   try {
-    const binaryFixture = await buildBinaryVerifierFixture(runtime, input);
-    const verifierInput = binaryFixture.verifierInput;
+    const verifierInput = await loadVerifierInputFromRuntimeBundles(
+      runtime,
+      binaryFixture.proofManifest,
+      binaryFixture.setupManifest,
+      binaryFixture.resolveFile,
+    );
     const g1Timings =
       new URLSearchParams(window.location.search).get("benchG1") === "1"
         ? await checkAndBenchmarkG1CombinationCandidates(runtime, verifierInput)
@@ -204,242 +153,45 @@ function assertG1Equal(runtime: CurveRuntime, actual: Uint8Array, expected: Uint
 async function fetchJson<T>(path: string): Promise<T> {
   const response = await fetch(path);
   if (!response.ok) {
-    throw new Error(`Failed to fetch ${path}: ${response.status}.`);
+    throw new Error(describePreparedFixtureFetchFailure(path, response.status));
   }
 
   return (await response.json()) as T;
 }
 
-async function buildBinaryVerifierFixture(
-  runtime: CurveRuntime,
-  fixture: FullProofFixtureInput,
-): Promise<BinaryVerifierFixture> {
-  const setup = fixture.artifacts.setupParams;
-  const publicInstance = publicInstanceValues(fixture);
-  const files = new Map<string, Uint8Array>();
-  const instanceFile = await createBinaryArtifactFile({
-    kind: BinaryArtifactFileKind.VerifierInstance,
-    sourcePackageVersion: "0.0.0",
-    sections: [
-      {
-        type: BinarySectionType.Instance,
-        encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
-        label: "instance.public",
-        elementCount: publicInstance.length,
-        elementByteLength: 32,
-        data: concatBytes(publicInstance.map((value) => runtime.Fr.fromHex(value))),
-      },
-    ],
-  });
-  const proofFile = await createBinaryArtifactFile({
-    kind: BinaryArtifactFileKind.VerifierProof,
-    sourcePackageVersion: "0.0.0",
-    sections: [
-      {
-        type: BinarySectionType.Proof,
-        encoding: BinarySectionEncoding.FfjsG1Affine96,
-        label: "proof.g1",
-        elementCount: 19,
-        elementByteLength: 96,
-        data: concatBytes(
-          recoverG1Points(
-            runtime,
-            fixture.artifacts.proof.proof_entries_part1,
-            fixture.artifacts.proof.proof_entries_part2,
-            19,
-          ),
-        ),
-      },
-      {
-        type: BinarySectionType.Proof,
-        encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
-        label: "proof.evals",
-        elementCount: 4,
-        elementByteLength: 32,
-        data: concatBytes(fixture.artifacts.proof.proof_entries_part2.slice(38).map((value) => runtime.Fr.fromHex(value))),
-      },
-    ],
-  });
-  const crsFile = await createBinaryArtifactFile({
-    kind: BinaryArtifactFileKind.VerifierCrs,
-    sourcePackageVersion: "0.0.0",
-    sections: createSigmaVerifySections(runtime, fixture.artifacts.sigmaVerify),
-  });
-  const preprocessFile = await createBinaryArtifactFile({
-    kind: BinaryArtifactFileKind.VerifierPreprocess,
-    sourcePackageVersion: "0.0.0",
-    sections: [
-      {
-        type: BinarySectionType.SetupParams,
-        encoding: BinarySectionEncoding.Bytes,
-        label: "setup.params",
-        elementCount: 1,
-        elementByteLength: 36,
-        data: encodeVerifierSetupParams(setup),
-      },
-      {
-        type: BinarySectionType.Preprocess,
-        encoding: BinarySectionEncoding.FfjsG1Affine96,
-        label: "preprocess.g1",
-        elementCount: 3,
-        elementByteLength: 96,
-        data: concatBytes(
-          recoverG1Points(
-            runtime,
-            fixture.artifacts.preprocess.preprocess_entries_part1,
-            fixture.artifacts.preprocess.preprocess_entries_part2,
-            3,
-          ),
-        ),
-      },
-    ],
-  });
-
-  files.set("instance.bin", instanceFile);
-  files.set("proof.bin", proofFile);
-  files.set("crs.bin", crsFile);
-  files.set("preprocess.bin", preprocessFile);
-
-  const proofManifest = parseRuntimeArtifactBundleManifest({
-    schemaVersion: 1,
-    kind: RuntimeArtifactBundleKind.VerifierProofInput,
-    files: [
-      {
-        role: RuntimeArtifactFileRole.Instance,
-        path: "instance.bin",
-      },
-      {
-        role: RuntimeArtifactFileRole.Proof,
-        path: "proof.bin",
-      },
-    ],
-  });
-  const setupManifest = parseRuntimeArtifactBundleManifest({
-    schemaVersion: 1,
-    kind: RuntimeArtifactBundleKind.VerifierSetupInput,
-    files: [
-      {
-        role: RuntimeArtifactFileRole.Crs,
-        path: "crs.bin",
-      },
-      {
-        role: RuntimeArtifactFileRole.Preprocess,
-        path: "preprocess.bin",
-      },
-    ],
-  });
-
-  const resolveFile = (path: string): Uint8Array => {
-    const file = files.get(path);
-    if (file === undefined) {
-      throw new Error(`Missing browser verifier fixture file '${path}'.`);
-    }
-
-    return file;
-  };
+async function loadPreparedBinaryVerifierFixture(): Promise<BinaryVerifierFixture> {
+  const proofManifest = parseRuntimeArtifactBundleManifest(
+    await fetchJson("/fixtures/small/runtime/verifier-proof-input/manifest.json"),
+  );
+  const setupManifest = parseRuntimeArtifactBundleManifest(
+    await fetchJson("/fixtures/small/runtime/verifier-setup-input/manifest.json"),
+  );
+  const resolveFile = (artifactPath: string): Promise<Uint8Array> =>
+    fetchBinary(`/fixtures/small/runtime/${artifactPath}`);
 
   return {
     proofManifest,
     setupManifest,
     resolveFile,
-    verifierInput: await loadVerifierInputFromRuntimeBundles(runtime, proofManifest, setupManifest, resolveFile),
   };
 }
 
-function createSigmaVerifySections(runtime: CurveRuntime, value: SigmaVerifyJson): BinarySectionInput[] {
-  return [
-    {
-      type: BinarySectionType.CrsG1,
-      encoding: BinarySectionEncoding.FfjsG1Affine96,
-      label: "sigma.g1",
-      elementCount: 4,
-      elementByteLength: 96,
-      data: concatBytes([
-        runtime.G1.parseAffine(value.G),
-        runtime.G1.parseAffine(value.sigma_1.x),
-        runtime.G1.parseAffine(value.sigma_1.y),
-        runtime.G1.parseAffine(value.lagrange_KL),
-      ]),
-    },
-    {
-      type: BinarySectionType.CrsG2,
-      encoding: BinarySectionEncoding.FfjsG2Affine192,
-      label: "sigma.g2",
-      elementCount: 10,
-      elementByteLength: 192,
-      data: concatBytes([
-        runtime.G2.parseAffine(value.H),
-        runtime.G2.parseAffine(value.sigma_2.alpha),
-        runtime.G2.parseAffine(value.sigma_2.alpha2),
-        runtime.G2.parseAffine(value.sigma_2.alpha3),
-        runtime.G2.parseAffine(value.sigma_2.alpha4),
-        runtime.G2.parseAffine(value.sigma_2.gamma),
-        runtime.G2.parseAffine(value.sigma_2.delta),
-        runtime.G2.parseAffine(value.sigma_2.eta),
-        runtime.G2.parseAffine(value.sigma_2.x),
-        runtime.G2.parseAffine(value.sigma_2.y),
-      ]),
-    },
-  ];
-}
-
-function recoverG1Points(
-  runtime: CurveRuntime,
-  part1: readonly string[],
-  part2: readonly string[],
-  count: number,
-): ReturnType<CurveRuntime["G1"]["parseAffine"]>[] {
-  if (part1.length !== count * 2 || part2.length < count * 2) {
-    throw new Error("Formatted G1 point parts do not match the expected count.");
+async function fetchBinary(path: string): Promise<Uint8Array> {
+  const response = await fetch(path);
+  if (!response.ok) {
+    throw new Error(describePreparedFixtureFetchFailure(path, response.status));
   }
 
-  const points: ReturnType<CurveRuntime["G1"]["parseAffine"]>[] = [];
-  for (let index = 0; index < count * 2; index += 2) {
-    points.push(
-      runtime.G1.parseAffine({
-        x: joinG1Coordinate(part1[index], part2[index]),
-        y: joinG1Coordinate(part1[index + 1], part2[index + 1]),
-      }),
-    );
-  }
-
-  return points;
+  return new Uint8Array(await response.arrayBuffer());
 }
 
-function publicInstanceValues(fixture: FullProofFixtureInput): readonly string[] {
-  const setup = fixture.artifacts.setupParams;
-  const publicInstance = [
-    ...fixture.artifacts.instance.a_pub_user.slice(0, setup.l_user),
-    ...fixture.artifacts.instance.a_pub_block.slice(0, setup.l_free - setup.l_user),
-  ];
-
-  if (publicInstance.length !== setup.l_free) {
-    throw new Error("Full proof fixture public instance length does not match setupParams.l_free.");
+function describePreparedFixtureFetchFailure(path: string, status: number): string {
+  if (path.startsWith("/fixtures/small/runtime/")) {
+    return [
+      `Failed to fetch prepared verifier runtime fixture file ${path}: ${status}.`,
+      "Prepare it in the owning package and run npm run fixtures:copy.",
+    ].join(" ");
   }
 
-  return publicInstance;
-}
-
-function joinG1Coordinate(part1: string, part2: string): string {
-  return `0x${stripHex(part1).padStart(32, "0")}${stripHex(part2).padStart(64, "0")}`;
-}
-
-function stripHex(value: string): string {
-  if (!/^0x[0-9a-fA-F]*$/.test(value)) {
-    throw new Error("Expected a 0x-prefixed hexadecimal string.");
-  }
-
-  return value.slice(2);
-}
-
-function concatBytes(chunks: readonly Uint8Array[]): Uint8Array {
-  const output = new Uint8Array(chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0));
-  let offset = 0;
-
-  for (const chunk of chunks) {
-    output.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-
-  return output;
+  return `Failed to fetch ${path}: ${status}.`;
 }
