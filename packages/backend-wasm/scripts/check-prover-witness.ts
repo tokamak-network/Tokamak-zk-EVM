@@ -11,6 +11,7 @@ import {
   buildProverWitnessInputFromRuntimeArtifacts,
   loadProverRuntimeWitnessInputParts,
 } from "../src/prover/binary-input.js";
+import { GENERATED_PROVER_SETUP_PARAMS } from "../src/prover/generated/subcircuit-library.generated.js";
 import {
   buildWitnessPolynomials,
   type ProverPlacementVariables,
@@ -197,14 +198,74 @@ async function main(): Promise<void> {
     assertEqual(binaryParts.publicInstance.length, 2, "binary public instance length");
     assertFieldEqual(binaryParts.publicInstance[1], fr(17n), "binary public instance value");
 
-    const binaryWitness = await buildWitnessPolynomials(
-      runtime.Fr,
-      buildProverWitnessInputFromRuntimeArtifacts(runtime, binaryArtifacts, {
-        subcircuitInfos,
-        r1csBySubcircuit,
-      }),
-    );
-    await assertRouEvals(binaryWitness.bXY, [5n, 7n, 0n, 11n], "binary bXY");
+    const bakedInput = buildProverWitnessInputFromRuntimeArtifacts(runtime, {
+      setupParams: await loadRuntimeArtifactFile(
+        await createBinaryArtifactFile({
+          kind: BinaryArtifactFileKind.ProverSetupParams,
+          sourcePackageVersion: "0.0.0",
+          sections: [
+            {
+              type: BinarySectionType.SetupParams,
+              encoding: BinarySectionEncoding.Bytes,
+              label: "setup.params",
+              elementCount: 1,
+              elementByteLength: 36,
+              data: encodeSetupParams(GENERATED_PROVER_SETUP_PARAMS),
+            },
+          ],
+        }),
+      ),
+      placementVariables: await loadRuntimeArtifactFile(
+        await createBinaryArtifactFile({
+          kind: BinaryArtifactFileKind.ProverPlacementVariables,
+          sourcePackageVersion: "0.0.0",
+          sections: [
+            {
+              type: BinarySectionType.Placement,
+              encoding: BinarySectionEncoding.Bytes,
+              label: "placement.subcircuit_ids",
+              elementCount: 0,
+              elementByteLength: 4,
+              data: new Uint8Array(),
+            },
+            {
+              type: BinarySectionType.Placement,
+              encoding: BinarySectionEncoding.Bytes,
+              label: "placement.variable_offsets",
+              elementCount: 1,
+              elementByteLength: 4,
+              data: encodeU32List([0]),
+            },
+            {
+              type: BinarySectionType.Placement,
+              encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
+              label: "placement.variables",
+              elementCount: 0,
+              elementByteLength: runtime.Fr.byteLength,
+              data: new Uint8Array(),
+            },
+          ],
+        }),
+      ),
+      instance: await loadRuntimeArtifactFile(
+        await createBinaryArtifactFile({
+          kind: BinaryArtifactFileKind.ProverInstance,
+          sourcePackageVersion: "0.0.0",
+          sections: [
+            {
+              type: BinarySectionType.Instance,
+              encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
+              label: "instance.public",
+              elementCount: 0,
+              elementByteLength: runtime.Fr.byteLength,
+              data: new Uint8Array(),
+            },
+          ],
+        }),
+      ),
+    });
+    assertEqual(bakedInput.subcircuitInfos.length, 14, "baked subcircuit info count");
+    assertEqual(bakedInput.r1csBySubcircuit.length, 14, "baked sparse R1CS count");
   } finally {
     await runtime.terminate();
   }

@@ -3,11 +3,16 @@ import type { RuntimeArtifactFile } from "../libs/artifact-loaders/types.js";
 import type { CurveRuntime } from "../libs/runtime/curve.js";
 import type { FieldElement } from "../libs/runtime/field.js";
 import { BinarySectionEncoding, BinarySectionType } from "../libs/serialization/binary-format.js";
+import {
+  GENERATED_PROVER_SETUP_PARAMS,
+  GENERATED_PROVER_SPARSE_R1CS,
+  GENERATED_PROVER_SUBCIRCUIT_INFOS,
+  NATIVE_BACKEND_VERSION,
+  SUBCIRCUIT_LIBRARY_PACKAGE_VERSION,
+} from "./generated/subcircuit-library.generated.js";
 import type {
   ProverPlacementVariables,
   ProverSetupParams,
-  ProverSparseSubcircuitR1cs,
-  ProverSubcircuitInfo,
   ProverWitnessInput,
 } from "./witness.js";
 
@@ -23,10 +28,7 @@ export interface ProverRuntimeWitnessInputParts {
   readonly publicInstance: readonly FieldElement[];
 }
 
-export interface ProverWitnessPreparedData {
-  readonly subcircuitInfos: readonly ProverSubcircuitInfo[];
-  readonly r1csBySubcircuit: readonly ProverSparseSubcircuitR1cs[];
-}
+export { NATIVE_BACKEND_VERSION, SUBCIRCUIT_LIBRARY_PACKAGE_VERSION };
 
 export function loadProverRuntimeWitnessInputParts(
   runtime: CurveRuntime,
@@ -44,15 +46,15 @@ export function loadProverRuntimeWitnessInputParts(
 export function buildProverWitnessInputFromRuntimeArtifacts(
   runtime: CurveRuntime,
   artifacts: ProverRuntimeArtifactFiles,
-  preparedData: ProverWitnessPreparedData,
 ): ProverWitnessInput {
   const parts = loadProverRuntimeWitnessInputParts(runtime, artifacts);
+  assertSetupMatchesGeneratedSubcircuitLibrary(parts.setup);
 
   return {
     setup: parts.setup,
     placementVariables: parts.placementVariables,
-    subcircuitInfos: preparedData.subcircuitInfos,
-    r1csBySubcircuit: preparedData.r1csBySubcircuit,
+    subcircuitInfos: GENERATED_PROVER_SUBCIRCUIT_INFOS,
+    r1csBySubcircuit: GENERATED_PROVER_SPARSE_R1CS,
   };
 }
 
@@ -164,4 +166,26 @@ function splitFieldElements(runtime: CurveRuntime, data: Uint8Array, label: stri
   }
 
   return output;
+}
+
+function assertSetupMatchesGeneratedSubcircuitLibrary(setup: ProverSetupParams): void {
+  const fields: readonly (keyof ProverSetupParams)[] = [
+    "l_free",
+    "l_user_out",
+    "l_user",
+    "l",
+    "l_D",
+    "m_D",
+    "n",
+    "s_D",
+    "s_max",
+  ];
+
+  for (const field of fields) {
+    if (setup[field] !== GENERATED_PROVER_SETUP_PARAMS[field]) {
+      throw new Error(
+        `Prover setup params do not match the baked subcircuit library: ${field}=${setup[field]}, expected ${GENERATED_PROVER_SETUP_PARAMS[field]}.`,
+      );
+    }
+  }
 }

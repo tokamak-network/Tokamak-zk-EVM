@@ -21,9 +21,9 @@
     "fixtures"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json --pretty false",
-    "typecheck": "tsc -p tsconfig.json --pretty false --noEmit",
-    "typecheck:scripts": "tsc --pretty false --noEmit --module NodeNext --moduleResolution NodeNext --target ES2022 --lib ES2022,DOM --types node scripts/check-binary-artifacts.ts scripts/check-fixtures.ts scripts/check-polynomial-fixtures.ts scripts/check-prover-witness.ts scripts/check-runtime-fixtures.ts scripts/check-verifier-browser.ts scripts/check-verifier-fixture.ts scripts/convert-artifacts.ts scripts/copy-fixtures.ts scripts/generate-format-specs.ts test/browser/verifier-entry.ts",
+    "build": "npm run subcircuit-library:generate && tsc -p tsconfig.json --pretty false",
+    "typecheck": "npm run subcircuit-library:check && tsc -p tsconfig.json --pretty false --noEmit",
+    "typecheck:scripts": "tsc --pretty false --noEmit --module NodeNext --moduleResolution NodeNext --target ES2022 --lib ES2022,DOM --types node scripts/check-binary-artifacts.ts scripts/check-fixtures.ts scripts/check-polynomial-fixtures.ts scripts/check-prover-witness.ts scripts/check-runtime-fixtures.ts scripts/check-verifier-browser.ts scripts/check-verifier-fixture.ts scripts/convert-artifacts.ts scripts/copy-fixtures.ts scripts/generate-format-specs.ts scripts/generate-subcircuit-library.ts test/browser/verifier-entry.ts",
     "binary:check": "tsx scripts/check-binary-artifacts.ts",
     "bench:msm": "tsx src/tests/msm/bench-msm.ts",
     "fixtures:copy": "tsx scripts/copy-fixtures.ts fixtures/small/copy-manifest.json",
@@ -33,13 +33,15 @@
     "runtime:check": "tsx scripts/check-runtime-fixtures.ts",
     "specs:check": "tsx scripts/generate-format-specs.ts --check",
     "specs:generate": "tsx scripts/generate-format-specs.ts",
+    "subcircuit-library:check": "tsx scripts/generate-subcircuit-library.ts --check",
+    "subcircuit-library:generate": "tsx scripts/generate-subcircuit-library.ts",
     "verifier:browser:check": "tsx scripts/check-verifier-browser.ts",
     "verifier:check": "tsx scripts/check-verifier-fixture.ts",
     "clean": "rm -rf dist"
   },
   "dependencies": {
     "@noble/hashes": "^1.8.0",
-    "@tokamak-zk-evm/subcircuit-library": "latest",
+    "@tokamak-zk-evm/subcircuit-library": "2.1.0",
     "ffjavascript": "^0.3.1"
   },
   "devDependencies": {
