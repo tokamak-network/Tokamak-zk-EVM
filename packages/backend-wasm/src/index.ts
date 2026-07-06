@@ -1,4 +1,3 @@
-export * from "./libs/artifact-loaders/format-spec-loader.js";
 export * from "./libs/artifact-loaders/loaders.js";
 export * from "./libs/artifact-loaders/prepared-data.js";
 export * from "./libs/artifact-loaders/sigma-verify.js";
@@ -16,5 +15,6 @@ export * from "./libs/serialization/artifact-bundle.js";
 export * from "./libs/serialization/binary-artifact-file.js";
 export * from "./libs/serialization/binary-format.js";
 export * from "./tools/artifact-converters/converters.js";
+export * from "./tools/artifact-validators/validators.js";
 export * from "./verifier/index.js";
 export * from "./prover/index.js";

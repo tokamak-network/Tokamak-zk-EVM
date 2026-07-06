@@ -25,7 +25,7 @@ export function loadRuntimeArtifactBySpec(
   artifactFile: RuntimeArtifactFile,
   spec: RuntimeArtifactFormatSpec,
 ): LoadedRuntimeArtifactSpec {
-  const sections = spec.sections.map((sectionSpec) => loadRuntimeArtifactSection(artifactFile, spec.name, sectionSpec));
+  const sections = spec.sections.map((sectionSpec) => loadRuntimeArtifactSection(artifactFile, sectionSpec));
   const pointsByName: Record<string, Uint8Array> = {};
 
   for (const section of sections) {
@@ -47,7 +47,6 @@ export function loadRuntimeArtifactBySpec(
 
 function loadRuntimeArtifactSection(
   artifactFile: RuntimeArtifactFile,
-  specName: string,
   spec: RuntimeArtifactSectionSpec,
 ): LoadedRuntimeArtifactSection {
   const section = requireRuntimeSection(artifactFile, {
@@ -56,26 +55,10 @@ function loadRuntimeArtifactSection(
     label: spec.label,
   });
 
-  if (spec.elementCount !== null && section.elementCount !== spec.elementCount) {
-    throw new Error(
-      `${specName} section '${spec.label}' element count mismatch: expected ${spec.elementCount}, got ${section.elementCount}.`,
-    );
-  }
-
-  if (spec.elementByteLength !== null && section.elementByteLength !== spec.elementByteLength) {
-    throw new Error(
-      `${specName} section '${spec.label}' element byte length mismatch: expected ${spec.elementByteLength}, got ${section.elementByteLength}.`,
-    );
-  }
-
   const seenIndexes = new Set<number>();
   const points = spec.points.map((point): LoadedRuntimeArtifactPoint => {
-    if (point.index >= section.elementCount) {
-      throw new Error(`${specName} point '${point.name}' index is outside section '${spec.label}'.`);
-    }
-
     if (seenIndexes.has(point.index)) {
-      throw new Error(`Duplicate ${specName} point index ${point.index} in section '${spec.label}'.`);
+      throw new Error(`Duplicate point index ${point.index} in generated section spec '${spec.label}'.`);
     }
 
     seenIndexes.add(point.index);
