@@ -3,17 +3,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  BinaryArtifactFileKind,
-  BinarySectionEncoding,
-  BinarySectionType,
   DensePolynomialExt,
-  RuntimeArtifactBundleKind,
-  RuntimeArtifactFileRole,
   buildDomainContext,
   collectChallenges,
-  createBinaryArtifactFile,
   createCurveRuntime,
-  encodeVerifierSetupParams,
   evalLagrangeK0,
   lhsCopy,
   lhsCopyMsm,
@@ -22,11 +15,10 @@ import {
   decodeVerifierBinaryResult,
   verifyBinary,
   type AffinePointJson,
-  type BinarySectionInput,
   type CurveRuntime,
   type FieldElement,
-  type VerifierSetupParams,
   type RuntimeArtifactBundleManifest,
+  type VerifierSetupParams,
 } from "../src/index.js";
 import {
   verifySnark,
@@ -88,7 +80,7 @@ interface SigmaVerifyJson {
 interface BinaryVerifierFixture {
   readonly proofManifest: RuntimeArtifactBundleManifest;
   readonly setupManifest: RuntimeArtifactBundleManifest;
-  readonly resolveFile: (path: string) => Uint8Array;
+  readonly resolveFile: (path: string) => Uint8Array | Promise<Uint8Array>;
   readonly verifierInput: VerifierInput;
 }
 
@@ -109,7 +101,7 @@ async function main(): Promise<void> {
       randomScalar: () => runtime.Fr.one,
     });
 
-    const binaryFixture = await buildBinaryVerifierFixture(runtime, input);
+    const binaryFixture = await loadPreparedBinaryVerifierFixture(runtime, fixturesDir);
     const binaryResult = await verifyBinary(
       runtime,
       binaryFixture.proofManifest,
@@ -300,126 +292,19 @@ function assertG1Equal(runtime: CurveRuntime, actual: Uint8Array, expected: Uint
   }
 }
 
-async function buildBinaryVerifierFixture(
+async function loadPreparedBinaryVerifierFixture(
   runtime: CurveRuntime,
-  fixture: FullProofFixtureInput,
+  fixturesDir: string,
 ): Promise<BinaryVerifierFixture> {
-  const setup = fixture.artifacts.setupParams;
-  const publicInstance = publicInstanceValues(fixture);
-  const files = new Map<string, Uint8Array>();
-  const instanceFile = await createBinaryArtifactFile({
-    kind: BinaryArtifactFileKind.VerifierInstance,
-    sourcePackageVersion: "0.0.0",
-    sections: [
-      {
-        type: BinarySectionType.Instance,
-        encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
-        label: "instance.public",
-        elementCount: publicInstance.length,
-        elementByteLength: 32,
-        data: concatBytes(publicInstance.map((value) => runtime.Fr.fromHex(value))),
-      },
-    ],
-  });
-  const proofFile = await createBinaryArtifactFile({
-    kind: BinaryArtifactFileKind.VerifierProof,
-    sourcePackageVersion: "0.0.0",
-    sections: [
-      {
-        type: BinarySectionType.Proof,
-        encoding: BinarySectionEncoding.FfjsG1Affine96,
-        label: "proof.g1",
-        elementCount: 19,
-        elementByteLength: 96,
-        data: concatBytes(recoverG1Points(runtime, fixture.artifacts.proof.proof_entries_part1, fixture.artifacts.proof.proof_entries_part2, 19)),
-      },
-      {
-        type: BinarySectionType.Proof,
-        encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
-        label: "proof.evals",
-        elementCount: 4,
-        elementByteLength: 32,
-        data: concatBytes(fixture.artifacts.proof.proof_entries_part2.slice(38).map((value) => runtime.Fr.fromHex(value))),
-      },
-    ],
-  });
-  const crsFile = await createBinaryArtifactFile({
-    kind: BinaryArtifactFileKind.VerifierCrs,
-    sourcePackageVersion: "0.0.0",
-    sections: createSigmaVerifySections(runtime, fixture.artifacts.sigmaVerify),
-  });
-  const preprocessFile = await createBinaryArtifactFile({
-    kind: BinaryArtifactFileKind.VerifierPreprocess,
-    sourcePackageVersion: "0.0.0",
-    sections: [
-      {
-        type: BinarySectionType.SetupParams,
-        encoding: BinarySectionEncoding.Bytes,
-        label: "setup.params",
-        elementCount: 1,
-        elementByteLength: 36,
-        data: encodeVerifierSetupParams(setup),
-      },
-      {
-        type: BinarySectionType.Preprocess,
-        encoding: BinarySectionEncoding.FfjsG1Affine96,
-        label: "preprocess.g1",
-        elementCount: 3,
-        elementByteLength: 96,
-        data: concatBytes(
-          recoverG1Points(
-            runtime,
-            fixture.artifacts.preprocess.preprocess_entries_part1,
-            fixture.artifacts.preprocess.preprocess_entries_part2,
-            3,
-          ),
-        ),
-      },
-    ],
-  });
-
-  files.set("instance.bin", instanceFile);
-  files.set("proof.bin", proofFile);
-  files.set("crs.bin", crsFile);
-  files.set("preprocess.bin", preprocessFile);
-
-  const proofManifest = parseRuntimeArtifactBundleManifest({
-    schemaVersion: 1,
-    kind: RuntimeArtifactBundleKind.VerifierProofInput,
-    files: [
-      {
-        role: RuntimeArtifactFileRole.Instance,
-        path: "instance.bin",
-      },
-      {
-        role: RuntimeArtifactFileRole.Proof,
-        path: "proof.bin",
-      },
-    ],
-  });
-  const setupManifest = parseRuntimeArtifactBundleManifest({
-    schemaVersion: 1,
-    kind: RuntimeArtifactBundleKind.VerifierSetupInput,
-    files: [
-      {
-        role: RuntimeArtifactFileRole.Crs,
-        path: "crs.bin",
-      },
-      {
-        role: RuntimeArtifactFileRole.Preprocess,
-        path: "preprocess.bin",
-      },
-    ],
-  });
-
-  const resolveFile = (path: string): Uint8Array => {
-    const file = files.get(path);
-    if (file === undefined) {
-      throw new Error(`Missing binary verifier fixture file '${path}'.`);
-    }
-
-    return file;
-  };
+  const runtimeDir = path.join(fixturesDir, "runtime");
+  const proofManifest = parseRuntimeArtifactBundleManifest(
+    await readPreparedRuntimeJson(runtimeDir, "verifier-proof-input/manifest.json"),
+  );
+  const setupManifest = parseRuntimeArtifactBundleManifest(
+    await readPreparedRuntimeJson(runtimeDir, "verifier-setup-input/manifest.json"),
+  );
+  const resolveFile = (artifactPath: string): Promise<Uint8Array> =>
+    readPreparedRuntimeFile(runtimeDir, artifactPath);
 
   return {
     proofManifest,
@@ -427,6 +312,43 @@ async function buildBinaryVerifierFixture(
     resolveFile,
     verifierInput: await loadVerifierInputFromRuntimeBundles(runtime, proofManifest, setupManifest, resolveFile),
   };
+}
+
+async function readPreparedRuntimeJson<T>(runtimeDir: string, artifactPath: string): Promise<T> {
+  const bytes = await readPreparedRuntimeFile(runtimeDir, artifactPath);
+
+  return JSON.parse(new TextDecoder().decode(bytes)) as T;
+}
+
+async function readPreparedRuntimeFile(runtimeDir: string, artifactPath: string): Promise<Uint8Array> {
+  const filePath = resolvePreparedRuntimePath(runtimeDir, artifactPath);
+
+  try {
+    return await readFile(filePath);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      [
+        `Required prepared verifier runtime fixture file is missing: ${path.relative(process.cwd(), filePath)}.`,
+        "Prepare it in the owning package and run npm run fixtures:copy.",
+        `Original read error: ${message}`,
+      ].join(" "),
+    );
+  }
+}
+
+function resolvePreparedRuntimePath(runtimeDir: string, artifactPath: string): string {
+  if (path.isAbsolute(artifactPath) || artifactPath.includes("\\") || artifactPath.split("/").includes("..")) {
+    throw new Error(`Prepared runtime artifact path must be a safe relative POSIX path: ${artifactPath}`);
+  }
+
+  const filePath = path.resolve(runtimeDir, artifactPath);
+  const relative = path.relative(runtimeDir, filePath);
+  if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error(`Prepared runtime artifact path escapes fixtures/small/runtime: ${artifactPath}`);
+  }
+
+  return filePath;
 }
 
 function parseSigma(runtime: CurveRuntime, value: SigmaVerifyJson): VerifierInput["sigma"] {
@@ -450,43 +372,6 @@ function parseSigma(runtime: CurveRuntime, value: SigmaVerifyJson): VerifierInpu
     },
     lagrangeKL: runtime.G1.parseAffine(value.lagrange_KL),
   };
-}
-
-function createSigmaVerifySections(runtime: CurveRuntime, value: SigmaVerifyJson): BinarySectionInput[] {
-  return [
-    {
-      type: BinarySectionType.CrsG1,
-      encoding: BinarySectionEncoding.FfjsG1Affine96,
-      label: "sigma.g1",
-      elementCount: 4,
-      elementByteLength: 96,
-      data: concatBytes([
-        runtime.G1.parseAffine(value.G),
-        runtime.G1.parseAffine(value.sigma_1.x),
-        runtime.G1.parseAffine(value.sigma_1.y),
-        runtime.G1.parseAffine(value.lagrange_KL),
-      ]),
-    },
-    {
-      type: BinarySectionType.CrsG2,
-      encoding: BinarySectionEncoding.FfjsG2Affine192,
-      label: "sigma.g2",
-      elementCount: 10,
-      elementByteLength: 192,
-      data: concatBytes([
-        runtime.G2.parseAffine(value.H),
-        runtime.G2.parseAffine(value.sigma_2.alpha),
-        runtime.G2.parseAffine(value.sigma_2.alpha2),
-        runtime.G2.parseAffine(value.sigma_2.alpha3),
-        runtime.G2.parseAffine(value.sigma_2.alpha4),
-        runtime.G2.parseAffine(value.sigma_2.gamma),
-        runtime.G2.parseAffine(value.sigma_2.delta),
-        runtime.G2.parseAffine(value.sigma_2.eta),
-        runtime.G2.parseAffine(value.sigma_2.x),
-        runtime.G2.parseAffine(value.sigma_2.y),
-      ]),
-    },
-  ];
 }
 
 function parsePreprocess(runtime: CurveRuntime, value: FormattedPreprocessJson): VerifierPreprocess {
@@ -622,18 +507,6 @@ function stripHex(value: string): string {
   }
 
   return value.slice(2);
-}
-
-function concatBytes(chunks: readonly Uint8Array[]): Uint8Array {
-  const output = new Uint8Array(chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0));
-  let offset = 0;
-
-  for (const chunk of chunks) {
-    output.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-
-  return output;
 }
 
 async function readJson<T>(filePath: string): Promise<T> {

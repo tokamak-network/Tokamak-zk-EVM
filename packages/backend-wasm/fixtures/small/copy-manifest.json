@@ -82,6 +82,30 @@
     {
       "source": "packages/backend/fixtures/backend-wasm/small/expected/full-proof-small.json",
       "destination": "expected/full-proof-small.json"
+    },
+    {
+      "source": "packages/backend/fixtures/backend-wasm/small/runtime/verifier-proof-input/manifest.json",
+      "destination": "runtime/verifier-proof-input/manifest.json"
+    },
+    {
+      "source": "packages/backend/fixtures/backend-wasm/small/runtime/verifier-proof-input/instance.bin",
+      "destination": "runtime/verifier-proof-input/instance.bin"
+    },
+    {
+      "source": "packages/backend/fixtures/backend-wasm/small/runtime/verifier-proof-input/proof.bin",
+      "destination": "runtime/verifier-proof-input/proof.bin"
+    },
+    {
+      "source": "packages/backend/fixtures/backend-wasm/small/runtime/verifier-setup-input/manifest.json",
+      "destination": "runtime/verifier-setup-input/manifest.json"
+    },
+    {
+      "source": "packages/backend/fixtures/backend-wasm/small/runtime/verifier-setup-input/crs.bin",
+      "destination": "runtime/verifier-setup-input/crs.bin"
+    },
+    {
+      "source": "packages/backend/fixtures/backend-wasm/small/runtime/verifier-setup-input/preprocess.bin",
+      "destination": "runtime/verifier-setup-input/preprocess.bin"
     }
   ]
 }
