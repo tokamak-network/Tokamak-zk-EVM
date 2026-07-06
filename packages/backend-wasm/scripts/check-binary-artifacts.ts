@@ -27,6 +27,7 @@ import {
   type CurveRuntime,
   type PairingTerm,
   validateRuntimeArtifactFile,
+  validateRuntimeBundle,
 } from "../src/index.js";
 
 interface ScalarFixtureInput {
@@ -141,7 +142,7 @@ async function main(): Promise<void> {
       "binary pairing false case",
     );
 
-    checkRuntimeBundleManifests();
+    await checkRuntimeBundleManifests();
   } finally {
     await runtime.terminate();
   }
@@ -149,7 +150,7 @@ async function main(): Promise<void> {
   console.log("Checked runtime-ready binary artifact file round-trip");
 }
 
-function checkRuntimeBundleManifests(): void {
+async function checkRuntimeBundleManifests(): Promise<void> {
   parseRuntimeArtifactBundleManifest({
     schemaVersion: 1,
     kind: RuntimeArtifactBundleKind.VerifierProofInput,
@@ -180,24 +181,43 @@ function checkRuntimeBundleManifests(): void {
     ],
   });
 
-  assertThrows(
+  const unsafeManifest = parseRuntimeArtifactBundleManifest({
+    schemaVersion: 1,
+    kind: RuntimeArtifactBundleKind.VerifierProofInput,
+    files: [
+      {
+        role: RuntimeArtifactFileRole.Instance,
+        path: "../instance.bin",
+      },
+      {
+        role: RuntimeArtifactFileRole.Proof,
+        path: "proof.bin",
+      },
+    ],
+  });
+
+  await assertRejects(
     () =>
-      parseRuntimeArtifactBundleManifest({
-        schemaVersion: 1,
-        kind: RuntimeArtifactBundleKind.VerifierProofInput,
-        files: [
+      validateRuntimeBundle(unsafeManifest, missingRuntimeArtifactResolver, RuntimeArtifactBundleKind.VerifierProofInput, {
+        expectedFiles: [
           {
             role: RuntimeArtifactFileRole.Instance,
-            path: "../instance.bin",
+            kind: BinaryArtifactFileKind.VerifierInstance,
+            spec: TEST_BINARY_V1_SPEC,
           },
           {
             role: RuntimeArtifactFileRole.Proof,
-            path: "proof.bin",
+            kind: BinaryArtifactFileKind.VerifierProof,
+            spec: TEST_BINARY_V1_SPEC,
           },
         ],
       }),
     "Runtime artifact bundle file path must reject parent-directory traversal",
   );
+}
+
+function missingRuntimeArtifactResolver(path: string): Uint8Array {
+  throw new Error(`Unexpected runtime artifact resolver call for ${path}.`);
 }
 
 async function checkSigmaVerifyArtifact(runtime: CurveRuntime): Promise<void> {
@@ -459,14 +479,14 @@ function assertEqual(actual: unknown, expected: unknown, label: string): void {
   }
 }
 
-function assertThrows(callback: () => void, label: string): void {
+async function assertRejects(callback: () => Promise<unknown>, label: string): Promise<void> {
   try {
-    callback();
+    await callback();
   } catch {
     return;
   }
 
-  throw new Error(`${label} did not throw.`);
+  throw new Error(`${label} did not reject.`);
 }
 
 const entrypoint = fileURLToPath(import.meta.url);

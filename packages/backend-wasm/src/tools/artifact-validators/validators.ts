@@ -74,6 +74,10 @@ export async function validateRuntimeBundle(
     throw new Error(`Runtime artifact bundle kind mismatch: expected ${expectedBundleKind}, got ${manifest.kind}.`);
   }
 
+  for (const file of manifest.files) {
+    validateBundleFilePath(file);
+  }
+
   for (const expected of options.expectedFiles) {
     const file = requireSingleRoleFile(manifest, expected.role);
     await validateRuntimeArtifactFile(await resolveFile(file.path), expected.spec, {
@@ -132,6 +136,14 @@ export interface RuntimeArtifactBundleExpectedFile {
   readonly role: RuntimeArtifactFileRole;
   readonly kind: BinaryArtifactFileKind;
   readonly spec: RuntimeArtifactFormatSpec;
+}
+
+function validateBundleFilePath(file: RuntimeArtifactBundleFile): void {
+  if (file.path.startsWith("/") || file.path.includes("\\") || file.path.split("/").includes("..")) {
+    throw new Error(
+      `${file.role} runtime artifact bundle file path must be a safe relative POSIX path: ${file.path}`,
+    );
+  }
 }
 
 function validateBinaryHeaderAndTables(bytes: Uint8Array): void {
