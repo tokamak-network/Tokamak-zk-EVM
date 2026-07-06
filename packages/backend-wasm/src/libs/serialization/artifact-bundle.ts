@@ -3,13 +3,17 @@ export const RUNTIME_ARTIFACT_BUNDLE_SCHEMA_VERSION = 1;
 export enum RuntimeArtifactBundleKind {
   VerifierProofInput = "VerifierProofInput",
   VerifierSetupInput = "VerifierSetupInput",
+  ProverProofWitnessInput = "ProverProofWitnessInput",
+  ProverCrsPreparedData = "ProverCrsPreparedData",
 }
 
 export enum RuntimeArtifactFileRole {
   Instance = "instance",
   Proof = "proof",
+  PlacementVariables = "placement_variables",
   Crs = "crs",
   Preprocess = "preprocess",
+  SetupParams = "setup_params",
 }
 
 export interface RuntimeArtifactBundleManifest {
@@ -71,6 +75,14 @@ function parseBundleKind(value: unknown): RuntimeArtifactBundleKind {
     return RuntimeArtifactBundleKind.VerifierSetupInput;
   }
 
+  if (value === RuntimeArtifactBundleKind.ProverProofWitnessInput) {
+    return RuntimeArtifactBundleKind.ProverProofWitnessInput;
+  }
+
+  if (value === RuntimeArtifactBundleKind.ProverCrsPreparedData) {
+    return RuntimeArtifactBundleKind.ProverCrsPreparedData;
+  }
+
   throw new Error(`Unsupported runtime artifact bundle kind: ${String(value)}.`);
 }
 
@@ -78,8 +90,10 @@ function parseFileRole(value: unknown, index: number): RuntimeArtifactFileRole {
   if (
     value === RuntimeArtifactFileRole.Instance ||
     value === RuntimeArtifactFileRole.Proof ||
+    value === RuntimeArtifactFileRole.PlacementVariables ||
     value === RuntimeArtifactFileRole.Crs ||
-    value === RuntimeArtifactFileRole.Preprocess
+    value === RuntimeArtifactFileRole.Preprocess ||
+    value === RuntimeArtifactFileRole.SetupParams
   ) {
     return value;
   }

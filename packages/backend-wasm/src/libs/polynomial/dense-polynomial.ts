@@ -26,6 +26,11 @@ export interface VanishingDivisionResult {
   readonly remainder: DensePolynomialExt;
 }
 
+export interface VanishingQuotientResult {
+  readonly quotientX: DensePolynomialExt;
+  readonly quotientY: DensePolynomialExt;
+}
+
 export class DensePolynomialExt {
   readonly xSize: number;
   readonly ySize: number;
@@ -361,6 +366,85 @@ export class DensePolynomialExt {
       quotientX: xDivision.quotient,
       quotientY: yDivision.quotient,
       remainder: yDivision.remainder,
+    };
+  }
+
+  divByVanishingOpt(xDegree: number, yDegree: number): VanishingQuotientResult {
+    if (!isPowerOfTwo(xDegree) || !isPowerOfTwo(yDegree)) {
+      throw new Error("Vanishing polynomial degrees must be powers of two.");
+    }
+
+    const optimized = this.optimizeSize();
+    const { xDegree: numeratorXDegree, yDegree: numeratorYDegree } = optimized.findDegree();
+    if (numeratorXDegree < xDegree || numeratorYDegree < yDegree) {
+      throw new Error("The numerator degrees must be at least the vanishing polynomial degrees.");
+    }
+
+    const xSize = optimized.xSize;
+    const ySize = optimized.ySize;
+    const xBlockCount = xSize / xDegree;
+    const yBlockCount = ySize / yDegree;
+    if (!Number.isInteger(xBlockCount) || !Number.isInteger(yBlockCount)) {
+      throw new Error("Optimized numerator shape must be divisible by the vanishing degrees.");
+    }
+
+    const pCoefficients: FieldElement[] = optimized.coefficients.map((coefficient) => coefficient.slice());
+    const accumulatedBlock: FieldElement[] = Array.from({ length: xDegree * ySize }, () => this.field.zero);
+
+    for (let blockX = 0; blockX < xBlockCount; blockX += 1) {
+      const xOffset = blockX * xDegree;
+      for (let localX = 0; localX < xDegree; localX += 1) {
+        const sourceStart = (xOffset + localX) * ySize;
+        const targetStart = localX * ySize;
+        for (let y = 0; y < ySize; y += 1) {
+          accumulatedBlock[targetStart + y] = this.field.add(
+            accumulatedBlock[targetStart + y],
+            pCoefficients[sourceStart + y],
+          );
+        }
+      }
+    }
+
+    const quotientYCoefficients: FieldElement[] = Array.from({ length: xDegree * ySize }, () => this.field.zero);
+    if (ySize > yDegree) {
+      for (let x = 0; x < xDegree; x += 1) {
+        const rowStart = x * ySize;
+        for (let y = 0; y < ySize - yDegree; y += 1) {
+          const previous = y >= yDegree ? quotientYCoefficients[rowStart + y - yDegree] : this.field.zero;
+          quotientYCoefficients[rowStart + y] = this.field.sub(previous, accumulatedBlock[rowStart + y]);
+        }
+      }
+    }
+
+    const bCoefficients: FieldElement[] = pCoefficients.map((coefficient) => coefficient.slice());
+    if (ySize > yDegree) {
+      for (let x = 0; x < xDegree; x += 1) {
+        const rowStart = x * ySize;
+        for (let y = 0; y < ySize - yDegree; y += 1) {
+          const coefficient = quotientYCoefficients[rowStart + y];
+          bCoefficients[rowStart + y] = this.field.add(bCoefficients[rowStart + y], coefficient);
+          bCoefficients[rowStart + y + yDegree] = this.field.sub(
+            bCoefficients[rowStart + y + yDegree],
+            coefficient,
+          );
+        }
+      }
+    }
+
+    const quotientXCoefficients: FieldElement[] = Array.from({ length: xSize * ySize }, () => this.field.zero);
+    if (xSize > xDegree) {
+      for (let x = 0; x < xSize - xDegree; x += 1) {
+        const rowStart = x * ySize;
+        for (let y = 0; y < ySize; y += 1) {
+          const previous = x >= xDegree ? quotientXCoefficients[(x - xDegree) * ySize + y] : this.field.zero;
+          quotientXCoefficients[rowStart + y] = this.field.sub(previous, bCoefficients[rowStart + y]);
+        }
+      }
+    }
+
+    return {
+      quotientX: DensePolynomialExt.fromCoeffs(this.field, quotientXCoefficients, xSize, ySize),
+      quotientY: DensePolynomialExt.fromCoeffs(this.field, quotientYCoefficients, xDegree, ySize),
     };
   }
 }

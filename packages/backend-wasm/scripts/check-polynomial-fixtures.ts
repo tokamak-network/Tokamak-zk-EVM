@@ -75,6 +75,7 @@ async function main(): Promise<void> {
     await checkNtt2d(fixturesDir, runtime.Fr);
     await checkCosetNtt(fixturesDir, runtime.Fr);
     await checkPolynomialEval(fixturesDir, runtime.Fr);
+    await checkVanishingDivisionOpt(runtime.Fr);
   } finally {
     await runtime.terminate();
   }
@@ -114,6 +115,35 @@ async function checkNtt1d(
     );
     assertEqual(recovered.toHexCoeffs(), expectedCase.inverse_recovered_coefficients, `NTT 1D inverse ${testCase.id}`);
   }
+}
+
+async function checkVanishingDivisionOpt(
+  field: Awaited<ReturnType<typeof createCurveRuntime>>["Fr"],
+): Promise<void> {
+  const vanishingXDegree = 2;
+  const vanishingYDegree = 2;
+  const qX = DensePolynomialExt.fromCoeffs(
+    field,
+    [field.fromBigInt(3n), field.fromBigInt(5n), field.fromBigInt(7n), field.fromBigInt(11n)],
+    2,
+    2,
+  );
+  const qY = DensePolynomialExt.fromCoeffs(field, [field.fromBigInt(13n), field.fromBigInt(17n)], 1, 2);
+  const p = qX.mul(vanishingPolynomialX(field, vanishingXDegree)).add(
+    qY.mul(vanishingPolynomialY(field, vanishingYDegree)),
+  );
+  const { quotientX, quotientY } = p.divByVanishingOpt(vanishingXDegree, vanishingYDegree);
+  const reconstructed = quotientX.mul(vanishingPolynomialX(field, vanishingXDegree)).add(
+    quotientY.mul(vanishingPolynomialY(field, vanishingYDegree)),
+  );
+  const xSize = Math.max(reconstructed.xSize, p.xSize);
+  const ySize = Math.max(reconstructed.ySize, p.ySize);
+
+  assertEqual(
+    reconstructed.resize(xSize, ySize).toHexCoeffs(),
+    p.resize(xSize, ySize).toHexCoeffs(),
+    "optimized vanishing division reconstruction",
+  );
 }
 
 async function checkNtt2d(
@@ -204,6 +234,36 @@ function assertEqual(actual: unknown, expected: unknown, label: string): void {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     throw new Error(`${label} mismatch: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
   }
+}
+
+function vanishingPolynomialX(
+  field: Awaited<ReturnType<typeof createCurveRuntime>>["Fr"],
+  degree: number,
+): DensePolynomialExt {
+  const size = nextPowerOfTwo(degree + 1);
+  const coefficients = Array.from({ length: size }, () => field.zero);
+  coefficients[0] = field.neg(field.one);
+  coefficients[degree] = field.one;
+  return DensePolynomialExt.fromCoeffs(field, coefficients, size, 1);
+}
+
+function vanishingPolynomialY(
+  field: Awaited<ReturnType<typeof createCurveRuntime>>["Fr"],
+  degree: number,
+): DensePolynomialExt {
+  const size = nextPowerOfTwo(degree + 1);
+  const coefficients = Array.from({ length: size }, () => field.zero);
+  coefficients[0] = field.neg(field.one);
+  coefficients[degree] = field.one;
+  return DensePolynomialExt.fromCoeffs(field, coefficients, 1, size);
+}
+
+function nextPowerOfTwo(value: number): number {
+  let size = 1;
+  while (size < value) {
+    size *= 2;
+  }
+  return size;
 }
 
 const entrypoint = fileURLToPath(import.meta.url);
