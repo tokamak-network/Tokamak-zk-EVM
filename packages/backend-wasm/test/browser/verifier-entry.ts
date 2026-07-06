@@ -14,14 +14,16 @@ import {
   lhsCopyMsm,
   loadVerifierInputFromRuntimeBundles,
   parseRuntimeArtifactBundleManifest,
-  verifySnark,
+  decodeVerifierBinaryResult,
+  verifyBinary,
   type AffinePointJson,
   type BinarySectionInput,
   type CurveRuntime,
   type FieldElement,
-  type VerifierInput,
+  type RuntimeArtifactBundleManifest,
   type VerifierSetupParams,
 } from "../../src/index.js";
+import type { VerifierInput } from "../../src/verifier/verify-snark.js";
 
 interface FullProofFixtureInput {
   readonly artifacts: {
@@ -89,6 +91,13 @@ interface BrowserG1Timings {
   readonly lhsCopyMsmMs: number;
 }
 
+interface BinaryVerifierFixture {
+  readonly proofManifest: RuntimeArtifactBundleManifest;
+  readonly setupManifest: RuntimeArtifactBundleManifest;
+  readonly resolveFile: (path: string) => Uint8Array;
+  readonly verifierInput: VerifierInput;
+}
+
 window.__tokamakVerifierResult = { status: "pending" };
 
 main().catch((error: unknown) => {
@@ -106,24 +115,32 @@ async function main(): Promise<void> {
   const runtime = await createCurveRuntime({ singleThread: true });
 
   try {
-    const verifierInput = await buildBinaryVerifierInput(runtime, input);
+    const binaryFixture = await buildBinaryVerifierFixture(runtime, input);
+    const verifierInput = binaryFixture.verifierInput;
     const g1Timings =
       new URLSearchParams(window.location.search).get("benchG1") === "1"
         ? await checkAndBenchmarkG1CombinationCandidates(runtime, verifierInput)
         : undefined;
-    const result = await verifySnark(runtime, verifierInput, {
-      randomScalar: () => runtime.Fr.one,
-    });
+    const result = await verifyBinary(
+      runtime,
+      binaryFixture.proofManifest,
+      binaryFixture.setupManifest,
+      binaryFixture.resolveFile,
+      {
+        randomScalar: () => runtime.Fr.one,
+      },
+    );
+    const valid = decodeVerifierBinaryResult(result);
 
-    if (result.valid !== expected.verification.nativeVerifierResult) {
+    if (valid !== expected.verification.nativeVerifierResult) {
       throw new Error(
-        `Browser verifier result mismatch: expected ${expected.verification.nativeVerifierResult}, got ${result.valid}.`,
+        `Browser verifier result mismatch: expected ${expected.verification.nativeVerifierResult}, got ${valid}.`,
       );
     }
 
     window.__tokamakVerifierResult = {
       status: "ok",
-      valid: result.valid,
+      valid,
       g1Timings,
     };
   } finally {
@@ -193,7 +210,10 @@ async function fetchJson<T>(path: string): Promise<T> {
   return (await response.json()) as T;
 }
 
-async function buildBinaryVerifierInput(runtime: CurveRuntime, fixture: FullProofFixtureInput) {
+async function buildBinaryVerifierFixture(
+  runtime: CurveRuntime,
+  fixture: FullProofFixtureInput,
+): Promise<BinaryVerifierFixture> {
   const setup = fixture.artifacts.setupParams;
   const publicInstance = publicInstanceValues(fixture);
   const files = new Map<string, Uint8Array>();
@@ -309,14 +329,21 @@ async function buildBinaryVerifierInput(runtime: CurveRuntime, fixture: FullProo
     ],
   });
 
-  return loadVerifierInputFromRuntimeBundles(runtime, proofManifest, setupManifest, (path) => {
+  const resolveFile = (path: string): Uint8Array => {
     const file = files.get(path);
     if (file === undefined) {
       throw new Error(`Missing browser verifier fixture file '${path}'.`);
     }
 
     return file;
-  });
+  };
+
+  return {
+    proofManifest,
+    setupManifest,
+    resolveFile,
+    verifierInput: await loadVerifierInputFromRuntimeBundles(runtime, proofManifest, setupManifest, resolveFile),
+  };
 }
 
 function createSigmaVerifySections(runtime: CurveRuntime, value: SigmaVerifyJson): BinarySectionInput[] {

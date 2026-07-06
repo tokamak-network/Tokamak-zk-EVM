@@ -95,6 +95,14 @@ export interface VerifySnarkOptions {
   readonly randomScalar?: RandomScalarSource;
 }
 
+/**
+ * Core verifier over already-decoded runtime input.
+ *
+ * Public runtime callers should use `verifyBinary`, which preserves the binary
+ * runtime boundary and returns a non-file binary status payload.
+ *
+ * @internal
+ */
 export async function verifySnark(
   runtime: CurveRuntime,
   input: VerifierInput,

@@ -19,16 +19,21 @@ import {
   lhsCopyMsm,
   loadVerifierInputFromRuntimeBundles,
   parseRuntimeArtifactBundleManifest,
-  verifySnark,
+  decodeVerifierBinaryResult,
+  verifyBinary,
   type AffinePointJson,
   type BinarySectionInput,
   type CurveRuntime,
   type FieldElement,
+  type VerifierSetupParams,
+  type RuntimeArtifactBundleManifest,
+} from "../src/index.js";
+import {
+  verifySnark,
   type VerifierInput,
   type VerifierPreprocess,
   type VerifierProof,
-  type VerifierSetupParams,
-} from "../src/index.js";
+} from "../src/verifier/verify-snark.js";
 
 interface FullProofFixtureInput {
   readonly artifacts: {
@@ -80,6 +85,13 @@ interface SigmaVerifyJson {
   readonly lagrange_KL: AffinePointJson;
 }
 
+interface BinaryVerifierFixture {
+  readonly proofManifest: RuntimeArtifactBundleManifest;
+  readonly setupManifest: RuntimeArtifactBundleManifest;
+  readonly resolveFile: (path: string) => Uint8Array;
+  readonly verifierInput: VerifierInput;
+}
+
 async function main(): Promise<void> {
   const fixturesDir = path.resolve("fixtures/small");
   const input = await readJson<FullProofFixtureInput>(path.join(fixturesDir, "input/full-proof-small.json"));
@@ -97,8 +109,18 @@ async function main(): Promise<void> {
       randomScalar: () => runtime.Fr.one,
     });
 
-    const binaryVerifierInput = await buildBinaryVerifierInput(runtime, input);
-    const binaryResult = await verifySnark(runtime, binaryVerifierInput, {
+    const binaryFixture = await buildBinaryVerifierFixture(runtime, input);
+    const binaryResult = await verifyBinary(
+      runtime,
+      binaryFixture.proofManifest,
+      binaryFixture.setupManifest,
+      binaryFixture.resolveFile,
+      {
+        randomScalar: () => runtime.Fr.one,
+      },
+    );
+    const binaryValid = decodeVerifierBinaryResult(binaryResult);
+    const binaryCoreResult = await verifySnark(runtime, binaryFixture.verifierInput, {
       randomScalar: () => runtime.Fr.one,
     });
     const flippedProofInput = await buildVerifierInput(runtime, fixtureWithFlippedProofScalar(input));
@@ -112,9 +134,15 @@ async function main(): Promise<void> {
       );
     }
 
-    if (binaryResult.valid !== expected.verification.nativeVerifierResult) {
+    if (binaryValid !== expected.verification.nativeVerifierResult) {
       throw new Error(
-        `Binary verifier result mismatch: expected ${expected.verification.nativeVerifierResult}, got ${binaryResult.valid}`,
+        `Binary verifier result mismatch: expected ${expected.verification.nativeVerifierResult}, got ${binaryValid}`,
+      );
+    }
+
+    if (binaryCoreResult.valid !== expected.verification.nativeVerifierResult) {
+      throw new Error(
+        `Binary verifier core result mismatch: expected ${expected.verification.nativeVerifierResult}, got ${binaryCoreResult.valid}`,
       );
     }
 
@@ -272,10 +300,10 @@ function assertG1Equal(runtime: CurveRuntime, actual: Uint8Array, expected: Uint
   }
 }
 
-async function buildBinaryVerifierInput(
+async function buildBinaryVerifierFixture(
   runtime: CurveRuntime,
   fixture: FullProofFixtureInput,
-): Promise<VerifierInput> {
+): Promise<BinaryVerifierFixture> {
   const setup = fixture.artifacts.setupParams;
   const publicInstance = publicInstanceValues(fixture);
   const files = new Map<string, Uint8Array>();
@@ -384,14 +412,21 @@ async function buildBinaryVerifierInput(
     ],
   });
 
-  return loadVerifierInputFromRuntimeBundles(runtime, proofManifest, setupManifest, (path) => {
+  const resolveFile = (path: string): Uint8Array => {
     const file = files.get(path);
     if (file === undefined) {
       throw new Error(`Missing binary verifier fixture file '${path}'.`);
     }
 
     return file;
-  });
+  };
+
+  return {
+    proofManifest,
+    setupManifest,
+    resolveFile,
+    verifierInput: await loadVerifierInputFromRuntimeBundles(runtime, proofManifest, setupManifest, resolveFile),
+  };
 }
 
 function parseSigma(runtime: CurveRuntime, value: SigmaVerifyJson): VerifierInput["sigma"] {
