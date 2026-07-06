@@ -5,12 +5,19 @@ import {
   createBinaryArtifactFile,
   createCurveRuntime,
   loadRuntimeArtifactFile,
+  RuntimeArtifactBundleKind,
+  RuntimeArtifactFileRole,
+  type BinarySectionInput,
   type FieldElement,
+  DensePolynomialExt,
 } from "../src/index.js";
 import {
   buildProverWitnessInputFromRuntimeArtifacts,
+  loadProverInputFromRuntimeBundles,
   loadProverRuntimeWitnessInputParts,
 } from "../src/prover/binary-input.js";
+import { buildProverBinding, encodePolynomialWithSigma1, prove0 } from "../src/prover/prove0.js";
+import { buildProverInstancePolynomials, createProverMixer, createProverState } from "../src/prover/state.js";
 import { GENERATED_PROVER_SETUP_PARAMS } from "../src/prover/generated/subcircuit-library.generated.js";
 import {
   buildWitnessPolynomials,
@@ -124,6 +131,44 @@ async function main(): Promise<void> {
     assertEqual(witness.rXY.xSize, 1, "rXY xSize");
     assertEqual(witness.rXY.ySize, 1, "rXY ySize");
     assertFieldEqual(witness.rXY.getCoeff(0, 0), runtime.Fr.zero, "rXY zero");
+
+    const instancePolynomials = await buildProverInstancePolynomials(runtime.Fr, setup, [fr(13n), fr(17n)]);
+    await assertRouEvals(instancePolynomials.aFreeX, [13n, 17n], "aFreeX");
+    assertFieldEqual(instancePolynomials.tN.getCoeff(0, 0), runtime.Fr.neg(runtime.Fr.one), "tN constant");
+    assertFieldEqual(instancePolynomials.tN.getCoeff(setup.n, 0), runtime.Fr.one, "tN lead");
+    assertFieldEqual(instancePolynomials.tSMax.getCoeff(0, setup.s_max), runtime.Fr.one, "tSMax lead");
+    const mixer = await createProverMixer(runtime);
+    assertEqual(mixer.rW_X.length, 4, "mixer rW_X length");
+    assertEqual(mixer.rW_Y.length, 4, "mixer rW_Y length");
+    assertEqual(mixer.rB_X.length, 2, "mixer rB_X length");
+    assertEqual(mixer.rB_Y.length, 2, "mixer rB_Y length");
+    const prove0Setup: ProverSetupParams = {
+      l_free: 2,
+      l: 2,
+      l_user_out: 0,
+      l_user: 1,
+      l_D: 6,
+      m_D: 10,
+      n: 4,
+      s_D: 2,
+      s_max: 4,
+    };
+    const prove0Witness = {
+      bXY: DensePolynomialExt.zero(runtime.Fr),
+      uXY: monomialPolynomial(4, 4, fr(1n), 8, 8),
+      vXY: DensePolynomialExt.fromCoeffs(runtime.Fr, [fr(1n)], 1, 1),
+      wXY: DensePolynomialExt.zero(runtime.Fr),
+      rXY: DensePolynomialExt.zero(runtime.Fr),
+    };
+    const smallProverState = await createProverState({
+      runtime,
+      setup: prove0Setup,
+      publicInstance: [fr(13n), fr(17n)],
+      witness: prove0Witness,
+    });
+    const smallProve0 = await prove0(runtime, createSyntheticProverCrs(prove0Setup, 64), smallProverState);
+    assertEqual(smallProve0.proof0.U.byteLength, 144, "prove0 U byte length");
+    assertEqual(smallProve0.proof0.B.byteLength, 144, "prove0 B byte length");
 
     const binaryArtifacts = {
       setupParams: await loadRuntimeArtifactFile(
@@ -266,6 +311,152 @@ async function main(): Promise<void> {
     });
     assertEqual(bakedInput.subcircuitInfos.length, 14, "baked subcircuit info count");
     assertEqual(bakedInput.r1csBySubcircuit.length, 14, "baked sparse R1CS count");
+
+    const setupParamsBytes = await createBinaryArtifactFile({
+      kind: BinaryArtifactFileKind.ProverSetupParams,
+      sourcePackageVersion: "0.0.0",
+      sections: [
+        {
+          type: BinarySectionType.SetupParams,
+          encoding: BinarySectionEncoding.Bytes,
+          label: "setup.params",
+          elementCount: 1,
+          elementByteLength: 36,
+          data: encodeSetupParams(GENERATED_PROVER_SETUP_PARAMS),
+        },
+      ],
+    });
+    const placementVariablesBytes = await createBinaryArtifactFile({
+      kind: BinaryArtifactFileKind.ProverPlacementVariables,
+      sourcePackageVersion: "0.0.0",
+      sections: [
+        {
+          type: BinarySectionType.Placement,
+          encoding: BinarySectionEncoding.Bytes,
+          label: "placement.subcircuit_ids",
+          elementCount: 0,
+          elementByteLength: 4,
+          data: new Uint8Array(),
+        },
+        {
+          type: BinarySectionType.Placement,
+          encoding: BinarySectionEncoding.Bytes,
+          label: "placement.variable_offsets",
+          elementCount: 1,
+          elementByteLength: 4,
+          data: encodeU32List([0]),
+        },
+        {
+          type: BinarySectionType.Placement,
+          encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
+          label: "placement.variables",
+          elementCount: 0,
+          elementByteLength: runtime.Fr.byteLength,
+          data: new Uint8Array(),
+        },
+      ],
+    });
+    const instanceBytes = await createBinaryArtifactFile({
+      kind: BinaryArtifactFileKind.ProverInstance,
+      sourcePackageVersion: "0.0.0",
+      sections: [
+        {
+          type: BinarySectionType.Instance,
+          encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
+          label: "instance.public",
+          elementCount: 0,
+          elementByteLength: runtime.Fr.byteLength,
+          data: new Uint8Array(),
+        },
+      ],
+    });
+    const crsBytes = await createBinaryArtifactFile({
+      kind: BinaryArtifactFileKind.ProverCrs,
+      sourcePackageVersion: "0.0.0",
+      sections: [
+        createRepeatedG1Section("sigma.g1", 6),
+        createRepeatedG1Section("sigma1.xy-powers", 2),
+        createRepeatedG1Section("sigma1.gamma-inv-o-inst", 1),
+        createRepeatedG1Section("sigma1.eta-inv-li-o-inter-alpha4-kj", 1),
+        createRepeatedG1Section("sigma1.delta-inv-li-o-prv", 1),
+        createRepeatedG1Section("sigma1.delta-inv-alphak-xh-tx", 9),
+        createRepeatedG1Section("sigma1.delta-inv-alpha4-xj-tx", 2),
+        createRepeatedG1Section("sigma1.delta-inv-alphak-yi-ty", 12),
+        {
+          type: BinarySectionType.CrsG2,
+          encoding: BinarySectionEncoding.FfjsG2Affine192,
+          label: "sigma.g2",
+          elementCount: 10,
+          elementByteLength: 192,
+          data: concatBytes(Array.from({ length: 10 }, () => runtime.G2.generator)),
+        },
+      ],
+    });
+    const files = new Map([
+      ["placement.bin", placementVariablesBytes],
+      ["instance.bin", instanceBytes],
+      ["setup.bin", setupParamsBytes],
+      ["crs.bin", crsBytes],
+    ]);
+    const proverInput = await loadProverInputFromRuntimeBundles(
+      runtime,
+      {
+        schemaVersion: 1,
+        kind: RuntimeArtifactBundleKind.ProverProofWitnessInput,
+        files: [
+          { role: RuntimeArtifactFileRole.PlacementVariables, path: "placement.bin" },
+          { role: RuntimeArtifactFileRole.Instance, path: "instance.bin" },
+        ],
+      },
+      {
+        schemaVersion: 1,
+        kind: RuntimeArtifactBundleKind.ProverCrsPreparedData,
+        files: [
+          { role: RuntimeArtifactFileRole.SetupParams, path: "setup.bin" },
+          { role: RuntimeArtifactFileRole.Crs, path: "crs.bin" },
+        ],
+      },
+      (filePath) => {
+        const file = files.get(filePath);
+        if (file === undefined) {
+          throw new Error(`Missing test runtime artifact file ${filePath}.`);
+        }
+        return file;
+      },
+    );
+    assertEqual(proverInput.witness.subcircuitInfos.length, 14, "bundle prover subcircuit info count");
+    assertEqual(proverInput.crs.sigma1.xyPowers.length, 2, "bundle prover CRS xy powers length");
+    assertEqual(proverInput.crs.sigma2.y.byteLength, 192, "bundle prover CRS sigma2.y byte length");
+
+    const encodedPolynomial = await encodePolynomialWithSigma1(
+      runtime,
+      proverInput.crs,
+      GENERATED_PROVER_SETUP_PARAMS,
+      DensePolynomialExt.fromCoeffs(runtime.Fr, [fr(3n), fr(5n)], 1, 2),
+    );
+    const expectedEncoding = runtime.G1.mulAffineScalar(runtime.G1.generator, fr(8n));
+    if (!runtime.G1.eq(encodedPolynomial, expectedEncoding)) {
+      throw new Error("prove0 sigma1 polynomial encoding mismatch.");
+    }
+    const generatedInstancePolynomials = await buildProverInstancePolynomials(
+      runtime.Fr,
+      GENERATED_PROVER_SETUP_PARAMS,
+      Array.from({ length: GENERATED_PROVER_SETUP_PARAMS.l_free }, () => runtime.Fr.zero),
+    );
+    const generatedMixer = await createProverMixer(runtime);
+    const binding = await buildProverBinding(
+      runtime,
+      proverInput.crs,
+      GENERATED_PROVER_SETUP_PARAMS,
+      [],
+      proverInput.witness.subcircuitInfos,
+      generatedInstancePolynomials,
+      generatedMixer,
+    );
+    assertEqual(binding.A_free.byteLength, 96, "binding A_free byte length");
+    assertEqual(binding.O_pub_free.byteLength, 96, "binding O_pub_free byte length");
+    assertEqual(binding.O_mid.byteLength, 144, "binding O_mid projective byte length");
+    assertEqual(binding.O_prv.byteLength, 144, "binding O_prv projective byte length");
   } finally {
     await runtime.terminate();
   }
@@ -292,6 +483,61 @@ async function main(): Promise<void> {
     if (!runtime.Fr.eq(actual, expected)) {
       throw new Error(`${label} mismatch: expected ${runtime.Fr.toHex(expected)}, got ${runtime.Fr.toHex(actual)}`);
     }
+  }
+
+  function createRepeatedG1Section(label: string, elementCount: number): BinarySectionInput {
+    return {
+      type: BinarySectionType.CrsG1,
+      encoding: BinarySectionEncoding.FfjsG1Affine96,
+      label,
+      elementCount,
+      elementByteLength: 96,
+      data: concatBytes(Array.from({ length: elementCount }, () => runtime.G1.generator)),
+    };
+  }
+
+  function createSyntheticProverCrs(setup: ProverSetupParams, xyPowersLength: number) {
+    return {
+      G: runtime.G1.generator,
+      H: runtime.G2.generator,
+      lagrangeKL: runtime.G1.generator,
+      sigma1: {
+        x: runtime.G1.generator,
+        y: runtime.G1.generator,
+        delta: runtime.G1.generator,
+        eta: runtime.G1.generator,
+        xyPowers: Array.from({ length: xyPowersLength }, () => runtime.G1.generator),
+        gammaInvOInst: Array.from({ length: setup.l }, () => runtime.G1.generator),
+        etaInvLiOInterAlpha4Kj: Array.from({ length: (setup.l_D - setup.l) * setup.s_max }, () => runtime.G1.generator),
+        deltaInvLiOPrv: Array.from({ length: (setup.m_D - setup.l_D) * setup.s_max }, () => runtime.G1.generator),
+        deltaInvAlphakXhTx: Array.from({ length: 9 }, () => runtime.G1.generator),
+        deltaInvAlpha4XjTx: Array.from({ length: 2 }, () => runtime.G1.generator),
+        deltaInvAlphakYiTy: Array.from({ length: 12 }, () => runtime.G1.generator),
+      },
+      sigma2: {
+        alpha: runtime.G2.generator,
+        alpha2: runtime.G2.generator,
+        alpha3: runtime.G2.generator,
+        alpha4: runtime.G2.generator,
+        gamma: runtime.G2.generator,
+        delta: runtime.G2.generator,
+        eta: runtime.G2.generator,
+        x: runtime.G2.generator,
+        y: runtime.G2.generator,
+      },
+    };
+  }
+
+  function monomialPolynomial(
+    xIndex: number,
+    yIndex: number,
+    coefficient: FieldElement,
+    xSize: number,
+    ySize: number,
+  ): DensePolynomialExt {
+    const coefficients = Array.from({ length: xSize * ySize }, () => runtime.Fr.zero);
+    coefficients[xIndex * ySize + yIndex] = coefficient;
+    return DensePolynomialExt.fromCoeffs(runtime.Fr, coefficients, xSize, ySize);
   }
 }
 

@@ -1,7 +1,13 @@
-import { requireRuntimeSection } from "../libs/artifact-loaders/loaders.js";
+import { loadRuntimeArtifactFile, requireRuntimeSection } from "../libs/artifact-loaders/loaders.js";
+import { loadProverCrsArtifact } from "../libs/artifact-loaders/prepared-data.js";
 import type { RuntimeArtifactFile } from "../libs/artifact-loaders/types.js";
 import type { CurveRuntime } from "../libs/runtime/curve.js";
 import type { FieldElement } from "../libs/runtime/field.js";
+import {
+  RuntimeArtifactFileRole,
+  type RuntimeArtifactBundleFile,
+  type RuntimeArtifactBundleManifest,
+} from "../libs/serialization/artifact-bundle.js";
 import { BinarySectionEncoding, BinarySectionType } from "../libs/serialization/binary-format.js";
 import {
   GENERATED_PROVER_SETUP_PARAMS,
@@ -20,7 +26,21 @@ export interface ProverRuntimeArtifactFiles {
   readonly setupParams: RuntimeArtifactFile;
   readonly placementVariables: RuntimeArtifactFile;
   readonly instance: RuntimeArtifactFile;
+  readonly crs: RuntimeArtifactFile;
 }
+
+export interface ProverProofWitnessRuntimeArtifactFiles {
+  readonly placementVariables: RuntimeArtifactFile;
+  readonly instance: RuntimeArtifactFile;
+}
+
+export interface ProverCrsPreparedDataRuntimeArtifactFiles {
+  readonly setupParams: RuntimeArtifactFile;
+  readonly crs: RuntimeArtifactFile;
+}
+
+export type ProverWitnessRuntimeArtifactFiles = ProverProofWitnessRuntimeArtifactFiles &
+  Pick<ProverCrsPreparedDataRuntimeArtifactFiles, "setupParams">;
 
 export interface ProverRuntimeWitnessInputParts {
   readonly setup: ProverSetupParams;
@@ -28,11 +48,104 @@ export interface ProverRuntimeWitnessInputParts {
   readonly publicInstance: readonly FieldElement[];
 }
 
+export interface ProverCrsRuntime {
+  readonly G: Uint8Array;
+  readonly H: Uint8Array;
+  readonly lagrangeKL: Uint8Array;
+  readonly sigma1: ProverSigma1Runtime;
+  readonly sigma2: ProverSigma2Runtime;
+}
+
+export interface ProverSigma1Runtime {
+  readonly x: Uint8Array;
+  readonly y: Uint8Array;
+  readonly delta: Uint8Array;
+  readonly eta: Uint8Array;
+  readonly xyPowers: readonly Uint8Array[];
+  readonly gammaInvOInst: readonly Uint8Array[];
+  readonly etaInvLiOInterAlpha4Kj: readonly Uint8Array[];
+  readonly deltaInvLiOPrv: readonly Uint8Array[];
+  readonly deltaInvAlphakXhTx: readonly Uint8Array[];
+  readonly deltaInvAlpha4XjTx: readonly Uint8Array[];
+  readonly deltaInvAlphakYiTy: readonly Uint8Array[];
+}
+
+export interface ProverSigma2Runtime {
+  readonly alpha: Uint8Array;
+  readonly alpha2: Uint8Array;
+  readonly alpha3: Uint8Array;
+  readonly alpha4: Uint8Array;
+  readonly gamma: Uint8Array;
+  readonly delta: Uint8Array;
+  readonly eta: Uint8Array;
+  readonly x: Uint8Array;
+  readonly y: Uint8Array;
+}
+
+export interface ProverRuntimeInput {
+  readonly witness: ProverWitnessInput;
+  readonly publicInstance: readonly FieldElement[];
+  readonly crs: ProverCrsRuntime;
+}
+
+export type ProverRuntimeArtifactFileResolver = (path: string) => Uint8Array | Promise<Uint8Array>;
+
 export { NATIVE_BACKEND_VERSION, SUBCIRCUIT_LIBRARY_PACKAGE_VERSION };
+
+export async function loadProverInputFromRuntimeBundles(
+  runtime: CurveRuntime,
+  proofWitnessInput: RuntimeArtifactBundleManifest,
+  crsPreparedDataInput: RuntimeArtifactBundleManifest,
+  resolveFile: ProverRuntimeArtifactFileResolver,
+): Promise<ProverRuntimeInput> {
+  const artifacts: ProverRuntimeArtifactFiles = {
+    placementVariables: await loadBundleArtifactFile(
+      proofWitnessInput,
+      RuntimeArtifactFileRole.PlacementVariables,
+      resolveFile,
+    ),
+    instance: await loadBundleArtifactFile(
+      proofWitnessInput,
+      RuntimeArtifactFileRole.Instance,
+      resolveFile,
+    ),
+    setupParams: await loadBundleArtifactFile(
+      crsPreparedDataInput,
+      RuntimeArtifactFileRole.SetupParams,
+      resolveFile,
+    ),
+    crs: await loadBundleArtifactFile(
+      crsPreparedDataInput,
+      RuntimeArtifactFileRole.Crs,
+      resolveFile,
+    ),
+  };
+
+  return buildProverInputFromRuntimeArtifacts(runtime, artifacts);
+}
+
+export function buildProverInputFromRuntimeArtifacts(
+  runtime: CurveRuntime,
+  artifacts: ProverRuntimeArtifactFiles,
+): ProverRuntimeInput {
+  const parts = loadProverRuntimeWitnessInputParts(runtime, artifacts);
+  assertSetupMatchesGeneratedSubcircuitLibrary(parts.setup);
+
+  return {
+    witness: {
+      setup: parts.setup,
+      placementVariables: parts.placementVariables,
+      subcircuitInfos: GENERATED_PROVER_SUBCIRCUIT_INFOS,
+      r1csBySubcircuit: GENERATED_PROVER_SPARSE_R1CS,
+    },
+    publicInstance: parts.publicInstance,
+    crs: parseProverCrs(artifacts.crs),
+  };
+}
 
 export function loadProverRuntimeWitnessInputParts(
   runtime: CurveRuntime,
-  artifacts: ProverRuntimeArtifactFiles,
+  artifacts: ProverWitnessRuntimeArtifactFiles,
 ): ProverRuntimeWitnessInputParts {
   const setup = parseProverSetupParams(artifacts.setupParams);
 
@@ -45,7 +158,7 @@ export function loadProverRuntimeWitnessInputParts(
 
 export function buildProverWitnessInputFromRuntimeArtifacts(
   runtime: CurveRuntime,
-  artifacts: ProverRuntimeArtifactFiles,
+  artifacts: ProverWitnessRuntimeArtifactFiles,
 ): ProverWitnessInput {
   const parts = loadProverRuntimeWitnessInputParts(runtime, artifacts);
   assertSetupMatchesGeneratedSubcircuitLibrary(parts.setup);
@@ -56,6 +169,27 @@ export function buildProverWitnessInputFromRuntimeArtifacts(
     subcircuitInfos: GENERATED_PROVER_SUBCIRCUIT_INFOS,
     r1csBySubcircuit: GENERATED_PROVER_SPARSE_R1CS,
   };
+}
+
+async function loadBundleArtifactFile(
+  manifest: RuntimeArtifactBundleManifest,
+  role: RuntimeArtifactFileRole,
+  resolveFile: ProverRuntimeArtifactFileResolver,
+): Promise<RuntimeArtifactFile> {
+  const file = requireSingleRoleFile(manifest, role);
+  return loadRuntimeArtifactFile(await resolveFile(file.path));
+}
+
+function requireSingleRoleFile(
+  manifest: RuntimeArtifactBundleManifest,
+  role: RuntimeArtifactFileRole,
+): RuntimeArtifactBundleFile {
+  const matches = manifest.files.filter((file) => file.role === role);
+  if (matches.length !== 1) {
+    throw new Error(`${manifest.kind} bundle must contain exactly one '${role}' artifact file.`);
+  }
+
+  return matches[0];
 }
 
 export function parseProverSetupParams(setupParamsFile: RuntimeArtifactFile): ProverSetupParams {
@@ -141,6 +275,40 @@ export function parseProverPublicInstance(
   return splitFieldElements(runtime, section.data, "instance.public");
 }
 
+export function parseProverCrs(crsFile: RuntimeArtifactFile): ProverCrsRuntime {
+  const fixedPoints = loadProverCrsArtifact(crsFile).pointsByName;
+
+  return {
+    G: requireEntry(fixedPoints, "G"),
+    H: requireEntry(fixedPoints, "H"),
+    lagrangeKL: requireEntry(fixedPoints, "lagrangeKL"),
+    sigma1: {
+      x: requireEntry(fixedPoints, "sigma1.x"),
+      y: requireEntry(fixedPoints, "sigma1.y"),
+      delta: requireEntry(fixedPoints, "sigma1.delta"),
+      eta: requireEntry(fixedPoints, "sigma1.eta"),
+      xyPowers: splitG1Section(crsFile, "sigma1.xy-powers"),
+      gammaInvOInst: splitG1Section(crsFile, "sigma1.gamma-inv-o-inst"),
+      etaInvLiOInterAlpha4Kj: splitG1Section(crsFile, "sigma1.eta-inv-li-o-inter-alpha4-kj"),
+      deltaInvLiOPrv: splitG1Section(crsFile, "sigma1.delta-inv-li-o-prv"),
+      deltaInvAlphakXhTx: splitG1Section(crsFile, "sigma1.delta-inv-alphak-xh-tx"),
+      deltaInvAlpha4XjTx: splitG1Section(crsFile, "sigma1.delta-inv-alpha4-xj-tx"),
+      deltaInvAlphakYiTy: splitG1Section(crsFile, "sigma1.delta-inv-alphak-yi-ty"),
+    },
+    sigma2: {
+      alpha: requireEntry(fixedPoints, "sigma2.alpha"),
+      alpha2: requireEntry(fixedPoints, "sigma2.alpha2"),
+      alpha3: requireEntry(fixedPoints, "sigma2.alpha3"),
+      alpha4: requireEntry(fixedPoints, "sigma2.alpha4"),
+      gamma: requireEntry(fixedPoints, "sigma2.gamma"),
+      delta: requireEntry(fixedPoints, "sigma2.delta"),
+      eta: requireEntry(fixedPoints, "sigma2.eta"),
+      x: requireEntry(fixedPoints, "sigma2.x"),
+      y: requireEntry(fixedPoints, "sigma2.y"),
+    },
+  };
+}
+
 function readU32List(data: Uint8Array, label: string): number[] {
   if (data.byteLength % 4 !== 0) {
     throw new Error(`${label} byte length must be divisible by 4.`);
@@ -155,6 +323,16 @@ function readU32List(data: Uint8Array, label: string): number[] {
   return output;
 }
 
+function splitG1Section(artifactFile: RuntimeArtifactFile, label: string): readonly Uint8Array[] {
+  const section = requireRuntimeSection(artifactFile, {
+    type: BinarySectionType.CrsG1,
+    encoding: BinarySectionEncoding.FfjsG1Affine96,
+    label,
+  });
+
+  return splitElements(section.data, section.elementByteLength);
+}
+
 function splitFieldElements(runtime: CurveRuntime, data: Uint8Array, label: string): FieldElement[] {
   if (data.byteLength % runtime.Fr.byteLength !== 0) {
     throw new Error(`${label} byte length is not divisible by the field element width.`);
@@ -166,6 +344,28 @@ function splitFieldElements(runtime: CurveRuntime, data: Uint8Array, label: stri
   }
 
   return output;
+}
+
+function splitElements(data: Uint8Array, elementByteLength: number): Uint8Array[] {
+  if (data.byteLength % elementByteLength !== 0) {
+    throw new Error("Runtime artifact section byte length is not divisible by its element width.");
+  }
+
+  const output: Uint8Array[] = [];
+  for (let offset = 0; offset < data.byteLength; offset += elementByteLength) {
+    output.push(data.subarray(offset, offset + elementByteLength));
+  }
+
+  return output;
+}
+
+function requireEntry(entries: Readonly<Record<string, Uint8Array>>, name: string): Uint8Array {
+  const entry = entries[name];
+  if (entry === undefined) {
+    throw new Error(`Missing prover CRS entry '${name}'.`);
+  }
+
+  return entry;
 }
 
 function assertSetupMatchesGeneratedSubcircuitLibrary(setup: ProverSetupParams): void {

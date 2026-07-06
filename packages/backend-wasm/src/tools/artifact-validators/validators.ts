@@ -23,6 +23,10 @@ import {
   type RuntimeArtifactBundleManifest,
 } from "../../libs/serialization/artifact-bundle.js";
 import type { RuntimeArtifactFormatSpec, RuntimeArtifactSectionSpec } from "../../libs/artifact-loaders/specs/types.js";
+import { PROVER_CRS_V1_SPEC } from "../../libs/artifact-loaders/specs/prover-crs.v1.generated.js";
+import { PROVER_INSTANCE_V1_SPEC } from "../../libs/artifact-loaders/specs/prover-instance.v1.generated.js";
+import { PROVER_PLACEMENT_VARIABLES_V1_SPEC } from "../../libs/artifact-loaders/specs/prover-placement-variables.v1.generated.js";
+import { PROVER_SETUP_PARAMS_V1_SPEC } from "../../libs/artifact-loaders/specs/prover-setup-params.v1.generated.js";
 import { SIGMA_VERIFY_V1_SPEC } from "../../libs/artifact-loaders/specs/sigma-verify.v1.generated.js";
 import { VERIFIER_INSTANCE_V1_SPEC } from "../../libs/artifact-loaders/specs/verifier-instance.v1.generated.js";
 import { VERIFIER_PREPROCESS_V1_SPEC } from "../../libs/artifact-loaders/specs/verifier-preprocess.v1.generated.js";
@@ -127,6 +131,46 @@ export async function validateVerifierSetupInputBundle(
         role: RuntimeArtifactFileRole.Preprocess,
         kind: BinaryArtifactFileKind.VerifierPreprocess,
         spec: VERIFIER_PREPROCESS_V1_SPEC,
+      },
+    ],
+  });
+}
+
+export async function validateProverProofWitnessInputBundle(
+  manifest: RuntimeArtifactBundleManifest,
+  resolveFile: RuntimeArtifactValidationFileResolver,
+): Promise<void> {
+  await validateRuntimeBundle(manifest, resolveFile, RuntimeArtifactBundleKind.ProverProofWitnessInput, {
+    expectedFiles: [
+      {
+        role: RuntimeArtifactFileRole.PlacementVariables,
+        kind: BinaryArtifactFileKind.ProverPlacementVariables,
+        spec: PROVER_PLACEMENT_VARIABLES_V1_SPEC,
+      },
+      {
+        role: RuntimeArtifactFileRole.Instance,
+        kind: BinaryArtifactFileKind.ProverInstance,
+        spec: PROVER_INSTANCE_V1_SPEC,
+      },
+    ],
+  });
+}
+
+export async function validateProverCrsPreparedDataBundle(
+  manifest: RuntimeArtifactBundleManifest,
+  resolveFile: RuntimeArtifactValidationFileResolver,
+): Promise<void> {
+  await validateRuntimeBundle(manifest, resolveFile, RuntimeArtifactBundleKind.ProverCrsPreparedData, {
+    expectedFiles: [
+      {
+        role: RuntimeArtifactFileRole.SetupParams,
+        kind: BinaryArtifactFileKind.ProverSetupParams,
+        spec: PROVER_SETUP_PARAMS_V1_SPEC,
+      },
+      {
+        role: RuntimeArtifactFileRole.Crs,
+        kind: BinaryArtifactFileKind.ProverCrs,
+        spec: PROVER_CRS_V1_SPEC,
       },
     ],
   });
