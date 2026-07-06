@@ -49,28 +49,6 @@ export function parseRuntimeArtifactBundleManifest(raw: unknown): RuntimeArtifac
   return manifest;
 }
 
-export function assertVerifierProofInputBundle(manifest: RuntimeArtifactBundleManifest): void {
-  if (manifest.kind !== RuntimeArtifactBundleKind.VerifierProofInput) {
-    throw new Error(`Expected VerifierProofInput bundle manifest, got ${manifest.kind}.`);
-  }
-
-  requireAtLeastOneRole(manifest, RuntimeArtifactFileRole.Instance);
-  requireAtLeastOneRole(manifest, RuntimeArtifactFileRole.Proof);
-  forbidRole(manifest, RuntimeArtifactFileRole.Crs);
-  forbidRole(manifest, RuntimeArtifactFileRole.Preprocess);
-}
-
-export function assertVerifierSetupInputBundle(manifest: RuntimeArtifactBundleManifest): void {
-  if (manifest.kind !== RuntimeArtifactBundleKind.VerifierSetupInput) {
-    throw new Error(`Expected VerifierSetupInput bundle manifest, got ${manifest.kind}.`);
-  }
-
-  requireAtLeastOneRole(manifest, RuntimeArtifactFileRole.Crs);
-  requireAtLeastOneRole(manifest, RuntimeArtifactFileRole.Preprocess);
-  forbidRole(manifest, RuntimeArtifactFileRole.Instance);
-  forbidRole(manifest, RuntimeArtifactFileRole.Proof);
-}
-
 function parseBundleFile(raw: unknown, index: number): RuntimeArtifactBundleFile {
   if (!isRecord(raw)) {
     throw new Error(`Runtime artifact bundle file at index ${index} must be an object.`);
@@ -78,22 +56,10 @@ function parseBundleFile(raw: unknown, index: number): RuntimeArtifactBundleFile
 
   const file: RuntimeArtifactBundleFile = {
     role: parseFileRole(raw.role, index),
-    path: parseSafeRelativePath(raw.path, `Runtime artifact bundle file at index ${index} path`),
+    path: parseBundlePath(raw.path, `Runtime artifact bundle file at index ${index} path`),
   };
 
   return file;
-}
-
-function requireAtLeastOneRole(manifest: RuntimeArtifactBundleManifest, role: RuntimeArtifactFileRole): void {
-  if (!manifest.files.some((file) => file.role === role)) {
-    throw new Error(`${manifest.kind} bundle manifest is missing required '${role}' artifact file.`);
-  }
-}
-
-function forbidRole(manifest: RuntimeArtifactBundleManifest, role: RuntimeArtifactFileRole): void {
-  if (manifest.files.some((file) => file.role === role)) {
-    throw new Error(`${manifest.kind} bundle manifest must not include '${role}' artifact files.`);
-  }
 }
 
 function parseBundleKind(value: unknown): RuntimeArtifactBundleKind {
@@ -121,13 +87,9 @@ function parseFileRole(value: unknown, index: number): RuntimeArtifactFileRole {
   throw new Error(`Unsupported runtime artifact bundle file role at index ${index}: ${String(value)}.`);
 }
 
-function parseSafeRelativePath(value: unknown, label: string): string {
+function parseBundlePath(value: unknown, label: string): string {
   if (typeof value !== "string" || value.trim() === "") {
     throw new Error(`${label} must be a non-empty string.`);
-  }
-
-  if (value.startsWith("/") || value.includes("\\") || value.split("/").includes("..")) {
-    throw new Error(`${label} must be a safe relative POSIX path.`);
   }
 
   return value;
