@@ -62,6 +62,12 @@ function loadRuntimeArtifactSection(
     );
   }
 
+  if (spec.elementByteLength !== null && section.elementByteLength !== spec.elementByteLength) {
+    throw new Error(
+      `${specName} section '${spec.label}' element byte length mismatch: expected ${spec.elementByteLength}, got ${section.elementByteLength}.`,
+    );
+  }
+
   const seenIndexes = new Set<number>();
   const points = spec.points.map((point): LoadedRuntimeArtifactPoint => {
     if (point.index >= section.elementCount) {

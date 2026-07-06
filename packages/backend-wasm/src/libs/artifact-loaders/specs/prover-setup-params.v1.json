@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "name": "prover_setup_params",
+  "sections": [
+    {
+      "label": "setup.params",
+      "type": "SetupParams",
+      "encoding": "bytes",
+      "elementCount": 1,
+      "elementByteLength": 36,
+      "points": []
+    }
+  ]
+}

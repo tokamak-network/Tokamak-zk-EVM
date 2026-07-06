@@ -10,6 +10,7 @@ export const VERIFIER_PROOF_V1_SPEC = {
       type: BinarySectionType.Proof,
       encoding: BinarySectionEncoding.FfjsG1Affine96,
       elementCount: 19,
+      elementByteLength: null,
       points: [
         { index: 0, name: "proof0.U" },
         { index: 1, name: "proof0.V" },
@@ -37,6 +38,7 @@ export const VERIFIER_PROOF_V1_SPEC = {
       type: BinarySectionType.Proof,
       encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
       elementCount: 4,
+      elementByteLength: null,
       points: [
         { index: 0, name: "proof3.R_eval" },
         { index: 1, name: "proof3.R_omegaX_eval" },

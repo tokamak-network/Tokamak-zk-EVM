@@ -10,6 +10,7 @@ export const VERIFIER_PREPROCESS_V1_SPEC = {
       type: BinarySectionType.SetupParams,
       encoding: BinarySectionEncoding.Bytes,
       elementCount: 1,
+      elementByteLength: null,
       points: [
       ],
     },
@@ -18,6 +19,7 @@ export const VERIFIER_PREPROCESS_V1_SPEC = {
       type: BinarySectionType.Preprocess,
       encoding: BinarySectionEncoding.FfjsG1Affine96,
       elementCount: 3,
+      elementByteLength: null,
       points: [
         { index: 0, name: "s0" },
         { index: 1, name: "s1" },

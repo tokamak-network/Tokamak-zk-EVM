@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { TEST_BINARY_V1_SPEC } from "../src/libs/artifact-loaders/specs/test-binary.v1.generated.js";
 import {
   BinaryArtifactFileKind,
   BinarySectionEncoding,
@@ -10,6 +11,7 @@ import {
   createCurveRuntime,
   encodeVerifierSetupParams,
   loadProverCrsArtifact,
+  loadRuntimeArtifactBySpec,
   loadRuntimeArtifactFile,
   loadSigmaVerifyArtifact,
   loadVerifierPreprocessArtifact,
@@ -97,6 +99,7 @@ async function main(): Promise<void> {
       ],
     });
     const artifactFile = await loadRuntimeArtifactFile(binary);
+    loadRuntimeArtifactBySpec(artifactFile, TEST_BINARY_V1_SPEC);
 
     const msmBases = requireRuntimeSection(artifactFile, {
       type: BinarySectionType.MsmBases,
