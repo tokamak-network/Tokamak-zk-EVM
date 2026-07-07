@@ -5,8 +5,7 @@ members = [
     "setup/mpc-setup",
     "prove",
     "verify-rust",
-    "preprocess",
-    "tools/export-fixtures"
+    "preprocess"
 ]
 
 [workspace.package]
