@@ -17,6 +17,7 @@ import {
   SUBCIRCUIT_LIBRARY_PACKAGE_VERSION,
 } from "./generated/subcircuit-library.generated.js";
 import type {
+  ProverPermutationEntry,
   ProverPlacementVariables,
   ProverSetupParams,
   ProverWitnessInput,
@@ -25,12 +26,14 @@ import type {
 export interface ProverRuntimeArtifactFiles {
   readonly setupParams: RuntimeArtifactFile;
   readonly placementVariables: RuntimeArtifactFile;
+  readonly permutation: RuntimeArtifactFile;
   readonly instance: RuntimeArtifactFile;
   readonly crs: RuntimeArtifactFile;
 }
 
 export interface ProverProofWitnessRuntimeArtifactFiles {
   readonly placementVariables: RuntimeArtifactFile;
+  readonly permutation: RuntimeArtifactFile;
   readonly instance: RuntimeArtifactFile;
 }
 
@@ -45,6 +48,7 @@ export type ProverWitnessRuntimeArtifactFiles = ProverProofWitnessRuntimeArtifac
 export interface ProverRuntimeWitnessInputParts {
   readonly setup: ProverSetupParams;
   readonly placementVariables: readonly ProverPlacementVariables[];
+  readonly permutation: readonly ProverPermutationEntry[];
   readonly publicInstance: readonly FieldElement[];
 }
 
@@ -84,6 +88,7 @@ export interface ProverSigma2Runtime {
 
 export interface ProverRuntimeInput {
   readonly witness: ProverWitnessInput;
+  readonly permutation: readonly ProverPermutationEntry[];
   readonly publicInstance: readonly FieldElement[];
   readonly crs: ProverCrsRuntime;
 }
@@ -102,6 +107,11 @@ export async function loadProverInputFromRuntimeBundles(
     placementVariables: await loadBundleArtifactFile(
       proofWitnessInput,
       RuntimeArtifactFileRole.PlacementVariables,
+      resolveFile,
+    ),
+    permutation: await loadBundleArtifactFile(
+      proofWitnessInput,
+      RuntimeArtifactFileRole.Permutation,
       resolveFile,
     ),
     instance: await loadBundleArtifactFile(
@@ -138,6 +148,7 @@ export function buildProverInputFromRuntimeArtifacts(
       subcircuitInfos: GENERATED_PROVER_SUBCIRCUIT_INFOS,
       r1csBySubcircuit: GENERATED_PROVER_SPARSE_R1CS,
     },
+    permutation: parts.permutation,
     publicInstance: parts.publicInstance,
     crs: parseProverCrs(artifacts.crs),
   };
@@ -152,6 +163,7 @@ export function loadProverRuntimeWitnessInputParts(
   return {
     setup,
     placementVariables: parseProverPlacementVariables(runtime, artifacts.placementVariables),
+    permutation: parseProverPermutation(artifacts.permutation),
     publicInstance: parseProverPublicInstance(runtime, artifacts.instance),
   };
 }
@@ -273,6 +285,31 @@ export function parseProverPublicInstance(
   });
 
   return splitFieldElements(runtime, section.data, "instance.public");
+}
+
+export function parseProverPermutation(permutationFile: RuntimeArtifactFile): readonly ProverPermutationEntry[] {
+  const section = requireRuntimeSection(permutationFile, {
+    type: BinarySectionType.Permutation,
+    encoding: BinarySectionEncoding.Bytes,
+    label: "permutation.entries",
+  });
+
+  if (section.data.byteLength % 16 !== 0) {
+    throw new Error("permutation.entries byte length must be divisible by 16.");
+  }
+
+  const view = new DataView(section.data.buffer, section.data.byteOffset, section.data.byteLength);
+  const entries: ProverPermutationEntry[] = [];
+  for (let offset = 0; offset < section.data.byteLength; offset += 16) {
+    entries.push({
+      row: view.getUint32(offset, true),
+      col: view.getUint32(offset + 4, true),
+      X: view.getUint32(offset + 8, true),
+      Y: view.getUint32(offset + 12, true),
+    });
+  }
+
+  return entries;
 }
 
 export function parseProverCrs(crsFile: RuntimeArtifactFile): ProverCrsRuntime {

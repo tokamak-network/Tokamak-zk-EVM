@@ -28,6 +28,13 @@ export interface ProverPlacementVariables {
   readonly variables: readonly FieldElement[];
 }
 
+export interface ProverPermutationEntry {
+  readonly row: number;
+  readonly col: number;
+  readonly X: number;
+  readonly Y: number;
+}
+
 export interface ProverSparseRowEntry {
   readonly column: number;
   readonly coefficient: FieldElement;

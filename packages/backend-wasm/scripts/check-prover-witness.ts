@@ -22,6 +22,7 @@ import { GENERATED_PROVER_SETUP_PARAMS } from "../src/prover/generated/subcircui
 import {
   buildWitnessPolynomials,
   type ProverPlacementVariables,
+  type ProverPermutationEntry,
   type ProverSetupParams,
   type ProverSparseSubcircuitR1cs,
   type ProverSubcircuitInfo,
@@ -71,6 +72,10 @@ async function main(): Promise<void> {
         subcircuitId: 1,
         variables: [fr(3n), fr(7n), fr(11n)],
       },
+    ];
+    const permutation: ProverPermutationEntry[] = [
+      { row: 0, col: 0, X: 1, Y: 1 },
+      { row: 1, col: 1, X: 0, Y: 0 },
     ];
     const r1csBySubcircuit: ProverSparseSubcircuitR1cs[] = [
       {
@@ -132,8 +137,11 @@ async function main(): Promise<void> {
     assertEqual(witness.rXY.ySize, 1, "rXY ySize");
     assertFieldEqual(witness.rXY.getCoeff(0, 0), runtime.Fr.zero, "rXY zero");
 
-    const instancePolynomials = await buildProverInstancePolynomials(runtime.Fr, setup, [fr(13n), fr(17n)]);
+    const instancePolynomials = await buildProverInstancePolynomials(runtime.Fr, setup, [fr(13n), fr(17n)], permutation);
     await assertRouEvals(instancePolynomials.aFreeX, [13n, 17n], "aFreeX");
+    const negOne = runtime.Fr.toBigInt(runtime.Fr.neg(runtime.Fr.one));
+    await assertRouEvals(instancePolynomials.s0XY, [negOne, 1n, negOne, 1n], "s0XY");
+    await assertRouEvals(instancePolynomials.s1XY, [negOne, negOne, 1n, 1n], "s1XY");
     assertFieldEqual(instancePolynomials.tN.getCoeff(0, 0), runtime.Fr.neg(runtime.Fr.one), "tN constant");
     assertFieldEqual(instancePolynomials.tN.getCoeff(setup.n, 0), runtime.Fr.one, "tN lead");
     assertFieldEqual(instancePolynomials.tSMax.getCoeff(0, setup.s_max), runtime.Fr.one, "tSMax lead");
@@ -164,6 +172,7 @@ async function main(): Promise<void> {
       runtime,
       setup: prove0Setup,
       publicInstance: [fr(13n), fr(17n)],
+      permutation: [],
       witness: prove0Witness,
     });
     const smallProve0 = await prove0(runtime, createSyntheticProverCrs(prove0Setup, 64), smallProverState);
@@ -219,6 +228,22 @@ async function main(): Promise<void> {
           ],
         }),
       ),
+      permutation: await loadRuntimeArtifactFile(
+        await createBinaryArtifactFile({
+          kind: BinaryArtifactFileKind.ProverPermutation,
+          sourcePackageVersion: "0.0.0",
+          sections: [
+            {
+              type: BinarySectionType.Permutation,
+              encoding: BinarySectionEncoding.Bytes,
+              label: "permutation.entries",
+              elementCount: permutation.length,
+              elementByteLength: 16,
+              data: encodePermutationEntries(permutation),
+            },
+          ],
+        }),
+      ),
       instance: await loadRuntimeArtifactFile(
         await createBinaryArtifactFile({
           kind: BinaryArtifactFileKind.ProverInstance,
@@ -239,6 +264,8 @@ async function main(): Promise<void> {
     const binaryParts = loadProverRuntimeWitnessInputParts(runtime, binaryArtifacts);
     assertEqual(binaryParts.setup.l_free, setup.l_free, "binary setup l_free");
     assertEqual(binaryParts.placementVariables.length, placementVariables.length, "binary placement count");
+    assertEqual(binaryParts.permutation.length, permutation.length, "binary permutation count");
+    assertEqual(binaryParts.permutation[0].X, permutation[0].X, "binary permutation X");
     assertFieldEqual(binaryParts.placementVariables[1].variables[2], fr(11n), "binary placement variable");
     assertEqual(binaryParts.publicInstance.length, 2, "binary public instance length");
     assertFieldEqual(binaryParts.publicInstance[1], fr(17n), "binary public instance value");
@@ -287,6 +314,22 @@ async function main(): Promise<void> {
               label: "placement.variables",
               elementCount: 0,
               elementByteLength: runtime.Fr.byteLength,
+              data: new Uint8Array(),
+            },
+          ],
+        }),
+      ),
+      permutation: await loadRuntimeArtifactFile(
+        await createBinaryArtifactFile({
+          kind: BinaryArtifactFileKind.ProverPermutation,
+          sourcePackageVersion: "0.0.0",
+          sections: [
+            {
+              type: BinarySectionType.Permutation,
+              encoding: BinarySectionEncoding.Bytes,
+              label: "permutation.entries",
+              elementCount: 0,
+              elementByteLength: 16,
               data: new Uint8Array(),
             },
           ],
@@ -356,6 +399,20 @@ async function main(): Promise<void> {
         },
       ],
     });
+    const permutationBytes = await createBinaryArtifactFile({
+      kind: BinaryArtifactFileKind.ProverPermutation,
+      sourcePackageVersion: "0.0.0",
+      sections: [
+        {
+          type: BinarySectionType.Permutation,
+          encoding: BinarySectionEncoding.Bytes,
+          label: "permutation.entries",
+          elementCount: 0,
+          elementByteLength: 16,
+          data: new Uint8Array(),
+        },
+      ],
+    });
     const instanceBytes = await createBinaryArtifactFile({
       kind: BinaryArtifactFileKind.ProverInstance,
       sourcePackageVersion: "0.0.0",
@@ -394,6 +451,7 @@ async function main(): Promise<void> {
     });
     const files = new Map([
       ["placement.bin", placementVariablesBytes],
+      ["permutation.bin", permutationBytes],
       ["instance.bin", instanceBytes],
       ["setup.bin", setupParamsBytes],
       ["crs.bin", crsBytes],
@@ -405,6 +463,7 @@ async function main(): Promise<void> {
         kind: RuntimeArtifactBundleKind.ProverProofWitnessInput,
         files: [
           { role: RuntimeArtifactFileRole.PlacementVariables, path: "placement.bin" },
+          { role: RuntimeArtifactFileRole.Permutation, path: "permutation.bin" },
           { role: RuntimeArtifactFileRole.Instance, path: "instance.bin" },
         ],
       },
@@ -442,6 +501,7 @@ async function main(): Promise<void> {
       runtime.Fr,
       GENERATED_PROVER_SETUP_PARAMS,
       Array.from({ length: GENERATED_PROVER_SETUP_PARAMS.l_free }, () => runtime.Fr.zero),
+      [],
     );
     const generatedMixer = await createProverMixer(runtime);
     const binding = await buildProverBinding(
@@ -575,6 +635,22 @@ function encodeU32List(values: readonly number[]): Uint8Array {
   const view = new DataView(output.buffer, output.byteOffset, output.byteLength);
   for (let index = 0; index < values.length; index += 1) {
     view.setUint32(index * 4, values[index], true);
+  }
+
+  return output;
+}
+
+function encodePermutationEntries(entries: readonly ProverPermutationEntry[]): Uint8Array {
+  const output = new Uint8Array(entries.length * 16);
+  const view = new DataView(output.buffer, output.byteOffset, output.byteLength);
+
+  for (let index = 0; index < entries.length; index += 1) {
+    const offset = index * 16;
+    const entry = entries[index];
+    view.setUint32(offset, entry.row, true);
+    view.setUint32(offset + 4, entry.col, true);
+    view.setUint32(offset + 8, entry.X, true);
+    view.setUint32(offset + 12, entry.Y, true);
   }
 
   return output;

@@ -25,6 +25,7 @@ import {
 import type { RuntimeArtifactFormatSpec, RuntimeArtifactSectionSpec } from "../../libs/artifact-loaders/specs/types.js";
 import { PROVER_CRS_V1_SPEC } from "../../libs/artifact-loaders/specs/prover-crs.v1.generated.js";
 import { PROVER_INSTANCE_V1_SPEC } from "../../libs/artifact-loaders/specs/prover-instance.v1.generated.js";
+import { PROVER_PERMUTATION_V1_SPEC } from "../../libs/artifact-loaders/specs/prover-permutation.v1.generated.js";
 import { PROVER_PLACEMENT_VARIABLES_V1_SPEC } from "../../libs/artifact-loaders/specs/prover-placement-variables.v1.generated.js";
 import { PROVER_SETUP_PARAMS_V1_SPEC } from "../../libs/artifact-loaders/specs/prover-setup-params.v1.generated.js";
 import { SIGMA_VERIFY_V1_SPEC } from "../../libs/artifact-loaders/specs/sigma-verify.v1.generated.js";
@@ -148,6 +149,11 @@ export async function validateProverProofWitnessInputBundle(
         spec: PROVER_PLACEMENT_VARIABLES_V1_SPEC,
       },
       {
+        role: RuntimeArtifactFileRole.Permutation,
+        kind: BinaryArtifactFileKind.ProverPermutation,
+        spec: PROVER_PERMUTATION_V1_SPEC,
+      },
+      {
         role: RuntimeArtifactFileRole.Instance,
         kind: BinaryArtifactFileKind.ProverInstance,
         spec: PROVER_INSTANCE_V1_SPEC,
@@ -180,6 +186,14 @@ export interface RuntimeArtifactBundleExpectedFile {
   readonly role: RuntimeArtifactFileRole;
   readonly kind: BinaryArtifactFileKind;
   readonly spec: RuntimeArtifactFormatSpec;
+}
+
+export async function validateProverPermutationArtifactFile(
+  bytes: Uint8Array,
+): Promise<RuntimeArtifactFileValidationResult> {
+  return validateRuntimeArtifactFile(bytes, PROVER_PERMUTATION_V1_SPEC, {
+    expectedKind: BinaryArtifactFileKind.ProverPermutation,
+  });
 }
 
 function validateBundleFilePath(file: RuntimeArtifactBundleFile): void {
