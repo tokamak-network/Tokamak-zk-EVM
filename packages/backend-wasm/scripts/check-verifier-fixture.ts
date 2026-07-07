@@ -330,7 +330,7 @@ async function readPreparedRuntimeFile(runtimeDir: string, artifactPath: string)
     throw new Error(
       [
         `Required prepared verifier runtime fixture file is missing: ${path.relative(process.cwd(), filePath)}.`,
-        "Prepare it in the owning package and run npm run fixtures:copy.",
+        "Prepare it under packages/backend-wasm/tmp/prepared-fixtures and run npm run fixtures:copy.",
         `Original read error: ${message}`,
       ].join(" "),
     );

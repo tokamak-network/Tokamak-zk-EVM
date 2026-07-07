@@ -72,11 +72,11 @@ function parseManifest(raw: unknown): CopyManifest {
 
 function resolveSourcePath(repositoryRoot: string, backendWasmRoot: string, source: string): string {
   const sourcePath = path.resolve(repositoryRoot, source);
-  const packagesRoot = path.resolve(repositoryRoot, "packages");
+  const preparedFixturesRoot = path.resolve(backendWasmRoot, "tmp", "prepared-fixtures");
   const backendWasmFixturesRoot = path.resolve(backendWasmRoot, "fixtures");
 
-  if (!isPathInside(sourcePath, packagesRoot)) {
-    throw new Error(`Fixture source must be under packages/: ${source}`);
+  if (!isPathInside(sourcePath, preparedFixturesRoot)) {
+    throw new Error(`Fixture source must be under packages/backend-wasm/tmp/prepared-fixtures/: ${source}`);
   }
 
   if (isPathInside(sourcePath, backendWasmFixturesRoot)) {
@@ -104,7 +104,7 @@ async function assertPreparedSource(sourcePath: string, sourceLabel: string): Pr
     }
   } catch {
     throw new Error(
-      `Required fixture artifact is not prepared: ${sourceLabel}. Prepare this artifact in its owning package and rerun fixtures:copy.`,
+      `Required fixture artifact is not prepared: ${sourceLabel}. Prepare this artifact under packages/backend-wasm/tmp/prepared-fixtures and rerun fixtures:copy.`,
     );
   }
 }

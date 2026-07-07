@@ -66,7 +66,7 @@ Small generic helpers shared by implementation modules. Protocol logic, artifact
 
 Local development and validation scripts. These scripts check fixtures, binary artifact file behavior, runtime arithmetic, polynomial parity, and verifier parity.
 
-`scripts/copy-fixtures.ts` is the only fixture update path in this package. It copies prepared artifacts from owning packages under the monorepo `packages/` directory. It must not generate missing artifacts.
+`scripts/copy-fixtures.ts` is the only fixture update path in this package. It copies prepared artifacts from the package-local ignored staging directory `packages/backend-wasm/tmp/prepared-fixtures/`. It must not generate missing artifacts.
 
 ### `fixtures/`
 
@@ -108,7 +108,7 @@ npm run build
 npm run clean
 ```
 
-Use `npm run fixtures:copy` only after the owning packages have prepared the source artifacts listed in `fixtures/small/copy-manifest.json`.
+Use `npm run fixtures:copy` only after the source artifacts listed in `fixtures/small/copy-manifest.json` have been prepared under `packages/backend-wasm/tmp/prepared-fixtures/`.
 
 Use `npm run specs:generate` after editing JSON specs under `src/libs/artifact-loaders/specs/`.
 
