@@ -17,6 +17,10 @@ import {
   loadProverRuntimeWitnessInputParts,
 } from "../src/prover/binary-input.js";
 import { buildProverBinding, encodePolynomialWithSigma1, prove0 } from "../src/prover/prove0.js";
+import { prove1 } from "../src/prover/prove1.js";
+import { prove2 } from "../src/prover/prove2.js";
+import { prove3 } from "../src/prover/prove3.js";
+import { prove4 } from "../src/prover/prove4.js";
 import { buildProverInstancePolynomials, createProverMixer, createProverState } from "../src/prover/state.js";
 import { GENERATED_PROVER_SETUP_PARAMS } from "../src/prover/generated/subcircuit-library.generated.js";
 import {
@@ -178,6 +182,63 @@ async function main(): Promise<void> {
     const smallProve0 = await prove0(runtime, createSyntheticProverCrs(prove0Setup, 64), smallProverState);
     assertEqual(smallProve0.proof0.U.byteLength, 144, "prove0 U byte length");
     assertEqual(smallProve0.proof0.B.byteLength, 144, "prove0 B byte length");
+    const smallProve1 = await prove1(
+      runtime,
+      createSyntheticProverCrs(prove0Setup, 64),
+      smallProverState,
+      [runtime.Fr.zero, runtime.Fr.zero, runtime.Fr.one],
+    );
+    assertEqual(smallProve1.proof1.R.byteLength, 144, "prove1 R byte length");
+    await assertRouEvals(
+      smallProve1.rXY,
+      Array.from({ length: (prove0Setup.l_D - prove0Setup.l) * prove0Setup.s_max }, () => 1n),
+      "prove1 rXY",
+    );
+    const smallProve2 = await prove2({
+      runtime,
+      crs: createSyntheticProverCrs(prove0Setup, 64),
+      state: smallProverState,
+      rXY: smallProve1.rXY,
+      thetas: [runtime.Fr.zero, runtime.Fr.zero, runtime.Fr.one],
+      kappa0: fr(9n),
+    });
+    assertEqual(smallProve2.proof2.Q_CX.byteLength, 144, "prove2 Q_CX byte length");
+    assertEqual(smallProve2.proof2.Q_CY.byteLength, 144, "prove2 Q_CY byte length");
+    const smallProve3 = prove3({
+      runtime,
+      state: smallProverState,
+      rXY: smallProve1.rXY,
+      chi: fr(11n),
+      zeta: fr(13n),
+    });
+    assertEqual(smallProve3.V_eval.byteLength, runtime.Fr.byteLength, "prove3 V_eval byte length");
+    assertEqual(smallProve3.R_eval.byteLength, runtime.Fr.byteLength, "prove3 R_eval byte length");
+    assertEqual(smallProve3.R_omegaX_eval.byteLength, runtime.Fr.byteLength, "prove3 R_omegaX_eval byte length");
+    assertEqual(
+      smallProve3.R_omegaX_omegaY_eval.byteLength,
+      runtime.Fr.byteLength,
+      "prove3 R_omegaX_omegaY_eval byte length",
+    );
+    const smallProve4 = await prove4({
+      runtime,
+      crs: createSyntheticProverCrs(prove0Setup, 64),
+      state: smallProverState,
+      rXY: smallProve1.rXY,
+      prove0: smallProve0,
+      prove2: smallProve2,
+      proof3: smallProve3,
+      thetas: [runtime.Fr.zero, runtime.Fr.zero, runtime.Fr.one],
+      kappa0: fr(9n),
+      chi: fr(11n),
+      zeta: fr(13n),
+      kappa1: fr(15n),
+    });
+    assertEqual(smallProve4.proof4.Pi_X.byteLength, 144, "prove4 Pi_X byte length");
+    assertEqual(smallProve4.proof4.Pi_Y.byteLength, 144, "prove4 Pi_Y byte length");
+    assertEqual(smallProve4.proof4.M_X.byteLength, 144, "prove4 M_X byte length");
+    assertEqual(smallProve4.proof4.M_Y.byteLength, 144, "prove4 M_Y byte length");
+    assertEqual(smallProve4.proof4.N_X.byteLength, 144, "prove4 N_X byte length");
+    assertEqual(smallProve4.proof4.N_Y.byteLength, 144, "prove4 N_Y byte length");
 
     const binaryArtifacts = {
       setupParams: await loadRuntimeArtifactFile(
