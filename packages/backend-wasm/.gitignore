@@ -1,0 +1,9 @@
+# Copied test fixture artifacts.
+#
+# Keep fixture manifests and documentation tracked. Runtime/input/expected fixture
+# data is prepared by owning packages and copied locally by scripts/copy-fixtures.ts.
+/fixtures/small/input/*
+!/fixtures/small/input/.gitkeep
+/fixtures/small/expected/*
+!/fixtures/small/expected/.gitkeep
+/fixtures/small/runtime/
