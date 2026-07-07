@@ -4,6 +4,7 @@ import {
   BinarySectionType,
   createBinaryArtifactFile,
   createCurveRuntime,
+  loadVerifierProofArtifact,
   loadRuntimeArtifactFile,
   RuntimeArtifactBundleKind,
   RuntimeArtifactFileRole,
@@ -21,6 +22,8 @@ import { prove1 } from "../src/prover/prove1.js";
 import { prove2 } from "../src/prover/prove2.js";
 import { prove3 } from "../src/prover/prove3.js";
 import { prove4 } from "../src/prover/prove4.js";
+import { proveSnark } from "../src/prover/prove-snark.js";
+import { createVerifierProofArtifactFromProverOutput } from "../src/prover/proof-output.js";
 import { buildProverInstancePolynomials, createProverMixer, createProverState } from "../src/prover/state.js";
 import { GENERATED_PROVER_SETUP_PARAMS } from "../src/prover/generated/subcircuit-library.generated.js";
 import {
@@ -179,12 +182,13 @@ async function main(): Promise<void> {
       permutation: [],
       witness: prove0Witness,
     });
-    const smallProve0 = await prove0(runtime, createSyntheticProverCrs(prove0Setup, 64), smallProverState);
+    const smallCrs = createSyntheticProverCrs(prove0Setup, 64);
+    const smallProve0 = await prove0(runtime, smallCrs, smallProverState);
     assertEqual(smallProve0.proof0.U.byteLength, 144, "prove0 U byte length");
     assertEqual(smallProve0.proof0.B.byteLength, 144, "prove0 B byte length");
     const smallProve1 = await prove1(
       runtime,
-      createSyntheticProverCrs(prove0Setup, 64),
+      smallCrs,
       smallProverState,
       [runtime.Fr.zero, runtime.Fr.zero, runtime.Fr.one],
     );
@@ -196,7 +200,7 @@ async function main(): Promise<void> {
     );
     const smallProve2 = await prove2({
       runtime,
-      crs: createSyntheticProverCrs(prove0Setup, 64),
+      crs: smallCrs,
       state: smallProverState,
       rXY: smallProve1.rXY,
       thetas: [runtime.Fr.zero, runtime.Fr.zero, runtime.Fr.one],
@@ -221,7 +225,7 @@ async function main(): Promise<void> {
     );
     const smallProve4 = await prove4({
       runtime,
-      crs: createSyntheticProverCrs(prove0Setup, 64),
+      crs: smallCrs,
       state: smallProverState,
       rXY: smallProve1.rXY,
       prove0: smallProve0,
@@ -239,6 +243,51 @@ async function main(): Promise<void> {
     assertEqual(smallProve4.proof4.M_Y.byteLength, 144, "prove4 M_Y byte length");
     assertEqual(smallProve4.proof4.N_X.byteLength, 144, "prove4 N_X byte length");
     assertEqual(smallProve4.proof4.N_Y.byteLength, 144, "prove4 N_Y byte length");
+    const smallBinding = await buildProverBinding(
+      runtime,
+      smallCrs,
+      prove0Setup,
+      [],
+      [],
+      smallProverState.instance,
+      smallProverState.mixer,
+    );
+    const verifierProofArtifact = await loadRuntimeArtifactFile(
+      await createVerifierProofArtifactFromProverOutput({
+        runtime,
+        binding: smallBinding,
+        prove0: smallProve0,
+        prove1: smallProve1,
+        prove2: smallProve2,
+        proof3: smallProve3,
+        prove4: smallProve4,
+      }),
+    );
+    assertEqual(verifierProofArtifact.kind, BinaryArtifactFileKind.VerifierProof, "prover output artifact kind");
+    assertEqual(verifierProofArtifact.sourcePackageVersion, "0.0.0", "prover output source package version");
+    const verifierProof = loadVerifierProofArtifact(verifierProofArtifact);
+    assertEqual(verifierProof.sections[0]?.section.data.byteLength, 19 * 96, "prover output proof.g1 byte length");
+    assertEqual(verifierProof.sections[1]?.section.data.byteLength, 4 * 32, "prover output proof.evals byte length");
+    assertBytesEqual(verifierProof.pointsByName["proof0.U"], runtime.G1.toAffine(smallProve0.proof0.U), "proof0.U affine output");
+    assertBytesEqual(verifierProof.pointsByName["proof1.R"], runtime.G1.toAffine(smallProve1.proof1.R), "proof1.R affine output");
+    assertBytesEqual(verifierProof.pointsByName["proof4.N_X"], runtime.G1.toAffine(smallProve4.proof4.N_X), "proof4.N_X affine output");
+    assertBytesEqual(verifierProof.pointsByName["proof3.V_eval"], smallProve3.V_eval, "proof3.V_eval output");
+    const snarkResult = await proveSnark(runtime, {
+      witness: {
+        setup: prove0Setup,
+        subcircuitInfos: [],
+        placementVariables: [],
+        r1csBySubcircuit: [],
+      },
+      permutation: [],
+      publicInstance: [fr(13n), fr(17n)],
+      crs: smallCrs,
+    });
+    const snarkProofArtifact = await loadRuntimeArtifactFile(snarkResult.proof);
+    assertEqual(snarkProofArtifact.kind, BinaryArtifactFileKind.VerifierProof, "proveSnark artifact kind");
+    const snarkProof = loadVerifierProofArtifact(snarkProofArtifact);
+    assertEqual(snarkProof.sections[0]?.section.data.byteLength, 19 * 96, "proveSnark proof.g1 byte length");
+    assertEqual(snarkProof.sections[1]?.section.data.byteLength, 4 * 32, "proveSnark proof.evals byte length");
 
     const binaryArtifacts = {
       setupParams: await loadRuntimeArtifactFile(
@@ -603,6 +652,12 @@ async function main(): Promise<void> {
   function assertFieldEqual(actual: FieldElement, expected: FieldElement, label: string): void {
     if (!runtime.Fr.eq(actual, expected)) {
       throw new Error(`${label} mismatch: expected ${runtime.Fr.toHex(expected)}, got ${runtime.Fr.toHex(actual)}`);
+    }
+  }
+
+  function assertBytesEqual(actual: Uint8Array, expected: Uint8Array, label: string): void {
+    if (Buffer.compare(Buffer.from(actual), Buffer.from(expected)) !== 0) {
+      throw new Error(`${label} byte mismatch`);
     }
   }
 
