@@ -3,6 +3,7 @@ import type { RuntimeArtifactBundleManifest } from "../../libs/serialization/art
 export const ARTIFACT_CONVERTER_COMMANDS = [
   "json-to-verifier-binary",
   "json-rkyv-to-prover-binary",
+  "permutation-json-to-binary",
   "proof-binary-to-json",
   "binary-to-debug-json",
 ] as const;
@@ -26,6 +27,11 @@ export interface NativeProverArtifactsToBinaryInput {
   readonly witnessInputs?: unknown;
   readonly nativeJson?: unknown;
   readonly rkyvArtifacts?: readonly Uint8Array[];
+}
+
+export interface NativePermutationJsonToBinaryInput {
+  readonly permutation: unknown;
+  readonly sourcePackageVersion: string;
 }
 
 export interface ProofBinaryToNativeJsonInput {
@@ -78,6 +84,7 @@ export interface RuntimeArtifactBundleOutputFile {
 export type ArtifactConverterInput =
   | NativeVerifierJsonToBinaryInput
   | NativeProverArtifactsToBinaryInput
+  | NativePermutationJsonToBinaryInput
   | ProofBinaryToNativeJsonInput
   | BinaryArtifactFileToDebugJsonInput;
 

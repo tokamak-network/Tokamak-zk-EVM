@@ -11,6 +11,7 @@ export enum RuntimeArtifactFileRole {
   Instance = "instance",
   Proof = "proof",
   PlacementVariables = "placement_variables",
+  Permutation = "permutation",
   Crs = "crs",
   Preprocess = "preprocess",
   SetupParams = "setup_params",
@@ -91,6 +92,7 @@ function parseFileRole(value: unknown, index: number): RuntimeArtifactFileRole {
     value === RuntimeArtifactFileRole.Instance ||
     value === RuntimeArtifactFileRole.Proof ||
     value === RuntimeArtifactFileRole.PlacementVariables ||
+    value === RuntimeArtifactFileRole.Permutation ||
     value === RuntimeArtifactFileRole.Crs ||
     value === RuntimeArtifactFileRole.Preprocess ||
     value === RuntimeArtifactFileRole.SetupParams

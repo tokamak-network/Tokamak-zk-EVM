@@ -14,6 +14,7 @@ function printUsage(): void {
 Commands:
   json-to-verifier-binary    Convert native verifier JSON artifacts into runtime-ready verifier artifacts.
   json-rkyv-to-prover-binary Convert native JSON plus rkyv artifacts into runtime-ready prover artifacts.
+  permutation-json-to-binary Convert native permutation.json into a prover permutation binary artifact.
   proof-binary-to-json       Convert a backend-wasm proof binary artifact file into native-compatible proof JSON.
   binary-to-debug-json       Convert a backend-wasm binary artifact file into debug JSON.
 
@@ -98,6 +99,8 @@ async function readConverterInput(
     case "json-to-verifier-binary":
       return readJsonInput(options);
     case "json-rkyv-to-prover-binary":
+      return readJsonInput(options);
+    case "permutation-json-to-binary":
       return readJsonInput(options);
     case "proof-binary-to-json":
       return { proofFile: await readBinaryInput(options, command) };

@@ -13,6 +13,7 @@ export type RuntimeArtifactFormatSpecName =
   | "verifier_instance"
   | "prover_crs"
   | "prover_placement_variables"
+  | "prover_permutation"
   | "prover_instance"
   | "prover_setup_params"
   | "test_binary";

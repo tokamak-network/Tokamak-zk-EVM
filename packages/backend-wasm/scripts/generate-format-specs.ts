@@ -39,6 +39,11 @@ const SPEC_JOBS: readonly SpecJob[] = [
     constName: "PROVER_PLACEMENT_VARIABLES_V1_SPEC",
   },
   {
+    jsonPath: "src/libs/artifact-loaders/specs/prover-permutation.v1.json",
+    generatedPath: "src/libs/artifact-loaders/specs/prover-permutation.v1.generated.ts",
+    constName: "PROVER_PERMUTATION_V1_SPEC",
+  },
+  {
     jsonPath: "src/libs/artifact-loaders/specs/prover-instance.v1.json",
     generatedPath: "src/libs/artifact-loaders/specs/prover-instance.v1.generated.ts",
     constName: "PROVER_INSTANCE_V1_SPEC",
@@ -114,6 +119,7 @@ function parseRawSpec(raw: unknown, sourcePath: string): RawSpec {
     raw.name !== "verifier_instance" &&
     raw.name !== "prover_crs" &&
     raw.name !== "prover_placement_variables" &&
+    raw.name !== "prover_permutation" &&
     raw.name !== "prover_instance" &&
     raw.name !== "prover_setup_params" &&
     raw.name !== "test_binary"
@@ -275,6 +281,7 @@ function parseSectionType(value: unknown, sourcePath: string): string {
     case "Instance":
     case "SetupParams":
     case "Placement":
+    case "Permutation":
     case "MsmBases":
     case "MsmScalars":
     case "PairingG1Terms":
