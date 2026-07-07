@@ -376,6 +376,13 @@ export class DensePolynomialExt {
 
     const optimized = this.optimizeSize();
     const { xDegree: numeratorXDegree, yDegree: numeratorYDegree } = optimized.findDegree();
+    if (numeratorXDegree < 0 || numeratorYDegree < 0) {
+      return {
+        quotientX: DensePolynomialExt.zero(this.field),
+        quotientY: DensePolynomialExt.zero(this.field),
+      };
+    }
+
     if (numeratorXDegree < xDegree || numeratorYDegree < yDegree) {
       throw new Error("The numerator degrees must be at least the vanishing polynomial degrees.");
     }
