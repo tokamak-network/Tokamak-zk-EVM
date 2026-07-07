@@ -6,3 +6,7 @@ export * from "./prove1.js";
 export * from "./prove2.js";
 export * from "./prove3.js";
 export * from "./prove4.js";
+export * from "./prove-binary.js";
+export * from "./prove-snark.js";
+export * from "./proof-output.js";
+export * from "./version.js";
