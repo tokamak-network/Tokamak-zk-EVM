@@ -66,11 +66,11 @@ Small generic helpers shared by implementation modules. Protocol logic, artifact
 
 Local development and validation scripts. These scripts check fixtures, binary artifact file behavior, runtime arithmetic, polynomial parity, and verifier parity.
 
-`scripts/copy-fixtures.ts` is the only fixture update path in this package. It copies prepared artifacts from the package-local ignored staging directory `packages/backend-wasm/tmp/prepared-fixtures/`. It must not generate missing artifacts.
+`scripts/copy-fixtures.ts` performs only the first fixture update stage. It copies source artifacts from existing owner package outputs under `packages/` into the package-local ignored work area under `packages/backend-wasm/tmp/fixture-work/`. It must not generate missing artifacts and must not write final runtime fixture files.
 
 ### `fixtures/`
 
-Curated parity fixtures for validating the TypeScript runtime against prepared native outputs. Test fixtures are copy-only; this package must not regenerate fixtures by running native binaries, setup flows, prover flows, verifier flows, or fixture exporters.
+Curated parity fixtures for validating the TypeScript runtime against prepared native outputs. Test fixture preparation follows a controlled copy-convert-store pipeline: copy owner package outputs into a package-local temporary work area, convert them through web-compatible converter APIs, then store converted files under this package's ignored fixture directories. This package must not regenerate fixtures by running native binaries, setup flows, prover flows, verifier flows, or fixture exporters.
 
 ### `test/`
 
@@ -108,7 +108,7 @@ npm run build
 npm run clean
 ```
 
-Use `npm run fixtures:copy` only after the source artifacts listed in `fixtures/small/copy-manifest.json` have been prepared under `packages/backend-wasm/tmp/prepared-fixtures/`.
+Use `npm run fixtures:copy` only after the existing owner package output files listed in `fixtures/small/copy-manifest.json` have been prepared by their owning packages. The command copies those files into `packages/backend-wasm/tmp/fixture-work/`; it does not convert them or write final runtime fixture files.
 
 Use `npm run specs:generate` after editing JSON specs under `src/libs/artifact-loaders/specs/`.
 

@@ -3,12 +3,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 interface CopyManifest {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 2;
   readonly suite: string;
-  readonly files: readonly CopyFileEntry[];
+  readonly workDirectory: string;
+  readonly sources: readonly CopySourceEntry[];
 }
 
-interface CopyFileEntry {
+interface CopySourceEntry {
   readonly source: string;
   readonly destination: string;
 }
@@ -22,19 +23,24 @@ async function main(argv: readonly string[]): Promise<void> {
   const manifestDirectory = path.dirname(manifestPath);
   const backendWasmRoot = path.resolve(manifestDirectory, "../..");
   const repositoryRoot = path.resolve(backendWasmRoot, "../..");
-  const fixturesRoot = path.resolve(backendWasmRoot, "fixtures", "small");
   const manifest = parseManifest(JSON.parse(await readFile(manifestPath, "utf8")) as unknown);
+  const workDirectory = resolveWorkDirectory(repositoryRoot, backendWasmRoot, manifest.workDirectory);
 
-  for (const file of manifest.files) {
-    const sourcePath = resolveSourcePath(repositoryRoot, backendWasmRoot, file.source);
-    const destinationPath = resolveDestinationPath(fixturesRoot, file.destination);
+  for (const source of manifest.sources) {
+    const sourcePath = resolveSourcePath(repositoryRoot, backendWasmRoot, source.source);
+    const destinationPath = resolveDestinationPath(workDirectory, source.destination);
 
-    await assertPreparedSource(sourcePath, file.source);
+    await assertSourceFile(sourcePath, source.source);
     await mkdir(path.dirname(destinationPath), { recursive: true });
     await writeFile(destinationPath, await readFile(sourcePath));
   }
 
-  console.log(`Copied ${manifest.files.length} fixture file(s) for suite '${manifest.suite}'.`);
+  console.log(
+    `Copied ${manifest.sources.length} fixture source file(s) for suite '${manifest.suite}' into ${path.relative(
+      process.cwd(),
+      workDirectory,
+    )}.`,
+  );
 }
 
 function parseManifest(raw: unknown): CopyManifest {
@@ -42,29 +48,32 @@ function parseManifest(raw: unknown): CopyManifest {
     throw new Error("Copy manifest must be a JSON object.");
   }
 
-  if (raw.schemaVersion !== 1) {
-    throw new Error("Copy manifest schemaVersion must be 1.");
+  if (raw.schemaVersion !== 2) {
+    throw new Error("Copy manifest schemaVersion must be 2.");
   }
 
   if (typeof raw.suite !== "string" || raw.suite.trim() === "") {
     throw new Error("Copy manifest suite must be a non-empty string.");
   }
 
-  if (!Array.isArray(raw.files) || raw.files.length === 0) {
-    throw new Error("Copy manifest files must be a non-empty array.");
+  const workDirectory = assertSafeRelativePath(raw.workDirectory, "Copy manifest workDirectory");
+
+  if (!Array.isArray(raw.sources) || raw.sources.length === 0) {
+    throw new Error("Copy manifest sources must be a non-empty array.");
   }
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     suite: raw.suite,
-    files: raw.files.map((entry, index): CopyFileEntry => {
+    workDirectory,
+    sources: raw.sources.map((entry, index): CopySourceEntry => {
       if (!isRecord(entry)) {
-        throw new Error(`Copy manifest file at index ${index} must be an object.`);
+        throw new Error(`Copy manifest source at index ${index} must be an object.`);
       }
 
       return {
-        source: assertSafeRelativePath(entry.source, `Copy manifest file at index ${index} source`),
-        destination: assertSafeRelativePath(entry.destination, `Copy manifest file at index ${index} destination`),
+        source: assertSafeRelativePath(entry.source, `Copy manifest source at index ${index} source`),
+        destination: assertSafeRelativePath(entry.destination, `Copy manifest source at index ${index} destination`),
       };
     }),
   };
@@ -72,31 +81,47 @@ function parseManifest(raw: unknown): CopyManifest {
 
 function resolveSourcePath(repositoryRoot: string, backendWasmRoot: string, source: string): string {
   const sourcePath = path.resolve(repositoryRoot, source);
-  const preparedFixturesRoot = path.resolve(backendWasmRoot, "tmp", "prepared-fixtures");
+  const packagesRoot = path.resolve(repositoryRoot, "packages");
+  const backendWasmTmpRoot = path.resolve(backendWasmRoot, "tmp");
   const backendWasmFixturesRoot = path.resolve(backendWasmRoot, "fixtures");
 
-  if (!isPathInside(sourcePath, preparedFixturesRoot)) {
-    throw new Error(`Fixture source must be under packages/backend-wasm/tmp/prepared-fixtures/: ${source}`);
+  if (!isPathInside(sourcePath, packagesRoot)) {
+    throw new Error(`Fixture source must be under the repository packages/ directory: ${source}`);
+  }
+
+  if (isPathInside(sourcePath, backendWasmTmpRoot)) {
+    throw new Error(`Fixture source must not point into backend-wasm tmp: ${source}`);
   }
 
   if (isPathInside(sourcePath, backendWasmFixturesRoot)) {
-    throw new Error(`Fixture source must not point back into backend-wasm fixtures: ${source}`);
+    throw new Error(`Fixture source must not point into backend-wasm fixtures: ${source}`);
   }
 
   return sourcePath;
 }
 
-function resolveDestinationPath(fixturesRoot: string, destination: string): string {
-  const destinationPath = path.resolve(fixturesRoot, destination);
+function resolveWorkDirectory(repositoryRoot: string, backendWasmRoot: string, workDirectory: string): string {
+  const workDirectoryPath = path.resolve(repositoryRoot, workDirectory);
+  const allowedRoot = path.resolve(backendWasmRoot, "tmp", "fixture-work");
 
-  if (!isPathInside(destinationPath, fixturesRoot)) {
-    throw new Error(`Fixture destination must stay under fixtures/small: ${destination}`);
+  if (!isPathInside(workDirectoryPath, allowedRoot)) {
+    throw new Error(`Copy manifest workDirectory must stay under packages/backend-wasm/tmp/fixture-work: ${workDirectory}`);
+  }
+
+  return workDirectoryPath;
+}
+
+function resolveDestinationPath(workDirectory: string, destination: string): string {
+  const destinationPath = path.resolve(workDirectory, destination);
+
+  if (!isPathInside(destinationPath, workDirectory)) {
+    throw new Error(`Fixture source copy destination must stay under the fixture work directory: ${destination}`);
   }
 
   return destinationPath;
 }
 
-async function assertPreparedSource(sourcePath: string, sourceLabel: string): Promise<void> {
+async function assertSourceFile(sourcePath: string, sourceLabel: string): Promise<void> {
   try {
     const sourceStat = await stat(sourcePath);
     if (!sourceStat.isFile()) {
@@ -104,7 +129,7 @@ async function assertPreparedSource(sourcePath: string, sourceLabel: string): Pr
     }
   } catch {
     throw new Error(
-      `Required fixture artifact is not prepared: ${sourceLabel}. Prepare this artifact under packages/backend-wasm/tmp/prepared-fixtures and rerun fixtures:copy.`,
+      `Required fixture source artifact is missing: ${sourceLabel}. Prepare that existing package output before running fixtures:copy.`,
     );
   }
 }

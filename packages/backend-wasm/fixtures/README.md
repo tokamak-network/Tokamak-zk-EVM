@@ -42,12 +42,12 @@ Input and expected paths are relative to the manifest directory. They must not b
 
 ## Updating Fixtures
 
-Backend-wasm test fixtures are copy-only. Do not regenerate them from this package by running native scripts, Rust binaries, CLI proof flows, setup commands, or prover/verifier execution.
+Backend-wasm test fixtures follow a controlled copy-convert-store pipeline. Do not regenerate them from this package by running native scripts, Rust binaries, CLI proof flows, setup commands, or prover/verifier execution.
 
-Developers must prepare fixture source files under the package-local ignored staging directory `packages/backend-wasm/tmp/prepared-fixtures/` first. Backend-wasm only copies those prepared files according to `fixtures/small/copy-manifest.json`:
+Developers must prepare the owner package output files referenced by `fixtures/small/copy-manifest.json` in their existing package output locations first. Backend-wasm copies those source files into a package-local ignored work directory:
 
 ```sh
 npm run fixtures:copy
 ```
 
-If a source file is missing, the copy script fails and reports the exact artifact path that must be prepared under `packages/backend-wasm/tmp/prepared-fixtures/`. This package must not fall back to generating the missing artifact.
+The copy stage writes to `packages/backend-wasm/tmp/fixture-work/<suite>/source/` and does not write final test fixtures. A later conversion stage must convert those copied source artifacts through web-compatible converter APIs and store converted runtime files under this package's ignored fixture directories. If a source file is missing, the copy script fails and reports the exact owner package output path that must be prepared. This package must not fall back to generating the missing artifact.
