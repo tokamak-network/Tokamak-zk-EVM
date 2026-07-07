@@ -130,6 +130,7 @@ cargo run --release --features testing-mode --bin dusk_backed_mpc_setup -- \
 The final output folder contains:
 
 - `combined_sigma.rkyv`
+- `combined_sigma.json`
 - `sigma_preprocess.rkyv`
 - `sigma_verify.json`
 - `crs_provenance.json`
