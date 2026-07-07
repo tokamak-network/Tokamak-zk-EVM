@@ -12,14 +12,25 @@ export type ArtifactConverterCommand = (typeof ARTIFACT_CONVERTER_COMMANDS)[numb
 export type ConverterArtifactJson = Record<string, unknown>;
 
 export interface NativeVerifierJsonToBinaryInput {
+  readonly sourcePackageVersion?: string;
+  readonly setupParams?: unknown;
   readonly proof?: unknown;
   readonly preprocess?: unknown;
   readonly instance?: unknown;
   readonly instanceDescription?: unknown;
   readonly sigmaVerify?: unknown;
+  readonly artifacts?: {
+    readonly setupParams?: unknown;
+    readonly proof?: unknown;
+    readonly preprocess?: unknown;
+    readonly instance?: unknown;
+    readonly instanceDescription?: unknown;
+    readonly sigmaVerify?: unknown;
+  };
 }
 
 export interface NativeProverArtifactsToBinaryInput {
+  readonly sourcePackageVersion?: string;
   readonly setupParams?: unknown;
   readonly subcircuitMetadata?: unknown;
   readonly placement?: unknown;
@@ -76,6 +87,10 @@ export interface RuntimeArtifactBundleOutput {
   readonly files: readonly RuntimeArtifactBundleOutputFile[];
 }
 
+export interface RuntimeArtifactBundleSetOutput {
+  readonly bundles: readonly RuntimeArtifactBundleOutput[];
+}
+
 export interface RuntimeArtifactBundleOutputFile {
   readonly path: string;
   readonly bytes: Uint8Array;
@@ -94,6 +109,7 @@ export interface ArtifactConverterRequest {
 }
 
 export type ArtifactConverterOutput =
+  | RuntimeArtifactBundleSetOutput
   | RuntimeArtifactBundleOutput
   | Uint8Array
   | ConverterArtifactJson
