@@ -134,7 +134,7 @@
         "--synthesizer-stat",
         "${workspaceFolder}/../frontend/synthesizer/outputs",
         "--output",
-        "${workspaceFolder}/verify/preprocess/output"
+        "${workspaceFolder}/preprocess/output"
       ],
       "cwd": "${workspaceFolder}",
       "env": {
@@ -159,7 +159,7 @@
         "--synthesizer-stat",
         "${workspaceFolder}/../frontend/synthesizer/outputs",
         "--output",
-        "${workspaceFolder}/verify/preprocess/output"
+        "${workspaceFolder}/preprocess/output"
       ],
       "cwd": "${workspaceFolder}",
       "env": {
@@ -289,7 +289,7 @@
         "--synthesizer-stat",
         "${workspaceFolder}/../frontend/synthesizer/outputs",
         "--preprocess",
-        "${workspaceFolder}/verify/preprocess/output",
+        "${workspaceFolder}/preprocess/output",
         "--proof",
         "${workspaceFolder}/prove/output"
       ],
@@ -318,7 +318,7 @@
         "--synthesizer-stat",
         "${workspaceFolder}/../frontend/synthesizer/outputs",
         "--preprocess",
-        "${workspaceFolder}/verify/preprocess/output",
+        "${workspaceFolder}/preprocess/output",
         "--proof",
         "${workspaceFolder}/prove/output"
       ],
@@ -347,7 +347,7 @@
         "--synthesizer-stat",
         "${workspaceFolder}/../frontend/synthesizer/outputs",
         "--preprocess",
-        "${workspaceFolder}/verify/preprocess/output",
+        "${workspaceFolder}/preprocess/output",
         "--proof",
         "${workspaceFolder}/prove/output"
       ],

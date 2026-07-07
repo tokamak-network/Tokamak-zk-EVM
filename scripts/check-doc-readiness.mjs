@@ -201,38 +201,11 @@ function checkSynthesizerFaq() {
   }
 }
 
-function checkWasmVerifierDeprecation() {
-  const markdownFiles = [
-    'packages/backend/verify/verify-wasm/README.md',
-    'packages/backend/verify/verify-wasm/QUICK_START.md',
-    'packages/backend/verify/verify-wasm/NPM_USAGE.md',
-  ];
-  const notice = 'Deprecated: The WASM verifier packages are no longer officially supported.';
-  const replacement = 'For local verification, use `@tokamak-zk-evm/cli` and the supported backend verification flow.';
-
-  for (const relativePath of markdownFiles) {
-    requireIncludes(relativePath, notice);
-    requireIncludes(relativePath, replacement);
-    requirePattern(relativePath, /historical|reference/iu, 'historical or reference wording');
-  }
-
-  const manifest = readJson('packages/backend/verify/verify-wasm/package.json');
-  if (!String(manifest.description ?? '').startsWith('Deprecated')) {
-    fail('packages/backend/verify/verify-wasm/package.json description must start with Deprecated.');
-  }
-  for (const keyword of ['deprecated', 'historical']) {
-    if (!manifest.keywords?.includes(keyword)) {
-      fail(`packages/backend/verify/verify-wasm/package.json must include ${keyword} keyword.`);
-    }
-  }
-}
-
 checkLlmsTxt();
 checkRootReadme();
 checkPackageReadmes();
 checkPackageMetadata();
 checkSynthesizerFaq();
-checkWasmVerifierDeprecation();
 
 if (failures.length > 0) {
   for (const failure of failures) {

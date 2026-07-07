@@ -4,13 +4,14 @@ members = [
     "setup/trusted-setup",
     "setup/mpc-setup",
     "prove",
-    "verify/verify-rust",
-    "verify/preprocess"
+    "verify-rust",
+    "preprocess",
+    "tools/export-fixtures"
 ]
 
 [workspace.package]
 edition = "2021"
-version = "2.1.0"
+version = "2.2.0"
 license = "MIT OR Apache-2.0"
 authors = ["Tokamak Network"]
 repository = "https://github.com/tokamak-network/tokamak-zk-evm"
@@ -26,8 +27,8 @@ ark-ec = "0.5.0"
 ark-ff = "0.5.0"
 libs = { path = "libs" }
 prove = { path = "prove" }
-verify = { path = "verify/verify-rust" }
-preprocess = { path = "verify/preprocess" }
+verify = { path = "verify-rust" }
+preprocess = { path = "preprocess" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 byteorder = "1.4"

@@ -61,6 +61,7 @@ pub struct FinalCrsProvenance {
     pub backend_version: String,
     pub phase1_source_provenance: Option<Phase1SourceProvenance>,
     pub combined_sigma_sha256: String,
+    pub combined_sigma_json_sha256: String,
     pub sigma_preprocess_sha256: String,
     pub sigma_verify_sha256: String,
     pub published_folder_url: Option<String>,

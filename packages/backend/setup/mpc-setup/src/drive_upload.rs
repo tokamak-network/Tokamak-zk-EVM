@@ -20,8 +20,9 @@ use zip::write::{ExtendedFileOptions, FileOptions};
 const DRIVE_FOLDER_MIME_TYPE: &str = "application/vnd.google-apps.folder";
 const PROVENANCE_FILE_NAME: &str = "crs_provenance.json";
 const BUILD_METADATA_FILE_NAME: &str = "build-metadata-mpc-setup.json";
-const FINAL_OUTPUT_FILES: [&str; 4] = [
+const FINAL_OUTPUT_FILES: [&str; 5] = [
     "combined_sigma.rkyv",
+    "combined_sigma.json",
     "sigma_preprocess.rkyv",
     "sigma_verify.json",
     PROVENANCE_FILE_NAME,
