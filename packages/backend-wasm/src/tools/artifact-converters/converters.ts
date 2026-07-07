@@ -1,4 +1,5 @@
 import { createBinaryArtifactFile, decodeBinaryArtifactFile } from "../../libs/serialization/binary-artifact-file.js";
+import { GENERATED_PROVER_SETUP_PARAMS } from "../../prover/generated/subcircuit-library.generated.js";
 import {
   RuntimeArtifactBundleKind,
   RuntimeArtifactFileRole,
@@ -302,12 +303,27 @@ interface SigmaVerifyJson {
 
 function normalizeVerifierArtifacts(input: NativeVerifierJsonToBinaryInput): VerifierArtifacts {
   return {
-    setupParams: requireDefined(input.setupParams ?? input.artifacts?.setupParams, "verifier setupParams"),
+    setupParams: resolveVerifierSetupParams(input),
     proof: requireDefined(input.proof ?? input.artifacts?.proof, "verifier proof"),
     preprocess: requireDefined(input.preprocess ?? input.artifacts?.preprocess, "verifier preprocess"),
     instance: requireDefined(input.instance ?? input.artifacts?.instance, "verifier instance"),
     sigmaVerify: requireDefined(input.sigmaVerify ?? input.artifacts?.sigmaVerify, "verifier sigmaVerify"),
   };
+}
+
+function resolveVerifierSetupParams(input: NativeVerifierJsonToBinaryInput): unknown {
+  const explicit = input.setupParams ?? input.artifacts?.setupParams;
+  if (explicit !== undefined) {
+    return explicit;
+  }
+
+  if (input.useGeneratedSetupParams === true) {
+    return GENERATED_PROVER_SETUP_PARAMS;
+  }
+
+  throw new Error(
+    "Missing verifier setupParams. Pass setupParams explicitly, or set useGeneratedSetupParams=true to use the pinned subcircuit-library setup params.",
+  );
 }
 
 function createBundleManifest(

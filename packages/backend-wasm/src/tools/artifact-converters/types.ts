@@ -13,6 +13,7 @@ export type ConverterArtifactJson = Record<string, unknown>;
 
 export interface NativeVerifierJsonToBinaryInput {
   readonly sourcePackageVersion?: string;
+  readonly useGeneratedSetupParams?: boolean;
   readonly setupParams?: unknown;
   readonly proof?: unknown;
   readonly preprocess?: unknown;
