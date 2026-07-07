@@ -267,6 +267,7 @@ impl Sigma {
 #[derive(Debug, Clone)]
 pub struct FinalCrsDigests {
     pub combined_sigma_sha256: String,
+    pub combined_sigma_json_sha256: String,
     pub sigma_preprocess_sha256: String,
     pub sigma_verify_sha256: String,
 }
@@ -284,6 +285,12 @@ pub fn write_final_crs_artifacts(
         combined_sigma_bytes.as_ref(),
     )?;
 
+    let combined_sigma_json_bytes = serde_json::to_vec_pretty(sigma).map_err(io::Error::other)?;
+    fs::write(
+        output_dir.join("combined_sigma.json"),
+        &combined_sigma_json_bytes,
+    )?;
+
     let sigma_preprocess_rkyv = SigmaPreprocessRkyv::from_sigma(sigma);
     let sigma_preprocess_bytes =
         rkyv::to_bytes::<_, 256>(&sigma_preprocess_rkyv).map_err(io::Error::other)?;
@@ -298,6 +305,7 @@ pub fn write_final_crs_artifacts(
 
     Ok(FinalCrsDigests {
         combined_sigma_sha256: sha256_hex(combined_sigma_bytes.as_ref()),
+        combined_sigma_json_sha256: sha256_hex(&combined_sigma_json_bytes),
         sigma_preprocess_sha256: sha256_hex(sigma_preprocess_bytes.as_ref()),
         sigma_verify_sha256: sha256_hex(&sigma_verify_bytes),
     })

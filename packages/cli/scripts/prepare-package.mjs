@@ -18,7 +18,6 @@ const directoryExclusions = new Set([
   'benches',
   'docs',
   'optimization',
-  'verify-wasm',
 ]);
 
 const fileExclusions = [

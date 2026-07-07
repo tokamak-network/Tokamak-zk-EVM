@@ -8,6 +8,18 @@ The format is based on Keep a Changelog.
 
 ## Unreleased
 
+## [2.2.0] - 2026-07-07
+
+### Repository
+
+- Synchronized the release version to `2.2.0` across the CLI, subcircuit library, synthesizer packages, and backend workspace.
+- Updated `packages/cli/package.json tokamakZkEvm.compatibleBackendVersion` to `2.2`.
+
+### Backend Workspace
+
+- Optimized verifier Lagrange K0 evaluation by using the direct basis-polynomial formula instead of reconstructing coefficients through NTT.
+- Added `combined_sigma.json` to trusted setup, native MPC setup, and dusk-backed MPC setup final CRS outputs.
+
 ## [2.1.0] - 2026-05-02
 
 ### Repository

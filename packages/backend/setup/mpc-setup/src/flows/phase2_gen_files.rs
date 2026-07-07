@@ -31,6 +31,7 @@ pub fn run(config: &Phase2GenFilesConfig) {
         backend_version: compatible_backend_version().to_string(),
         phase1_source_provenance: latest_acc.phase1_source_provenance,
         combined_sigma_sha256: digests.combined_sigma_sha256,
+        combined_sigma_json_sha256: digests.combined_sigma_json_sha256,
         sigma_preprocess_sha256: digests.sigma_preprocess_sha256,
         sigma_verify_sha256: digests.sigma_verify_sha256,
         published_folder_url: None,

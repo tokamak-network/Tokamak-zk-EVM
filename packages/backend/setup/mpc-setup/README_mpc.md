@@ -130,6 +130,7 @@ cargo run --release --features testing-mode --bin dusk_backed_mpc_setup -- \
 The final output folder contains:
 
 - `combined_sigma.rkyv`
+- `combined_sigma.json`
 - `sigma_preprocess.rkyv`
 - `sigma_verify.json`
 - `crs_provenance.json`
@@ -143,6 +144,10 @@ The deployable CRS is `combined_sigma.rkyv`.
 - `published_folder_url`
 - `published_archive_name`
 - `crs_download_url`
+- `combined_sigma_sha256`
+- `combined_sigma_json_sha256`
+- `sigma_preprocess_sha256`
+- `sigma_verify_sha256`
 
 Release builds also emit `build-metadata-mpc-setup.json` into
 `packages/backend/target/release/`. Publication is allowed only when that metadata declares

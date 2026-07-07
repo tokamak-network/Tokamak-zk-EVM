@@ -2,7 +2,6 @@
 use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
 use icicle_core::ntt;
 use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
-use icicle_runtime::memory::HostSlice;
 use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use libs::group_structures::pairing;
 use libs::group_structures::{G1serde, SigmaVerify};
@@ -14,7 +13,6 @@ use libs::utils::{
 use preprocess::{FormattedPreprocess, Preprocess};
 use prove::*;
 use std::path::PathBuf;
-use std::vec;
 
 pub struct VerifyInputPaths<'a> {
     pub qap_path: &'a str,
@@ -139,18 +137,14 @@ impl Verifier {
         domain: &VerificationDomainContext,
         challenges: &VerificationChallenges,
     ) -> ScalarField {
-        let lagrange_K0_XY = {
-            let mut k0_evals = vec![ScalarField::zero(); domain.m_i];
-            k0_evals[0] = ScalarField::one();
-            DensePolynomialExt::from_rou_evals(
-                HostSlice::from_slice(&k0_evals),
-                domain.m_i,
-                1,
-                None,
-                None,
-            )
-        };
-        lagrange_K0_XY.eval(&challenges.chi, &challenges.zeta)
+        if challenges.chi == ScalarField::one() {
+            return ScalarField::one();
+        }
+
+        let m_i = u32::try_from(domain.m_i).expect("m_i must fit into u32");
+        domain.t_mi_eval
+            * ScalarField::from_u32(m_i).inv()
+            * (challenges.chi - ScalarField::one()).inv()
     }
 
     fn eval_a_pub(&self, challenges: &VerificationChallenges) -> ScalarField {
