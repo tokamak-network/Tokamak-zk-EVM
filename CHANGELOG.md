@@ -14,8 +14,24 @@ The format is based on Keep a Changelog.
 
 - Synchronized the release version to `2.1.1` across the CLI, subcircuit library, synthesizer packages, and backend workspace.
 
+### CLI
+
+- Bumped `@tokamak-zk-evm/cli` to `2.1.1`.
+- Updated the CLI package to consume `@tokamak-zk-evm/synthesizer-node` through the synchronized `^2.1.1` dependency range.
+- Kept `packages/cli/package.json tokamakZkEvm.compatibleBackendVersion` at `2.1`.
+
+### Subcircuit Library
+
+- Bumped `@tokamak-zk-evm/subcircuit-library` to `2.1.1`.
+
+### Synthesizer
+
+- Bumped `@tokamak-zk-evm/synthesizer-node` and `@tokamak-zk-evm/synthesizer-web` to `2.1.1`.
+- Updated both synthesizer packages to consume `@tokamak-zk-evm/subcircuit-library` through the synchronized `^2.1.1` dependency range.
+
 ### Backend Workspace
 
+- Bumped the backend Rust workspace version to `2.1.1`.
 - Optimized verifier Lagrange K0 evaluation by using the direct basis-polynomial formula instead of reconstructing coefficients through NTT.
 - Kept final CRS artifacts limited to `combined_sigma.rkyv`, `sigma_preprocess.rkyv`, `sigma_verify.json`, and MPC provenance, excluding the unreleased `combined_sigma.json` artifact from setup outputs and upload archives.
 
