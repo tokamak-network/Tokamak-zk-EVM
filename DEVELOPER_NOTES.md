@@ -112,7 +112,6 @@ Required `.env` keys for publication are documented in
 The final output directory contains:
 
 - `combined_sigma.rkyv`
-- `combined_sigma.json`
 - `sigma_preprocess.rkyv`
 - `sigma_verify.json`
 - `crs_provenance.json`
