@@ -8,9 +8,16 @@ The format is based on Keep a Changelog.
 
 ## Unreleased
 
+## [2.1.1] - 2026-07-11
+
+### Repository
+
+- Synchronized the release version to `2.1.1` across the CLI, subcircuit library, synthesizer packages, and backend workspace.
+
 ### Backend Workspace
 
 - Optimized verifier Lagrange K0 evaluation by using the direct basis-polynomial formula instead of reconstructing coefficients through NTT.
+- Kept final CRS artifacts limited to `combined_sigma.rkyv`, `sigma_preprocess.rkyv`, `sigma_verify.json`, and MPC provenance, excluding the unreleased `combined_sigma.json` artifact from setup outputs and upload archives.
 
 ## [2.1.0] - 2026-05-02
 
