@@ -36,8 +36,8 @@
     "specs:generate": "tsx scripts/generate-format-specs.ts",
     "subcircuit-library:check": "tsx scripts/generate-subcircuit-library.ts --check",
     "subcircuit-library:generate": "tsx scripts/generate-subcircuit-library.ts",
-    "verifier-crs:check": "tsx scripts/generate-verifier-crs.ts --check",
-    "verifier-crs:generate": "tsx scripts/generate-verifier-crs.ts",
+    "verifier-crs:check": "tsx scripts/generate-verifier-crs.ts --input ../backend/setup/output/sigma_verify.json --check",
+    "verifier-crs:generate": "tsx scripts/generate-verifier-crs.ts --input ../backend/setup/output/sigma_verify.json",
     "verifier:browser:check": "tsx scripts/check-verifier-browser.ts",
     "verifier:check": "tsx scripts/check-verifier-fixture.ts",
     "clean": "rm -rf dist"

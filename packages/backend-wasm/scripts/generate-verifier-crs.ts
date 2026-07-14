@@ -1,11 +1,10 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { createCurveRuntime, type AffinePointJson, type CurveRuntime } from "../src/index.js";
 import type { VerifierInput } from "../src/verifier/verify-snark.js";
 
 const backendWasmRoot = path.resolve(import.meta.dirname, "..");
-const defaultInputPath = path.resolve(backendWasmRoot, "..", "backend", "setup", "output", "sigma_verify.json");
 const generatedPath = path.join(backendWasmRoot, "src", "verifier", "generated", "sigma-verify.generated.ts");
 const checkMode = process.argv.includes("--check");
 const inputPath = resolveInputPath(process.argv);
@@ -32,6 +31,7 @@ interface SigmaVerifyJson {
 }
 
 async function main(): Promise<void> {
+  await assertInputFile(inputPath);
   const raw = JSON.parse(await readFile(inputPath, "utf8")) as unknown;
   const sigma = parseSigmaVerifyJson(raw);
   const runtime = await createCurveRuntime();
@@ -56,16 +56,28 @@ async function main(): Promise<void> {
 
 function resolveInputPath(argv: readonly string[]): string {
   const inputIndex = argv.indexOf("--input");
-  if (inputIndex !== -1) {
-    const value = argv[inputIndex + 1];
-    if (value === undefined || value.trim() === "") {
-      throw new Error("--input requires a non-empty path.");
-    }
-
-    return path.resolve(value);
+  if (inputIndex === -1) {
+    throw new Error("Verifier CRS generation requires --input <path-to-sigma_verify.json>.");
   }
 
-  return defaultInputPath;
+  const value = argv[inputIndex + 1];
+  if (value === undefined || value.trim() === "" || value.startsWith("--")) {
+    throw new Error("--input requires a non-empty path to sigma_verify.json.");
+  }
+
+  return path.resolve(value);
+}
+
+async function assertInputFile(filePath: string): Promise<void> {
+  try {
+    const inputStat = await stat(filePath);
+    if (!inputStat.isFile()) {
+      throw new Error("not a file");
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Verifier CRS source artifact is not available at ${filePath}: ${message}`);
+  }
 }
 
 function toVerifierSigma(runtime: CurveRuntime, sigma: SigmaVerifyJson): VerifierInput["sigma"] {
