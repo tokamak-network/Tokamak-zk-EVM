@@ -7,3 +7,5 @@
 /fixtures/small/expected/*
 !/fixtures/small/expected/.gitkeep
 /fixtures/small/runtime/
+/tools/rkyv-decoder-wasm/pkg/
+/tools/rkyv-decoder-wasm/target/

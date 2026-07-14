@@ -28,3 +28,48 @@ by prover or verifier runtime code.
 
 The payload container is an internal Rust/WASM-to-TypeScript adapter format, not a
 runtime artifact file and not a persisted fixture format.
+
+## Browser build
+
+Build the browser package from this directory with:
+
+```sh
+npm run build
+```
+
+From the backend-wasm package root, the same build is available as:
+
+```sh
+npm run rkyv-decoder:build
+```
+
+The build requires:
+
+- `cargo`
+- `rustc` with the `wasm32-unknown-unknown` target installed
+- `wasm-bindgen` CLI
+
+The script always rebuilds the Rust WASM target and regenerates `pkg/` from that
+target. `pkg/` and `target/` are generated outputs and are not tracked.
+
+To check only whether the required build tools are installed:
+
+```sh
+npm run check:build-tools
+```
+
+## Browser API
+
+The browser wrapper lazy-loads the generated wasm-bindgen package and exposes the
+payload decoder. It does not create backend-wasm runtime artifact files itself.
+
+```js
+import { createCombinedSigmaRkyvPayloadDecoder } from "@tokamak-zk-evm/backend-wasm";
+import { loadCombinedSigmaPayloadDecoder } from "./tools/rkyv-decoder-wasm/src/browser.js";
+
+const payloadDecoder = await loadCombinedSigmaPayloadDecoder();
+const decoder = createCombinedSigmaRkyvPayloadDecoder(payloadDecoder.decodeCombinedSigmaPayload);
+```
+
+Pass `decoder` to `convertCombinedSigmaRkyvToProverCrsBinary`. Prover and verifier
+runtime modules must not import this package.

@@ -32,6 +32,8 @@
     "polynomial:check": "tsx scripts/check-polynomial-fixtures.ts",
     "prover:witness:check": "tsx scripts/check-prover-witness.ts",
     "runtime:check": "tsx scripts/check-runtime-fixtures.ts",
+    "rkyv-decoder:build": "npm --prefix tools/rkyv-decoder-wasm run build",
+    "rkyv-decoder:check-tools": "npm --prefix tools/rkyv-decoder-wasm run check:build-tools",
     "rkyv:payload:check": "tsx scripts/check-rkyv-decoder-payload.ts",
     "specs:check": "tsx scripts/generate-format-specs.ts --check",
     "specs:generate": "tsx scripts/generate-format-specs.ts",

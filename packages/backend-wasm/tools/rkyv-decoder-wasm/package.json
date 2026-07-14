@@ -1,0 +1,16 @@
+{
+  "name": "@tokamak-zk-evm/backend-wasm-rkyv-decoder",
+  "version": "2.1.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./browser": {
+      "types": "./src/browser.d.ts",
+      "default": "./src/browser.js"
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check:build-tools": "node scripts/build.mjs --check-tools"
+  }
+}
