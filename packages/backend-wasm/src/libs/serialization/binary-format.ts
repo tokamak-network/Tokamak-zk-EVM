@@ -17,7 +17,6 @@ export enum BinaryArtifactFileKind {
   ProverPlacementVariables = 5,
   ProverCrs = 6,
   ProverInstance = 7,
-  ProverSetupParams = 8,
   ProverPermutation = 9,
   Test = 255,
 }
@@ -26,7 +25,6 @@ export enum BinaryDigestEntryType {
   SelfDigest = 1,
   SourceArtifactDigest = 2,
   SectionDigest = 3,
-  SetupParamsDigest = 4,
   SubcircuitLibraryDigest = 5,
   CombinedSigmaDigest = 6,
   SigmaVerifyDigest = 7,
@@ -54,7 +52,6 @@ export enum BinarySectionType {
   Instance = 3,
   InstanceDescription = 4,
   SigmaVerify = 5,
-  SetupParams = 6,
   SubcircuitMetadata = 7,
   Placement = 8,
   Permutation = 9,

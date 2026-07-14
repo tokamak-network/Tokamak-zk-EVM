@@ -49,11 +49,6 @@ const SPEC_JOBS: readonly SpecJob[] = [
     constName: "PROVER_INSTANCE_V1_SPEC",
   },
   {
-    jsonPath: "src/libs/artifact-loaders/specs/prover-setup-params.v1.json",
-    generatedPath: "src/libs/artifact-loaders/specs/prover-setup-params.v1.generated.ts",
-    constName: "PROVER_SETUP_PARAMS_V1_SPEC",
-  },
-  {
     jsonPath: "src/libs/artifact-loaders/specs/test-binary.v1.json",
     generatedPath: "src/libs/artifact-loaders/specs/test-binary.v1.generated.ts",
     constName: "TEST_BINARY_V1_SPEC",
@@ -279,7 +274,6 @@ function parseSectionType(value: unknown, sourcePath: string): string {
     case "Preprocess":
     case "Proof":
     case "Instance":
-    case "SetupParams":
     case "Placement":
     case "Permutation":
     case "MsmBases":

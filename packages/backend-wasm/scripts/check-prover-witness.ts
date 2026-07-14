@@ -290,22 +290,6 @@ async function main(): Promise<void> {
     assertEqual(snarkProof.sections[1]?.section.data.byteLength, 4 * 32, "proveSnark proof.evals byte length");
 
     const binaryArtifacts = {
-      setupParams: await loadRuntimeArtifactFile(
-        await createBinaryArtifactFile({
-          kind: BinaryArtifactFileKind.ProverSetupParams,
-          sourcePackageVersion: "0.0.0",
-          sections: [
-            {
-              type: BinarySectionType.SetupParams,
-              encoding: BinarySectionEncoding.Bytes,
-              label: "setup.params",
-              elementCount: 1,
-              elementByteLength: 36,
-              data: encodeSetupParams(setup),
-            },
-          ],
-        }),
-      ),
       placementVariables: await loadRuntimeArtifactFile(
         await createBinaryArtifactFile({
           kind: BinaryArtifactFileKind.ProverPlacementVariables,
@@ -372,7 +356,7 @@ async function main(): Promise<void> {
       ),
     };
     const binaryParts = loadProverRuntimeWitnessInputParts(runtime, binaryArtifacts);
-    assertEqual(binaryParts.setup.l_free, setup.l_free, "binary setup l_free");
+    assertEqual(binaryParts.setup.l_free, GENERATED_PROVER_SETUP_PARAMS.l_free, "binary setup l_free");
     assertEqual(binaryParts.placementVariables.length, placementVariables.length, "binary placement count");
     assertEqual(binaryParts.permutation.length, permutation.length, "binary permutation count");
     assertEqual(binaryParts.permutation[0].X, permutation[0].X, "binary permutation X");
@@ -381,22 +365,6 @@ async function main(): Promise<void> {
     assertFieldEqual(binaryParts.publicInstance[1], fr(17n), "binary public instance value");
 
     const bakedInput = buildProverWitnessInputFromRuntimeArtifacts(runtime, {
-      setupParams: await loadRuntimeArtifactFile(
-        await createBinaryArtifactFile({
-          kind: BinaryArtifactFileKind.ProverSetupParams,
-          sourcePackageVersion: "0.0.0",
-          sections: [
-            {
-              type: BinarySectionType.SetupParams,
-              encoding: BinarySectionEncoding.Bytes,
-              label: "setup.params",
-              elementCount: 1,
-              elementByteLength: 36,
-              data: encodeSetupParams(GENERATED_PROVER_SETUP_PARAMS),
-            },
-          ],
-        }),
-      ),
       placementVariables: await loadRuntimeArtifactFile(
         await createBinaryArtifactFile({
           kind: BinaryArtifactFileKind.ProverPlacementVariables,
@@ -465,20 +433,6 @@ async function main(): Promise<void> {
     assertEqual(bakedInput.subcircuitInfos.length, 14, "baked subcircuit info count");
     assertEqual(bakedInput.r1csBySubcircuit.length, 14, "baked sparse R1CS count");
 
-    const setupParamsBytes = await createBinaryArtifactFile({
-      kind: BinaryArtifactFileKind.ProverSetupParams,
-      sourcePackageVersion: "0.0.0",
-      sections: [
-        {
-          type: BinarySectionType.SetupParams,
-          encoding: BinarySectionEncoding.Bytes,
-          label: "setup.params",
-          elementCount: 1,
-          elementByteLength: 36,
-          data: encodeSetupParams(GENERATED_PROVER_SETUP_PARAMS),
-        },
-      ],
-    });
     const placementVariablesBytes = await createBinaryArtifactFile({
       kind: BinaryArtifactFileKind.ProverPlacementVariables,
       sourcePackageVersion: "0.0.0",
@@ -563,7 +517,6 @@ async function main(): Promise<void> {
       ["placement.bin", placementVariablesBytes],
       ["permutation.bin", permutationBytes],
       ["instance.bin", instanceBytes],
-      ["setup.bin", setupParamsBytes],
       ["crs.bin", crsBytes],
     ]);
     const proverInput = await loadProverInputFromRuntimeBundles(
@@ -581,7 +534,6 @@ async function main(): Promise<void> {
         schemaVersion: 1,
         kind: RuntimeArtifactBundleKind.ProverCrsPreparedData,
         files: [
-          { role: RuntimeArtifactFileRole.SetupParams, path: "setup.bin" },
           { role: RuntimeArtifactFileRole.Crs, path: "crs.bin" },
         ],
       },
@@ -721,20 +673,6 @@ function assertEqual(actual: unknown, expected: unknown, label: string): void {
   if (actual !== expected) {
     throw new Error(`${label} mismatch: expected ${String(expected)}, got ${String(actual)}`);
   }
-}
-
-function encodeSetupParams(setup: ProverSetupParams): Uint8Array {
-  return encodeU32List([
-    setup.l_free,
-    setup.l_user_out,
-    setup.l_user,
-    setup.l,
-    setup.l_D,
-    setup.m_D,
-    setup.n,
-    setup.s_D,
-    setup.s_max,
-  ]);
 }
 
 function placementVariableOffsets(placements: readonly ProverPlacementVariables[]): number[] {

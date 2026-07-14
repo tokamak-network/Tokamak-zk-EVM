@@ -13,7 +13,6 @@ import {
   BinarySectionType,
   createBinaryArtifactFile,
   createCurveRuntime,
-  encodeVerifierSetupParams,
   loadProverCrsArtifact,
   loadRuntimeArtifactFile,
   loadSigmaVerifyArtifact,
@@ -262,24 +261,6 @@ async function checkVerifierPreprocessArtifact(runtime: CurveRuntime): Promise<v
     sourcePackageVersion: "0.0.0",
     sections: [
       {
-        type: BinarySectionType.SetupParams,
-        encoding: BinarySectionEncoding.Bytes,
-        label: "setup.params",
-        elementCount: 1,
-        elementByteLength: 36,
-        data: encodeVerifierSetupParams({
-          l_free: 2,
-          l_user_out: 1,
-          l_user: 1,
-          l: 2,
-          l_D: 4,
-          m_D: 4,
-          n: 4,
-          s_D: 4,
-          s_max: 4,
-        }),
-      },
-      {
         type: BinarySectionType.Preprocess,
         encoding: BinarySectionEncoding.FfjsG1Affine96,
         label: "preprocess.g1",
@@ -295,7 +276,7 @@ async function checkVerifierPreprocessArtifact(runtime: CurveRuntime): Promise<v
   });
   const preprocess = loadVerifierPreprocessArtifact(artifactFile);
 
-  assertEqual(preprocess.sections.length, 2, "verifier_preprocess section count");
+  assertEqual(preprocess.sections.length, 1, "verifier_preprocess section count");
   assertEqual(preprocess.pointsByName.s0.byteLength, 96, "verifier_preprocess s0 byte length");
   assertEqual(preprocess.pointsByName.O_pub_fix.byteLength, 96, "verifier_preprocess O_pub_fix byte length");
 }

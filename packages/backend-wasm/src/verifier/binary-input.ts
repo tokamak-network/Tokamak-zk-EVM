@@ -14,6 +14,7 @@ import {
   type RuntimeArtifactBundleManifest,
 } from "../libs/serialization/artifact-bundle.js";
 import { BinarySectionEncoding, BinarySectionType } from "../libs/serialization/binary-format.js";
+import { GENERATED_PROVER_SETUP_PARAMS } from "../prover/generated/subcircuit-library.generated.js";
 import type { VerifierSetupParams } from "./domain-context.js";
 import type { VerifierInput, VerifierProof } from "./verify-snark.js";
 
@@ -62,7 +63,7 @@ export async function buildVerifierInputFromRuntimeArtifacts(
   runtime: CurveRuntime,
   artifacts: VerifierRuntimeArtifactFiles,
 ): Promise<VerifierInput> {
-  const setup = parseSetupParams(artifacts.preprocess);
+  const setup = GENERATED_PROVER_SETUP_PARAMS satisfies VerifierSetupParams;
   const publicInstance = parsePublicInstance(runtime, artifacts.instance, setup);
 
   return {
@@ -94,27 +95,6 @@ function requireSingleRoleFile(
   }
 
   return matches[0];
-}
-
-function parseSetupParams(preprocessFile: RuntimeArtifactFile): VerifierSetupParams {
-  const section = requireSection(preprocessFile, {
-    type: BinarySectionType.SetupParams,
-    encoding: BinarySectionEncoding.Bytes,
-    label: "setup.params",
-  });
-
-  const view = new DataView(section.data.buffer, section.data.byteOffset, section.data.byteLength);
-  return {
-    l_free: view.getUint32(0, true),
-    l_user_out: view.getUint32(4, true),
-    l_user: view.getUint32(8, true),
-    l: view.getUint32(12, true),
-    l_D: view.getUint32(16, true),
-    m_D: view.getUint32(20, true),
-    n: view.getUint32(24, true),
-    s_D: view.getUint32(28, true),
-    s_max: view.getUint32(32, true),
-  };
 }
 
 function parsePublicInstance(
@@ -249,32 +229,3 @@ function splitElements(data: Uint8Array, elementByteLength: number): Uint8Array[
 
   return elements;
 }
-
-export function encodeVerifierSetupParams(setup: VerifierSetupParams): Uint8Array {
-  const output = new Uint8Array(SETUP_PARAMS_BINARY_BYTES);
-  const view = new DataView(output.buffer, output.byteOffset, output.byteLength);
-  const values = [
-    setup.l_free,
-    setup.l_user_out,
-    setup.l_user,
-    setup.l,
-    setup.l_D,
-    setup.m_D,
-    setup.n,
-    setup.s_D,
-    setup.s_max,
-  ];
-
-  for (let index = 0; index < values.length; index += 1) {
-    const value = values[index];
-    if (!Number.isSafeInteger(value) || value < 0 || value > 0xffffffff) {
-      throw new Error("Verifier setup params values must fit in unsigned 32-bit integers.");
-    }
-
-    view.setUint32(index * 4, value, true);
-  }
-
-  return output;
-}
-
-const SETUP_PARAMS_BINARY_BYTES = 36;

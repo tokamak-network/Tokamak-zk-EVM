@@ -33,7 +33,6 @@ export interface NativeVerifierJsonToBinaryInput {
 
 export interface NativeProverArtifactsToBinaryInput {
   readonly sourcePackageVersion?: string;
-  readonly setupParams?: unknown;
   readonly subcircuitMetadata?: unknown;
   readonly placement?: unknown;
   readonly permutation?: unknown;

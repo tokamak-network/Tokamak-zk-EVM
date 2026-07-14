@@ -93,7 +93,6 @@ export async function convertNativeVerifierJsonToBinary(
     const crsBytes = await createVerifierCrsArtifact(runtime, artifacts.sigmaVerify, sourcePackageVersion);
     const preprocessBytes = await createVerifierPreprocessArtifact(
       runtime,
-      setup,
       artifacts.preprocess,
       sourcePackageVersion,
     );
@@ -137,21 +136,6 @@ export async function convertNativeProverArtifactsToBinary(
     throw new Error("json-rkyv-to-prover-binary requires rkyvArtifacts.combinedSigma or rkyvArtifacts[0].");
   }
 
-  const setup = parseSetupParams(input.setupParams ?? GENERATED_PROVER_SETUP_PARAMS, "prover setupParams");
-  const setupBytes = await createBinaryArtifactFile({
-    kind: BinaryArtifactFileKind.ProverSetupParams,
-    sourcePackageVersion,
-    sections: [
-      {
-        type: BinarySectionType.SetupParams,
-        encoding: BinarySectionEncoding.Bytes,
-        label: "setup.params",
-        elementCount: 1,
-        elementByteLength: 36,
-        data: encodeSetupParams(setup),
-      },
-    ],
-  });
   const crsBytes = await convertCombinedSigmaRkyvToProverCrsBinary(combinedSigma, {
     sourcePackageVersion,
     decoder: input.rkyvDecoder ?? createUnavailableRkyvArchiveDecoder(),
@@ -161,11 +145,9 @@ export async function convertNativeProverArtifactsToBinary(
     bundles: [
       {
         manifest: createBundleManifest(RuntimeArtifactBundleKind.ProverCrsPreparedData, [
-          { role: RuntimeArtifactFileRole.SetupParams, path: "prover-crs-prepared-data/setup-params.bin" },
           { role: RuntimeArtifactFileRole.Crs, path: "prover-crs-prepared-data/crs.bin" },
         ]),
         files: [
-          { path: "prover-crs-prepared-data/setup-params.bin", bytes: setupBytes },
           { path: "prover-crs-prepared-data/crs.bin", bytes: crsBytes },
         ],
       },
@@ -485,7 +467,6 @@ async function createVerifierCrsArtifact(
 
 async function createVerifierPreprocessArtifact(
   runtime: CurveRuntime,
-  setup: VerifierSetupParamsJson,
   raw: unknown,
   sourcePackageVersion: string,
 ): Promise<Uint8Array> {
@@ -496,14 +477,6 @@ async function createVerifierPreprocessArtifact(
     kind: BinaryArtifactFileKind.VerifierPreprocess,
     sourcePackageVersion,
     sections: [
-      {
-        type: BinarySectionType.SetupParams,
-        encoding: BinarySectionEncoding.Bytes,
-        label: "setup.params",
-        elementCount: 1,
-        elementByteLength: 36,
-        data: encodeSetupParams(setup),
-      },
       {
         type: BinarySectionType.Preprocess,
         encoding: BinarySectionEncoding.FfjsG1Affine96,
@@ -636,20 +609,6 @@ function recoverG1Points(
   }
 
   return points;
-}
-
-function encodeSetupParams(setup: VerifierSetupParamsJson): Uint8Array {
-  return encodeU32List([
-    setup.l_free,
-    setup.l_user_out,
-    setup.l_user,
-    setup.l,
-    setup.l_D,
-    setup.m_D,
-    setup.n,
-    setup.s_D,
-    setup.s_max,
-  ]);
 }
 
 function encodeU32List(values: readonly number[]): Uint8Array {

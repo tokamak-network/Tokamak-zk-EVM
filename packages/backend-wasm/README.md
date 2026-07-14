@@ -89,7 +89,7 @@ Verifier runtime input is split into two runtime bundles:
 
 Runtime bundle manifests do not carry free-form metadata or external expected file digests. File identity, `formatVersion`, `sourcePackageVersion`, SHA-256 digests, and cross-file compatibility digests are stored in typed binary tables inside each binary artifact file.
 
-Proof, instance, CRS, and preprocess data must remain in separate binary artifact files.
+Proof, instance, CRS, and preprocess data must remain in separate binary artifact files. Setup params are generated into the package build output from the pinned subcircuit-library package and are not represented as runtime binary artifact files or verifier preprocess sections.
 
 The `sigma_verify` binary layout must be managed by `src/libs/artifact-loaders/specs/sigma-verify.v1.json`. Runtime loader code imports the generated TypeScript constant in `src/libs/artifact-loaders/specs/sigma-verify.v1.generated.ts`; it must not load JSON assets directly.
 

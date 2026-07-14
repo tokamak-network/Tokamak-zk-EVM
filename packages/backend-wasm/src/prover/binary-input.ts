@@ -24,7 +24,6 @@ import type {
 } from "./witness.js";
 
 export interface ProverRuntimeArtifactFiles {
-  readonly setupParams: RuntimeArtifactFile;
   readonly placementVariables: RuntimeArtifactFile;
   readonly permutation: RuntimeArtifactFile;
   readonly instance: RuntimeArtifactFile;
@@ -38,12 +37,10 @@ export interface ProverProofWitnessRuntimeArtifactFiles {
 }
 
 export interface ProverCrsPreparedDataRuntimeArtifactFiles {
-  readonly setupParams: RuntimeArtifactFile;
   readonly crs: RuntimeArtifactFile;
 }
 
-export type ProverWitnessRuntimeArtifactFiles = ProverProofWitnessRuntimeArtifactFiles &
-  Pick<ProverCrsPreparedDataRuntimeArtifactFiles, "setupParams">;
+export type ProverWitnessRuntimeArtifactFiles = ProverProofWitnessRuntimeArtifactFiles;
 
 export interface ProverRuntimeWitnessInputParts {
   readonly setup: ProverSetupParams;
@@ -119,11 +116,6 @@ export async function loadProverInputFromRuntimeBundles(
       RuntimeArtifactFileRole.Instance,
       resolveFile,
     ),
-    setupParams: await loadBundleArtifactFile(
-      crsPreparedDataInput,
-      RuntimeArtifactFileRole.SetupParams,
-      resolveFile,
-    ),
     crs: await loadBundleArtifactFile(
       crsPreparedDataInput,
       RuntimeArtifactFileRole.Crs,
@@ -139,7 +131,6 @@ export function buildProverInputFromRuntimeArtifacts(
   artifacts: ProverRuntimeArtifactFiles,
 ): ProverRuntimeInput {
   const parts = loadProverRuntimeWitnessInputParts(runtime, artifacts);
-  assertSetupMatchesGeneratedSubcircuitLibrary(parts.setup);
 
   return {
     witness: {
@@ -158,10 +149,8 @@ export function loadProverRuntimeWitnessInputParts(
   runtime: CurveRuntime,
   artifacts: ProverWitnessRuntimeArtifactFiles,
 ): ProverRuntimeWitnessInputParts {
-  const setup = parseProverSetupParams(artifacts.setupParams);
-
   return {
-    setup,
+    setup: GENERATED_PROVER_SETUP_PARAMS,
     placementVariables: parseProverPlacementVariables(runtime, artifacts.placementVariables),
     permutation: parseProverPermutation(artifacts.permutation),
     publicInstance: parseProverPublicInstance(runtime, artifacts.instance),
@@ -173,7 +162,6 @@ export function buildProverWitnessInputFromRuntimeArtifacts(
   artifacts: ProverWitnessRuntimeArtifactFiles,
 ): ProverWitnessInput {
   const parts = loadProverRuntimeWitnessInputParts(runtime, artifacts);
-  assertSetupMatchesGeneratedSubcircuitLibrary(parts.setup);
 
   return {
     setup: parts.setup,
@@ -202,27 +190,6 @@ function requireSingleRoleFile(
   }
 
   return matches[0];
-}
-
-export function parseProverSetupParams(setupParamsFile: RuntimeArtifactFile): ProverSetupParams {
-  const section = requireRuntimeSection(setupParamsFile, {
-    type: BinarySectionType.SetupParams,
-    encoding: BinarySectionEncoding.Bytes,
-    label: "setup.params",
-  });
-  const view = new DataView(section.data.buffer, section.data.byteOffset, section.data.byteLength);
-
-  return {
-    l_free: view.getUint32(0, true),
-    l_user_out: view.getUint32(4, true),
-    l_user: view.getUint32(8, true),
-    l: view.getUint32(12, true),
-    l_D: view.getUint32(16, true),
-    m_D: view.getUint32(20, true),
-    n: view.getUint32(24, true),
-    s_D: view.getUint32(28, true),
-    s_max: view.getUint32(32, true),
-  };
 }
 
 export function parseProverPlacementVariables(
@@ -403,26 +370,4 @@ function requireEntry(entries: Readonly<Record<string, Uint8Array>>, name: strin
   }
 
   return entry;
-}
-
-function assertSetupMatchesGeneratedSubcircuitLibrary(setup: ProverSetupParams): void {
-  const fields: readonly (keyof ProverSetupParams)[] = [
-    "l_free",
-    "l_user_out",
-    "l_user",
-    "l",
-    "l_D",
-    "m_D",
-    "n",
-    "s_D",
-    "s_max",
-  ];
-
-  for (const field of fields) {
-    if (setup[field] !== GENERATED_PROVER_SETUP_PARAMS[field]) {
-      throw new Error(
-        `Prover setup params do not match the baked subcircuit library: ${field}=${setup[field]}, expected ${GENERATED_PROVER_SETUP_PARAMS[field]}.`,
-      );
-    }
-  }
 }
