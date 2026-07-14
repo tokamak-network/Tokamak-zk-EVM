@@ -16,3 +16,15 @@ Supported target archive kinds:
 This crate intentionally does not implement a generic rkyv decoder. rkyv archives
 are Rust type-layout dependent and must be decoded through explicit supported
 archive types.
+
+`decode_combined_sigma` validates the native `SigmaRkyv` archive shape and returns
+a compact section-payload container. TypeScript converter code parses that payload
+and remains responsible for writing backend-wasm binary artifact files, file kinds,
+section labels, and digest tables.
+
+The crate also exports `decodeCombinedSigma` through `wasm-bindgen`. The generated
+JavaScript package should be lazy-loaded by converter tooling rather than imported
+by prover or verifier runtime code.
+
+The payload container is an internal Rust/WASM-to-TypeScript adapter format, not a
+runtime artifact file and not a persisted fixture format.

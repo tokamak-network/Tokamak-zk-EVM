@@ -33,14 +33,21 @@ import type {
 import { ARTIFACT_CONVERTER_COMMANDS } from "./types.js";
 import {
   convertCombinedSigmaRkyvToProverCrsBinary,
+  createCombinedSigmaRkyvPayloadDecoder,
   createUnavailableRkyvArchiveDecoder,
+  decodeCombinedSigmaRkyvPayload,
   type DecodedCombinedSigmaRkyv,
   type RkyvArchiveDecoder,
   type RkyvToBinaryConverterOptions,
 } from "./rkyv-to-binary.js";
 
 export { ARTIFACT_CONVERTER_COMMANDS };
-export { convertCombinedSigmaRkyvToProverCrsBinary, createUnavailableRkyvArchiveDecoder };
+export {
+  convertCombinedSigmaRkyvToProverCrsBinary,
+  createCombinedSigmaRkyvPayloadDecoder,
+  createUnavailableRkyvArchiveDecoder,
+  decodeCombinedSigmaRkyvPayload,
+};
 export type { DecodedCombinedSigmaRkyv, RkyvArchiveDecoder, RkyvToBinaryConverterOptions } from "./rkyv-to-binary.js";
 export type {
   ArtifactConverterCommand,

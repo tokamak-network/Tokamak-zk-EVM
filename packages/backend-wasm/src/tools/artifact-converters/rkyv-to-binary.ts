@@ -9,6 +9,8 @@ import {
 
 const G1_AFFINE_BYTES = 96;
 const G2_AFFINE_BYTES = 192;
+const COMBINED_SIGMA_PAYLOAD_MAGIC = "TKCRS001";
+const COMBINED_SIGMA_PAYLOAD_SECTION_COUNT = 9;
 
 export interface RkyvToBinaryConverterOptions {
   readonly sourcePackageVersion: string;
@@ -81,6 +83,32 @@ export function createUnavailableRkyvArchiveDecoder(): RkyvArchiveDecoder {
   };
 }
 
+export function createCombinedSigmaRkyvPayloadDecoder(
+  decodePayload: (input: Uint8Array) => Uint8Array | Promise<Uint8Array>,
+): RkyvArchiveDecoder {
+  return {
+    async decodeCombinedSigma(input) {
+      return decodeCombinedSigmaRkyvPayload(await decodePayload(input));
+    },
+  };
+}
+
+export function decodeCombinedSigmaRkyvPayload(payload: Uint8Array): DecodedCombinedSigmaRkyv {
+  const sections = readCombinedSigmaPayloadSections(payload);
+
+  return {
+    g1: sections[0],
+    sigma1XyPowers: sections[1],
+    sigma1GammaInvOInst: sections[2],
+    sigma1EtaInvLiOInterAlpha4Kj: sections[3],
+    sigma1DeltaInvLiOPrv: sections[4],
+    sigma1DeltaInvAlphakXhTx: sections[5],
+    sigma1DeltaInvAlpha4XjTx: sections[6],
+    sigma1DeltaInvAlphakYiTy: sections[7],
+    g2: sections[8],
+  };
+}
+
 function createG1Section(label: string, data: Uint8Array, expectedElementCount?: number): BinarySectionInput {
   return createPointSection({
     label,
@@ -132,6 +160,54 @@ function createPointSection(input: {
 
 function normalizeBytes(bytes: Uint8Array): Uint8Array {
   return bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength ? bytes : bytes.slice();
+}
+
+function readCombinedSigmaPayloadSections(payload: Uint8Array): readonly Uint8Array[] {
+  const magicBytes = new TextEncoder().encode(COMBINED_SIGMA_PAYLOAD_MAGIC);
+
+  if (payload.byteLength < 12) {
+    throw new Error("combined_sigma decoder payload is shorter than the fixed header.");
+  }
+
+  for (let index = 0; index < magicBytes.byteLength; index += 1) {
+    if (payload[index] !== magicBytes[index]) {
+      throw new Error("combined_sigma decoder payload magic mismatch.");
+    }
+  }
+
+  const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength);
+  const sectionCount = view.getUint32(8, true);
+  if (sectionCount !== COMBINED_SIGMA_PAYLOAD_SECTION_COUNT) {
+    throw new Error(`combined_sigma decoder payload must contain ${COMBINED_SIGMA_PAYLOAD_SECTION_COUNT} sections.`);
+  }
+
+  const lengthsOffset = 12;
+  const dataOffset = lengthsOffset + sectionCount * 4;
+  if (payload.byteLength < dataOffset) {
+    throw new Error("combined_sigma decoder payload is shorter than its section length table.");
+  }
+
+  const lengths: number[] = [];
+  for (let index = 0; index < sectionCount; index += 1) {
+    lengths.push(view.getUint32(lengthsOffset + index * 4, true));
+  }
+
+  const sections: Uint8Array[] = [];
+  let offset = dataOffset;
+  for (let index = 0; index < lengths.length; index += 1) {
+    const length = lengths[index];
+    if (offset + length > payload.byteLength) {
+      throw new Error(`combined_sigma decoder payload section ${index} exceeds the payload length.`);
+    }
+    sections.push(payload.slice(offset, offset + length));
+    offset += length;
+  }
+
+  if (offset !== payload.byteLength) {
+    throw new Error("combined_sigma decoder payload contains trailing bytes.");
+  }
+
+  return sections;
 }
 
 function requireSourcePackageVersion(value: string): string {
