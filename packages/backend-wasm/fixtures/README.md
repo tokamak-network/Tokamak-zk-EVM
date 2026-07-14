@@ -50,4 +50,12 @@ Developers must prepare the owner package output files referenced by `fixtures/s
 npm run fixtures:copy
 ```
 
-The copy stage writes to `packages/backend-wasm/tmp/fixture-work/<suite>/source/` and does not write final test fixtures. A later conversion stage must convert those copied source artifacts through web-compatible converter APIs and store converted runtime files under this package's ignored fixture directories. If a source file is missing, the copy script fails and reports the exact owner package output path that must be prepared. This package must not fall back to generating the missing artifact.
+The copy stage writes to `packages/backend-wasm/tmp/fixture-work/<suite>/source/` and does not write final test fixtures.
+
+After the copy stage, run:
+
+```sh
+npm run fixtures:prepare
+```
+
+The preparation stage converts copied source artifacts through web-compatible converter APIs and stores verifier runtime files under this package's ignored `fixtures/small/runtime/` directory. If a source file is missing, the copy or preparation script fails and reports the exact path that must be prepared. This package must not fall back to generating the missing artifact.

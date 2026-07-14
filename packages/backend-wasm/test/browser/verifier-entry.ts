@@ -189,7 +189,7 @@ function describePreparedFixtureFetchFailure(path: string, status: number): stri
   if (path.startsWith("/fixtures/small/runtime/")) {
     return [
       `Failed to fetch prepared verifier runtime fixture file ${path}: ${status}.`,
-      "Prepare owner package outputs, run npm run fixtures:copy, then run the converter/store fixture preparation stage.",
+      "Prepare owner package outputs, run npm run fixtures:copy, then run npm run fixtures:prepare.",
     ].join(" ");
   }
 

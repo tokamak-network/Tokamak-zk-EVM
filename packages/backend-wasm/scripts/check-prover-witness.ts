@@ -264,7 +264,7 @@ async function main(): Promise<void> {
       }),
     );
     assertEqual(verifierProofArtifact.kind, BinaryArtifactFileKind.VerifierProof, "prover output artifact kind");
-    assertEqual(verifierProofArtifact.sourcePackageVersion, "0.0.0", "prover output source package version");
+    assertEqual(verifierProofArtifact.sourcePackageVersion, "2.1.1", "prover output source package version");
     const verifierProof = loadVerifierProofArtifact(verifierProofArtifact);
     assertEqual(verifierProof.sections[0]?.section.data.byteLength, 19 * 96, "prover output proof.g1 byte length");
     assertEqual(verifierProof.sections[1]?.section.data.byteLength, 4 * 32, "prover output proof.evals byte length");

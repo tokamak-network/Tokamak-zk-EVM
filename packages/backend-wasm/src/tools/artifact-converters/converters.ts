@@ -90,7 +90,6 @@ export async function convertNativeVerifierJsonToBinary(
       ],
     });
     const proofBytes = await createVerifierProofArtifact(runtime, artifacts.proof, sourcePackageVersion);
-    const crsBytes = await createVerifierCrsArtifact(runtime, artifacts.sigmaVerify, sourcePackageVersion);
     const preprocessBytes = await createVerifierPreprocessArtifact(
       runtime,
       artifacts.preprocess,
@@ -111,11 +110,9 @@ export async function convertNativeVerifierJsonToBinary(
         },
         {
           manifest: createBundleManifest(RuntimeArtifactBundleKind.VerifierSetupInput, [
-            { role: RuntimeArtifactFileRole.Crs, path: "verifier-setup-input/crs.bin" },
             { role: RuntimeArtifactFileRole.Preprocess, path: "verifier-setup-input/preprocess.bin" },
           ]),
           files: [
-            { path: "verifier-setup-input/crs.bin", bytes: crsBytes },
             { path: "verifier-setup-input/preprocess.bin", bytes: preprocessBytes },
           ],
         },
@@ -277,7 +274,6 @@ interface VerifierArtifacts {
   readonly proof: unknown;
   readonly preprocess: unknown;
   readonly instance: unknown;
-  readonly sigmaVerify: unknown;
 }
 
 interface VerifierSetupParamsJson {
@@ -307,34 +303,12 @@ interface FormattedProofJson {
   readonly proof_entries_part2: readonly string[];
 }
 
-interface SigmaVerifyJson {
-  readonly G: AffinePointJson;
-  readonly H: AffinePointJson;
-  readonly sigma_1: {
-    readonly x: AffinePointJson;
-    readonly y: AffinePointJson;
-  };
-  readonly sigma_2: {
-    readonly alpha: AffinePointJson;
-    readonly alpha2: AffinePointJson;
-    readonly alpha3: AffinePointJson;
-    readonly alpha4: AffinePointJson;
-    readonly gamma: AffinePointJson;
-    readonly delta: AffinePointJson;
-    readonly eta: AffinePointJson;
-    readonly x: AffinePointJson;
-    readonly y: AffinePointJson;
-  };
-  readonly lagrange_KL: AffinePointJson;
-}
-
 function normalizeVerifierArtifacts(input: NativeVerifierJsonToBinaryInput): VerifierArtifacts {
   return {
     setupParams: resolveVerifierSetupParams(input),
     proof: requireDefined(input.proof ?? input.artifacts?.proof, "verifier proof"),
     preprocess: requireDefined(input.preprocess ?? input.artifacts?.preprocess, "verifier preprocess"),
     instance: requireDefined(input.instance ?? input.artifacts?.instance, "verifier instance"),
-    sigmaVerify: requireDefined(input.sigmaVerify ?? input.artifacts?.sigmaVerify, "verifier sigmaVerify"),
   };
 }
 
@@ -413,53 +387,6 @@ async function createVerifierProofArtifact(
         elementCount: 4,
         elementByteLength: runtime.Fr.byteLength,
         data: concatBytes(scalarSlice.map((scalar) => runtime.Fr.fromHex(scalar))),
-      },
-    ],
-  });
-}
-
-async function createVerifierCrsArtifact(
-  runtime: CurveRuntime,
-  raw: unknown,
-  sourcePackageVersion: string,
-): Promise<Uint8Array> {
-  const sigma = parseSigmaVerifyJson(raw);
-
-  return createBinaryArtifactFile({
-    kind: BinaryArtifactFileKind.VerifierCrs,
-    sourcePackageVersion,
-    sections: [
-      {
-        type: BinarySectionType.CrsG1,
-        encoding: BinarySectionEncoding.FfjsG1Affine96,
-        label: "sigma.g1",
-        elementCount: 4,
-        elementByteLength: 96,
-        data: concatBytes([
-          runtime.G1.parseAffine(sigma.G),
-          runtime.G1.parseAffine(sigma.sigma_1.x),
-          runtime.G1.parseAffine(sigma.sigma_1.y),
-          runtime.G1.parseAffine(sigma.lagrange_KL),
-        ]),
-      },
-      {
-        type: BinarySectionType.CrsG2,
-        encoding: BinarySectionEncoding.FfjsG2Affine192,
-        label: "sigma.g2",
-        elementCount: 10,
-        elementByteLength: 192,
-        data: concatBytes([
-          runtime.G2.parseAffine(sigma.H),
-          runtime.G2.parseAffine(sigma.sigma_2.alpha),
-          runtime.G2.parseAffine(sigma.sigma_2.alpha2),
-          runtime.G2.parseAffine(sigma.sigma_2.alpha3),
-          runtime.G2.parseAffine(sigma.sigma_2.alpha4),
-          runtime.G2.parseAffine(sigma.sigma_2.gamma),
-          runtime.G2.parseAffine(sigma.sigma_2.delta),
-          runtime.G2.parseAffine(sigma.sigma_2.eta),
-          runtime.G2.parseAffine(sigma.sigma_2.x),
-          runtime.G2.parseAffine(sigma.sigma_2.y),
-        ]),
       },
     ],
   });
@@ -555,36 +482,6 @@ function parseFormattedProofJson(raw: unknown): FormattedProofJson {
   return {
     proof_entries_part1: parseHexStringArray(raw.proof_entries_part1, "proof.proof_entries_part1"),
     proof_entries_part2: parseHexStringArray(raw.proof_entries_part2, "proof.proof_entries_part2"),
-  };
-}
-
-function parseSigmaVerifyJson(raw: unknown): SigmaVerifyJson {
-  if (!isRecord(raw)) {
-    throw new Error("Sigma verify JSON must be an object.");
-  }
-
-  const sigma1 = requireRecord(raw.sigma_1, "sigma_1");
-  const sigma2 = requireRecord(raw.sigma_2, "sigma_2");
-
-  return {
-    G: parseAffinePointJson(raw.G, "G"),
-    H: parseAffinePointJson(raw.H, "H"),
-    sigma_1: {
-      x: parseAffinePointJson(sigma1.x, "sigma_1.x"),
-      y: parseAffinePointJson(sigma1.y, "sigma_1.y"),
-    },
-    sigma_2: {
-      alpha: parseAffinePointJson(sigma2.alpha, "sigma_2.alpha"),
-      alpha2: parseAffinePointJson(sigma2.alpha2, "sigma_2.alpha2"),
-      alpha3: parseAffinePointJson(sigma2.alpha3, "sigma_2.alpha3"),
-      alpha4: parseAffinePointJson(sigma2.alpha4, "sigma_2.alpha4"),
-      gamma: parseAffinePointJson(sigma2.gamma, "sigma_2.gamma"),
-      delta: parseAffinePointJson(sigma2.delta, "sigma_2.delta"),
-      eta: parseAffinePointJson(sigma2.eta, "sigma_2.eta"),
-      x: parseAffinePointJson(sigma2.x, "sigma_2.x"),
-      y: parseAffinePointJson(sigma2.y, "sigma_2.y"),
-    },
-    lagrange_KL: parseAffinePointJson(raw.lagrange_KL, "lagrange_KL"),
   };
 }
 

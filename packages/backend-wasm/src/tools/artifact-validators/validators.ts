@@ -27,7 +27,6 @@ import { PROVER_CRS_V1_SPEC } from "../../libs/artifact-loaders/specs/prover-crs
 import { PROVER_INSTANCE_V1_SPEC } from "../../libs/artifact-loaders/specs/prover-instance.v1.generated.js";
 import { PROVER_PERMUTATION_V1_SPEC } from "../../libs/artifact-loaders/specs/prover-permutation.v1.generated.js";
 import { PROVER_PLACEMENT_VARIABLES_V1_SPEC } from "../../libs/artifact-loaders/specs/prover-placement-variables.v1.generated.js";
-import { SIGMA_VERIFY_V1_SPEC } from "../../libs/artifact-loaders/specs/sigma-verify.v1.generated.js";
 import { VERIFIER_INSTANCE_V1_SPEC } from "../../libs/artifact-loaders/specs/verifier-instance.v1.generated.js";
 import { VERIFIER_PREPROCESS_V1_SPEC } from "../../libs/artifact-loaders/specs/verifier-preprocess.v1.generated.js";
 import { VERIFIER_PROOF_V1_SPEC } from "../../libs/artifact-loaders/specs/verifier-proof.v1.generated.js";
@@ -122,11 +121,6 @@ export async function validateVerifierSetupInputBundle(
 ): Promise<void> {
   await validateRuntimeBundle(manifest, resolveFile, RuntimeArtifactBundleKind.VerifierSetupInput, {
     expectedFiles: [
-      {
-        role: RuntimeArtifactFileRole.Crs,
-        kind: BinaryArtifactFileKind.VerifierCrs,
-        spec: SIGMA_VERIFY_V1_SPEC,
-      },
       {
         role: RuntimeArtifactFileRole.Preprocess,
         kind: BinaryArtifactFileKind.VerifierPreprocess,

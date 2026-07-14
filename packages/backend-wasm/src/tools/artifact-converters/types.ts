@@ -20,14 +20,12 @@ export interface NativeVerifierJsonToBinaryInput {
   readonly preprocess?: unknown;
   readonly instance?: unknown;
   readonly instanceDescription?: unknown;
-  readonly sigmaVerify?: unknown;
   readonly artifacts?: {
     readonly setupParams?: unknown;
     readonly proof?: unknown;
     readonly preprocess?: unknown;
     readonly instance?: unknown;
     readonly instanceDescription?: unknown;
-    readonly sigmaVerify?: unknown;
   };
 }
 

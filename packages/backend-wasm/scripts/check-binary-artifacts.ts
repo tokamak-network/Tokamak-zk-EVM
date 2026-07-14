@@ -170,10 +170,6 @@ async function checkRuntimeBundleManifests(): Promise<void> {
     kind: RuntimeArtifactBundleKind.VerifierSetupInput,
     files: [
       {
-        role: RuntimeArtifactFileRole.Crs,
-        path: "crs.bin",
-      },
-      {
         role: RuntimeArtifactFileRole.Preprocess,
         path: "preprocess.bin",
       },

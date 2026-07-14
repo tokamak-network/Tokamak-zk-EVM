@@ -12,7 +12,7 @@ This package exists to provide a runtime boundary that can be used from web appl
 
 Runtime prover and verifier APIs must consume and produce runtime bundles made of separate binary artifact files plus a file list. JSON, rkyv, native artifact conversion, fixture import, and debug export belong to tooling outside the hot prover and verifier paths.
 
-Runtime subcircuit artifacts come from the `@tokamak-zk-evm/subcircuit-library` package dependency. CRS artifacts are prepared by the embedding application and passed to this package as binary inputs; `src/prover`, `src/verifier`, and runtime loaders must not fetch Google Drive artifacts directly.
+Runtime subcircuit artifacts come from the `@tokamak-zk-evm/subcircuit-library` package dependency. Verifier CRS data is generated into the package build output, while prover CRS data is prepared by the embedding application and passed to this package as a binary input. `src/prover`, `src/verifier`, and runtime loaders must not fetch Google Drive artifacts directly.
 
 ## Package Structure
 
@@ -66,7 +66,7 @@ Small generic helpers shared by implementation modules. Protocol logic, artifact
 
 Local development and validation scripts. These scripts check fixtures, binary artifact file behavior, runtime arithmetic, polynomial parity, and verifier parity.
 
-`scripts/copy-fixtures.ts` performs only the first fixture update stage. It copies source artifacts from existing owner package outputs under `packages/` into the package-local ignored work area under `packages/backend-wasm/tmp/fixture-work/`. It must not generate missing artifacts and must not write final runtime fixture files.
+`scripts/copy-fixtures.ts` performs only the first fixture update stage. It copies source artifacts from existing owner package outputs under `packages/` into the package-local ignored work area under `packages/backend-wasm/tmp/fixture-work/`. It must not generate missing artifacts and must not write final runtime fixture files. `scripts/prepare-runtime-fixtures.ts` is the local file I/O wrapper for the current verifier runtime fixture conversion stage and delegates artifact conversion to `src/tools/artifact-converters/`.
 
 ### `fixtures/`
 
@@ -85,13 +85,13 @@ In this package, a runtime bundle is a collection of separate binary artifact fi
 Verifier runtime input is split into two runtime bundles:
 
 - `VerifierProofInput`: separate instance and proof binary artifact files.
-- `VerifierSetupInput`: separate CRS and preprocess binary artifact files.
+- `VerifierSetupInput`: verifier preprocess binary artifact file. Verifier CRS is generated into the package build output and is not supplied by this runtime bundle.
 
 Runtime bundle manifests do not carry free-form metadata or external expected file digests. File identity, `formatVersion`, `sourcePackageVersion`, SHA-256 digests, and cross-file compatibility digests are stored in typed binary tables inside each binary artifact file.
 
 Proof, instance, CRS, and preprocess data must remain in separate binary artifact files. Setup params are generated into the package build output from the pinned subcircuit-library package and are not represented as runtime binary artifact files or verifier preprocess sections.
 
-The `sigma_verify` binary layout must be managed by `src/libs/artifact-loaders/specs/sigma-verify.v1.json`. Runtime loader code imports the generated TypeScript constant in `src/libs/artifact-loaders/specs/sigma-verify.v1.generated.ts`; it must not load JSON assets directly.
+The `sigma_verify` binary layout must be managed by `src/libs/artifact-loaders/specs/sigma-verify.v1.json`. Generated verifier CRS data lives in `src/verifier/generated/sigma-verify.generated.ts`; runtime verifier code imports that generated data and must not load JSON assets or verifier CRS bundle files directly.
 
 ## Development
 
@@ -109,6 +109,8 @@ npm run clean
 ```
 
 Use `npm run fixtures:copy` only after the existing owner package output files listed in `fixtures/small/copy-manifest.json` have been prepared by their owning packages. The command copies those files into `packages/backend-wasm/tmp/fixture-work/`; it does not convert them or write final runtime fixture files.
+
+Use `npm run fixtures:prepare` after `fixtures:copy` to convert the copied source artifacts into verifier runtime bundle files under the ignored `fixtures/small/runtime/` directory.
 
 Use `npm run specs:generate` after editing JSON specs under `src/libs/artifact-loaders/specs/`.
 

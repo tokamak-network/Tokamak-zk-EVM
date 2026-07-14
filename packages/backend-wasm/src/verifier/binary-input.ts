@@ -3,7 +3,6 @@ import {
   loadVerifierPreprocessArtifact,
   loadVerifierProofArtifact,
 } from "../libs/artifact-loaders/prepared-data.js";
-import { loadSigmaVerifyArtifact } from "../libs/artifact-loaders/sigma-verify.js";
 import type { RuntimeArtifactFile } from "../libs/artifact-loaders/types.js";
 import { DensePolynomialExt } from "../libs/polynomial/dense-polynomial.js";
 import type { CurveRuntime } from "../libs/runtime/curve.js";
@@ -16,6 +15,7 @@ import {
 import { BinarySectionEncoding, BinarySectionType } from "../libs/serialization/binary-format.js";
 import { GENERATED_PROVER_SETUP_PARAMS } from "../prover/generated/subcircuit-library.generated.js";
 import type { VerifierSetupParams } from "./domain-context.js";
+import { GENERATED_VERIFIER_SIGMA } from "./generated/sigma-verify.generated.js";
 import type { VerifierInput, VerifierProof } from "./verify-snark.js";
 
 export type RuntimeArtifactFileResolver = (path: string) => Uint8Array | Promise<Uint8Array>;
@@ -23,7 +23,6 @@ export type RuntimeArtifactFileResolver = (path: string) => Uint8Array | Promise
 export interface VerifierRuntimeArtifactFiles {
   readonly instance: RuntimeArtifactFile;
   readonly proof: RuntimeArtifactFile;
-  readonly crs: RuntimeArtifactFile;
   readonly preprocess: RuntimeArtifactFile;
 }
 
@@ -42,11 +41,6 @@ export async function loadVerifierInputFromRuntimeBundles(
     proof: await loadBundleArtifactFile(
       proofInput,
       RuntimeArtifactFileRole.Proof,
-      resolveFile,
-    ),
-    crs: await loadBundleArtifactFile(
-      setupInput,
-      RuntimeArtifactFileRole.Crs,
       resolveFile,
     ),
     preprocess: await loadBundleArtifactFile(
@@ -68,7 +62,7 @@ export async function buildVerifierInputFromRuntimeArtifacts(
 
   return {
     setup,
-    sigma: parseSigmaVerify(artifacts.crs),
+    sigma: GENERATED_VERIFIER_SIGMA,
     preprocess: parseVerifierPreprocess(artifacts.preprocess),
     proof: parseVerifierProof(artifacts.proof),
     aPubX: await DensePolynomialExt.fromRouEvals(runtime.Fr, publicInstance, setup.l_free, 1),
@@ -109,31 +103,6 @@ function parsePublicInstance(
   });
 
   return splitElements(section.data, runtime.Fr.byteLength);
-}
-
-function parseSigmaVerify(crsFile: RuntimeArtifactFile): VerifierInput["sigma"] {
-  const sigma = loadSigmaVerifyArtifact(crsFile).pointsByName;
-
-  return {
-    G: requireEntry(sigma, "G"),
-    H: requireEntry(sigma, "H"),
-    sigma1: {
-      x: requireEntry(sigma, "sigma1.x"),
-      y: requireEntry(sigma, "sigma1.y"),
-    },
-    sigma2: {
-      alpha: requireEntry(sigma, "sigma2.alpha"),
-      alpha2: requireEntry(sigma, "sigma2.alpha2"),
-      alpha3: requireEntry(sigma, "sigma2.alpha3"),
-      alpha4: requireEntry(sigma, "sigma2.alpha4"),
-      gamma: requireEntry(sigma, "sigma2.gamma"),
-      delta: requireEntry(sigma, "sigma2.delta"),
-      eta: requireEntry(sigma, "sigma2.eta"),
-      x: requireEntry(sigma, "sigma2.x"),
-      y: requireEntry(sigma, "sigma2.y"),
-    },
-    lagrangeKL: requireEntry(sigma, "lagrangeKL"),
-  };
 }
 
 function parseVerifierPreprocess(preprocessFile: RuntimeArtifactFile): VerifierInput["preprocess"] {
