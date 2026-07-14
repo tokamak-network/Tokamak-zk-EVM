@@ -21,8 +21,8 @@
     "fixtures"
   ],
   "scripts": {
-    "build": "npm run subcircuit-library:generate && tsc -p tsconfig.json --pretty false",
-    "typecheck": "npm run subcircuit-library:check && tsc -p tsconfig.json --pretty false --noEmit",
+    "build": "npm run subcircuit-library:generate && npm run verifier-crs:generate && tsc -p tsconfig.json --pretty false",
+    "typecheck": "npm run subcircuit-library:check && npm run verifier-crs:check && tsc -p tsconfig.json --pretty false --noEmit",
     "typecheck:scripts": "tsc --pretty false --noEmit --module NodeNext --moduleResolution NodeNext --target ES2022 --lib ES2022,DOM --types node scripts/check-binary-artifacts.ts scripts/check-fixtures.ts scripts/check-polynomial-fixtures.ts scripts/check-prover-witness.ts scripts/check-runtime-fixtures.ts scripts/check-verifier-browser.ts scripts/check-verifier-fixture.ts scripts/convert-artifacts.ts scripts/copy-fixtures.ts scripts/generate-format-specs.ts scripts/generate-subcircuit-library.ts scripts/generate-verifier-crs.ts scripts/prepare-runtime-fixtures.ts test/browser/verifier-entry.ts",
     "binary:check": "tsx scripts/check-binary-artifacts.ts",
     "bench:msm": "tsx src/tests/msm/bench-msm.ts",

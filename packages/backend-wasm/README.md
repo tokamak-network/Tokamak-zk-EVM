@@ -112,7 +112,7 @@ Use `npm run fixtures:copy` only after the existing owner package output files l
 
 Use `npm run fixtures:prepare` after `fixtures:copy` to convert the copied source artifacts into verifier runtime bundle files under the ignored `fixtures/small/runtime/` directory.
 
-Use `npm run verifier-crs:generate` only after the owner package has prepared `../backend/setup/output/sigma_verify.json`. The underlying generator requires an explicit `--input` path and fails if the source artifact cannot be read.
+Use `npm run verifier-crs:generate` only after the owner package has prepared `../backend/setup/output/sigma_verify.json`. The underlying generator requires an explicit `--input` path and fails if the source artifact cannot be read. `npm run build` runs this generation step before TypeScript compilation, so verifier builds must not reuse an existing generated CRS file.
 
 Use `npm run specs:generate` after editing JSON specs under `src/libs/artifact-loaders/specs/`.
 
