@@ -144,9 +144,11 @@ export async function convertNativeProverArtifactsToBinary(
     sourcePackageVersion,
     decoder: input.rkyvDecoder ?? createUnavailableRkyvArchiveDecoder(),
   });
+  const proofWitnessBundle = await createProverProofWitnessBundle(input, sourcePackageVersion);
 
   return {
     bundles: [
+      ...(proofWitnessBundle === undefined ? [] : [proofWitnessBundle]),
       {
         manifest: createBundleManifest(RuntimeArtifactBundleKind.ProverCrsPreparedData, [
           { role: RuntimeArtifactFileRole.Crs, path: "prover-crs-prepared-data/crs.bin" },
@@ -157,6 +159,41 @@ export async function convertNativeProverArtifactsToBinary(
       },
     ],
   };
+}
+
+async function createProverProofWitnessBundle(
+  input: NativeProverArtifactsToBinaryInput,
+  sourcePackageVersion: string,
+): Promise<RuntimeArtifactBundleOutput | undefined> {
+  if (input.placement === undefined && input.permutation === undefined && input.instance === undefined) {
+    return undefined;
+  }
+
+  const placement = requireDefined(input.placement, "prover placement variables");
+  const permutation = requireDefined(input.permutation, "prover permutation");
+  const instance = requireDefined(input.instance, "prover instance");
+  const runtime = await createCurveRuntime();
+
+  try {
+    const placementBytes = await createProverPlacementVariablesArtifact(runtime, placement, sourcePackageVersion);
+    const permutationBytes = await convertNativePermutationJsonToBinary({ permutation, sourcePackageVersion });
+    const instanceBytes = await createProverInstanceArtifact(runtime, instance, sourcePackageVersion);
+
+    return {
+      manifest: createBundleManifest(RuntimeArtifactBundleKind.ProverProofWitnessInput, [
+        { role: RuntimeArtifactFileRole.PlacementVariables, path: "prover-proof-witness-input/placement.bin" },
+        { role: RuntimeArtifactFileRole.Permutation, path: "prover-proof-witness-input/permutation.bin" },
+        { role: RuntimeArtifactFileRole.Instance, path: "prover-proof-witness-input/instance.bin" },
+      ]),
+      files: [
+        { path: "prover-proof-witness-input/placement.bin", bytes: placementBytes },
+        { path: "prover-proof-witness-input/permutation.bin", bytes: permutationBytes },
+        { path: "prover-proof-witness-input/instance.bin", bytes: instanceBytes },
+      ],
+    };
+  } finally {
+    await runtime.terminate();
+  }
 }
 
 export async function convertNativePermutationJsonToBinary(
@@ -300,6 +337,11 @@ interface VerifierInstanceJson {
   readonly a_pub_block: readonly string[];
 }
 
+interface NativePlacementVariablesJson {
+  readonly subcircuitId: number;
+  readonly variables: readonly string[];
+}
+
 interface FormattedPreprocessJson {
   readonly preprocess_entries_part1: readonly string[];
   readonly preprocess_entries_part2: readonly string[];
@@ -423,6 +465,72 @@ async function createVerifierPreprocessArtifact(
   });
 }
 
+async function createProverPlacementVariablesArtifact(
+  runtime: CurveRuntime,
+  raw: unknown,
+  sourcePackageVersion: string,
+): Promise<Uint8Array> {
+  const placementVariables = parseNativePlacementVariablesJson(raw);
+  const variableOffsets = placementVariableOffsets(placementVariables);
+  const variables = placementVariables.flatMap((placement) =>
+    placement.variables.map((value) => runtime.Fr.fromHex(value)),
+  );
+
+  return createBinaryArtifactFile({
+    kind: BinaryArtifactFileKind.ProverPlacementVariables,
+    sourcePackageVersion,
+    sections: [
+      {
+        type: BinarySectionType.Placement,
+        encoding: BinarySectionEncoding.Bytes,
+        label: "placement.subcircuit_ids",
+        elementCount: placementVariables.length,
+        elementByteLength: 4,
+        data: encodeU32List(placementVariables.map((placement) => placement.subcircuitId)),
+      },
+      {
+        type: BinarySectionType.Placement,
+        encoding: BinarySectionEncoding.Bytes,
+        label: "placement.variable_offsets",
+        elementCount: variableOffsets.length,
+        elementByteLength: 4,
+        data: encodeU32List(variableOffsets),
+      },
+      {
+        type: BinarySectionType.Placement,
+        encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
+        label: "placement.variables",
+        elementCount: variables.length,
+        elementByteLength: runtime.Fr.byteLength,
+        data: concatBytes(variables),
+      },
+    ],
+  });
+}
+
+async function createProverInstanceArtifact(
+  runtime: CurveRuntime,
+  raw: unknown,
+  sourcePackageVersion: string,
+): Promise<Uint8Array> {
+  const publicInstance = readPublicInstance(runtime, raw, GENERATED_PROVER_SETUP_PARAMS);
+
+  return createBinaryArtifactFile({
+    kind: BinaryArtifactFileKind.ProverInstance,
+    sourcePackageVersion,
+    sections: [
+      {
+        type: BinarySectionType.Instance,
+        encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
+        label: "instance.public",
+        elementCount: publicInstance.length,
+        elementByteLength: runtime.Fr.byteLength,
+        data: concatBytes(publicInstance),
+      },
+    ],
+  });
+}
+
 function readPublicInstance(
   runtime: CurveRuntime,
   raw: unknown,
@@ -439,6 +547,33 @@ function readPublicInstance(
   }
 
   return publicInstance.map((value) => runtime.Fr.fromHex(value));
+}
+
+function parseNativePlacementVariablesJson(raw: unknown): readonly NativePlacementVariablesJson[] {
+  if (!Array.isArray(raw)) {
+    throw new Error("Native placementVariables JSON must be an array.");
+  }
+
+  return raw.map((entry, index): NativePlacementVariablesJson => {
+    if (!isRecord(entry)) {
+      throw new Error(`Native placementVariables entry ${index} must be an object.`);
+    }
+
+    return {
+      subcircuitId: parseU32(entry.subcircuitId, `placementVariables[${index}].subcircuitId`),
+      variables: parseHexStringArray(entry.variables, `placementVariables[${index}].variables`),
+    };
+  });
+}
+
+function placementVariableOffsets(placementVariables: readonly NativePlacementVariablesJson[]): number[] {
+  const offsets = [0];
+
+  for (const placement of placementVariables) {
+    offsets.push(offsets[offsets.length - 1] + placement.variables.length);
+  }
+
+  return offsets;
 }
 
 function parseSetupParams(raw: unknown, label: string): VerifierSetupParamsJson {

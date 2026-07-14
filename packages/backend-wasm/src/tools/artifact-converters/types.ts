@@ -34,6 +34,7 @@ export interface NativeProverArtifactsToBinaryInput {
   readonly subcircuitMetadata?: unknown;
   readonly placement?: unknown;
   readonly permutation?: unknown;
+  readonly instance?: unknown;
   readonly witnessInputs?: unknown;
   readonly nativeJson?: unknown;
   readonly rkyvArtifacts?: readonly Uint8Array[] | NativeProverRkyvArtifacts;

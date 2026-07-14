@@ -7,6 +7,10 @@
     "./browser": {
       "types": "./src/browser.d.ts",
       "default": "./src/browser.js"
+    },
+    "./node": {
+      "types": "./src/node.d.ts",
+      "default": "./src/node.js"
     }
   },
   "scripts": {

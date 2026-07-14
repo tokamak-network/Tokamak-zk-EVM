@@ -73,3 +73,19 @@ const decoder = createCombinedSigmaRkyvPayloadDecoder(payloadDecoder.decodeCombi
 
 Pass `decoder` to `convertCombinedSigmaRkyvToProverCrsBinary`. Prover and verifier
 runtime modules must not import this package.
+
+## Node.js Fixture API
+
+The Node.js wrapper is for local fixture preparation only. It reads the generated
+WASM file from `pkg/` and exposes the same payload decoder shape:
+
+```js
+import { createCombinedSigmaRkyvPayloadDecoder } from "@tokamak-zk-evm/backend-wasm";
+import { loadCombinedSigmaPayloadDecoder } from "./tools/rkyv-decoder-wasm/src/node.js";
+
+const payloadDecoder = await loadCombinedSigmaPayloadDecoder();
+const decoder = createCombinedSigmaRkyvPayloadDecoder(payloadDecoder.decodeCombinedSigmaPayload);
+```
+
+Run `npm run rkyv-decoder:build` before using the Node.js wrapper. The wrapper is
+still tooling-only and must not be imported by prover or verifier runtime modules.

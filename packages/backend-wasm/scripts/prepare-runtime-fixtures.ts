@@ -2,7 +2,13 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { convertNativeVerifierJsonToBinary, type RuntimeArtifactBundleSetOutput } from "../src/index.js";
+import {
+  convertNativeProverArtifactsToBinary,
+  convertNativeVerifierJsonToBinary,
+  createCombinedSigmaRkyvPayloadDecoder,
+  type RuntimeArtifactBundleSetOutput,
+} from "../src/index.js";
+import { loadCombinedSigmaPayloadDecoder } from "../tools/rkyv-decoder-wasm/src/node.js";
 
 interface CopyManifest {
   readonly schemaVersion: 2;
@@ -23,6 +29,7 @@ async function main(argv: readonly string[]): Promise<void> {
   const sourceRoot = resolveWorkDirectory(repositoryRoot, backendWasmRoot, manifest.workDirectory);
   const runtimeRoot = path.join(backendWasmRoot, "fixtures", manifest.suite, "runtime");
   const rootPackageVersion = await readRootPackageVersion(repositoryRoot);
+  const payloadDecoder = await loadCombinedSigmaPayloadDecoder();
 
   const verifierOutput = await convertNativeVerifierJsonToBinary({
     sourcePackageVersion: rootPackageVersion,
@@ -31,8 +38,20 @@ async function main(argv: readonly string[]): Promise<void> {
     preprocess: await readJson(path.join(sourceRoot, "preprocess", "preprocess.json")),
     instance: await readJson(path.join(sourceRoot, "synthesizer", "instance.json")),
   });
+  const proverCrsOutput = await convertNativeProverArtifactsToBinary({
+    sourcePackageVersion: rootPackageVersion,
+    placement: await readJson(path.join(sourceRoot, "synthesizer", "placementVariables.json")),
+    permutation: await readJson(path.join(sourceRoot, "synthesizer", "permutation.json")),
+    instance: await readJson(path.join(sourceRoot, "synthesizer", "instance.json")),
+    rkyvArtifacts: {
+      combinedSigma: await readBinary(path.join(sourceRoot, "setup", "combined_sigma.rkyv")),
+    },
+    rkyvDecoder: createCombinedSigmaRkyvPayloadDecoder(payloadDecoder.decodeCombinedSigmaPayload),
+  });
 
-  await writeRuntimeBundles(runtimeRoot, verifierOutput);
+  await writeRuntimeBundles(runtimeRoot, {
+    bundles: [...verifierOutput.bundles, ...proverCrsOutput.bundles],
+  });
 }
 
 function parseCopyManifest(raw: unknown): CopyManifest {
@@ -79,6 +98,15 @@ async function readJson(filePath: string): Promise<unknown> {
   }
 }
 
+async function readBinary(filePath: string): Promise<Uint8Array> {
+  try {
+    return new Uint8Array(await readFile(filePath));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to read copied fixture source ${filePath}: ${message}`);
+  }
+}
+
 async function readRootPackageVersion(repositoryRoot: string): Promise<string> {
   const packageJson = await readJson(path.join(repositoryRoot, "package.json"));
 
@@ -117,6 +145,10 @@ function runtimeBundleDirectory(kind: string): string {
       return "verifier-proof-input";
     case "VerifierSetupInput":
       return "verifier-setup-input";
+    case "ProverProofWitnessInput":
+      return "prover-proof-witness-input";
+    case "ProverCrsPreparedData":
+      return "prover-crs-prepared-data";
     default:
       throw new Error(`Unsupported runtime fixture bundle kind: ${kind}`);
   }
