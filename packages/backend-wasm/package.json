@@ -41,7 +41,7 @@
   },
   "dependencies": {
     "@noble/hashes": "^1.8.0",
-    "@tokamak-zk-evm/subcircuit-library": "2.1.0",
+    "@tokamak-zk-evm/subcircuit-library": "2.1.1",
     "ffjavascript": "^0.3.1"
   },
   "devDependencies": {

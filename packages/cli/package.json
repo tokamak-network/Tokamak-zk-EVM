@@ -35,7 +35,7 @@
   ],
   "type": "commonjs",
   "tokamakZkEvm": {
-    "compatibleBackendVersion": "2.2"
+    "compatibleBackendVersion": "2.1"
   },
   "bin": {
     "tokamak-cli": "dist/cli.js"
