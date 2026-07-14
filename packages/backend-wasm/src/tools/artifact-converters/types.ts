@@ -1,4 +1,5 @@
 import type { RuntimeArtifactBundleManifest } from "../../libs/serialization/artifact-bundle.js";
+import type { RkyvArchiveDecoder } from "./rkyv-to-binary.js";
 
 export const ARTIFACT_CONVERTER_COMMANDS = [
   "json-to-verifier-binary",
@@ -38,7 +39,13 @@ export interface NativeProverArtifactsToBinaryInput {
   readonly permutation?: unknown;
   readonly witnessInputs?: unknown;
   readonly nativeJson?: unknown;
-  readonly rkyvArtifacts?: readonly Uint8Array[];
+  readonly rkyvArtifacts?: readonly Uint8Array[] | NativeProverRkyvArtifacts;
+  readonly rkyvDecoder?: RkyvArchiveDecoder;
+}
+
+export interface NativeProverRkyvArtifacts {
+  readonly combinedSigma?: Uint8Array;
+  readonly sigmaPreprocess?: Uint8Array;
 }
 
 export interface NativePermutationJsonToBinaryInput {

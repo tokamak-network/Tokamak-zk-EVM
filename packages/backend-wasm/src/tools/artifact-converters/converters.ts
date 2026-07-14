@@ -23,6 +23,7 @@ import type {
   BinaryDigestDebugJson,
   ConverterArtifactJson,
   NativeProverArtifactsToBinaryInput,
+  NativeProverRkyvArtifacts,
   NativePermutationJsonToBinaryInput,
   NativeVerifierJsonToBinaryInput,
   ProofBinaryToNativeJsonInput,
@@ -30,8 +31,17 @@ import type {
   RuntimeArtifactBundleSetOutput,
 } from "./types.js";
 import { ARTIFACT_CONVERTER_COMMANDS } from "./types.js";
+import {
+  convertCombinedSigmaRkyvToProverCrsBinary,
+  createUnavailableRkyvArchiveDecoder,
+  type DecodedCombinedSigmaRkyv,
+  type RkyvArchiveDecoder,
+  type RkyvToBinaryConverterOptions,
+} from "./rkyv-to-binary.js";
 
 export { ARTIFACT_CONVERTER_COMMANDS };
+export { convertCombinedSigmaRkyvToProverCrsBinary, createUnavailableRkyvArchiveDecoder };
+export type { DecodedCombinedSigmaRkyv, RkyvArchiveDecoder, RkyvToBinaryConverterOptions } from "./rkyv-to-binary.js";
 export type {
   ArtifactConverterCommand,
   ArtifactConverterInput,
@@ -43,6 +53,7 @@ export type {
   BinarySectionDebugJson,
   ConverterArtifactJson,
   NativeProverArtifactsToBinaryInput,
+  NativeProverRkyvArtifacts,
   NativePermutationJsonToBinaryInput,
   NativeVerifierJsonToBinaryInput,
   ProofBinaryToNativeJsonInput,
@@ -119,13 +130,47 @@ export async function convertNativeVerifierJsonToBinary(
 export async function convertNativeProverArtifactsToBinary(
   input: NativeProverArtifactsToBinaryInput,
 ): Promise<RuntimeArtifactBundleSetOutput> {
-  if (input.rkyvArtifacts !== undefined && input.rkyvArtifacts.length > 0) {
-    throw new Error(
-      "Native prover rkyv CRS conversion is not implemented. Add a web-compatible rkyv decoder or provide an already decoded prover CRS object before using json-rkyv-to-prover-binary.",
-    );
+  const sourcePackageVersion = requireSourcePackageVersion(input.sourcePackageVersion);
+  const combinedSigma = readCombinedSigmaRkyvArtifact(input);
+
+  if (combinedSigma === undefined) {
+    throw new Error("json-rkyv-to-prover-binary requires rkyvArtifacts.combinedSigma or rkyvArtifacts[0].");
   }
 
-  throw converterNotImplemented("json-rkyv-to-prover-binary");
+  const setup = parseSetupParams(input.setupParams ?? GENERATED_PROVER_SETUP_PARAMS, "prover setupParams");
+  const setupBytes = await createBinaryArtifactFile({
+    kind: BinaryArtifactFileKind.ProverSetupParams,
+    sourcePackageVersion,
+    sections: [
+      {
+        type: BinarySectionType.SetupParams,
+        encoding: BinarySectionEncoding.Bytes,
+        label: "setup.params",
+        elementCount: 1,
+        elementByteLength: 36,
+        data: encodeSetupParams(setup),
+      },
+    ],
+  });
+  const crsBytes = await convertCombinedSigmaRkyvToProverCrsBinary(combinedSigma, {
+    sourcePackageVersion,
+    decoder: input.rkyvDecoder ?? createUnavailableRkyvArchiveDecoder(),
+  });
+
+  return {
+    bundles: [
+      {
+        manifest: createBundleManifest(RuntimeArtifactBundleKind.ProverCrsPreparedData, [
+          { role: RuntimeArtifactFileRole.SetupParams, path: "prover-crs-prepared-data/setup-params.bin" },
+          { role: RuntimeArtifactFileRole.Crs, path: "prover-crs-prepared-data/crs.bin" },
+        ]),
+        files: [
+          { path: "prover-crs-prepared-data/setup-params.bin", bytes: setupBytes },
+          { path: "prover-crs-prepared-data/crs.bin", bytes: crsBytes },
+        ],
+      },
+    ],
+  };
 }
 
 export async function convertNativePermutationJsonToBinary(
@@ -309,6 +354,23 @@ function normalizeVerifierArtifacts(input: NativeVerifierJsonToBinaryInput): Ver
     instance: requireDefined(input.instance ?? input.artifacts?.instance, "verifier instance"),
     sigmaVerify: requireDefined(input.sigmaVerify ?? input.artifacts?.sigmaVerify, "verifier sigmaVerify"),
   };
+}
+
+function readCombinedSigmaRkyvArtifact(input: NativeProverArtifactsToBinaryInput): Uint8Array | undefined {
+  const artifacts = input.rkyvArtifacts;
+  if (artifacts === undefined) {
+    return undefined;
+  }
+
+  if (isNamedProverRkyvArtifacts(artifacts)) {
+    return artifacts.combinedSigma;
+  }
+
+  return artifacts[0];
+}
+
+function isNamedProverRkyvArtifacts(value: NativeProverArtifactsToBinaryInput["rkyvArtifacts"]): value is NativeProverRkyvArtifacts {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function resolveVerifierSetupParams(input: NativeVerifierJsonToBinaryInput): unknown {
