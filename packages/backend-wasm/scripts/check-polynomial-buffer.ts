@@ -78,6 +78,10 @@ async function checkBivariatePolynomialBuffer(field: FieldRuntime): Promise<void
   assertEqual(buffer.clone().addAssign(otherBuffer).toHexCoeffs(), dense.add(otherDense).toHexCoeffs(), "addAssign");
   assertEqual(buffer.clone().subAssign(otherBuffer).toHexCoeffs(), dense.sub(otherDense).toHexCoeffs(), "subAssign");
   assertEqual(buffer.clone().scaleAssign(scale).toHexCoeffs(), dense.scale(scale).toHexCoeffs(), "scaleAssign");
+  assertEqual(buffer.add(otherBuffer).toHexCoeffs(), dense.add(otherDense).toHexCoeffs(), "add");
+  assertEqual(buffer.sub(otherBuffer).toHexCoeffs(), dense.sub(otherDense).toHexCoeffs(), "sub");
+  assertEqual(buffer.scale(scale).toHexCoeffs(), dense.scale(scale).toHexCoeffs(), "scale");
+  assertEqual(buffer.toHexCoeffs(), dense.toHexCoeffs(), "non-mutating operations must not alter the source");
   assertEqual(
     buffer.clone().addScaledAssign(otherBuffer, scale).toHexCoeffs(),
     dense.add(otherDense.scale(scale)).toHexCoeffs(),
@@ -91,16 +95,28 @@ async function checkBivariatePolynomialBuffer(field: FieldRuntime): Promise<void
     dense.scaleCoeffsX(xScale).toHexCoeffs(),
     "scaleCoeffsXAssign",
   );
+  assertEqual(buffer.scaleCoeffsX(xScale).toHexCoeffs(), dense.scaleCoeffsX(xScale).toHexCoeffs(), "scaleCoeffsX");
   assertEqual(
     buffer.clone().scaleCoeffsYAssign(yScale).toHexCoeffs(),
     dense.scaleCoeffsY(yScale).toHexCoeffs(),
     "scaleCoeffsYAssign",
   );
+  assertEqual(buffer.scaleCoeffsY(yScale).toHexCoeffs(), dense.scaleCoeffsY(yScale).toHexCoeffs(), "scaleCoeffsY");
 
   const xPoint = field.fromBigInt(41n);
   const yPoint = field.fromBigInt(43n);
   assertEqual(field.toHex(buffer.eval(xPoint, yPoint)), field.toHex(dense.eval(xPoint, yPoint)), "eval");
   assertEqual(buffer.resize(8, 4).toHexCoeffs(), dense.resize(8, 4).toHexCoeffs(), "resize");
+  assertEqual(buffer.mulMonomial(1, 2).toHexCoeffs(), dense.mulMonomial(1, 2).toHexCoeffs(), "mulMonomial");
+  assertEqual(
+    BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.zero, field.zero, field.zero], 2, 2)
+      .optimizeSize()
+      .toHexCoeffs(),
+    DensePolynomialExt.zero(field).toHexCoeffs(),
+    "optimizeSize zero",
+  );
+  checkBufferCopySemantics(field, coefficients);
+  checkPrefixAdd(field);
   assertDenseEqual((await buffer.mul(otherBuffer)).toDense(), dense.mul(otherDense), "ntt mul");
 
   await assertRouParity(field, dense, buffer, undefined, undefined, "rou");
@@ -189,6 +205,35 @@ function checkVanishingDivision(field: FieldRuntime): void {
   assertDenseEqual(bufferDivision.quotientY.toDense(), denseDivision.quotientY, "vanishing quotientY");
 }
 
+function checkBufferCopySemantics(field: FieldRuntime, coefficients: readonly FieldElement[]): void {
+  const raw = field.concat(coefficients);
+  const polynomial = BivariatePolynomialBuffer.fromBuffer(field, raw, 4, 2);
+  field.writeBufferElement(raw, 0, field.fromBigInt(101n));
+  assertEqual(polynomial.toHexCoeffs(), formatFields(field, coefficients), "fromBuffer must copy the source buffer");
+}
+
+function checkPrefixAdd(field: FieldRuntime): void {
+  const target = BivariatePolynomialBuffer.fromCoeffs(
+    field,
+    [3n, 5n, 7n, 11n].map((value) => field.fromBigInt(value)),
+    2,
+    2,
+  );
+  const prefix = BivariatePolynomialBuffer.fromCoeffs(field, [13n, 17n].map((value) => field.fromBigInt(value)), 2, 1);
+  const scale = field.fromBigInt(19n);
+  const actual = target.clone().addScaledPrefixAssign(prefix, scale);
+  const expected = target.toDense().add(prefix.toDense().scale(scale));
+  assertDenseEqual(actual.toDense(), expected, "addScaledPrefixAssign");
+
+  const tooWide = BivariatePolynomialBuffer.fromCoeffs(
+    field,
+    Array.from({ length: 4 }, () => field.one),
+    4,
+    1,
+  );
+  assertThrows(() => target.clone().addScaledPrefixAssign(tooWide, scale), "addScaledPrefixAssign shape guard");
+}
+
 function assertDenseEqual(actual: DensePolynomialExt, expected: DensePolynomialExt, label: string): void {
   const xSize = Math.max(actual.xSize, expected.xSize);
   const ySize = Math.max(actual.ySize, expected.ySize);
@@ -227,6 +272,15 @@ function assertEqual(actual: unknown, expected: unknown, label: string): void {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     throw new Error(`${label} mismatch: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
   }
+}
+
+function assertThrows(fn: () => unknown, label: string): void {
+  try {
+    fn();
+  } catch {
+    return;
+  }
+  throw new Error(`${label} did not throw`);
 }
 
 const entrypoint = fileURLToPath(import.meta.url);

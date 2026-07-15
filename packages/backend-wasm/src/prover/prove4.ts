@@ -3,6 +3,13 @@ import { DensePolynomialExt } from "../libs/polynomial/dense-polynomial.js";
 import type { CurveRuntime } from "../libs/runtime/curve.js";
 import type { FieldElement } from "../libs/runtime/field.js";
 import type { ProverCrsRuntime } from "./binary-input.js";
+import {
+  buildLagrangeK0,
+  constantPolynomialBuffer,
+  linearCombinationBuffer,
+  mulByOneMinusX,
+  mulByTerm9,
+} from "./polynomial-ops.js";
 import { encodePolynomialBufferWithSigma1, encodePolynomialWithSigma1, type Prove0Computation } from "./prove0.js";
 import type { Prove2Computation } from "./prove2.js";
 import type { Prove3Output } from "./prove3.js";
@@ -276,60 +283,6 @@ async function buildCopyOpenings(input: {
   };
 }
 
-async function buildLagrangeK0(field: CurveRuntime["Fr"], mI: number): Promise<BivariatePolynomialBuffer> {
-  const k0Evals = field.createZeroBuffer(mI);
-  field.writeBufferElement(k0Evals, 0, field.one);
-  return BivariatePolynomialBuffer.fromRouEvals(field, k0Evals, mI, 1);
-}
-
-function mulByOneMinusX(polynomial: BivariatePolynomialBuffer): BivariatePolynomialBuffer {
-  return polynomial.sub(polynomial.mulMonomial(1, 0));
-}
-
-function mulByTerm9(
-  polynomial: BivariatePolynomialBuffer,
-  rB_X: readonly FieldElement[],
-  rB_Y: readonly FieldElement[],
-  tMiEval: FieldElement,
-  tSMaxEval: FieldElement,
-): BivariatePolynomialBuffer {
-  if (rB_X.length !== 2 || rB_Y.length !== 2) {
-    throw new Error("term9 requires two X blinding coefficients and two Y blinding coefficients.");
-  }
-
-  const field = polynomial.field;
-  const constant = field.add(field.mul(tMiEval, rB_X[0]), field.mul(tSMaxEval, rB_Y[0]));
-  const xCoeff = field.mul(tMiEval, rB_X[1]);
-  const yCoeff = field.mul(tSMaxEval, rB_Y[1]);
-  return polynomial
-    .scale(constant)
-    .add(polynomial.mulMonomial(1, 0).scale(xCoeff))
-    .add(polynomial.mulMonomial(0, 1).scale(yCoeff));
-}
-
 function constantPolynomial(field: CurveRuntime["Fr"], value: FieldElement): DensePolynomialExt {
   return DensePolynomialExt.fromCoeffs(field, [value], 1, 1);
-}
-
-function constantPolynomialBuffer(field: CurveRuntime["Fr"], value: FieldElement): BivariatePolynomialBuffer {
-  return BivariatePolynomialBuffer.fromCoeffs(field, [value], 1, 1);
-}
-
-function linearCombinationBuffer(
-  field: CurveRuntime["Fr"],
-  terms: readonly (readonly [FieldElement, BivariatePolynomialBuffer])[],
-): BivariatePolynomialBuffer {
-  let xSize = 1;
-  let ySize = 1;
-  for (const [, polynomial] of terms) {
-    xSize = Math.max(xSize, polynomial.xSize);
-    ySize = Math.max(ySize, polynomial.ySize);
-  }
-
-  const accumulator = BivariatePolynomialBuffer.zero(field).resize(xSize, ySize);
-  for (const [scalar, polynomial] of terms) {
-    accumulator.addScaledPrefixAssign(polynomial, scalar);
-  }
-
-  return accumulator;
 }

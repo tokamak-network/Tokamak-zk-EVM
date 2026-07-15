@@ -1,6 +1,7 @@
 import { BivariatePolynomialBuffer } from "../libs/polynomial/bivariate-polynomial-buffer.js";
 import type { CurveRuntime } from "../libs/runtime/curve.js";
 import type { FieldElement } from "../libs/runtime/field.js";
+import { linearCombinationBuffer } from "./polynomial-ops.js";
 import type { ProverState } from "./state.js";
 
 export interface Prove3Output {
@@ -41,23 +42,4 @@ export function prove3(input: {
     R_omegaX_eval: rOmegaX.eval(chi, zeta),
     R_omegaX_omegaY_eval: rOmegaXOmegaY.eval(chi, zeta),
   };
-}
-
-function linearCombinationBuffer(
-  field: CurveRuntime["Fr"],
-  terms: readonly (readonly [FieldElement, BivariatePolynomialBuffer])[],
-): BivariatePolynomialBuffer {
-  let xSize = 1;
-  let ySize = 1;
-  for (const [, polynomial] of terms) {
-    xSize = Math.max(xSize, polynomial.xSize);
-    ySize = Math.max(ySize, polynomial.ySize);
-  }
-
-  const accumulator = BivariatePolynomialBuffer.zero(field).resize(xSize, ySize);
-  for (const [scalar, polynomial] of terms) {
-    accumulator.addScaledPrefixAssign(polynomial, scalar);
-  }
-
-  return accumulator;
 }

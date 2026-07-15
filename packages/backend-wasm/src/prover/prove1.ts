@@ -3,6 +3,11 @@ import type { CurveRuntime } from "../libs/runtime/curve.js";
 import type { FieldElement } from "../libs/runtime/field.js";
 import type { ProverCrsRuntime } from "./binary-input.js";
 import { encodePolynomialBufferWithSigma1 } from "./prove0.js";
+import {
+  computeRecursionEvalsBuffer,
+  constantPolynomialBuffer,
+  linearCombinationBuffer,
+} from "./polynomial-ops.js";
 import type { ProverState } from "./state.js";
 
 export interface Prove1Output {
@@ -58,86 +63,4 @@ export async function prove1(
     },
     rXY,
   };
-}
-
-function computeRecursionEvalsBuffer(
-  field: CurveRuntime["Fr"],
-  gXYEvals: Uint8Array,
-  fXYEvals: Uint8Array,
-  mI: number,
-  sMax: number,
-): Uint8Array {
-  if (field.bufferElementCount(gXYEvals) !== mI * sMax || field.bufferElementCount(fXYEvals) !== mI * sMax) {
-    throw new Error("prove1 recursion input eval length does not match the setup grid.");
-  }
-
-  const transposed = field.createZeroBuffer(mI * sMax);
-  field.writeBufferElement(transposed, mI * sMax - 1, field.one);
-
-  for (let index = mI * sMax - 2; index >= 0; index -= 1) {
-    const nextIndex = index + 1;
-    const originalX = nextIndex % mI;
-    const originalY = Math.floor(nextIndex / mI);
-    const originalIndex = originalX * sMax + originalY;
-    field.writeBufferElement(
-      transposed,
-      index,
-      field.mul(
-        field.readBufferElement(transposed, nextIndex),
-        field.div(
-          field.readBufferElement(gXYEvals, originalIndex),
-          field.readBufferElement(fXYEvals, originalIndex),
-        ),
-      ),
-    );
-  }
-
-  return transposeRowMajorBuffer(field, transposed, sMax, mI);
-}
-
-function transposeRowMajorBuffer(
-  field: CurveRuntime["Fr"],
-  values: Uint8Array,
-  rowCount: number,
-  columnCount: number,
-): Uint8Array {
-  if (field.bufferElementCount(values) !== rowCount * columnCount) {
-    throw new Error("Cannot transpose a buffer whose length does not match its shape.");
-  }
-
-  const output = field.createZeroBuffer(rowCount * columnCount);
-  for (let row = 0; row < rowCount; row += 1) {
-    for (let column = 0; column < columnCount; column += 1) {
-      field.writeBufferElement(
-        output,
-        column * rowCount + row,
-        field.readBufferElement(values, row * columnCount + column),
-      );
-    }
-  }
-
-  return output;
-}
-
-function constantPolynomialBuffer(field: CurveRuntime["Fr"], value: FieldElement): BivariatePolynomialBuffer {
-  return BivariatePolynomialBuffer.fromCoeffs(field, [value], 1, 1);
-}
-
-function linearCombinationBuffer(
-  field: CurveRuntime["Fr"],
-  terms: readonly (readonly [FieldElement, BivariatePolynomialBuffer])[],
-): BivariatePolynomialBuffer {
-  let xSize = 1;
-  let ySize = 1;
-  for (const [, polynomial] of terms) {
-    xSize = Math.max(xSize, polynomial.xSize);
-    ySize = Math.max(ySize, polynomial.ySize);
-  }
-
-  const accumulator = BivariatePolynomialBuffer.zero(field).resize(xSize, ySize);
-  for (const [scalar, polynomial] of terms) {
-    accumulator.addScaledPrefixAssign(polynomial, scalar);
-  }
-
-  return accumulator;
 }

@@ -8,6 +8,11 @@ import type {
   ProverSetupParams,
   ProverSubcircuitInfo,
 } from "./witness.js";
+import {
+  linearCombinationBuffer,
+  lowDegreeXTimesVanishingBuffer,
+  lowDegreeYTimesVanishingBuffer,
+} from "./polynomial-ops.js";
 import type { ProverInstancePolynomials, ProverMixer } from "./state.js";
 import type { ProverState } from "./state.js";
 
@@ -404,122 +409,6 @@ function addG1Terms(runtime: CurveRuntime, terms: readonly Uint8Array[]): Uint8A
   }
 
   return accumulator;
-}
-
-function linearCombination(
-  field: CurveRuntime["Fr"],
-  terms: readonly (readonly [FieldElement, DensePolynomialExt])[],
-): DensePolynomialExt {
-  let accumulator = DensePolynomialExt.zero(field);
-  for (const [scalar, polynomial] of terms) {
-    accumulator = accumulator.add(polynomial.scale(scalar));
-  }
-
-  return accumulator;
-}
-
-function linearCombinationBuffer(
-  field: CurveRuntime["Fr"],
-  terms: readonly (readonly [FieldElement, BivariatePolynomialBuffer])[],
-): BivariatePolynomialBuffer {
-  let xSize = 1;
-  let ySize = 1;
-  for (const [, polynomial] of terms) {
-    xSize = Math.max(xSize, polynomial.xSize);
-    ySize = Math.max(ySize, polynomial.ySize);
-  }
-
-  const accumulator = BivariatePolynomialBuffer.zero(field).resize(xSize, ySize);
-  for (const [scalar, polynomial] of terms) {
-    accumulator.addScaledPrefixAssign(polynomial, scalar);
-  }
-
-  return accumulator;
-}
-
-function lowDegreeXTimesVanishing(
-  field: CurveRuntime["Fr"],
-  coefficients: readonly FieldElement[],
-  exponent: number,
-): DensePolynomialExt {
-  if (exponent <= 0) {
-    throw new Error("X vanishing exponent must be positive.");
-  }
-
-  const xSize = nextPowerOfTwo(exponent + coefficients.length);
-  const output = Array.from({ length: xSize }, () => field.zero);
-  for (let index = 0; index < coefficients.length; index += 1) {
-    output[index] = field.sub(output[index], coefficients[index]);
-    output[index + exponent] = field.add(output[index + exponent], coefficients[index]);
-  }
-
-  return DensePolynomialExt.fromCoeffs(field, output, xSize, 1);
-}
-
-function lowDegreeXTimesVanishingBuffer(
-  field: CurveRuntime["Fr"],
-  coefficients: readonly FieldElement[],
-  exponent: number,
-): BivariatePolynomialBuffer {
-  if (exponent <= 0) {
-    throw new Error("X vanishing exponent must be positive.");
-  }
-
-  const xSize = nextPowerOfTwo(exponent + coefficients.length);
-  const output = BivariatePolynomialBuffer.zero(field).resize(xSize, 1);
-  for (let index = 0; index < coefficients.length; index += 1) {
-    output.setCoeff(index, 0, field.sub(output.getCoeff(index, 0), coefficients[index]));
-    output.setCoeff(index + exponent, 0, field.add(output.getCoeff(index + exponent, 0), coefficients[index]));
-  }
-
-  return output;
-}
-
-function lowDegreeYTimesVanishing(
-  field: CurveRuntime["Fr"],
-  coefficients: readonly FieldElement[],
-  exponent: number,
-): DensePolynomialExt {
-  if (exponent <= 0) {
-    throw new Error("Y vanishing exponent must be positive.");
-  }
-
-  const ySize = nextPowerOfTwo(exponent + coefficients.length);
-  const output = Array.from({ length: ySize }, () => field.zero);
-  for (let index = 0; index < coefficients.length; index += 1) {
-    output[index] = field.sub(output[index], coefficients[index]);
-    output[index + exponent] = field.add(output[index + exponent], coefficients[index]);
-  }
-
-  return DensePolynomialExt.fromCoeffs(field, output, 1, ySize);
-}
-
-function lowDegreeYTimesVanishingBuffer(
-  field: CurveRuntime["Fr"],
-  coefficients: readonly FieldElement[],
-  exponent: number,
-): BivariatePolynomialBuffer {
-  if (exponent <= 0) {
-    throw new Error("Y vanishing exponent must be positive.");
-  }
-
-  const ySize = nextPowerOfTwo(exponent + coefficients.length);
-  const output = BivariatePolynomialBuffer.zero(field).resize(1, ySize);
-  for (let index = 0; index < coefficients.length; index += 1) {
-    output.setCoeff(0, index, field.sub(output.getCoeff(0, index), coefficients[index]));
-    output.setCoeff(0, index + exponent, field.add(output.getCoeff(0, index + exponent), coefficients[index]));
-  }
-
-  return output;
-}
-
-function nextPowerOfTwo(value: number): number {
-  let size = 1;
-  while (size < value) {
-    size *= 2;
-  }
-
-  return size;
 }
 
 function concatBytes(chunks: readonly Uint8Array[]): Uint8Array {

@@ -3,6 +3,15 @@ import type { CurveRuntime } from "../libs/runtime/curve.js";
 import type { FieldElement } from "../libs/runtime/field.js";
 import type { ProverCrsRuntime } from "./binary-input.js";
 import { encodePolynomialBufferWithSigma1 } from "./prove0.js";
+import {
+  buildLagrangeK0,
+  buildLagrangeKl,
+  constantPolynomialBuffer,
+  linearCombinationBuffer,
+  mulByLinearX,
+  mulByLinearY,
+  mulByXMinusOne,
+} from "./polynomial-ops.js";
 import type { ProverState } from "./state.js";
 
 export interface Prove2Output {
@@ -103,73 +112,4 @@ export async function prove2(input: {
     q3XY,
     lagrangeKlXY,
   };
-}
-
-async function buildLagrangeKl(
-  field: CurveRuntime["Fr"],
-  mI: number,
-  sMax: number,
-): Promise<BivariatePolynomialBuffer> {
-  const kEvals = field.createZeroBuffer(mI);
-  field.writeBufferElement(kEvals, mI - 1, field.one);
-  const lagrangeKXY = await BivariatePolynomialBuffer.fromRouEvals(field, kEvals, mI, 1);
-  const lEvals = field.createZeroBuffer(sMax);
-  field.writeBufferElement(lEvals, sMax - 1, field.one);
-  const lagrangeLXY = await BivariatePolynomialBuffer.fromRouEvals(field, lEvals, 1, sMax);
-  return await lagrangeKXY.mul(lagrangeLXY);
-}
-
-async function buildLagrangeK0(field: CurveRuntime["Fr"], mI: number): Promise<BivariatePolynomialBuffer> {
-  const k0Evals = field.createZeroBuffer(mI);
-  field.writeBufferElement(k0Evals, 0, field.one);
-  return BivariatePolynomialBuffer.fromRouEvals(field, k0Evals, mI, 1);
-}
-
-function mulByXMinusOne(polynomial: BivariatePolynomialBuffer): BivariatePolynomialBuffer {
-  return polynomial.mulMonomial(1, 0).sub(polynomial);
-}
-
-function mulByLinearX(
-  polynomial: BivariatePolynomialBuffer,
-  coefficients: readonly FieldElement[],
-): BivariatePolynomialBuffer {
-  if (coefficients.length !== 2) {
-    throw new Error("X-linear multiplier requires exactly two coefficients.");
-  }
-
-  return polynomial.scale(coefficients[0]).add(polynomial.mulMonomial(1, 0).scale(coefficients[1]));
-}
-
-function mulByLinearY(
-  polynomial: BivariatePolynomialBuffer,
-  coefficients: readonly FieldElement[],
-): BivariatePolynomialBuffer {
-  if (coefficients.length !== 2) {
-    throw new Error("Y-linear multiplier requires exactly two coefficients.");
-  }
-
-  return polynomial.scale(coefficients[0]).add(polynomial.mulMonomial(0, 1).scale(coefficients[1]));
-}
-
-function constantPolynomialBuffer(field: CurveRuntime["Fr"], value: FieldElement): BivariatePolynomialBuffer {
-  return BivariatePolynomialBuffer.fromCoeffs(field, [value], 1, 1);
-}
-
-function linearCombinationBuffer(
-  field: CurveRuntime["Fr"],
-  terms: readonly (readonly [FieldElement, BivariatePolynomialBuffer])[],
-): BivariatePolynomialBuffer {
-  let xSize = 1;
-  let ySize = 1;
-  for (const [, polynomial] of terms) {
-    xSize = Math.max(xSize, polynomial.xSize);
-    ySize = Math.max(ySize, polynomial.ySize);
-  }
-
-  const accumulator = BivariatePolynomialBuffer.zero(field).resize(xSize, ySize);
-  for (const [scalar, polynomial] of terms) {
-    accumulator.addScaledPrefixAssign(polynomial, scalar);
-  }
-
-  return accumulator;
 }
