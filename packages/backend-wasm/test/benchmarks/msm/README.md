@@ -111,3 +111,50 @@ Interpretation:
 - The snarkjs-style path made scalar preparation much cheaper by using one contiguous `Fr.batchFromMontgomery` call instead of per-coefficient scalar conversion.
 - Total runtime changed by only about `1%` in this benchmark because `G1.multiExpAffine` dominates the measured cost at these lengths.
 - This result means the current prover slowdown cannot be explained by CRS/scalar buffer preparation alone. The next optimization target remains reducing the number, size, or scheduling cost of large MSM calls, and checking whether the curve runtime should use ffjavascript's threaded path for prover diagnostics.
+
+## Independent MSM Parallel Benchmark
+
+Audience: backend-wasm developers evaluating independent prover commitment parallelism before changing runtime prover code.
+
+This benchmark compares three execution shapes for unrelated G1 MSM jobs:
+
+- sequential: run each MSM one after another on one backend-wasm curve runtime.
+- same runtime `Promise.all`: submit unrelated MSM calls concurrently to the same curve runtime.
+- process per job: preload each independent MSM job into a dedicated Node.js child process and run the jobs concurrently with one backend-wasm curve runtime per process.
+
+The process-per-job mode is an upper-bound experiment for compute parallelism. It does not include production data-transfer design, worker pooling policy, or browser worker lifecycle costs. Node child processes are used here because importing ffjavascript inside a generic Node worker thread conflicts with ffjavascript's own worker bootstrap path.
+
+Usage:
+
+```bash
+npm run bench:msm:parallel -- --lengths=16384,16384,16384,32768,16384,16384 --iterations=2 --warmup=1
+```
+
+Useful options:
+
+- `--lengths=16384,32768`: comma-separated point counts, one MSM job per entry.
+- `--iterations=2`: measured iterations.
+- `--warmup=1`: warmup iterations.
+- `--seed=0x544f4b414d414b`: deterministic pseudo-random scalar seed.
+- `--multi-thread`: use ffjavascript multi-thread curve instances instead of single-thread instances.
+- `--json=tmp/timing/independent-msm-parallel.json`: write a JSON report to an ignored diagnostics path.
+
+### Latest Single-Thread Parallel Result
+
+Command:
+
+```bash
+npm run bench:msm:parallel -- --lengths=16384,16384,16384,32768,16384,16384 --iterations=2 --warmup=1 --json=tmp/timing/independent-msm-parallel.json
+```
+
+Environment: local Node.js run, backend-wasm single-thread curve runtime per process.
+
+| jobs | total points | max job points | sequential ms | same runtime Promise.all ms | process/job ms | same runtime speedup | process speedup |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 6 | 114688 | 32768 | 5258.547 | 5273.951 | 1503.631 | 1.00x | 3.50x |
+
+Interpretation:
+
+- Submitting unrelated MSMs through `Promise.all` on the same runtime did not improve wall time.
+- Running unrelated MSMs concurrently through separate pre-initialized processes and separate curve runtimes improved wall time by `3.50x` for this workload.
+- This supports experimenting with a real prover-side worker pool for independent commitment MSMs, but the production design must still measure browser worker startup, data transfer, memory pressure, and result ordering.
