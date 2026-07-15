@@ -35,6 +35,10 @@
     {
       "source": "packages/backend/prove/output/proof.json",
       "destination": "prove/proof.json"
+    },
+    {
+      "source": "packages/backend/prove/output/proof4_test.json",
+      "destination": "prove/proof4_test.json"
     }
   ]
 }
