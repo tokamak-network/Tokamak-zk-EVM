@@ -62,3 +62,52 @@ Interpretation:
 - This table does not justify a global switch to projective internal representation by itself. Use stage-specific verifier/prover timing before migrating production paths.
 
 Timing is environment-dependent. Use these numbers as a local crossover snapshot, not as a permanent threshold.
+
+## Prover MSM Layout Benchmark
+
+Audience: backend-wasm developers evaluating whether prover commitments should keep snarkjs-style contiguous MSM inputs instead of rebuilding bases and scalars per commitment.
+
+The prover layout benchmark compares two ways to feed the same `ffjavascript` `G1.multiExpAffine` primitive:
+
+- current layout: scan a `BivariatePolynomialBuffer`, skip zero coefficients, copy matching `sigma1.xy-powers` entries from a `Uint8Array[]` CRS view, convert each scalar with `Fr.toRprLE`, then call MSM.
+- snarkjs-style layout: keep the CRS affine point section as one contiguous buffer, batch-convert the contiguous coefficient buffer with `Fr.batchFromMontgomery`, then call MSM directly.
+
+The benchmark asserts both layouts return the same G1 point before timing is reported.
+
+Usage:
+
+```bash
+npm run bench:prover-msm-layout -- --lengths=1024,4096,16384 --iterations=3 --warmup=1
+```
+
+Useful options:
+
+- `--lengths=1024,4096`: comma-separated even vector lengths.
+- `--iterations=3`: measured iterations per length.
+- `--warmup=1`: warmup iterations per length.
+- `--seed=0x544f4b414d414b`: deterministic pseudo-random scalar seed.
+- `--multi-thread`: use the runtime's multi-thread mode instead of single-thread mode.
+- `--json=tmp/timing/prover-msm-layout.json`: write a JSON report to an ignored diagnostics path.
+
+### Latest Single-Thread Layout Result
+
+Command:
+
+```bash
+npm run bench:prover-msm-layout -- --lengths=1024,4096,16384,65536 --iterations=2 --warmup=1 --json=tmp/timing/prover-msm-layout.json
+```
+
+Environment: local Node.js run, backend-wasm single-thread curve runtime.
+
+| length | current prep ms | current msm ms | current total ms | snarkjs prep ms | snarkjs msm ms | snarkjs total ms | total speedup |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1024 | 0.409 | 75.762 | 75.649 | 0.052 | 75.277 | 74.636 | 1.01x |
+| 4096 | 2.029 | 235.066 | 236.883 | 0.185 | 235.299 | 235.436 | 1.01x |
+| 16384 | 4.820 | 773.260 | 774.588 | 0.661 | 773.609 | 772.189 | 1.00x |
+| 65536 | 20.153 | 2612.136 | 2644.608 | 2.819 | 2610.797 | 2618.557 | 1.01x |
+
+Interpretation:
+
+- The snarkjs-style path made scalar preparation much cheaper by using one contiguous `Fr.batchFromMontgomery` call instead of per-coefficient scalar conversion.
+- Total runtime changed by only about `1%` in this benchmark because `G1.multiExpAffine` dominates the measured cost at these lengths.
+- This result means the current prover slowdown cannot be explained by CRS/scalar buffer preparation alone. The next optimization target remains reducing the number, size, or scheduling cost of large MSM calls, and checking whether the curve runtime should use ffjavascript's threaded path for prover diagnostics.
