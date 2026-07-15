@@ -15,6 +15,7 @@ import {
   createProverState,
   createVerifierProofArtifactFromProverOutput,
   decodeVerifierBinaryResult,
+  encodePolynomialBufferWithSigma1,
   evalAPub,
   evalLagrangeK0,
   g1AddMany,
@@ -39,6 +40,7 @@ import {
   type Prove2Computation,
   type Prove3Output,
   type Prove4Computation,
+  type ProverCrsRuntime,
   type ProverRuntimeInput,
   type ProverState,
   type RuntimeArtifactBundleManifest,
@@ -52,6 +54,8 @@ import {
   computeRecursionEvalsBuffer,
   constantPolynomialBuffer,
   linearCombinationBuffer,
+  lowDegreeXTimesVanishingBuffer,
+  lowDegreeYTimesVanishingBuffer,
   mulByOneMinusX,
   mulByTerm9,
   mulByXMinusOne,
@@ -150,7 +154,7 @@ async function provePreparedInputWithTestingModeChecks(
   );
   const transcript = new RollingKeccakTranscript(runtime.Fr);
   const prove0Output = await timed("prove0", () => prove0(runtime, input.crs, state));
-  await timed("check prove0 arithmetic", () => checkProve0Arithmetic(runtime, state, prove0Output));
+  await timed("check prove0 arithmetic", () => checkProve0Arithmetic(runtime, input.crs, state, prove0Output));
 
   const thetas = collectThetaChallenges(runtime, transcript, prove0Output.proof0);
   const prove1Output = await timed("prove1", () => prove1(runtime, input.crs, state, thetas));
@@ -205,6 +209,7 @@ async function provePreparedInputWithTestingModeChecks(
       runtime,
       state,
       rXY: prove1Output.rXY,
+      crs: input.crs,
       prove0: prove0Output,
       prove2: prove2Output,
       proof3,
@@ -280,6 +285,7 @@ async function checkWitnessCopySetup(
 
 async function checkProve0Arithmetic(
   runtime: CurveRuntime,
+  crs: ProverCrsRuntime,
   state: ProverState,
   prove0Output: Prove0Computation,
 ): Promise<void> {
@@ -316,6 +322,82 @@ async function checkProve0Arithmetic(
     xPoint: field.fromBigInt(7n),
     yPoint: field.fromBigInt(11n),
   });
+
+  const rW_X = DensePolynomialExt.fromCoeffs(field, state.mixer.rW_X, state.mixer.rW_X.length, 1);
+  const rW_Y = DensePolynomialExt.fromCoeffs(field, state.mixer.rW_Y, 1, state.mixer.rW_Y.length);
+  const UXY = linearCombinationBuffer(field, [
+    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.uXY)],
+    [state.mixer.rU_X, BivariatePolynomialBuffer.fromDense(state.instance.tN)],
+    [state.mixer.rU_Y, BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+  ]);
+  const VXY = linearCombinationBuffer(field, [
+    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.vXY)],
+    [state.mixer.rV_X, BivariatePolynomialBuffer.fromDense(state.instance.tN)],
+    [state.mixer.rV_Y, BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+  ]);
+  const WXY = linearCombinationBuffer(field, [
+    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.wXY)],
+    [field.one, prove0Output.wZk],
+  ]);
+  const Q_AX_XY = linearCombinationBuffer(field, [
+    [field.one, prove0Output.q0XY],
+    [state.mixer.rU_X, BivariatePolynomialBuffer.fromDense(state.witness.vXY)],
+    [state.mixer.rV_X, BivariatePolynomialBuffer.fromDense(state.witness.uXY)],
+    [field.neg(field.one), BivariatePolynomialBuffer.fromDense(rW_X)],
+    [field.mul(state.mixer.rU_X, state.mixer.rV_X), BivariatePolynomialBuffer.fromDense(state.instance.tN)],
+    [field.mul(state.mixer.rU_Y, state.mixer.rV_X), BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+  ]);
+  const Q_AY_XY = linearCombinationBuffer(field, [
+    [field.one, prove0Output.q1XY],
+    [state.mixer.rU_Y, BivariatePolynomialBuffer.fromDense(state.witness.vXY)],
+    [state.mixer.rV_Y, BivariatePolynomialBuffer.fromDense(state.witness.uXY)],
+    [field.neg(field.one), BivariatePolynomialBuffer.fromDense(rW_Y)],
+    [field.mul(state.mixer.rU_X, state.mixer.rV_Y), BivariatePolynomialBuffer.fromDense(state.instance.tN)],
+    [field.mul(state.mixer.rU_Y, state.mixer.rV_Y), BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+  ]);
+  const BXY = linearCombinationBuffer(field, [
+    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.bXY)],
+    [
+      field.one,
+      linearCombinationBuffer(field, [
+        [field.one, lowDegreeXTimesVanishingBuffer(field, state.mixer.rB_X, state.setup.l_D - state.setup.l)],
+        [field.one, lowDegreeYTimesVanishingBuffer(field, state.mixer.rB_Y, state.setup.s_max)],
+      ]),
+    ],
+  ]);
+
+  assertG1Equal(runtime, prove0Output.proof0.U, await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, UXY), "prove0 U commitment");
+  assertG1Equal(runtime, prove0Output.proof0.V, await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, VXY), "prove0 V commitment");
+  assertG1Equal(runtime, prove0Output.proof0.W, await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, WXY), "prove0 W commitment");
+  assertG1Equal(runtime, prove0Output.proof0.Q_AX, await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, Q_AX_XY), "prove0 Q_AX commitment");
+  assertG1Equal(runtime, prove0Output.proof0.Q_AY, await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, Q_AY_XY), "prove0 Q_AY commitment");
+  assertG1Equal(runtime, prove0Output.proof0.B, await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, BXY), "prove0 B commitment");
+
+  const alpha = field.fromBigInt(43n);
+  const beta = field.fromBigInt(47n);
+  const gamma = field.fromBigInt(53n);
+  const combinedPolynomial = linearCombinationBuffer(field, [
+    [alpha, UXY],
+    [beta, VXY],
+    [gamma, WXY],
+    [field.neg(alpha), Q_AX_XY],
+    [field.neg(beta), Q_AY_XY],
+  ]);
+  const directCombinedCommitment = await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, combinedPolynomial);
+  const linearCombinedCommitment = g1AddMany(runtime.G1, [
+    runtime.G1.mulScalar(prove0Output.proof0.U, alpha),
+    runtime.G1.mulScalar(prove0Output.proof0.V, beta),
+    runtime.G1.mulScalar(prove0Output.proof0.W, gamma),
+    runtime.G1.neg(runtime.G1.mulScalar(prove0Output.proof0.Q_AX, alpha)),
+    runtime.G1.neg(runtime.G1.mulScalar(prove0Output.proof0.Q_AY, beta)),
+  ]);
+  assertG1Equal(runtime, linearCombinedCommitment, directCombinedCommitment, "prove0 actual CRS commitment linearity");
+  assertG1Equal(
+    runtime,
+    runtime.G1.mulScalar(prove0Output.proof0.U, alpha),
+    runtime.G1.mulAffineScalar(runtime.G1.toAffine(prove0Output.proof0.U), alpha),
+    "prove0 projective scalar multiplication",
+  );
 }
 
 async function checkProve1Recursion(
@@ -407,6 +489,7 @@ async function checkProve4Openings(input: {
   readonly runtime: CurveRuntime;
   readonly state: ProverState;
   readonly rXY: BivariatePolynomialBuffer;
+  readonly crs: ProverCrsRuntime;
   readonly prove0: Prove0Computation;
   readonly prove2: Prove2Computation;
   readonly proof3: Prove3Output;
@@ -416,7 +499,7 @@ async function checkProve4Openings(input: {
   readonly zeta: FieldElement;
   readonly kappa1: FieldElement;
 }): Promise<void> {
-  const { runtime, state, rXY, prove0: prove0Output, prove2: prove2Output, proof3, thetas, kappa0, chi, zeta, kappa1 } =
+  const { runtime, state, rXY, crs, prove0: prove0Output, prove2: prove2Output, proof3, thetas, kappa0, chi, zeta, kappa1 } =
     input;
   const field = runtime.Fr;
   const mI = state.setup.l_D - state.setup.l;
@@ -431,8 +514,33 @@ async function checkProve4Openings(input: {
     [state.mixer.rV_X, BivariatePolynomialBuffer.fromDense(state.instance.tN)],
     [state.mixer.rV_Y, BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
   ]);
+  const UXY = linearCombinationBuffer(field, [
+    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.uXY)],
+    [state.mixer.rU_X, BivariatePolynomialBuffer.fromDense(state.instance.tN)],
+    [state.mixer.rU_Y, BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+  ]);
   const rW_X = DensePolynomialExt.fromCoeffs(field, state.mixer.rW_X, state.mixer.rW_X.length, 1);
   const rW_Y = DensePolynomialExt.fromCoeffs(field, state.mixer.rW_Y, 1, state.mixer.rW_Y.length);
+  const WXY = linearCombinationBuffer(field, [
+    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.wXY)],
+    [field.one, prove0Output.wZk],
+  ]);
+  const Q_AX_XY = linearCombinationBuffer(field, [
+    [field.one, prove0Output.q0XY],
+    [state.mixer.rU_X, BivariatePolynomialBuffer.fromDense(state.witness.vXY)],
+    [state.mixer.rV_X, BivariatePolynomialBuffer.fromDense(state.witness.uXY)],
+    [field.neg(field.one), BivariatePolynomialBuffer.fromDense(rW_X)],
+    [field.mul(state.mixer.rU_X, state.mixer.rV_X), BivariatePolynomialBuffer.fromDense(state.instance.tN)],
+    [field.mul(state.mixer.rU_Y, state.mixer.rV_X), BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+  ]);
+  const Q_AY_XY = linearCombinationBuffer(field, [
+    [field.one, prove0Output.q1XY],
+    [state.mixer.rU_Y, BivariatePolynomialBuffer.fromDense(state.witness.vXY)],
+    [state.mixer.rV_Y, BivariatePolynomialBuffer.fromDense(state.witness.uXY)],
+    [field.neg(field.one), BivariatePolynomialBuffer.fromDense(rW_Y)],
+    [field.mul(state.mixer.rU_X, state.mixer.rV_Y), BivariatePolynomialBuffer.fromDense(state.instance.tN)],
+    [field.mul(state.mixer.rU_Y, state.mixer.rV_Y), BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+  ]);
   const pAXY = linearCombinationBuffer(field, [
     [kappa1, VXY.sub(constantPolynomialBuffer(field, proof3.V_eval))],
     [smallVEval, BivariatePolynomialBuffer.fromDense(state.witness.uXY)],
@@ -449,7 +557,18 @@ async function checkProve4Openings(input: {
     [tSMaxEval, BivariatePolynomialBuffer.fromDense(rW_Y)],
     [field.neg(field.one), prove0Output.wZk],
   ]);
+  const proof0Numerator = linearCombinationBuffer(field, [
+    [proof3.V_eval, UXY],
+    [field.neg(field.one), WXY],
+    [kappa1, VXY.sub(constantPolynomialBuffer(field, proof3.V_eval))],
+    [field.neg(tNEval), Q_AX_XY],
+    [field.neg(tSMaxEval), Q_AY_XY],
+  ]);
+  assertPolynomialEqual(runtime, proof0Numerator, pAXY, "prove4 arithmetic numerator polynomial");
   const piADivision = pAXY.divByRuffini(chi, zeta);
+  const pACommitment = await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, pAXY);
+  const lhsACommitment = lhsArithFromProverOutput(runtime, crs.G, prove0Output, proof3, tNEval, tSMaxEval, kappa1);
+  assertG1Equal(runtime, lhsACommitment, pACommitment, "prove4 arithmetic numerator commitment");
   assertRuffiniDivisionAtPoint(runtime, {
     label: "prove4 arithmetic opening",
     numerator: pAXY,
@@ -556,17 +675,19 @@ async function verifyArithSplit(
   challenges: VerifierChallenges,
   prove4Output: Prove4Computation,
 ): Promise<boolean> {
+  const Pi_AX = runtime.G1.toAffine(prove4Output.debug.Pi_AX);
+  const Pi_AY = runtime.G1.toAffine(prove4Output.debug.Pi_AY);
   const lhsA = lhsArith(runtime.Fr, runtime.G1, input, domain, challenges);
   const auxA = g1AddMany(runtime.G1, [
-    runtime.G1.mulScalar(prove4Output.debug.Pi_AX, challenges.chi),
-    runtime.G1.mulScalar(prove4Output.debug.Pi_AY, challenges.zeta),
+    runtime.G1.mulScalar(Pi_AX, challenges.chi),
+    runtime.G1.mulScalar(Pi_AY, challenges.zeta),
   ]);
 
   return runtime.pairing.productsEqual(
     [{ g1: runtime.G1.add(lhsA, auxA), g2: input.sigma.H }],
     [
-      { g1: prove4Output.debug.Pi_AX, g2: input.sigma.sigma2.x },
-      { g1: prove4Output.debug.Pi_AY, g2: input.sigma.sigma2.y },
+      { g1: Pi_AX, g2: input.sigma.sigma2.x },
+      { g1: Pi_AY, g2: input.sigma.sigma2.y },
     ],
   );
 }
@@ -600,10 +721,11 @@ async function verifyBindingSplit(
   prove4Output: Prove4Computation,
 ): Promise<boolean> {
   const field = runtime.Fr;
+  const Pi_B = runtime.G1.toAffine(prove4Output.debug.Pi_B);
   const proof0 = input.proof.proof0;
   const binding = input.proof.binding;
   const lhsB = lhsBinding(field, runtime.G1, input.proof, input.sigma.G, challenges, aEval);
-  const auxB = runtime.G1.mulScalar(prove4Output.debug.Pi_B, field.mul(challenges.kappa2, challenges.chi));
+  const auxB = runtime.G1.mulScalar(Pi_B, field.mul(challenges.kappa2, challenges.chi));
 
   return runtime.pairing.productsEqual(
     [
@@ -617,7 +739,7 @@ async function verifyBindingSplit(
       { g1: runtime.G1.add(input.preprocess.O_pub_fix, binding.O_pub_free), g2: input.sigma.sigma2.gamma },
       { g1: binding.O_mid, g2: input.sigma.sigma2.eta },
       { g1: binding.O_prv, g2: input.sigma.sigma2.delta },
-      { g1: runtime.G1.mulScalar(prove4Output.debug.Pi_B, challenges.kappa2), g2: input.sigma.sigma2.x },
+      { g1: runtime.G1.mulScalar(Pi_B, challenges.kappa2), g2: input.sigma.sigma2.x },
     ],
   );
 }
@@ -629,29 +751,62 @@ function copyAux(
   challenges: VerifierChallenges,
 ): { readonly aux: G1Point; readonly auxX: G1Point; readonly auxY: G1Point } {
   const field = runtime.Fr;
+  const Pi_CX = runtime.G1.toAffine(proof4.Pi_CX);
+  const Pi_CY = runtime.G1.toAffine(proof4.Pi_CY);
+  const M_X = runtime.G1.toAffine(proof4.M_X);
+  const M_Y = runtime.G1.toAffine(proof4.M_Y);
+  const N_X = runtime.G1.toAffine(proof4.N_X);
+  const N_Y = runtime.G1.toAffine(proof4.N_Y);
   const kappa2Squared = field.square(challenges.kappa2);
   const omegaMIInv = field.inv(domain.omegaMI);
   const omegaSMaxInv = field.inv(domain.omegaSMax);
   const aux = g1AddMany(runtime.G1, [
-    runtime.G1.mulScalar(proof4.Pi_CX, challenges.chi),
-    runtime.G1.mulScalar(proof4.Pi_CY, challenges.zeta),
-    runtime.G1.mulScalar(proof4.M_X, field.mul(field.mul(challenges.kappa2, omegaMIInv), challenges.chi)),
-    runtime.G1.mulScalar(proof4.M_Y, field.mul(challenges.kappa2, challenges.zeta)),
-    runtime.G1.mulScalar(proof4.N_X, field.mul(field.mul(kappa2Squared, omegaMIInv), challenges.chi)),
-    runtime.G1.mulScalar(proof4.N_Y, field.mul(field.mul(kappa2Squared, omegaSMaxInv), challenges.zeta)),
+    runtime.G1.mulScalar(Pi_CX, challenges.chi),
+    runtime.G1.mulScalar(Pi_CY, challenges.zeta),
+    runtime.G1.mulScalar(M_X, field.mul(field.mul(challenges.kappa2, omegaMIInv), challenges.chi)),
+    runtime.G1.mulScalar(M_Y, field.mul(challenges.kappa2, challenges.zeta)),
+    runtime.G1.mulScalar(N_X, field.mul(field.mul(kappa2Squared, omegaMIInv), challenges.chi)),
+    runtime.G1.mulScalar(N_Y, field.mul(field.mul(kappa2Squared, omegaSMaxInv), challenges.zeta)),
   ]);
   const auxX = g1AddMany(runtime.G1, [
-    proof4.Pi_CX,
-    runtime.G1.mulScalar(proof4.M_X, challenges.kappa2),
-    runtime.G1.mulScalar(proof4.N_X, kappa2Squared),
+    Pi_CX,
+    runtime.G1.mulScalar(M_X, challenges.kappa2),
+    runtime.G1.mulScalar(N_X, kappa2Squared),
   ]);
   const auxY = g1AddMany(runtime.G1, [
-    proof4.Pi_CY,
-    runtime.G1.mulScalar(proof4.M_Y, challenges.kappa2),
-    runtime.G1.mulScalar(proof4.N_Y, kappa2Squared),
+    Pi_CY,
+    runtime.G1.mulScalar(M_Y, challenges.kappa2),
+    runtime.G1.mulScalar(N_Y, kappa2Squared),
   ]);
 
   return { aux, auxX, auxY };
+}
+
+function lhsArithFromProverOutput(
+  runtime: CurveRuntime,
+  sigmaG: G1Point,
+  prove0Output: Prove0Computation,
+  proof3: Prove3Output,
+  tNEval: FieldElement,
+  tSMaxEval: FieldElement,
+  kappa1: FieldElement,
+): G1Point {
+  return runtime.G1.sub(
+    runtime.G1.sub(
+      runtime.G1.sub(
+        runtime.G1.add(
+          runtime.G1.sub(runtime.G1.mulScalar(prove0Output.proof0.U, proof3.V_eval), prove0Output.proof0.W),
+          runtime.G1.mulScalar(
+            runtime.G1.sub(prove0Output.proof0.V, runtime.G1.mulScalar(sigmaG, proof3.V_eval)),
+            kappa1,
+          ),
+        ),
+        runtime.G1.mulScalar(prove0Output.proof0.Q_AX, tNEval),
+      ),
+      runtime.G1.mulScalar(prove0Output.proof0.Q_AY, tSMaxEval),
+    ),
+    runtime.G1.zero,
+  );
 }
 
 async function buildCopyQuotientNumerator(
@@ -906,6 +1061,23 @@ function assertFieldBufferEqual(
   }
 }
 
+function assertPolynomialEqual(
+  runtime: CurveRuntime,
+  actual: BivariatePolynomialBuffer,
+  expected: BivariatePolynomialBuffer,
+  label: string,
+): void {
+  const xSize = Math.max(actual.xSize, expected.xSize);
+  const ySize = Math.max(actual.ySize, expected.ySize);
+  for (let x = 0; x < xSize; x += 1) {
+    for (let y = 0; y < ySize; y += 1) {
+      const actualCoeff = x < actual.xSize && y < actual.ySize ? actual.getCoeff(x, y) : runtime.Fr.zero;
+      const expectedCoeff = x < expected.xSize && y < expected.ySize ? expected.getCoeff(x, y) : runtime.Fr.zero;
+      assertFieldEqual(runtime, actualCoeff, expectedCoeff, { label: `${label} coefficient`, index: x * ySize + y });
+    }
+  }
+}
+
 function assertFieldEqual(
   runtime: CurveRuntime,
   actual: FieldElement,
@@ -916,6 +1088,18 @@ function assertFieldEqual(
     const suffix = context.index === undefined ? "" : ` at index ${context.index}`;
     throw new Error(
       `${context.label}${suffix} failed: actual=${runtime.Fr.toHex(actual)}, expected=${runtime.Fr.toHex(expected)}.`,
+    );
+  }
+}
+
+function assertG1Equal(runtime: CurveRuntime, actual: G1Point, expected: G1Point, label: string): void {
+  if (!runtime.G1.eq(actual, expected)) {
+    throw new Error(
+      [
+        `${label} failed.`,
+        `actual=${JSON.stringify(runtime.G1.formatAffine(actual))}`,
+        `expected=${JSON.stringify(runtime.G1.formatAffine(expected))}`,
+      ].join(" "),
     );
   }
 }

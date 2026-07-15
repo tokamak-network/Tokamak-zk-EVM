@@ -6,9 +6,12 @@ import {
   BinarySectionType,
   type BinarySectionInput,
 } from "../../artifacts/format/binary-format.js";
+import { createCurveRuntime, type CurveRuntime } from "../../core/curve/curve.js";
 
 const G1_AFFINE_BYTES = 96;
 const G2_AFFINE_BYTES = 192;
+const FQ_BYTES = 48;
+const FQ2_BYTES = 96;
 const COMBINED_SIGMA_PAYLOAD_MAGIC = "TKCRS001";
 const COMBINED_SIGMA_PAYLOAD_SECTION_COUNT = 9;
 
@@ -45,32 +48,37 @@ export async function convertCombinedSigmaRkyvToProverCrsBinary(
 
   const decoded = await options.decoder.decodeCombinedSigma(input);
   const sourceDigest = await sha256(input);
+  const runtime = await createCurveRuntime();
 
-  return createBinaryArtifactFile({
-    kind: BinaryArtifactFileKind.ProverCrs,
-    sourcePackageVersion: requireSourcePackageVersion(options.sourcePackageVersion),
-    sections: [
-      createG1Section("sigma.g1", decoded.g1, 6),
-      createG1Section("sigma1.xy-powers", decoded.sigma1XyPowers),
-      createG1Section("sigma1.gamma-inv-o-inst", decoded.sigma1GammaInvOInst),
-      createG1Section("sigma1.eta-inv-li-o-inter-alpha4-kj", decoded.sigma1EtaInvLiOInterAlpha4Kj),
-      createG1Section("sigma1.delta-inv-li-o-prv", decoded.sigma1DeltaInvLiOPrv),
-      createG1Section("sigma1.delta-inv-alphak-xh-tx", decoded.sigma1DeltaInvAlphakXhTx),
-      createG1Section("sigma1.delta-inv-alpha4-xj-tx", decoded.sigma1DeltaInvAlpha4XjTx),
-      createG1Section("sigma1.delta-inv-alphak-yi-ty", decoded.sigma1DeltaInvAlphakYiTy),
-      createG2Section("sigma.g2", decoded.g2, 10),
-    ],
-    digests: [
-      {
-        type: BinaryDigestEntryType.SourceArtifactDigest,
-        digest: sourceDigest,
-      },
-      {
-        type: BinaryDigestEntryType.CombinedSigmaDigest,
-        digest: sourceDigest,
-      },
-    ],
-  });
+  try {
+    return createBinaryArtifactFile({
+      kind: BinaryArtifactFileKind.ProverCrs,
+      sourcePackageVersion: requireSourcePackageVersion(options.sourcePackageVersion),
+      sections: [
+        createG1Section(runtime, "sigma.g1", decoded.g1, 6),
+        createG1Section(runtime, "sigma1.xy-powers", decoded.sigma1XyPowers),
+        createG1Section(runtime, "sigma1.gamma-inv-o-inst", decoded.sigma1GammaInvOInst),
+        createG1Section(runtime, "sigma1.eta-inv-li-o-inter-alpha4-kj", decoded.sigma1EtaInvLiOInterAlpha4Kj),
+        createG1Section(runtime, "sigma1.delta-inv-li-o-prv", decoded.sigma1DeltaInvLiOPrv),
+        createG1Section(runtime, "sigma1.delta-inv-alphak-xh-tx", decoded.sigma1DeltaInvAlphakXhTx),
+        createG1Section(runtime, "sigma1.delta-inv-alpha4-xj-tx", decoded.sigma1DeltaInvAlpha4XjTx),
+        createG1Section(runtime, "sigma1.delta-inv-alphak-yi-ty", decoded.sigma1DeltaInvAlphakYiTy),
+        createG2Section(runtime, "sigma.g2", decoded.g2, 10),
+      ],
+      digests: [
+        {
+          type: BinaryDigestEntryType.SourceArtifactDigest,
+          digest: sourceDigest,
+        },
+        {
+          type: BinaryDigestEntryType.CombinedSigmaDigest,
+          digest: sourceDigest,
+        },
+      ],
+    });
+  } finally {
+    await runtime.terminate();
+  }
 }
 
 export function createUnavailableRkyvArchiveDecoder(): RkyvArchiveDecoder {
@@ -109,10 +117,15 @@ export function decodeCombinedSigmaRkyvPayload(payload: Uint8Array): DecodedComb
   };
 }
 
-function createG1Section(label: string, data: Uint8Array, expectedElementCount?: number): BinarySectionInput {
+function createG1Section(
+  runtime: CurveRuntime,
+  label: string,
+  data: Uint8Array,
+  expectedElementCount?: number,
+): BinarySectionInput {
   return createPointSection({
     label,
-    data,
+    data: nativeG1SectionToFfjs(runtime, data, label),
     expectedElementCount,
     elementByteLength: G1_AFFINE_BYTES,
     type: BinarySectionType.CrsG1,
@@ -120,10 +133,15 @@ function createG1Section(label: string, data: Uint8Array, expectedElementCount?:
   });
 }
 
-function createG2Section(label: string, data: Uint8Array, expectedElementCount?: number): BinarySectionInput {
+function createG2Section(
+  runtime: CurveRuntime,
+  label: string,
+  data: Uint8Array,
+  expectedElementCount?: number,
+): BinarySectionInput {
   return createPointSection({
     label,
-    data,
+    data: nativeG2SectionToFfjs(runtime, data, label),
     expectedElementCount,
     elementByteLength: G2_AFFINE_BYTES,
     type: BinarySectionType.CrsG2,
@@ -156,6 +174,56 @@ function createPointSection(input: {
     elementByteLength: input.elementByteLength,
     data: normalizeBytes(input.data),
   };
+}
+
+function nativeG1SectionToFfjs(runtime: CurveRuntime, data: Uint8Array, label: string): Uint8Array {
+  if (data.byteLength % G1_AFFINE_BYTES !== 0) {
+    throw new Error(`${label} native G1 byte length must be a multiple of ${G1_AFFINE_BYTES}.`);
+  }
+
+  const output = new Uint8Array(data.byteLength);
+  for (let offset = 0; offset < data.byteLength; offset += G1_AFFINE_BYTES) {
+    const x = readLittleEndianBigInt(data.subarray(offset, offset + FQ_BYTES));
+    const y = readLittleEndianBigInt(data.subarray(offset + FQ_BYTES, offset + G1_AFFINE_BYTES));
+    output.set(runtime.G1.parseAffine({ x: formatCoordinateHex(x, FQ_BYTES), y: formatCoordinateHex(y, FQ_BYTES) }), offset);
+  }
+  return output;
+}
+
+function nativeG2SectionToFfjs(runtime: CurveRuntime, data: Uint8Array, label: string): Uint8Array {
+  if (data.byteLength % G2_AFFINE_BYTES !== 0) {
+    throw new Error(`${label} native G2 byte length must be a multiple of ${G2_AFFINE_BYTES}.`);
+  }
+
+  const output = new Uint8Array(data.byteLength);
+  for (let offset = 0; offset < data.byteLength; offset += G2_AFFINE_BYTES) {
+    const x = readNativeG2CoordinateHex(data.subarray(offset, offset + FQ2_BYTES));
+    const y = readNativeG2CoordinateHex(data.subarray(offset + FQ2_BYTES, offset + G2_AFFINE_BYTES));
+    output.set(runtime.G2.parseAffine({ x, y }), offset);
+  }
+  return output;
+}
+
+function readNativeG2CoordinateHex(bytes: Uint8Array): string {
+  if (bytes.byteLength !== FQ2_BYTES) {
+    throw new Error(`Native G2 coordinate must be ${FQ2_BYTES} bytes.`);
+  }
+
+  const c0 = readLittleEndianBigInt(bytes.subarray(0, FQ_BYTES));
+  const c1 = readLittleEndianBigInt(bytes.subarray(FQ_BYTES, FQ2_BYTES));
+  return `0x${formatCoordinateHex(c1, FQ_BYTES).slice(2)}${formatCoordinateHex(c0, FQ_BYTES).slice(2)}`;
+}
+
+function readLittleEndianBigInt(bytes: Uint8Array): bigint {
+  let value = 0n;
+  for (let index = bytes.byteLength - 1; index >= 0; index -= 1) {
+    value = (value << 8n) + BigInt(bytes[index]);
+  }
+  return value;
+}
+
+function formatCoordinateHex(value: bigint, byteLength: number): string {
+  return `0x${value.toString(16).padStart(byteLength * 2, "0")}`;
 }
 
 function normalizeBytes(bytes: Uint8Array): Uint8Array {
