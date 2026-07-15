@@ -1,3 +1,4 @@
+import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -12,6 +13,8 @@ async function main(): Promise<void> {
   const runtime = await createCurveRuntime();
   try {
     await checkBivariatePolynomialBuffer(runtime.Fr);
+    const operationRecords = await checkOperationParityMatrix(runtime.Fr);
+    printOperationParityMatrix(operationRecords);
     await checkBufferCommitmentEncoding(runtime);
   } finally {
     await runtime.terminate();
@@ -125,6 +128,206 @@ async function checkBivariatePolynomialBuffer(field: FieldRuntime): Promise<void
   checkVanishingDivision(field);
 }
 
+interface OperationParityRecord {
+  readonly operation: string;
+  readonly shape: string;
+  readonly denseMs: number;
+  readonly bufferMs: number;
+}
+
+interface OperationCase {
+  readonly label: string;
+  readonly coefficients: readonly FieldElement[];
+  readonly xSize: number;
+  readonly ySize: number;
+}
+
+async function checkOperationParityMatrix(field: FieldRuntime): Promise<readonly OperationParityRecord[]> {
+  const records: OperationParityRecord[] = [];
+  const cases = createOperationCases(field);
+
+  for (const testCase of cases) {
+    const dense = DensePolynomialExt.fromCoeffs(field, testCase.coefficients, testCase.xSize, testCase.ySize);
+    const buffer = BivariatePolynomialBuffer.fromCoeffs(field, testCase.coefficients, testCase.xSize, testCase.ySize);
+    const otherDense = DensePolynomialExt.fromCoeffs(
+      field,
+      testCase.coefficients.map((coefficient, index) => field.add(field.square(coefficient), field.fromBigInt(BigInt(index + 1)))),
+      testCase.xSize,
+      testCase.ySize,
+    );
+    const otherBuffer = BivariatePolynomialBuffer.fromDense(otherDense);
+    const scale = field.fromBigInt(29n);
+    const xScale = field.fromBigInt(31n);
+    const yScale = field.fromBigInt(37n);
+    const xPoint = field.fromBigInt(41n);
+    const yPoint = field.fromBigInt(43n);
+    const targetXSize = testCase.xSize * 2;
+    const targetYSize = testCase.ySize * 2;
+
+    await recordOperation(records, "fromCoeffs/toCoeffs", testCase.label, () => dense.toHexCoeffs(), () => buffer.toHexCoeffs());
+    await recordOperation(records, "toDense", testCase.label, () => dense.toHexCoeffs(), () => buffer.toDense().toHexCoeffs());
+    await recordOperation(records, "findDegree", testCase.label, () => dense.findDegree(), () => buffer.findDegree());
+    await recordOperation(records, "optimizeSize", testCase.label, () => dense.optimizeSize().toHexCoeffs(), () => buffer.optimizeSize().toHexCoeffs());
+    await recordOperation(records, "resize", testCase.label, () => dense.resize(targetXSize, targetYSize).toHexCoeffs(), () => buffer.resize(targetXSize, targetYSize).toHexCoeffs());
+    await recordOperation(records, "eval", testCase.label, () => field.toHex(dense.eval(xPoint, yPoint)), () => field.toHex(buffer.eval(xPoint, yPoint)));
+    await recordOperation(records, "add", testCase.label, () => dense.add(otherDense).toHexCoeffs(), () => buffer.add(otherBuffer).toHexCoeffs());
+    await recordOperation(records, "sub", testCase.label, () => dense.sub(otherDense).toHexCoeffs(), () => buffer.sub(otherBuffer).toHexCoeffs());
+    await recordOperation(records, "scale", testCase.label, () => dense.scale(scale).toHexCoeffs(), () => buffer.scale(scale).toHexCoeffs());
+    await recordOperation(records, "addAssign", testCase.label, () => dense.add(otherDense).toHexCoeffs(), () => buffer.clone().addAssign(otherBuffer).toHexCoeffs());
+    await recordOperation(records, "subAssign", testCase.label, () => dense.sub(otherDense).toHexCoeffs(), () => buffer.clone().subAssign(otherBuffer).toHexCoeffs());
+    await recordOperation(records, "scaleAssign", testCase.label, () => dense.scale(scale).toHexCoeffs(), () => buffer.clone().scaleAssign(scale).toHexCoeffs());
+    await recordOperation(
+      records,
+      "addScaledAssign",
+      testCase.label,
+      () => dense.add(otherDense.scale(scale)).toHexCoeffs(),
+      () => buffer.clone().addScaledAssign(otherBuffer, scale).toHexCoeffs(),
+    );
+    await recordOperation(
+      records,
+      "addScaledPrefixAssign",
+      testCase.label,
+      () => dense.resize(targetXSize, targetYSize).add(dense.scale(scale)).toHexCoeffs(),
+      () => buffer.resize(targetXSize, targetYSize).addScaledPrefixAssign(buffer, scale).toHexCoeffs(),
+    );
+    await recordOperation(records, "scaleCoeffsX", testCase.label, () => dense.scaleCoeffsX(xScale).toHexCoeffs(), () => buffer.scaleCoeffsX(xScale).toHexCoeffs());
+    await recordOperation(records, "scaleCoeffsY", testCase.label, () => dense.scaleCoeffsY(yScale).toHexCoeffs(), () => buffer.scaleCoeffsY(yScale).toHexCoeffs());
+    await recordOperation(records, "mulMonomial", testCase.label, () => dense.mulMonomial(1, 1).toHexCoeffs(), () => buffer.mulMonomial(1, 1).toHexCoeffs());
+    await recordOperation(records, "mul", testCase.label, () => dense.mul(otherDense).toHexCoeffs(), async () => (await buffer.mul(otherBuffer)).toHexCoeffs());
+    await recordOperation(
+      records,
+      "toRouEvals",
+      testCase.label,
+      async () => formatFields(field, await dense.toRouEvals()),
+      async () => formatFields(field, field.split(await buffer.toRouEvals())),
+    );
+    await recordOperation(
+      records,
+      "toRouEvals coset",
+      testCase.label,
+      async () => formatFields(field, await dense.toRouEvals(xScale, yScale)),
+      async () => formatFields(field, field.split(await buffer.toRouEvals(xScale, yScale))),
+    );
+
+    const denseEvals = await dense.toRouEvals();
+    const denseCosetEvals = await dense.toRouEvals(xScale, yScale);
+    await recordOperation(
+      records,
+      "fromRouEvals",
+      testCase.label,
+      async () => (await DensePolynomialExt.fromRouEvals(field, denseEvals, testCase.xSize, testCase.ySize)).toHexCoeffs(),
+      async () => (await BivariatePolynomialBuffer.fromRouEvals(field, field.concat(denseEvals), testCase.xSize, testCase.ySize)).toHexCoeffs(),
+    );
+    await recordOperation(
+      records,
+      "fromRouEvals coset",
+      testCase.label,
+      async () => (await DensePolynomialExt.fromRouEvals(field, denseCosetEvals, testCase.xSize, testCase.ySize, xScale, yScale)).toHexCoeffs(),
+      async () =>
+        (await BivariatePolynomialBuffer.fromRouEvals(
+          field,
+          field.concat(denseCosetEvals),
+          testCase.xSize,
+          testCase.ySize,
+          xScale,
+          yScale,
+        )).toHexCoeffs(),
+    );
+    await recordOperation(
+      records,
+      "divByRuffini",
+      testCase.label,
+      () => formatRuffiniDivision(field, dense.divByRuffini(xPoint, yPoint)),
+      () => formatBufferRuffiniDivision(field, buffer.divByRuffini(xPoint, yPoint)),
+    );
+  }
+
+  await recordVanishingDivisionOperation(field, records);
+  return records;
+}
+
+function createOperationCases(field: FieldRuntime): readonly OperationCase[] {
+  const shapes = [
+    { label: "4x2", xSize: 4, ySize: 2 },
+    { label: "4x4", xSize: 4, ySize: 4 },
+    { label: "8x4", xSize: 8, ySize: 4 },
+  ];
+
+  return shapes.map((shape) => ({
+    ...shape,
+    coefficients: Array.from({ length: shape.xSize * shape.ySize }, (_, index) =>
+      index % 5 === 0 ? field.zero : field.fromBigInt(BigInt((index + 3) * (index + 7))),
+    ),
+  }));
+}
+
+async function recordVanishingDivisionOperation(field: FieldRuntime, records: OperationParityRecord[]): Promise<void> {
+  const vanishingXDegree = 2;
+  const vanishingYDegree = 2;
+  const qX = DensePolynomialExt.fromCoeffs(
+    field,
+    [3n, 5n, 7n, 11n, 13n, 17n, 19n, 23n].map((value) => field.fromBigInt(value)),
+    4,
+    2,
+  );
+  const qY = DensePolynomialExt.fromCoeffs(
+    field,
+    [29n, 31n, 37n, 41n, 43n, 47n, 53n, 59n].map((value) => field.fromBigInt(value)),
+    2,
+    4,
+  );
+  const numerator = qX.mul(vanishingPolynomialX(field, vanishingXDegree)).add(
+    qY.mul(vanishingPolynomialY(field, vanishingYDegree)),
+  );
+  const buffer = BivariatePolynomialBuffer.fromDense(numerator);
+
+  await recordOperation(
+    records,
+    "divByVanishingOpt",
+    `${numerator.xSize}x${numerator.ySize}`,
+    () => formatVanishingDivision(numerator.divByVanishingOpt(vanishingXDegree, vanishingYDegree)),
+    () => formatBufferVanishingDivision(buffer.divByVanishingOpt(vanishingXDegree, vanishingYDegree)),
+  );
+}
+
+async function recordOperation<T>(
+  records: OperationParityRecord[],
+  operation: string,
+  shape: string,
+  denseFn: () => T | Promise<T>,
+  bufferFn: () => T | Promise<T>,
+): Promise<void> {
+  const dense = await measure(denseFn);
+  const buffer = await measure(bufferFn);
+  assertEqual(buffer.result, dense.result, `${operation} ${shape}`);
+  records.push({
+    operation,
+    shape,
+    denseMs: dense.durationMs,
+    bufferMs: buffer.durationMs,
+  });
+}
+
+async function measure<T>(fn: () => T | Promise<T>): Promise<{ readonly result: T; readonly durationMs: number }> {
+  const startedAt = performance.now();
+  const result = await fn();
+  return {
+    result,
+    durationMs: performance.now() - startedAt,
+  };
+}
+
+function printOperationParityMatrix(records: readonly OperationParityRecord[]): void {
+  console.table(
+    records.map((record) => ({
+      operation: record.operation,
+      shape: record.shape,
+      denseMs: record.denseMs.toFixed(3),
+      bufferMs: record.bufferMs.toFixed(3),
+    })),
+  );
+}
+
 async function assertRouParity(
   field: FieldRuntime,
   dense: DensePolynomialExt,
@@ -203,6 +406,63 @@ function checkVanishingDivision(field: FieldRuntime): void {
 
   assertDenseEqual(bufferDivision.quotientX.toDense(), denseDivision.quotientX, "vanishing quotientX");
   assertDenseEqual(bufferDivision.quotientY.toDense(), denseDivision.quotientY, "vanishing quotientY");
+}
+
+function formatRuffiniDivision(
+  field: FieldRuntime,
+  division: {
+    readonly quotientX: DensePolynomialExt;
+    readonly quotientY: DensePolynomialExt;
+    readonly remainder: FieldElement;
+  },
+): {
+  readonly quotientX: readonly string[];
+  readonly quotientY: readonly string[];
+  readonly remainder: string;
+} {
+  return {
+    quotientX: division.quotientX.optimizeSize().toHexCoeffs(),
+    quotientY: division.quotientY.optimizeSize().toHexCoeffs(),
+    remainder: field.toHex(division.remainder),
+  };
+}
+
+function formatBufferRuffiniDivision(
+  field: FieldRuntime,
+  division: ReturnType<BivariatePolynomialBuffer["divByRuffini"]>,
+): {
+  readonly quotientX: readonly string[];
+  readonly quotientY: readonly string[];
+  readonly remainder: string;
+} {
+  return {
+    quotientX: division.quotientX.optimizeSize().toHexCoeffs(),
+    quotientY: division.quotientY.optimizeSize().toHexCoeffs(),
+    remainder: field.toHex(division.remainder),
+  };
+}
+
+function formatVanishingDivision(division: {
+  readonly quotientX: DensePolynomialExt;
+  readonly quotientY: DensePolynomialExt;
+}): {
+  readonly quotientX: readonly string[];
+  readonly quotientY: readonly string[];
+} {
+  return {
+    quotientX: division.quotientX.toHexCoeffs(),
+    quotientY: division.quotientY.toHexCoeffs(),
+  };
+}
+
+function formatBufferVanishingDivision(division: ReturnType<BivariatePolynomialBuffer["divByVanishingOpt"]>): {
+  readonly quotientX: readonly string[];
+  readonly quotientY: readonly string[];
+} {
+  return {
+    quotientX: division.quotientX.toHexCoeffs(),
+    quotientY: division.quotientY.toHexCoeffs(),
+  };
 }
 
 function checkBufferCopySemantics(field: FieldRuntime, coefficients: readonly FieldElement[]): void {
