@@ -627,6 +627,7 @@ async function main(): Promise<void> {
   }
 
   function createSyntheticProverCrs(setup: ProverSetupParams, xyPowersLength: number) {
+    const xyPowers = Array.from({ length: xyPowersLength }, () => runtime.G1.generator);
     return {
       G: runtime.G1.generator,
       H: runtime.G2.generator,
@@ -636,7 +637,8 @@ async function main(): Promise<void> {
         y: runtime.G1.generator,
         delta: runtime.G1.generator,
         eta: runtime.G1.generator,
-        xyPowers: Array.from({ length: xyPowersLength }, () => runtime.G1.generator),
+        xyPowersRaw: concatBytes(xyPowers),
+        xyPowers,
         gammaInvOInst: Array.from({ length: setup.l }, () => runtime.G1.generator),
         etaInvLiOInterAlpha4Kj: Array.from({ length: (setup.l_D - setup.l) * setup.s_max }, () => runtime.G1.generator),
         deltaInvLiOPrv: Array.from({ length: (setup.m_D - setup.l_D) * setup.s_max }, () => runtime.G1.generator),

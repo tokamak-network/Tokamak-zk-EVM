@@ -158,3 +158,104 @@ Interpretation:
 - Submitting unrelated MSMs through `Promise.all` on the same runtime did not improve wall time.
 - Running unrelated MSMs concurrently through separate pre-initialized processes and separate curve runtimes improved wall time by `3.50x` for this workload.
 - This supports experimenting with a real prover-side worker pool for independent commitment MSMs, but the production design must still measure browser worker startup, data transfer, memory pressure, and result ordering.
+
+## Browser MSM Worker Pool Benchmark
+
+Audience: backend-wasm developers validating whether the independent-MSM parallelism result applies to browser-compatible prover execution.
+
+This benchmark runs in Chromium through Playwright. It compares sequential MSM execution on the browser main thread against a Web Worker pool where each worker owns an independent backend-wasm curve runtime and receives preloaded MSM input buffers. Jobs are assigned by descending point count to the currently lightest worker queue, so the worker count is not tied to the number of independent MSM jobs.
+
+Usage:
+
+```bash
+npm run bench:msm:browser-workers -- --lengths=16384,16384,16384,32768,16384,16384 --iterations=2 --warmup=1 --workers=6
+```
+
+Useful options:
+
+- `--lengths=16384,32768`: comma-separated point counts, one MSM job per entry.
+- `--iterations=2`: measured iterations.
+- `--warmup=1`: warmup iterations.
+- `--workers=6`: maximum Web Worker count.
+- `--seed=0x544f4b414d414b`: deterministic pseudo-random scalar seed.
+- `--json=tmp/timing/browser-msm-worker-pool.json`: write a JSON report to an ignored diagnostics path.
+
+### Latest Browser Worker Result
+
+Command:
+
+```bash
+npm run bench:msm:browser-workers -- --lengths=16384,16384,16384,32768,16384,16384 --iterations=2 --warmup=1 --workers=6 --timeout-ms=240000 --json=tmp/timing/browser-msm-worker-pool.json
+```
+
+Environment: local Chromium run through Playwright, backend-wasm single-thread curve runtime per Web Worker, reported `hardwareConcurrency=14`.
+
+| jobs | total points | max job points | assignment points | transferred MiB | preload ms | sequential ms | worker pool ms | speedup |
+| ---: | ---: | ---: | :--- | ---: | ---: | ---: | ---: | ---: |
+| 6 | 114688 | 32768 | 32768,16384,16384,16384,16384,16384 | 14.000 | 127.040 | 5329.970 | 1511.740 | 3.53x |
+
+Memory reported by Chromium `performance.memory` stayed at `51.0 MiB` used JS heap before preload, after preload, and after benchmark. This browser metric does not reliably include every ArrayBuffer/WASM allocation, so use it as a coarse signal only.
+
+Interpretation:
+
+- Browser Web Workers preserve the independent MSM speedup observed in the Node separate-process benchmark for this synthetic workload.
+- Same-runtime `Promise.all` remains unsuitable as the production strategy; real parallelism needs separate browser workers with separate curve runtimes.
+- The benchmark validates the worker-pool direction, but production prover adoption still needs CRS preload and memory-pressure checks with real prover CRS data.
+
+## Commitment Density Benchmark
+
+Audience: backend-wasm developers deciding whether prover commitments should use sparse nonzero extraction or compact rectangular MSM input construction.
+
+This benchmark compares two commitment input layouts for a synthetic one-row polynomial:
+
+- sparse: scan coefficients, skip zeros, copy only matching bases and nonzero scalars, then call `G1.msmAffineRaw()`.
+- compact: keep the full base buffer, batch-convert the full coefficient buffer with `Fr.batchFromMontgomeryBuffer()`, then call `G1.msmAffineRaw()` with zero scalars included.
+
+Usage:
+
+```bash
+npm run bench:commitment-density -- --lengths=1024,4096,16384 --densities=0.1,0.25,0.5,0.75,1 --iterations=1 --warmup=0
+```
+
+Useful options:
+
+- `--lengths=1024,4096`: comma-separated vector lengths.
+- `--densities=0.1,0.5,1`: comma-separated nonzero coefficient probabilities.
+- `--iterations=1`: measured iterations.
+- `--warmup=0`: warmup iterations.
+- `--seed=0x544f4b414d414b`: deterministic pseudo-random scalar seed.
+- `--json=tmp/timing/commitment-density.json`: write a JSON report to an ignored diagnostics path.
+
+### Latest Density Result
+
+Command:
+
+```bash
+npm run bench:commitment-density -- --lengths=1024,4096,16384 --densities=0.1,0.25,0.5,0.75,1 --iterations=1 --warmup=0 --json=tmp/timing/commitment-density.json
+```
+
+Environment: local Node.js run, backend-wasm single-thread curve runtime.
+
+| length | density | nonzero | sparse total ms | compact total ms | compact speedup |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1024 | 0.10 | 102 | 13.008 | 14.593 | 0.89x |
+| 1024 | 0.25 | 250 | 25.662 | 26.304 | 0.98x |
+| 1024 | 0.50 | 532 | 44.478 | 45.606 | 0.98x |
+| 1024 | 0.75 | 763 | 59.080 | 59.012 | 1.00x |
+| 1024 | 1.00 | 1024 | 76.709 | 75.922 | 1.01x |
+| 4096 | 0.10 | 416 | 36.915 | 44.302 | 0.83x |
+| 4096 | 0.25 | 1053 | 77.123 | 83.486 | 0.92x |
+| 4096 | 0.50 | 2059 | 134.404 | 144.117 | 0.93x |
+| 4096 | 0.75 | 3050 | 188.394 | 186.121 | 1.01x |
+| 4096 | 1.00 | 4096 | 246.818 | 237.663 | 1.04x |
+| 16384 | 0.10 | 1650 | 116.186 | 143.345 | 0.81x |
+| 16384 | 0.25 | 4046 | 243.455 | 268.565 | 0.91x |
+| 16384 | 0.50 | 8140 | 438.801 | 448.858 | 0.98x |
+| 16384 | 0.75 | 12239 | 609.762 | 617.992 | 0.99x |
+| 16384 | 1.00 | 16384 | 783.659 | 783.247 | 1.00x |
+
+Interpretation:
+
+- Compact rectangular input construction is not a safe global replacement for sparse extraction.
+- Compact only becomes competitive near fully dense inputs, and the measured win is small or inconsistent.
+- Production commitment optimization should focus on real raw-buffer reuse, reducing the number of MSMs, or worker scheduling rather than replacing every commitment with compact rectangular input.

@@ -48,6 +48,7 @@ async function checkBufferCommitmentEncoding(runtime: CurveRuntime): Promise<voi
   } as ProverSetupParams;
   const crs = {
     sigma1: {
+      xyPowersRaw: concatBytes(Array.from({ length: 16 }, () => runtime.G1.generator)),
       xyPowers: Array.from({ length: 16 }, () => runtime.G1.generator),
     },
   } as unknown as ProverCrsRuntime;
@@ -58,6 +59,17 @@ async function checkBufferCommitmentEncoding(runtime: CurveRuntime): Promise<voi
   if (!runtime.G1.eq(actual, expected)) {
     throw new Error("buffer commitment encoding mismatch against repeated-generator synthetic CRS");
   }
+}
+
+function concatBytes(chunks: readonly Uint8Array[]): Uint8Array {
+  const size = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
+  const output = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    output.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return output;
 }
 
 async function checkBivariatePolynomialBuffer(field: FieldRuntime): Promise<void> {

@@ -62,6 +62,7 @@ export interface ProverSigma1Runtime {
   readonly y: Uint8Array;
   readonly delta: Uint8Array;
   readonly eta: Uint8Array;
+  readonly xyPowersRaw: Uint8Array;
   readonly xyPowers: readonly Uint8Array[];
   readonly gammaInvOInst: readonly Uint8Array[];
   readonly etaInvLiOInterAlpha4Kj: readonly Uint8Array[];
@@ -281,6 +282,7 @@ export function parseProverPermutation(permutationFile: RuntimeArtifactFile): re
 
 export function parseProverCrs(crsFile: RuntimeArtifactFile): ProverCrsRuntime {
   const fixedPoints = loadProverCrsArtifact(crsFile).pointsByName;
+  const xyPowersSection = requireG1Section(crsFile, "sigma1.xy-powers");
 
   return {
     G: requireEntry(fixedPoints, "G"),
@@ -291,7 +293,8 @@ export function parseProverCrs(crsFile: RuntimeArtifactFile): ProverCrsRuntime {
       y: requireEntry(fixedPoints, "sigma1.y"),
       delta: requireEntry(fixedPoints, "sigma1.delta"),
       eta: requireEntry(fixedPoints, "sigma1.eta"),
-      xyPowers: splitG1Section(crsFile, "sigma1.xy-powers"),
+      xyPowersRaw: xyPowersSection.data,
+      xyPowers: splitElements(xyPowersSection.data, xyPowersSection.elementByteLength),
       gammaInvOInst: splitG1Section(crsFile, "sigma1.gamma-inv-o-inst"),
       etaInvLiOInterAlpha4Kj: splitG1Section(crsFile, "sigma1.eta-inv-li-o-inter-alpha4-kj"),
       deltaInvLiOPrv: splitG1Section(crsFile, "sigma1.delta-inv-li-o-prv"),
@@ -328,13 +331,17 @@ function readU32List(data: Uint8Array, label: string): number[] {
 }
 
 function splitG1Section(artifactFile: RuntimeArtifactFile, label: string): readonly Uint8Array[] {
-  const section = requireRuntimeSection(artifactFile, {
+  const section = requireG1Section(artifactFile, label);
+
+  return splitElements(section.data, section.elementByteLength);
+}
+
+function requireG1Section(artifactFile: RuntimeArtifactFile, label: string) {
+  return requireRuntimeSection(artifactFile, {
     type: BinarySectionType.CrsG1,
     encoding: BinarySectionEncoding.FfjsG1Affine96,
     label,
   });
-
-  return splitElements(section.data, section.elementByteLength);
 }
 
 function splitFieldElements(runtime: CurveRuntime, data: Uint8Array, label: string): FieldElement[] {

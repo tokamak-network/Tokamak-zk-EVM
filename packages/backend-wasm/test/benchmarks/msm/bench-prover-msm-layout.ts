@@ -151,6 +151,7 @@ async function buildBenchmarkCase(runtime: CurveRuntime, length: number, seed: b
   } as ProverSetupParams;
   const crs = {
     sigma1: {
+      xyPowersRaw: rawBases,
       xyPowers: splitG1Affine(rawBases),
     },
   } as unknown as ProverCrsRuntime;

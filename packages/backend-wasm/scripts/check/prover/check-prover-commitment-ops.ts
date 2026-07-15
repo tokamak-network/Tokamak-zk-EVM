@@ -163,13 +163,27 @@ async function encodeCompactRectangleWithSigma1(
 }
 
 function buildSyntheticCrs(runtime: CurveRuntime, count: number): ProverCrsRuntime {
+  const xyPowers = Array.from({ length: count }, (_, index) =>
+    runtime.G1.toAffine(runtime.G1.mulAffineScalar(runtime.G1.generator, runtime.Fr.fromBigInt(BigInt(index + 1)))),
+  );
+
   return {
     sigma1: {
-      xyPowers: Array.from({ length: count }, (_, index) =>
-        runtime.G1.toAffine(runtime.G1.mulAffineScalar(runtime.G1.generator, runtime.Fr.fromBigInt(BigInt(index + 1)))),
-      ),
+      xyPowersRaw: concatBytes(xyPowers),
+      xyPowers,
     },
   } as unknown as ProverCrsRuntime;
+}
+
+function concatBytes(chunks: readonly Uint8Array[]): Uint8Array {
+  const size = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
+  const output = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    output.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return output;
 }
 
 function expectedSyntheticScalar(
