@@ -590,14 +590,16 @@ async function main(): Promise<void> {
   }
 
   async function assertRouEvals(
-    polynomial: { toRouEvals(): Promise<FieldElement[]> },
+    polynomial: { toRouEvals(): Promise<FieldElement[] | Uint8Array> },
     expected: readonly bigint[],
     label: string,
   ): Promise<void> {
     const actual = await polynomial.toRouEvals();
-    assertEqual(actual.length, expected.length, `${label} eval count`);
+    const actualLength = actual instanceof Uint8Array ? runtime.Fr.bufferElementCount(actual) : actual.length;
+    assertEqual(actualLength, expected.length, `${label} eval count`);
     for (let index = 0; index < expected.length; index += 1) {
-      assertFieldEqual(actual[index], fr(expected[index]), `${label}[${index}]`);
+      const actualValue = actual instanceof Uint8Array ? runtime.Fr.readBufferElement(actual, index) : actual[index];
+      assertFieldEqual(actualValue, fr(expected[index]), `${label}[${index}]`);
     }
   }
 

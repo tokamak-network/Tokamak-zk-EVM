@@ -1,8 +1,8 @@
-import { DensePolynomialExt } from "../libs/polynomial/dense-polynomial.js";
+import { BivariatePolynomialBuffer } from "../libs/polynomial/bivariate-polynomial-buffer.js";
 import type { CurveRuntime } from "../libs/runtime/curve.js";
 import type { FieldElement } from "../libs/runtime/field.js";
 import type { ProverCrsRuntime } from "./binary-input.js";
-import { encodePolynomialWithSigma1 } from "./prove0.js";
+import { encodePolynomialBufferWithSigma1 } from "./prove0.js";
 import type { ProverState } from "./state.js";
 
 export interface Prove1Output {
@@ -11,7 +11,7 @@ export interface Prove1Output {
 
 export interface Prove1Computation {
   readonly proof1: Prove1Output;
-  readonly rXY: DensePolynomialExt;
+  readonly rXY: BivariatePolynomialBuffer;
 }
 
 export async function prove1(
@@ -27,84 +27,116 @@ export async function prove1(
   const field = runtime.Fr;
   const mI = state.setup.l_D - state.setup.l;
   const sMax = state.setup.s_max;
-  const xMonomial = DensePolynomialExt.fromCoeffs(field, [field.zero, field.one], 2, 1);
-  const yMonomial = DensePolynomialExt.fromCoeffs(field, [field.zero, field.one], 1, 2);
-  const theta2 = DensePolynomialExt.fromCoeffs(field, [thetas[2]], 1, 1);
-  const fXY = linearCombination(field, [
-    [field.one, state.witness.bXY],
-    [thetas[0], state.instance.s0XY],
-    [thetas[1], state.instance.s1XY],
-  ]).add(theta2);
-  const gXY = linearCombination(field, [
-    [field.one, state.witness.bXY],
+  const xMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 2, 1);
+  const yMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 1, 2);
+  const theta2 = constantPolynomialBuffer(field, thetas[2]);
+  const fXY = linearCombinationBuffer(field, [
+    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.bXY)],
+    [thetas[0], BivariatePolynomialBuffer.fromDense(state.instance.s0XY)],
+    [thetas[1], BivariatePolynomialBuffer.fromDense(state.instance.s1XY)],
+    [field.one, theta2],
+  ]);
+  const gXY = linearCombinationBuffer(field, [
+    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.bXY)],
     [thetas[0], xMonomial],
     [thetas[1], yMonomial],
-  ]).add(theta2);
+    [field.one, theta2],
+  ]);
   const fXYEvals = await fXY.resize(mI, sMax).toRouEvals();
   const gXYEvals = await gXY.resize(mI, sMax).toRouEvals();
-  const rXYEvals = computeRecursionEvals(field, gXYEvals, fXYEvals, mI, sMax);
-  const rXY = await DensePolynomialExt.fromRouEvals(field, rXYEvals, mI, sMax);
-  const RXY = rXY
-    .add(state.instance.tMi.scale(state.mixer.rR_X))
-    .add(state.instance.tSMax.scale(state.mixer.rR_Y));
+  const rXYEvals = computeRecursionEvalsBuffer(field, gXYEvals, fXYEvals, mI, sMax);
+  const rXY = await BivariatePolynomialBuffer.fromRouEvals(field, rXYEvals, mI, sMax);
+  const RXY = linearCombinationBuffer(field, [
+    [field.one, rXY],
+    [state.mixer.rR_X, BivariatePolynomialBuffer.fromDense(state.instance.tMi)],
+    [state.mixer.rR_Y, BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+  ]);
 
   return {
     proof1: {
-      R: await encodePolynomialWithSigma1(runtime, crs, state.setup, RXY),
+      R: await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, RXY),
     },
     rXY,
   };
 }
 
-function computeRecursionEvals(
+function computeRecursionEvalsBuffer(
   field: CurveRuntime["Fr"],
-  gXYEvals: readonly FieldElement[],
-  fXYEvals: readonly FieldElement[],
+  gXYEvals: Uint8Array,
+  fXYEvals: Uint8Array,
   mI: number,
   sMax: number,
-): FieldElement[] {
-  if (gXYEvals.length !== mI * sMax || fXYEvals.length !== mI * sMax) {
+): Uint8Array {
+  if (field.bufferElementCount(gXYEvals) !== mI * sMax || field.bufferElementCount(fXYEvals) !== mI * sMax) {
     throw new Error("prove1 recursion input eval length does not match the setup grid.");
   }
 
-  const scalers = gXYEvals.map((value, index) => field.div(value, fXYEvals[index]));
-  const scalersTransposed = transposeRowMajor(scalers, mI, sMax);
-  const rXYEvals = Array.from({ length: mI * sMax }, () => field.zero);
-  rXYEvals[mI * sMax - 1] = field.one;
+  const transposed = field.createZeroBuffer(mI * sMax);
+  field.writeBufferElement(transposed, mI * sMax - 1, field.one);
 
   for (let index = mI * sMax - 2; index >= 0; index -= 1) {
-    rXYEvals[index] = field.mul(rXYEvals[index + 1], scalersTransposed[index + 1]);
+    const nextIndex = index + 1;
+    const originalX = nextIndex % mI;
+    const originalY = Math.floor(nextIndex / mI);
+    const originalIndex = originalX * sMax + originalY;
+    field.writeBufferElement(
+      transposed,
+      index,
+      field.mul(
+        field.readBufferElement(transposed, nextIndex),
+        field.div(
+          field.readBufferElement(gXYEvals, originalIndex),
+          field.readBufferElement(fXYEvals, originalIndex),
+        ),
+      ),
+    );
   }
 
-  return transposeRowMajor(rXYEvals, sMax, mI);
+  return transposeRowMajorBuffer(field, transposed, sMax, mI);
 }
 
-function transposeRowMajor(
-  values: readonly FieldElement[],
+function transposeRowMajorBuffer(
+  field: CurveRuntime["Fr"],
+  values: Uint8Array,
   rowCount: number,
   columnCount: number,
-): FieldElement[] {
-  if (values.length !== rowCount * columnCount) {
+): Uint8Array {
+  if (field.bufferElementCount(values) !== rowCount * columnCount) {
     throw new Error("Cannot transpose a buffer whose length does not match its shape.");
   }
 
-  const output = Array.from({ length: values.length }, () => values[0]);
+  const output = field.createZeroBuffer(rowCount * columnCount);
   for (let row = 0; row < rowCount; row += 1) {
     for (let column = 0; column < columnCount; column += 1) {
-      output[column * rowCount + row] = values[row * columnCount + column];
+      field.writeBufferElement(
+        output,
+        column * rowCount + row,
+        field.readBufferElement(values, row * columnCount + column),
+      );
     }
   }
 
   return output;
 }
 
-function linearCombination(
+function constantPolynomialBuffer(field: CurveRuntime["Fr"], value: FieldElement): BivariatePolynomialBuffer {
+  return BivariatePolynomialBuffer.fromCoeffs(field, [value], 1, 1);
+}
+
+function linearCombinationBuffer(
   field: CurveRuntime["Fr"],
-  terms: readonly (readonly [FieldElement, DensePolynomialExt])[],
-): DensePolynomialExt {
-  let accumulator = DensePolynomialExt.zero(field);
+  terms: readonly (readonly [FieldElement, BivariatePolynomialBuffer])[],
+): BivariatePolynomialBuffer {
+  let xSize = 1;
+  let ySize = 1;
+  for (const [, polynomial] of terms) {
+    xSize = Math.max(xSize, polynomial.xSize);
+    ySize = Math.max(ySize, polynomial.ySize);
+  }
+
+  const accumulator = BivariatePolynomialBuffer.zero(field).resize(xSize, ySize);
   for (const [scalar, polynomial] of terms) {
-    accumulator = accumulator.add(polynomial.scale(scalar));
+    accumulator.addScaledPrefixAssign(polynomial, scalar);
   }
 
   return accumulator;

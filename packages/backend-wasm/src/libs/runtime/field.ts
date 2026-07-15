@@ -7,12 +7,23 @@ export interface FieldRuntime {
   readonly modulus: bigint;
   readonly zero: FieldElement;
   readonly one: FieldElement;
+  bufferElementCount(buffer: Uint8Array): number;
+  createZeroBuffer(elementCount: number): Uint8Array;
+  cloneBuffer(buffer: Uint8Array): Uint8Array;
+  concat(elements: readonly FieldElement[]): Uint8Array;
+  split(buffer: Uint8Array): FieldElement[];
+  readBufferElement(buffer: Uint8Array, index: number): FieldElement;
+  writeBufferElement(buffer: Uint8Array, index: number, value: FieldElement): void;
   fromBigInt(value: bigint): FieldElement;
   fromHex(value: string): FieldElement;
   toBigInt(value: FieldElement): bigint;
   toHex(value: FieldElement): string;
   toRawLittleEndian(value: FieldElement): Uint8Array;
   rootOfUnity(size: number): FieldElement;
+  fftBuffer(buffer: Uint8Array): Promise<Uint8Array>;
+  ifftBuffer(buffer: Uint8Array): Promise<Uint8Array>;
+  batchApplyKeyBuffer(buffer: Uint8Array, first: FieldElement, increment: FieldElement): Promise<Uint8Array>;
+  batchFromMontgomeryBuffer(buffer: Uint8Array): Promise<Uint8Array>;
   fft(values: readonly FieldElement[]): Promise<FieldElement[]>;
   ifft(values: readonly FieldElement[]): Promise<FieldElement[]>;
   add(left: FieldElement, right: FieldElement): FieldElement;
@@ -34,6 +45,41 @@ export function createFieldRuntime(field: FfField): FieldRuntime {
     modulus: field.p,
     zero: field.zero,
     one: field.one,
+    bufferElementCount(buffer) {
+      assertFieldBuffer(buffer, field.n8);
+      return buffer.byteLength / field.n8;
+    },
+    createZeroBuffer(elementCount) {
+      assertNonNegativeSafeInteger(elementCount, "Field buffer element count");
+      const output = new Uint8Array(elementCount * field.n8);
+      for (let index = 0; index < elementCount; index += 1) {
+        output.set(field.zero, index * field.n8);
+      }
+      return output;
+    },
+    cloneBuffer(buffer) {
+      assertFieldBuffer(buffer, field.n8);
+      return buffer.slice();
+    },
+    concat(elements) {
+      return concatFieldElements(elements, field.n8);
+    },
+    split(buffer) {
+      return splitFieldBuffer(buffer, field.n8);
+    },
+    readBufferElement(buffer, index) {
+      assertFieldBuffer(buffer, field.n8);
+      assertBufferIndex(index, buffer.byteLength / field.n8);
+      return buffer.slice(index * field.n8, (index + 1) * field.n8);
+    },
+    writeBufferElement(buffer, index, value) {
+      assertFieldBuffer(buffer, field.n8);
+      assertBufferIndex(index, buffer.byteLength / field.n8);
+      if (value.byteLength !== field.n8) {
+        throw new Error("Field element byte length does not match the runtime field.");
+      }
+      buffer.set(value, index * field.n8);
+    },
     fromBigInt(value) {
       assertInField(value, field.p);
       return field.fromObject(value);
@@ -59,6 +105,22 @@ export function createFieldRuntime(field: FfField): FieldRuntime {
       }
 
       return field.w[logSize].slice();
+    },
+    async fftBuffer(buffer) {
+      assertFieldBuffer(buffer, field.n8);
+      return await field.fft(buffer);
+    },
+    async ifftBuffer(buffer) {
+      assertFieldBuffer(buffer, field.n8);
+      return await field.ifft(buffer);
+    },
+    async batchApplyKeyBuffer(buffer, first, increment) {
+      assertFieldBuffer(buffer, field.n8);
+      return await field.batchApplyKey(buffer, first, increment);
+    },
+    async batchFromMontgomeryBuffer(buffer) {
+      assertFieldBuffer(buffer, field.n8);
+      return await field.batchFromMontgomery(buffer);
     },
     async fft(values) {
       return splitFieldBuffer(await field.fft(concatFieldElements(values, field.n8)), field.n8);
@@ -100,6 +162,24 @@ export function createFieldRuntime(field: FfField): FieldRuntime {
       return field.random();
     },
   };
+}
+
+function assertFieldBuffer(buffer: Uint8Array, byteLength: number): void {
+  if (buffer.byteLength % byteLength !== 0) {
+    throw new Error("Field buffer byte length is not divisible by the runtime field width.");
+  }
+}
+
+function assertBufferIndex(index: number, elementCount: number): void {
+  if (!Number.isSafeInteger(index) || index < 0 || index >= elementCount) {
+    throw new Error("Field buffer index is out of bounds.");
+  }
+}
+
+function assertNonNegativeSafeInteger(value: number, label: string): void {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new Error(`${label} must be a non-negative safe integer.`);
+  }
 }
 
 function checkedPowerOfTwoLog(size: number): number {

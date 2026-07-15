@@ -1,3 +1,4 @@
+import { BivariatePolynomialBuffer } from "../libs/polynomial/bivariate-polynomial-buffer.js";
 import { DensePolynomialExt } from "../libs/polynomial/dense-polynomial.js";
 import type { CurveRuntime } from "../libs/runtime/curve.js";
 import type { FieldElement } from "../libs/runtime/field.js";
@@ -21,10 +22,10 @@ export interface Prove0Output {
 
 export interface Prove0Computation {
   readonly proof0: Prove0Output;
-  readonly q0XY: DensePolynomialExt;
-  readonly q1XY: DensePolynomialExt;
-  readonly wZk: DensePolynomialExt;
-  readonly termBZk: DensePolynomialExt;
+  readonly q0XY: BivariatePolynomialBuffer;
+  readonly q1XY: BivariatePolynomialBuffer;
+  readonly wZk: BivariatePolynomialBuffer;
+  readonly termBZk: BivariatePolynomialBuffer;
 }
 
 export interface ProverBinding {
@@ -81,7 +82,10 @@ export async function prove0(
   state: ProverState,
 ): Promise<Prove0Computation> {
   const field = runtime.Fr;
-  const p0XY = state.witness.uXY.mul(state.witness.vXY).sub(state.witness.wXY);
+  const p0XY = await BivariatePolynomialBuffer.fromDense(state.witness.uXY).mul(
+    BivariatePolynomialBuffer.fromDense(state.witness.vXY),
+  );
+  p0XY.subAssign(BivariatePolynomialBuffer.fromDense(state.witness.wXY).resize(p0XY.xSize, p0XY.ySize));
   const { quotientX: q0XY, quotientY: q1XY } = p0XY.divByVanishingOpt(
     state.setup.n,
     state.setup.s_max,
@@ -89,49 +93,57 @@ export async function prove0(
 
   const rW_X = DensePolynomialExt.fromCoeffs(field, state.mixer.rW_X, state.mixer.rW_X.length, 1);
   const rW_Y = DensePolynomialExt.fromCoeffs(field, state.mixer.rW_Y, 1, state.mixer.rW_Y.length);
-  const UXY = linearCombination(field, [
-    [field.one, state.witness.uXY],
-    [state.mixer.rU_X, state.instance.tN],
-    [state.mixer.rU_Y, state.instance.tSMax],
+  const UXY = linearCombinationBuffer(field, [
+    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.uXY)],
+    [state.mixer.rU_X, BivariatePolynomialBuffer.fromDense(state.instance.tN)],
+    [state.mixer.rU_Y, BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
   ]);
-  const VXY = linearCombination(field, [
-    [field.one, state.witness.vXY],
-    [state.mixer.rV_X, state.instance.tN],
-    [state.mixer.rV_Y, state.instance.tSMax],
+  const VXY = linearCombinationBuffer(field, [
+    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.vXY)],
+    [state.mixer.rV_X, BivariatePolynomialBuffer.fromDense(state.instance.tN)],
+    [state.mixer.rV_Y, BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
   ]);
-  const wZk = lowDegreeXTimesVanishing(field, state.mixer.rW_X, state.setup.n).add(
-    lowDegreeYTimesVanishing(field, state.mixer.rW_Y, state.setup.s_max),
-  );
-  const WXY = state.witness.wXY.add(wZk);
-  const Q_AX_XY = linearCombination(field, [
+  const wZk = linearCombinationBuffer(field, [
+    [field.one, lowDegreeXTimesVanishingBuffer(field, state.mixer.rW_X, state.setup.n)],
+    [field.one, lowDegreeYTimesVanishingBuffer(field, state.mixer.rW_Y, state.setup.s_max)],
+  ]);
+  const WXY = linearCombinationBuffer(field, [
+    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.wXY)],
+    [field.one, wZk],
+  ]);
+  const Q_AX_XY = linearCombinationBuffer(field, [
     [field.one, q0XY],
-    [state.mixer.rU_X, state.witness.vXY],
-    [state.mixer.rV_X, state.witness.uXY],
-    [field.neg(field.one), rW_X],
-    [field.mul(state.mixer.rU_X, state.mixer.rV_X), state.instance.tN],
-    [field.mul(state.mixer.rU_Y, state.mixer.rV_X), state.instance.tSMax],
+    [state.mixer.rU_X, BivariatePolynomialBuffer.fromDense(state.witness.vXY)],
+    [state.mixer.rV_X, BivariatePolynomialBuffer.fromDense(state.witness.uXY)],
+    [field.neg(field.one), BivariatePolynomialBuffer.fromDense(rW_X)],
+    [field.mul(state.mixer.rU_X, state.mixer.rV_X), BivariatePolynomialBuffer.fromDense(state.instance.tN)],
+    [field.mul(state.mixer.rU_Y, state.mixer.rV_X), BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
   ]);
-  const Q_AY_XY = linearCombination(field, [
+  const Q_AY_XY = linearCombinationBuffer(field, [
     [field.one, q1XY],
-    [state.mixer.rU_Y, state.witness.vXY],
-    [state.mixer.rV_Y, state.witness.uXY],
-    [field.neg(field.one), rW_Y],
-    [field.mul(state.mixer.rU_X, state.mixer.rV_Y), state.instance.tN],
-    [field.mul(state.mixer.rU_Y, state.mixer.rV_Y), state.instance.tSMax],
+    [state.mixer.rU_Y, BivariatePolynomialBuffer.fromDense(state.witness.vXY)],
+    [state.mixer.rV_Y, BivariatePolynomialBuffer.fromDense(state.witness.uXY)],
+    [field.neg(field.one), BivariatePolynomialBuffer.fromDense(rW_Y)],
+    [field.mul(state.mixer.rU_X, state.mixer.rV_Y), BivariatePolynomialBuffer.fromDense(state.instance.tN)],
+    [field.mul(state.mixer.rU_Y, state.mixer.rV_Y), BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
   ]);
-  const termBZk = lowDegreeXTimesVanishing(field, state.mixer.rB_X, state.setup.l_D - state.setup.l).add(
-    lowDegreeYTimesVanishing(field, state.mixer.rB_Y, state.setup.s_max),
-  );
-  const BXY = state.witness.bXY.add(termBZk);
+  const termBZk = linearCombinationBuffer(field, [
+    [field.one, lowDegreeXTimesVanishingBuffer(field, state.mixer.rB_X, state.setup.l_D - state.setup.l)],
+    [field.one, lowDegreeYTimesVanishingBuffer(field, state.mixer.rB_Y, state.setup.s_max)],
+  ]);
+  const BXY = linearCombinationBuffer(field, [
+    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.bXY)],
+    [field.one, termBZk],
+  ]);
 
   return {
     proof0: {
-      U: await encodePolynomialWithSigma1(runtime, crs, state.setup, UXY),
-      V: await encodePolynomialWithSigma1(runtime, crs, state.setup, VXY),
-      W: await encodePolynomialWithSigma1(runtime, crs, state.setup, WXY),
-      Q_AX: await encodePolynomialWithSigma1(runtime, crs, state.setup, Q_AX_XY),
-      Q_AY: await encodePolynomialWithSigma1(runtime, crs, state.setup, Q_AY_XY),
-      B: await encodePolynomialWithSigma1(runtime, crs, state.setup, BXY),
+      U: await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, UXY),
+      V: await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, VXY),
+      W: await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, WXY),
+      Q_AX: await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, Q_AX_XY),
+      Q_AY: await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, Q_AY_XY),
+      B: await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, BXY),
     },
     q0XY,
     q1XY,
@@ -146,6 +158,15 @@ export async function encodePolynomialWithSigma1(
   setup: ProverSetupParams,
   polynomial: DensePolynomialExt,
 ): Promise<Uint8Array> {
+  return encodePolynomialBufferWithSigma1(runtime, crs, setup, BivariatePolynomialBuffer.fromDense(polynomial));
+}
+
+export async function encodePolynomialBufferWithSigma1(
+  runtime: CurveRuntime,
+  crs: ProverCrsRuntime,
+  setup: ProverSetupParams,
+  polynomial: BivariatePolynomialBuffer,
+): Promise<Uint8Array> {
   const { xDegree, yDegree } = polynomial.findDegree();
   if (xDegree < 0 || yDegree < 0) {
     return runtime.G1.zero;
@@ -159,30 +180,42 @@ export async function encodePolynomialWithSigma1(
     throw new Error("Insufficient prover CRS sigma1.xy-powers length for polynomial encoding.");
   }
 
-  const bases: Uint8Array[] = [];
-  const scalars: FieldElement[] = [];
+  let nonzeroCount = 0;
   for (let x = 0; x < xSize; x += 1) {
     for (let y = 0; y < ySize; y += 1) {
       const scalar = polynomial.getCoeff(x, y);
       if (runtime.Fr.isZero(scalar)) {
         continue;
       }
+      nonzeroCount += 1;
+    }
+  }
 
+  if (nonzeroCount === 0) {
+    return runtime.G1.zero;
+  }
+
+  const bases = new Uint8Array(nonzeroCount * 96);
+  const scalars = new Uint8Array(nonzeroCount * runtime.Fr.byteLength);
+  let outputIndex = 0;
+  for (let x = 0; x < xSize; x += 1) {
+    for (let y = 0; y < ySize; y += 1) {
+      const scalar = polynomial.getCoeff(x, y);
+      if (runtime.Fr.isZero(scalar)) {
+        continue;
+      }
       const base = crs.sigma1.xyPowers[referenceStringYSize * x + y];
       if (base === undefined) {
         throw new Error("Prover CRS sigma1.xy-powers section is shorter than the declared setup shape.");
       }
 
-      bases.push(base);
-      scalars.push(scalar);
+      bases.set(base, outputIndex * 96);
+      scalars.set(runtime.Fr.toRawLittleEndian(scalar), outputIndex * runtime.Fr.byteLength);
+      outputIndex += 1;
     }
   }
 
-  if (bases.length === 0) {
-    return runtime.G1.zero;
-  }
-
-  return runtime.G1.msmAffineRaw(concatBytes(bases), concatBytes(scalars.map((scalar) => runtime.Fr.toRawLittleEndian(scalar))));
+  return runtime.G1.msmAffineRaw(bases, scalars);
 }
 
 export async function encodeOPubFree(
@@ -385,6 +418,25 @@ function linearCombination(
   return accumulator;
 }
 
+function linearCombinationBuffer(
+  field: CurveRuntime["Fr"],
+  terms: readonly (readonly [FieldElement, BivariatePolynomialBuffer])[],
+): BivariatePolynomialBuffer {
+  let xSize = 1;
+  let ySize = 1;
+  for (const [, polynomial] of terms) {
+    xSize = Math.max(xSize, polynomial.xSize);
+    ySize = Math.max(ySize, polynomial.ySize);
+  }
+
+  const accumulator = BivariatePolynomialBuffer.zero(field).resize(xSize, ySize);
+  for (const [scalar, polynomial] of terms) {
+    accumulator.addScaledPrefixAssign(polynomial, scalar);
+  }
+
+  return accumulator;
+}
+
 function lowDegreeXTimesVanishing(
   field: CurveRuntime["Fr"],
   coefficients: readonly FieldElement[],
@@ -404,6 +456,25 @@ function lowDegreeXTimesVanishing(
   return DensePolynomialExt.fromCoeffs(field, output, xSize, 1);
 }
 
+function lowDegreeXTimesVanishingBuffer(
+  field: CurveRuntime["Fr"],
+  coefficients: readonly FieldElement[],
+  exponent: number,
+): BivariatePolynomialBuffer {
+  if (exponent <= 0) {
+    throw new Error("X vanishing exponent must be positive.");
+  }
+
+  const xSize = nextPowerOfTwo(exponent + coefficients.length);
+  const output = BivariatePolynomialBuffer.zero(field).resize(xSize, 1);
+  for (let index = 0; index < coefficients.length; index += 1) {
+    output.setCoeff(index, 0, field.sub(output.getCoeff(index, 0), coefficients[index]));
+    output.setCoeff(index + exponent, 0, field.add(output.getCoeff(index + exponent, 0), coefficients[index]));
+  }
+
+  return output;
+}
+
 function lowDegreeYTimesVanishing(
   field: CurveRuntime["Fr"],
   coefficients: readonly FieldElement[],
@@ -421,6 +492,25 @@ function lowDegreeYTimesVanishing(
   }
 
   return DensePolynomialExt.fromCoeffs(field, output, 1, ySize);
+}
+
+function lowDegreeYTimesVanishingBuffer(
+  field: CurveRuntime["Fr"],
+  coefficients: readonly FieldElement[],
+  exponent: number,
+): BivariatePolynomialBuffer {
+  if (exponent <= 0) {
+    throw new Error("Y vanishing exponent must be positive.");
+  }
+
+  const ySize = nextPowerOfTwo(exponent + coefficients.length);
+  const output = BivariatePolynomialBuffer.zero(field).resize(1, ySize);
+  for (let index = 0; index < coefficients.length; index += 1) {
+    output.setCoeff(0, index, field.sub(output.getCoeff(0, index), coefficients[index]));
+    output.setCoeff(0, index + exponent, field.add(output.getCoeff(0, index + exponent), coefficients[index]));
+  }
+
+  return output;
 }
 
 function nextPowerOfTwo(value: number): number {

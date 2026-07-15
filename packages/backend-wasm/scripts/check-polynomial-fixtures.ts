@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { DensePolynomialExt, createCurveRuntime } from "../src/index.js";
+import { BivariatePolynomialBuffer, DensePolynomialExt, createCurveRuntime } from "../src/index.js";
 
 interface Ntt1dFixtureInput {
   readonly cases: readonly Ntt1dInputCase[];
@@ -76,6 +76,7 @@ async function main(): Promise<void> {
     await checkCosetNtt(fixturesDir, runtime.Fr);
     await checkPolynomialEval(fixturesDir, runtime.Fr);
     await checkVanishingDivisionOpt(runtime.Fr);
+    await checkBivariatePolynomialBuffer(runtime.Fr);
   } finally {
     await runtime.terminate();
   }
@@ -217,6 +218,101 @@ async function checkPolynomialEval(
     const actual = polynomial.eval(field.fromHex(point.x), field.fromHex(point.y));
     assertEqual(field.toHex(actual), expectedValue.value, `polynomial evaluation ${point.id}`);
   }
+}
+
+async function checkBivariatePolynomialBuffer(
+  field: Awaited<ReturnType<typeof createCurveRuntime>>["Fr"],
+): Promise<void> {
+  const coefficients = [
+    field.fromBigInt(3n),
+    field.fromBigInt(5n),
+    field.fromBigInt(7n),
+    field.fromBigInt(11n),
+    field.fromBigInt(13n),
+    field.fromBigInt(17n),
+    field.fromBigInt(19n),
+    field.fromBigInt(23n),
+  ];
+  const dense = DensePolynomialExt.fromCoeffs(field, coefficients, 4, 2);
+  const buffer = BivariatePolynomialBuffer.fromDense(dense);
+
+  assertEqual(buffer.toHexCoeffs(), dense.toHexCoeffs(), "buffer from dense coefficients");
+  assertEqual(buffer.toDense().toHexCoeffs(), dense.toHexCoeffs(), "buffer to dense coefficients");
+
+  const otherDense = DensePolynomialExt.fromCoeffs(
+    field,
+    coefficients.map((coefficient) => field.square(coefficient)),
+    4,
+    2,
+  );
+  const otherBuffer = BivariatePolynomialBuffer.fromDense(otherDense);
+
+  assertEqual(
+    buffer.clone().addAssign(otherBuffer).toHexCoeffs(),
+    dense.add(otherDense).toHexCoeffs(),
+    "buffer addAssign",
+  );
+  assertEqual(
+    buffer.clone().subAssign(otherBuffer).toHexCoeffs(),
+    dense.sub(otherDense).toHexCoeffs(),
+    "buffer subAssign",
+  );
+
+  const scale = field.fromBigInt(29n);
+  assertEqual(
+    buffer.clone().scaleAssign(scale).toHexCoeffs(),
+    dense.scale(scale).toHexCoeffs(),
+    "buffer scaleAssign",
+  );
+  assertEqual(
+    buffer.clone().addScaledAssign(otherBuffer, scale).toHexCoeffs(),
+    dense.add(otherDense.scale(scale)).toHexCoeffs(),
+    "buffer addScaledAssign",
+  );
+
+  const xScale = field.fromBigInt(31n);
+  const yScale = field.fromBigInt(37n);
+  assertEqual(
+    buffer.clone().scaleCoeffsXAssign(xScale).toHexCoeffs(),
+    dense.scaleCoeffsX(xScale).toHexCoeffs(),
+    "buffer scaleCoeffsXAssign",
+  );
+  assertEqual(
+    buffer.clone().scaleCoeffsYAssign(yScale).toHexCoeffs(),
+    dense.scaleCoeffsY(yScale).toHexCoeffs(),
+    "buffer scaleCoeffsYAssign",
+  );
+
+  const xPoint = field.fromBigInt(41n);
+  const yPoint = field.fromBigInt(43n);
+  assertEqual(field.toHex(buffer.eval(xPoint, yPoint)), field.toHex(dense.eval(xPoint, yPoint)), "buffer eval");
+
+  assertEqual(buffer.resize(8, 4).toHexCoeffs(), dense.resize(8, 4).toHexCoeffs(), "buffer resize");
+
+  const denseRouEvals = await dense.toRouEvals();
+  const bufferRouEvals = await buffer.toRouEvals();
+  assertEqual(formatFields(field, field.split(bufferRouEvals)), formatFields(field, denseRouEvals), "buffer toRouEvals");
+
+  const recoveredBuffer = await BivariatePolynomialBuffer.fromRouEvals(field, bufferRouEvals, 4, 2);
+  assertEqual(recoveredBuffer.toHexCoeffs(), dense.toHexCoeffs(), "buffer fromRouEvals");
+
+  const denseCosetEvals = await dense.toRouEvals(xScale, yScale);
+  const bufferCosetEvals = await buffer.toRouEvals(xScale, yScale);
+  assertEqual(
+    formatFields(field, field.split(bufferCosetEvals)),
+    formatFields(field, denseCosetEvals),
+    "buffer coset toRouEvals",
+  );
+
+  const recoveredCosetBuffer = await BivariatePolynomialBuffer.fromRouEvals(
+    field,
+    bufferCosetEvals,
+    4,
+    2,
+    xScale,
+    yScale,
+  );
+  assertEqual(recoveredCosetBuffer.toHexCoeffs(), dense.toHexCoeffs(), "buffer coset fromRouEvals");
 }
 
 async function readJson<T>(filePath: string): Promise<T> {

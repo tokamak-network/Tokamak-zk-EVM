@@ -23,7 +23,7 @@
   "scripts": {
     "build": "npm run subcircuit-library:generate && npm run verifier-crs:generate && tsc -p tsconfig.json --pretty false",
     "typecheck": "npm run subcircuit-library:check && npm run verifier-crs:check && tsc -p tsconfig.json --pretty false --noEmit",
-    "typecheck:scripts": "tsc --pretty false --noEmit --module NodeNext --moduleResolution NodeNext --target ES2022 --lib ES2022,DOM --types node scripts/check-binary-artifacts.ts scripts/check-fixtures.ts scripts/check-native-verifier-fixture.ts scripts/check-polynomial-fixtures.ts scripts/check-rkyv-decoder-payload.ts scripts/check-prover-fixture.ts scripts/check-prover-witness.ts scripts/check-runtime-fixtures.ts scripts/check-verifier-browser.ts scripts/check-verifier-fixture.ts scripts/convert-artifacts.ts scripts/copy-fixtures.ts scripts/diagnose-verifier-fixture.ts scripts/generate-format-specs.ts scripts/generate-subcircuit-library.ts scripts/generate-verifier-crs.ts scripts/prepare-runtime-fixtures.ts test/browser/verifier-entry.ts",
+    "typecheck:scripts": "tsc --pretty false --noEmit --module NodeNext --moduleResolution NodeNext --target ES2022 --lib ES2022,DOM --types node scripts/check-binary-artifacts.ts scripts/check-fixtures.ts scripts/check-native-verifier-fixture.ts scripts/check-polynomial-buffer.ts scripts/check-polynomial-fixtures.ts scripts/check-rkyv-decoder-payload.ts scripts/check-prover-fixture.ts scripts/check-prover-witness.ts scripts/check-runtime-fixtures.ts scripts/check-verifier-browser.ts scripts/check-verifier-fixture.ts scripts/convert-artifacts.ts scripts/copy-fixtures.ts scripts/diagnose-verifier-fixture.ts scripts/generate-format-specs.ts scripts/generate-subcircuit-library.ts scripts/generate-verifier-crs.ts scripts/prepare-runtime-fixtures.ts test/browser/verifier-entry.ts",
     "binary:check": "tsx scripts/check-binary-artifacts.ts",
     "bench:msm": "tsx src/tests/msm/bench-msm.ts",
     "fixtures:copy": "tsx scripts/copy-fixtures.ts fixtures/small/copy-manifest.json",
@@ -32,6 +32,7 @@
     "fixtures:check:native-verifier": "tsx scripts/check-native-verifier-fixture.ts fixtures/small/copy-manifest.json",
     "fixtures:diagnose:verifier": "tsx scripts/diagnose-verifier-fixture.ts fixtures/small/copy-manifest.json",
     "polynomial:check": "tsx scripts/check-polynomial-fixtures.ts",
+    "polynomial:buffer:check": "tsx scripts/check-polynomial-buffer.ts",
     "prover:check": "tsx scripts/check-prover-fixture.ts",
     "prover:witness:check": "tsx scripts/check-prover-witness.ts",
     "runtime:check": "tsx scripts/check-runtime-fixtures.ts",

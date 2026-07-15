@@ -1,8 +1,9 @@
+import { BivariatePolynomialBuffer } from "../libs/polynomial/bivariate-polynomial-buffer.js";
 import { DensePolynomialExt } from "../libs/polynomial/dense-polynomial.js";
 import type { CurveRuntime } from "../libs/runtime/curve.js";
 import type { FieldElement } from "../libs/runtime/field.js";
 import type { ProverCrsRuntime } from "./binary-input.js";
-import { encodePolynomialWithSigma1, type Prove0Computation } from "./prove0.js";
+import { encodePolynomialBufferWithSigma1, encodePolynomialWithSigma1, type Prove0Computation } from "./prove0.js";
 import type { Prove2Computation } from "./prove2.js";
 import type { Prove3Output } from "./prove3.js";
 import type { ProverState } from "./state.js";
@@ -37,7 +38,7 @@ export async function prove4(input: {
   readonly runtime: CurveRuntime;
   readonly crs: ProverCrsRuntime;
   readonly state: ProverState;
-  readonly rXY: DensePolynomialExt;
+  readonly rXY: BivariatePolynomialBuffer;
   readonly prove0: Prove0Computation;
   readonly prove2: Prove2Computation;
   readonly proof3: Prove3Output;
@@ -66,43 +67,45 @@ export async function prove4(input: {
   const smallVEval = state.witness.vXY.eval(chi, zeta);
   const rW_X = DensePolynomialExt.fromCoeffs(field, state.mixer.rW_X, state.mixer.rW_X.length, 1);
   const rW_Y = DensePolynomialExt.fromCoeffs(field, state.mixer.rW_Y, 1, state.mixer.rW_Y.length);
-  const VXY = linearCombination(field, [
-    [field.one, state.witness.vXY],
-    [state.mixer.rV_X, state.instance.tN],
-    [state.mixer.rV_Y, state.instance.tSMax],
+  const VXY = linearCombinationBuffer(field, [
+    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.vXY)],
+    [state.mixer.rV_X, BivariatePolynomialBuffer.fromDense(state.instance.tN)],
+    [state.mixer.rV_Y, BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
   ]);
-  const pAXY = linearCombination(field, [
-    [kappa1, VXY.sub(constantPolynomial(field, proof3.V_eval))],
-    [smallVEval, state.witness.uXY],
-    [field.neg(field.one), state.witness.wXY],
+  const pAXY = linearCombinationBuffer(field, [
+    [kappa1, VXY.sub(constantPolynomialBuffer(field, proof3.V_eval))],
+    [smallVEval, BivariatePolynomialBuffer.fromDense(state.witness.uXY)],
+    [field.neg(field.one), BivariatePolynomialBuffer.fromDense(state.witness.wXY)],
     [field.neg(tNEval), prove0.q0XY],
     [field.neg(tSMaxEval), prove0.q1XY],
-    [field.mul(smallVEval, state.mixer.rU_X), state.instance.tN],
-    [field.mul(smallVEval, state.mixer.rU_Y), state.instance.tSMax],
+    [field.mul(smallVEval, state.mixer.rU_X), BivariatePolynomialBuffer.fromDense(state.instance.tN)],
+    [field.mul(smallVEval, state.mixer.rU_Y), BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
     [
       field.neg(field.add(field.mul(state.mixer.rU_X, tNEval), field.mul(state.mixer.rU_Y, tSMaxEval))),
-      state.witness.vXY,
+      BivariatePolynomialBuffer.fromDense(state.witness.vXY),
     ],
-    [tNEval, rW_X],
-    [tSMaxEval, rW_Y],
+    [tNEval, BivariatePolynomialBuffer.fromDense(rW_X)],
+    [tSMaxEval, BivariatePolynomialBuffer.fromDense(rW_Y)],
     [field.neg(field.one), prove0.wZk],
   ]);
   const piADivision = pAXY.divByRuffini(chi, zeta);
-  const Pi_AX = await encodePolynomialWithSigma1(runtime, crs, state.setup, piADivision.quotientX);
-  const Pi_AY = await encodePolynomialWithSigma1(runtime, crs, state.setup, piADivision.quotientY);
-  const RXY = rXY
-    .add(state.instance.tMi.scale(state.mixer.rR_X))
-    .add(state.instance.tSMax.scale(state.mixer.rR_Y));
+  const Pi_AX = await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, piADivision.quotientX);
+  const Pi_AY = await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, piADivision.quotientY);
+  const RXY = linearCombinationBuffer(field, [
+    [field.one, rXY],
+    [state.mixer.rR_X, BivariatePolynomialBuffer.fromDense(state.instance.tMi)],
+    [state.mixer.rR_Y, BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+  ]);
   const mDivision = RXY
-    .sub(constantPolynomial(field, proof3.R_omegaX_eval))
+    .sub(constantPolynomialBuffer(field, proof3.R_omegaX_eval))
     .divByRuffini(field.mul(omegaMIInv, chi), zeta);
-  const M_X = await encodePolynomialWithSigma1(runtime, crs, state.setup, mDivision.quotientX);
-  const M_Y = await encodePolynomialWithSigma1(runtime, crs, state.setup, mDivision.quotientY);
+  const M_X = await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, mDivision.quotientX);
+  const M_Y = await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, mDivision.quotientY);
   const nDivision = RXY
-    .sub(constantPolynomial(field, proof3.R_omegaX_omegaY_eval))
+    .sub(constantPolynomialBuffer(field, proof3.R_omegaX_omegaY_eval))
     .divByRuffini(field.mul(omegaMIInv, chi), field.mul(omegaSMaxInv, zeta));
-  const N_X = await encodePolynomialWithSigma1(runtime, crs, state.setup, nDivision.quotientX);
-  const N_Y = await encodePolynomialWithSigma1(runtime, crs, state.setup, nDivision.quotientY);
+  const N_X = await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, nDivision.quotientX);
+  const N_Y = await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, nDivision.quotientY);
   const { Pi_CX, Pi_CY } = await buildCopyOpenings({
     runtime,
     crs,
@@ -160,8 +163,8 @@ async function buildCopyOpenings(input: {
   readonly runtime: CurveRuntime;
   readonly crs: ProverCrsRuntime;
   readonly state: ProverState;
-  readonly rXY: DensePolynomialExt;
-  readonly RXY: DensePolynomialExt;
+  readonly rXY: BivariatePolynomialBuffer;
+  readonly RXY: BivariatePolynomialBuffer;
   readonly prove0: Prove0Computation;
   readonly prove2: Prove2Computation;
   readonly proof3: Prove3Output;
@@ -199,18 +202,21 @@ async function buildCopyOpenings(input: {
   const sMax = state.setup.s_max;
   const rOmegaX = rXY.scaleCoeffsX(omegaMIInv);
   const rOmegaXOmegaY = rOmegaX.scaleCoeffsY(omegaSMaxInv);
-  const xMonomial = DensePolynomialExt.fromCoeffs(field, [field.zero, field.one], 2, 1);
-  const yMonomial = DensePolynomialExt.fromCoeffs(field, [field.zero, field.one], 1, 2);
-  const fXY = linearCombination(field, [
-    [field.one, state.witness.bXY],
-    [thetas[0], state.instance.s0XY],
-    [thetas[1], state.instance.s1XY],
-  ]).add(constantPolynomial(field, thetas[2]));
-  const gXY = linearCombination(field, [
-    [field.one, state.witness.bXY],
+  const xMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 2, 1);
+  const yMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 1, 2);
+  const theta2 = constantPolynomialBuffer(field, thetas[2]);
+  const fXY = linearCombinationBuffer(field, [
+    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.bXY)],
+    [thetas[0], BivariatePolynomialBuffer.fromDense(state.instance.s0XY)],
+    [thetas[1], BivariatePolynomialBuffer.fromDense(state.instance.s1XY)],
+    [field.one, theta2],
+  ]);
+  const gXY = linearCombinationBuffer(field, [
+    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.bXY)],
     [thetas[0], xMonomial],
     [thetas[1], yMonomial],
-  ]).add(constantPolynomial(field, thetas[2]));
+    [field.one, theta2],
+  ]);
   const tMiEval = field.sub(field.pow(chi, mI), field.one);
   const tSMaxEval = field.sub(field.pow(zeta, sMax), field.one);
   const lagrangeK0XY = await buildLagrangeK0(field, mI);
@@ -218,15 +224,15 @@ async function buildCopyOpenings(input: {
   const smallREval = rXY.eval(chi, zeta);
   const smallROmegaXEval = rOmegaX.eval(chi, zeta);
   const smallROmegaXOmegaYEval = rOmegaXOmegaY.eval(chi, zeta);
-  const term5 = linearCombination(field, [
+  const term5 = linearCombinationBuffer(field, [
     [smallREval, gXY],
     [field.neg(smallROmegaXEval), fXY],
   ]);
-  const term6 = linearCombination(field, [
+  const term6 = linearCombinationBuffer(field, [
     [smallREval, gXY],
     [field.neg(smallROmegaXOmegaYEval), fXY],
   ]);
-  const pCXY = linearCombination(field, [
+  const pCXY = linearCombinationBuffer(field, [
     [field.sub(smallREval, field.one), prove2.lagrangeKlXY],
     [field.mul(kappa0, field.sub(chi, field.one)), term5],
     [field.mul(kappa0Sq, lagrangeK0Eval), term6],
@@ -242,20 +248,21 @@ async function buildCopyOpenings(input: {
   const term10 = gMinusF.scale(term10Scale);
   const rD1Term9 = mulByTerm9(rD1, state.mixer.rB_X, state.mixer.rB_Y, tMiEval, tSMaxEval);
   const rD1Term9PlusTerm10 = rD1Term9.add(term10);
-  const lhsZk1 = linearCombination(field, [
+  const lhsZk1 = linearCombinationBuffer(field, [
     [field.mul(field.sub(chi, field.one), rD1Eval), prove0.termBZk],
     [field.one, mulByOneMinusX(rD1Term9PlusTerm10)],
     [field.sub(chi, field.one), term10],
   ]);
   const rD2Term9 = mulByTerm9(rD2, state.mixer.rB_X, state.mixer.rB_Y, tMiEval, tSMaxEval);
   const rD2Term9PlusTerm10 = rD2Term9.add(term10);
-  const lhsZk2 = linearCombination(field, [
+  const lhsZk2Product = await lagrangeK0XY.mul(rD2Term9PlusTerm10);
+  const lhsZk2 = linearCombinationBuffer(field, [
     [field.mul(lagrangeK0Eval, rD2Eval), prove0.termBZk],
     [lagrangeK0Eval, term10],
-    [field.neg(field.one), lagrangeK0XY.mul(rD2Term9PlusTerm10)],
+    [field.neg(field.one), lhsZk2Product],
   ]);
-  const rMinusEval = RXY.sub(constantPolynomial(field, proof3.R_eval));
-  const lhsForCopy = linearCombination(field, [
+  const rMinusEval = RXY.sub(constantPolynomialBuffer(field, proof3.R_eval));
+  const lhsForCopy = linearCombinationBuffer(field, [
     [kappa1Sq, pCXY],
     [field.mul(kappa1Sq, kappa0), lhsZk1],
     [field.mul(field.mul(kappa1Sq, kappa0Sq), field.one), lhsZk2],
@@ -264,28 +271,28 @@ async function buildCopyOpenings(input: {
   const division = lhsForCopy.divByRuffini(chi, zeta);
 
   return {
-    Pi_CX: await encodePolynomialWithSigma1(runtime, crs, state.setup, division.quotientX),
-    Pi_CY: await encodePolynomialWithSigma1(runtime, crs, state.setup, division.quotientY),
+    Pi_CX: await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, division.quotientX),
+    Pi_CY: await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, division.quotientY),
   };
 }
 
-async function buildLagrangeK0(field: CurveRuntime["Fr"], mI: number): Promise<DensePolynomialExt> {
-  const k0Evals = Array.from({ length: mI }, () => field.zero);
-  k0Evals[0] = field.one;
-  return DensePolynomialExt.fromRouEvals(field, k0Evals, mI, 1);
+async function buildLagrangeK0(field: CurveRuntime["Fr"], mI: number): Promise<BivariatePolynomialBuffer> {
+  const k0Evals = field.createZeroBuffer(mI);
+  field.writeBufferElement(k0Evals, 0, field.one);
+  return BivariatePolynomialBuffer.fromRouEvals(field, k0Evals, mI, 1);
 }
 
-function mulByOneMinusX(polynomial: DensePolynomialExt): DensePolynomialExt {
+function mulByOneMinusX(polynomial: BivariatePolynomialBuffer): BivariatePolynomialBuffer {
   return polynomial.sub(polynomial.mulMonomial(1, 0));
 }
 
 function mulByTerm9(
-  polynomial: DensePolynomialExt,
+  polynomial: BivariatePolynomialBuffer,
   rB_X: readonly FieldElement[],
   rB_Y: readonly FieldElement[],
   tMiEval: FieldElement,
   tSMaxEval: FieldElement,
-): DensePolynomialExt {
+): BivariatePolynomialBuffer {
   if (rB_X.length !== 2 || rB_Y.length !== 2) {
     throw new Error("term9 requires two X blinding coefficients and two Y blinding coefficients.");
   }
@@ -304,13 +311,24 @@ function constantPolynomial(field: CurveRuntime["Fr"], value: FieldElement): Den
   return DensePolynomialExt.fromCoeffs(field, [value], 1, 1);
 }
 
-function linearCombination(
+function constantPolynomialBuffer(field: CurveRuntime["Fr"], value: FieldElement): BivariatePolynomialBuffer {
+  return BivariatePolynomialBuffer.fromCoeffs(field, [value], 1, 1);
+}
+
+function linearCombinationBuffer(
   field: CurveRuntime["Fr"],
-  terms: readonly (readonly [FieldElement, DensePolynomialExt])[],
-): DensePolynomialExt {
-  let accumulator = DensePolynomialExt.zero(field);
+  terms: readonly (readonly [FieldElement, BivariatePolynomialBuffer])[],
+): BivariatePolynomialBuffer {
+  let xSize = 1;
+  let ySize = 1;
+  for (const [, polynomial] of terms) {
+    xSize = Math.max(xSize, polynomial.xSize);
+    ySize = Math.max(ySize, polynomial.ySize);
+  }
+
+  const accumulator = BivariatePolynomialBuffer.zero(field).resize(xSize, ySize);
   for (const [scalar, polynomial] of terms) {
-    accumulator = accumulator.add(polynomial.scale(scalar));
+    accumulator.addScaledPrefixAssign(polynomial, scalar);
   }
 
   return accumulator;

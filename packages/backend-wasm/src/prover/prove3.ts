@@ -1,4 +1,4 @@
-import { DensePolynomialExt } from "../libs/polynomial/dense-polynomial.js";
+import { BivariatePolynomialBuffer } from "../libs/polynomial/bivariate-polynomial-buffer.js";
 import type { CurveRuntime } from "../libs/runtime/curve.js";
 import type { FieldElement } from "../libs/runtime/field.js";
 import type { ProverState } from "./state.js";
@@ -13,7 +13,7 @@ export interface Prove3Output {
 export function prove3(input: {
   readonly runtime: CurveRuntime;
   readonly state: ProverState;
-  readonly rXY: DensePolynomialExt;
+  readonly rXY: BivariatePolynomialBuffer;
   readonly chi: FieldElement;
   readonly zeta: FieldElement;
 }): Prove3Output {
@@ -22,14 +22,16 @@ export function prove3(input: {
   const mI = state.setup.l_D - state.setup.l;
   const omegaMI = field.rootOfUnity(mI);
   const omegaSMax = field.rootOfUnity(state.setup.s_max);
-  const VXY = linearCombination(field, [
-    [field.one, state.witness.vXY],
-    [state.mixer.rV_X, state.instance.tN],
-    [state.mixer.rV_Y, state.instance.tSMax],
+  const VXY = linearCombinationBuffer(field, [
+    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.vXY)],
+    [state.mixer.rV_X, BivariatePolynomialBuffer.fromDense(state.instance.tN)],
+    [state.mixer.rV_Y, BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
   ]);
-  const RXY = rXY
-    .add(state.instance.tMi.scale(state.mixer.rR_X))
-    .add(state.instance.tSMax.scale(state.mixer.rR_Y));
+  const RXY = linearCombinationBuffer(field, [
+    [field.one, rXY],
+    [state.mixer.rR_X, BivariatePolynomialBuffer.fromDense(state.instance.tMi)],
+    [state.mixer.rR_Y, BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+  ]);
   const rOmegaX = RXY.scaleCoeffsX(field.inv(omegaMI));
   const rOmegaXOmegaY = rOmegaX.scaleCoeffsY(field.inv(omegaSMax));
 
@@ -41,13 +43,20 @@ export function prove3(input: {
   };
 }
 
-function linearCombination(
+function linearCombinationBuffer(
   field: CurveRuntime["Fr"],
-  terms: readonly (readonly [FieldElement, DensePolynomialExt])[],
-): DensePolynomialExt {
-  let accumulator = DensePolynomialExt.zero(field);
+  terms: readonly (readonly [FieldElement, BivariatePolynomialBuffer])[],
+): BivariatePolynomialBuffer {
+  let xSize = 1;
+  let ySize = 1;
+  for (const [, polynomial] of terms) {
+    xSize = Math.max(xSize, polynomial.xSize);
+    ySize = Math.max(ySize, polynomial.ySize);
+  }
+
+  const accumulator = BivariatePolynomialBuffer.zero(field).resize(xSize, ySize);
   for (const [scalar, polynomial] of terms) {
-    accumulator = accumulator.add(polynomial.scale(scalar));
+    accumulator.addScaledPrefixAssign(polynomial, scalar);
   }
 
   return accumulator;
