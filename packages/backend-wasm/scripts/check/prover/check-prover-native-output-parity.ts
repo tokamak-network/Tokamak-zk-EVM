@@ -22,6 +22,7 @@ import {
   type CurveRuntime,
   type FieldElement,
   type Prove4DebugOutput,
+  type ProverMixer,
   type ProverRuntimeInput,
   type RuntimeArtifactBundleManifest,
 } from "../../../src/index.js";
@@ -77,7 +78,8 @@ async function main(): Promise<void> {
         (artifactPath) => readPreparedRuntimeFile(runtimeDir, artifactPath),
       ),
     );
-    const proverOutput = await provePreparedInputWithTimings(runtime, proverInput);
+    const nativeMixer = await readNativeProverMixer(runtime, path.join(sourceDir, "prove/prover_mixer.json"));
+    const proverOutput = await provePreparedInputWithTimings(runtime, proverInput, nativeMixer);
     await compareGeneratedProofArtifact(runtime, proverOutput.proofArtifact, sourceDir);
     await compareProof4Debug(runtime, proverOutput.proof4Debug, sourceDir);
   } finally {
@@ -90,6 +92,7 @@ async function main(): Promise<void> {
 async function provePreparedInputWithTimings(
   runtime: CurveRuntime,
   input: ProverRuntimeInput,
+  mixer: ProverMixer,
 ): Promise<{ readonly proofArtifact: Uint8Array; readonly proof4Debug: Prove4DebugOutput }> {
   const witness = await timed("build witness polynomials", () => buildWitnessPolynomials(runtime.Fr, input.witness));
   const state = await timed("create prover state", () =>
@@ -99,6 +102,7 @@ async function provePreparedInputWithTimings(
       publicInstance: input.publicInstance,
       permutation: input.permutation,
       witness,
+      mixer,
     }),
   );
   const binding = await timed("build prover binding", () =>
@@ -170,6 +174,58 @@ async function provePreparedInputWithTimings(
         prove4: prove4Output,
       }),
     ),
+  };
+}
+
+async function readNativeProverMixer(runtime: CurveRuntime, filePath: string): Promise<ProverMixer> {
+  const source = await readJsonFile<{
+    readonly rU_X: string;
+    readonly rU_Y: string;
+    readonly rV_X: string;
+    readonly rV_Y: string;
+    readonly rW_X: readonly string[];
+    readonly rW_Y: readonly string[];
+    readonly rB_X: readonly string[];
+    readonly rB_Y: readonly string[];
+    readonly rO_mid: string;
+    readonly rR_X: string;
+    readonly rR_Y: string;
+  }>(
+    filePath,
+    [
+      "Native proof point parity requires the exact prover blinding randomness used by the copied native proof.",
+      "Different prover randomness legitimately changes proof0.U and the rest of the proof, so point-by-point native proof comparison is invalid without this file.",
+      "Expected copied owner output shape: prove/prover_mixer.json with hex fields rU_X, rU_Y, rV_X, rV_Y, rW_X[4], rW_Y[4], rB_X[2], rB_Y[2], rO_mid, rR_X, and rR_Y.",
+    ].join(" "),
+  );
+
+  const parseScalar = (value: string, name: string): FieldElement => {
+    try {
+      return runtime.Fr.fromHex(value);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Invalid native prover mixer scalar '${name}': ${message}`);
+    }
+  };
+  const parseScalarArray = (values: readonly string[], name: string, expectedLength: number): readonly FieldElement[] => {
+    if (values.length !== expectedLength) {
+      throw new Error(`Native prover mixer '${name}' length must be ${expectedLength}, got ${values.length}.`);
+    }
+    return values.map((value, index) => parseScalar(value, `${name}[${index}]`));
+  };
+
+  return {
+    rU_X: parseScalar(source.rU_X, "rU_X"),
+    rU_Y: parseScalar(source.rU_Y, "rU_Y"),
+    rV_X: parseScalar(source.rV_X, "rV_X"),
+    rV_Y: parseScalar(source.rV_Y, "rV_Y"),
+    rW_X: parseScalarArray(source.rW_X, "rW_X", 4),
+    rW_Y: parseScalarArray(source.rW_Y, "rW_Y", 4),
+    rB_X: parseScalarArray(source.rB_X, "rB_X", 2),
+    rB_Y: parseScalarArray(source.rB_Y, "rB_Y", 2),
+    rO_mid: parseScalar(source.rO_mid, "rO_mid"),
+    rR_X: parseScalar(source.rR_X, "rR_X"),
+    rR_Y: parseScalar(source.rR_Y, "rR_Y"),
   };
 }
 
@@ -337,7 +393,7 @@ async function readPreparedRuntimeFile(runtimeDir: string, artifactPath: string)
   }
 }
 
-async function readJsonFile<T>(filePath: string): Promise<T> {
+async function readJsonFile<T>(filePath: string, missingHint?: string): Promise<T> {
   try {
     return JSON.parse(new TextDecoder().decode(await readFile(filePath))) as T;
   } catch (error) {
@@ -346,8 +402,9 @@ async function readJsonFile<T>(filePath: string): Promise<T> {
       [
         `Required copied owner output is missing or invalid: ${path.relative(process.cwd(), filePath)}.`,
         "Run npm run fixtures:copy after preparing the owner package output.",
+        missingHint,
         `Original read error: ${message}`,
-      ].join(" "),
+      ].filter((part) => part !== undefined && part !== "").join(" "),
     );
   }
 }
