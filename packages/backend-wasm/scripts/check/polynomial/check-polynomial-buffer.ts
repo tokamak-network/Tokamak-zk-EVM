@@ -4,10 +4,19 @@ import { fileURLToPath } from "node:url";
 import {
   BivariatePolynomialBuffer,
   DensePolynomialExt,
+  biNttBuffer,
   createCurveRuntime,
   encodePolynomialBufferWithSigma1,
+  intt2d,
+  ntt2d,
 } from "../../../src/index.js";
 import type { CurveRuntime, FieldElement, FieldRuntime, ProverCrsRuntime, ProverSetupParams } from "../../../src/index.js";
+import {
+  lowDegreeXTimesVanishingBuffer,
+  lowDegreeYTimesVanishingBuffer,
+  mulByLinearX,
+  mulByLinearY,
+} from "../../../src/prover/stages/polynomial-ops.js";
 
 async function main(): Promise<void> {
   const runtime = await createCurveRuntime();
@@ -161,11 +170,44 @@ async function checkOperationParityMatrix(field: FieldRuntime): Promise<readonly
     const yScale = field.fromBigInt(37n);
     const xPoint = field.fromBigInt(41n);
     const yPoint = field.fromBigInt(43n);
+    const replacement = field.fromBigInt(47n);
+    const linearX = [field.fromBigInt(53n), field.fromBigInt(59n)];
+    const linearY = [field.fromBigInt(61n), field.fromBigInt(67n)];
     const targetXSize = testCase.xSize * 2;
     const targetYSize = testCase.ySize * 2;
 
     await recordOperation(records, "fromCoeffs/toCoeffs", testCase.label, () => dense.toHexCoeffs(), () => buffer.toHexCoeffs());
+    await recordOperation(
+      records,
+      "fromBuffer",
+      testCase.label,
+      () => dense.toHexCoeffs(),
+      () => BivariatePolynomialBuffer.fromBuffer(field, field.concat(testCase.coefficients), testCase.xSize, testCase.ySize).toHexCoeffs(),
+    );
+    await recordOperation(records, "fromDense", testCase.label, () => dense.toHexCoeffs(), () => BivariatePolynomialBuffer.fromDense(dense).toHexCoeffs());
     await recordOperation(records, "toDense", testCase.label, () => dense.toHexCoeffs(), () => buffer.toDense().toHexCoeffs());
+    await recordOperation(
+      records,
+      "getCoeff",
+      testCase.label,
+      () => field.toHex(dense.getCoeff(Math.min(1, testCase.xSize - 1), Math.min(1, testCase.ySize - 1))),
+      () => field.toHex(buffer.getCoeff(Math.min(1, testCase.xSize - 1), Math.min(1, testCase.ySize - 1))),
+    );
+    await recordOperation(
+      records,
+      "setCoeff",
+      testCase.label,
+      () => {
+        const expected = [...testCase.coefficients];
+        expected[Math.min(1, testCase.xSize - 1) * testCase.ySize + Math.min(1, testCase.ySize - 1)] = replacement;
+        return formatFields(field, expected);
+      },
+      () => {
+        const clone = buffer.clone();
+        clone.setCoeff(Math.min(1, testCase.xSize - 1), Math.min(1, testCase.ySize - 1), replacement);
+        return clone.toHexCoeffs();
+      },
+    );
     await recordOperation(records, "findDegree", testCase.label, () => dense.findDegree(), () => buffer.findDegree());
     await recordOperation(records, "optimizeSize", testCase.label, () => dense.optimizeSize().toHexCoeffs(), () => buffer.optimizeSize().toHexCoeffs());
     await recordOperation(records, "resize", testCase.label, () => dense.resize(targetXSize, targetYSize).toHexCoeffs(), () => buffer.resize(targetXSize, targetYSize).toHexCoeffs());
@@ -193,7 +235,36 @@ async function checkOperationParityMatrix(field: FieldRuntime): Promise<readonly
     await recordOperation(records, "scaleCoeffsX", testCase.label, () => dense.scaleCoeffsX(xScale).toHexCoeffs(), () => buffer.scaleCoeffsX(xScale).toHexCoeffs());
     await recordOperation(records, "scaleCoeffsY", testCase.label, () => dense.scaleCoeffsY(yScale).toHexCoeffs(), () => buffer.scaleCoeffsY(yScale).toHexCoeffs());
     await recordOperation(records, "mulMonomial", testCase.label, () => dense.mulMonomial(1, 1).toHexCoeffs(), () => buffer.mulMonomial(1, 1).toHexCoeffs());
+    await recordOperation(
+      records,
+      "mulByLinearX",
+      testCase.label,
+      () => dense.scale(linearX[0]).add(dense.mulMonomial(1, 0).scale(linearX[1])).toHexCoeffs(),
+      () => mulByLinearX(buffer, linearX).toHexCoeffs(),
+    );
+    await recordOperation(
+      records,
+      "mulByLinearY",
+      testCase.label,
+      () => dense.scale(linearY[0]).add(dense.mulMonomial(0, 1).scale(linearY[1])).toHexCoeffs(),
+      () => mulByLinearY(buffer, linearY).toHexCoeffs(),
+    );
     await recordOperation(records, "mul", testCase.label, () => dense.mul(otherDense).toHexCoeffs(), async () => (await buffer.mul(otherBuffer)).toHexCoeffs());
+    await recordOperation(
+      records,
+      "biNtt forward",
+      testCase.label,
+      async () => formatFields(field, await ntt2d(field, testCase.coefficients, testCase.xSize, testCase.ySize)),
+      async () => formatFields(field, field.split(await biNttBuffer(field, field.concat(testCase.coefficients), testCase.xSize, testCase.ySize, "forward"))),
+    );
+    const denseNttEvals = await ntt2d(field, testCase.coefficients, testCase.xSize, testCase.ySize);
+    await recordOperation(
+      records,
+      "biNtt inverse",
+      testCase.label,
+      async () => formatFields(field, await intt2d(field, denseNttEvals, testCase.xSize, testCase.ySize)),
+      async () => formatFields(field, field.split(await biNttBuffer(field, field.concat(denseNttEvals), testCase.xSize, testCase.ySize, "inverse"))),
+    );
     await recordOperation(
       records,
       "toRouEvals",
@@ -243,6 +314,7 @@ async function checkOperationParityMatrix(field: FieldRuntime): Promise<readonly
   }
 
   await recordVanishingDivisionOperation(field, records);
+  await recordLowDegreeVanishingOperations(field, records);
   return records;
 }
 
@@ -288,6 +360,35 @@ async function recordVanishingDivisionOperation(field: FieldRuntime, records: Op
     () => formatVanishingDivision(numerator.divByVanishingOpt(vanishingXDegree, vanishingYDegree)),
     () => formatBufferVanishingDivision(buffer.divByVanishingOpt(vanishingXDegree, vanishingYDegree)),
   );
+}
+
+async function recordLowDegreeVanishingOperations(field: FieldRuntime, records: OperationParityRecord[]): Promise<void> {
+  const coefficients = [3n, 5n, 7n].map((value) => field.fromBigInt(value));
+  const exponent = 4;
+  await recordOperation(
+    records,
+    "lowDegreeXTimesVanishing",
+    `${coefficients.length}/${exponent}`,
+    () =>
+      DensePolynomialExt.fromCoeffs(field, padFieldArray(field, coefficients, nextPowerOfTwo(coefficients.length)), nextPowerOfTwo(coefficients.length), 1)
+        .mul(vanishingPolynomialX(field, exponent))
+        .toHexCoeffs(),
+    () => lowDegreeXTimesVanishingBuffer(field, coefficients, exponent).toHexCoeffs(),
+  );
+  await recordOperation(
+    records,
+    "lowDegreeYTimesVanishing",
+    `${coefficients.length}/${exponent}`,
+    () =>
+      DensePolynomialExt.fromCoeffs(field, padFieldArray(field, coefficients, nextPowerOfTwo(coefficients.length)), 1, nextPowerOfTwo(coefficients.length))
+        .mul(vanishingPolynomialY(field, exponent))
+        .toHexCoeffs(),
+    () => lowDegreeYTimesVanishingBuffer(field, coefficients, exponent).toHexCoeffs(),
+  );
+}
+
+function padFieldArray(field: FieldRuntime, values: readonly FieldElement[], length: number): FieldElement[] {
+  return [...values, ...Array.from({ length: length - values.length }, () => field.zero)];
 }
 
 async function recordOperation<T>(
