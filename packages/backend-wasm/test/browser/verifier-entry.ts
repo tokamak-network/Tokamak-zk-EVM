@@ -13,7 +13,7 @@ import {
   type FieldElement,
   type RuntimeArtifactBundleManifest,
 } from "../../src/index.js";
-import type { VerifierInput } from "../../src/verifier/verify-snark.js";
+import type { VerifierInput } from "../../src/verifier/internal/verify-snark.js";
 
 declare global {
   interface Window {

@@ -20,41 +20,79 @@ Runtime subcircuit artifacts come from the `@tokamak-zk-evm/subcircuit-library` 
 packages/backend-wasm/
   src/
     index.ts
-    libs/
-      artifact-loaders/
+    artifacts/
+      bundles/
+      format/
+      loaders/
+      specs/
+    core/
       crypto/
+      curve/
+      field/
+      group/
+      pairing/
       polynomial/
-      runtime/
-      serialization/
+      random/
     prover/
-    tools/
+      api/
+      generated/
+      internal/
+      stages/
+    tooling/
       artifact-converters/
+      artifact-validators/
     utils/
     verifier/
+      api/
+      equations/
+      generated/
+      internal/
   scripts/
   fixtures/
   test/
+  tools/
 ```
 
-### `src/libs/`
+### `src/core/`
 
-Runtime libraries that `src/prover` and `src/verifier` may directly depend on.
+Runtime primitives that `src/prover` and `src/verifier` may directly depend on.
 
-- `artifact-loaders/`: binary artifact loading, section lookup, CRS digest types, and runtime artifact validation boundaries.
 - `crypto/`: Keccak and transcript primitives matching the native backend byte layout.
+- `curve/`, `field/`, `group/`, `pairing/`, and `random/`: `ffjavascript` adapters for BLS12-381 runtime operations.
 - `polynomial/`: bivariate dense polynomial helpers, NTT wrappers, domains, and Lagrange evaluation helpers.
-- `runtime/`: `ffjavascript` curve, field, group, pairing, MSM, and random scalar adapters.
-- `serialization/`: runtime bundle manifest types, binary artifact file format, typed file-kind/version/digest tables, section table encoding, and digest validation.
+
+### `src/artifacts/`
+
+Runtime artifact definitions and access helpers.
+
+- `bundles/`: runtime bundle manifest types.
+- `format/`: binary artifact file format, typed file-kind/version/digest tables, and section table encoding.
+- `loaders/`: minimal runtime artifact file loading and typed section lookup.
+- `specs/`: JSON source specs and generated TypeScript constants for each binary artifact kind.
 
 ### `src/verifier/`
 
-Verifier orchestration for the custom Tokamak protocol. This layer composes `src/libs/` primitives and should not parse JSON, decode rkyv, or perform import/export formatting.
+Verifier orchestration for the custom Tokamak protocol.
+
+- `api/`: public binary verifier entrypoint and runtime binary input assembly.
+- `equations/`: verifier equations, challenges, and domain context.
+- `generated/`: build-generated verifier CRS data.
+- `internal/`: decoded-input verifier core used by the public API and diagnostics.
+
+This layer composes `src/core/` and `src/artifacts/` primitives and should not parse JSON, decode rkyv, or perform import/export formatting.
 
 ### `src/prover/`
 
-Prover orchestration entry points and stage placeholders. The prover port should preserve the native backend's accepted algorithmic structure and optimization strategy instead of replacing it with a naive expression-only translation.
+Prover orchestration entry points and stage implementations.
 
-### `src/tools/`
+- `api/`: public binary prover entrypoint, decoded prover orchestration, runtime binary input assembly, and proof output assembly.
+- `stages/`: `prove0` through `prove4` and shared stage-local polynomial helpers.
+- `internal/`: witness/state construction and package version helpers.
+- `generated/`: build-generated subcircuit-library data.
+
+The prover port should preserve the native backend's accepted algorithmic structure and optimization strategy instead of replacing it with a naive expression-only translation.
+
+### `src/tooling/`
 
 Web-compatible tooling libraries that are not imported by prover or verifier runtime orchestration. Artifact converters live here so applications or local CLIs can build conversion workflows without putting conversion work in runtime prove/verify paths.
 
@@ -64,17 +102,28 @@ Small generic helpers shared by implementation modules. Protocol logic, artifact
 
 ### `scripts/`
 
-Local development and validation scripts. These scripts check fixtures, binary artifact file behavior, runtime arithmetic, polynomial parity, and verifier parity.
+Local development and validation scripts. These scripts check fixtures, binary artifact file behavior, runtime arithmetic, polynomial parity, prover parity, and verifier parity.
 
-`scripts/copy-fixtures.ts` performs only the first fixture update stage. It copies source artifacts from existing owner package outputs under `packages/` into the package-local ignored work area under `packages/backend-wasm/tmp/fixture-work/`. It must not generate missing artifacts and must not write final runtime fixture files. `scripts/prepare-runtime-fixtures.ts` is the local file I/O wrapper for the current verifier runtime fixture conversion stage and delegates artifact conversion to `src/tools/artifact-converters/`.
+- `scripts/check/`: grouped validation scripts for artifacts, browser checks, fixtures, polynomial operations, prover diagnostics, and verifier diagnostics.
+- `scripts/fixtures/`: local fixture copy, conversion, and preparation wrappers.
+- `scripts/generate/`: generated TypeScript source updaters for artifact specs, subcircuit-library data, and verifier CRS.
+- `scripts/diagnose/`: ad hoc diagnostic scripts that should not become runtime code.
+
+`scripts/fixtures/copy-fixtures.ts` performs only the first fixture update stage. It copies source artifacts from existing owner package outputs under `packages/` into the package-local ignored work area under `packages/backend-wasm/tmp/fixture-work/`. It must not generate missing artifacts and must not write final runtime fixture files. `scripts/fixtures/prepare-runtime-fixtures.ts` is the local file I/O wrapper for the current verifier runtime fixture conversion stage and delegates artifact conversion to `src/tooling/artifact-converters/`.
 
 ### `fixtures/`
 
 Curated parity fixtures for validating the TypeScript runtime against prepared native outputs. Test fixture preparation follows a controlled copy-convert-store pipeline: copy owner package outputs into a package-local temporary work area, convert them through web-compatible converter APIs, then store converted files under this package's ignored fixture directories. This package must not regenerate fixtures by running native binaries, setup flows, prover flows, verifier flows, or fixture exporters.
 
+Fixtures are development assets and are not included in the package distribution whitelist.
+
 ### `test/`
 
-Reserved test directories for unit, parity, and integration coverage as the package grows.
+Reserved test directories for browser, benchmark, unit, parity, and integration coverage as the package grows. Benchmark code lives under `test/benchmarks/`, not under `src/`, so it cannot be mistaken for distributable runtime source.
+
+### `tools/`
+
+Independent helper packages that are built separately from the TypeScript runtime. `tools/rkyv-decoder-wasm/` owns the Rust/WASM rkyv decoder used by converter tooling and must not be imported by prover or verifier runtime algorithms.
 
 ## Artifact Policy
 
@@ -91,7 +140,7 @@ Runtime bundle manifests do not carry free-form metadata or external expected fi
 
 Proof, instance, CRS, and preprocess data must remain in separate binary artifact files. Setup params are generated into the package build output from the pinned subcircuit-library package and are not represented as runtime binary artifact files or verifier preprocess sections.
 
-The `sigma_verify` binary layout must be managed by `src/libs/artifact-loaders/specs/sigma-verify.v1.json`. Generated verifier CRS data lives in `src/verifier/generated/sigma-verify.generated.ts`; runtime verifier code imports that generated data and must not load JSON assets or verifier CRS bundle files directly.
+The `sigma_verify` binary layout must be managed by `src/artifacts/specs/sigma-verify.v1.json`. Generated verifier CRS data lives in `src/verifier/generated/sigma-verify.generated.ts`; runtime verifier code imports that generated data and must not load JSON assets or verifier CRS bundle files directly.
 
 ## Development
 
@@ -114,7 +163,7 @@ Use `npm run fixtures:prepare` after `fixtures:copy` to convert the copied sourc
 
 Use `npm run verifier-crs:generate` only after the owner package has prepared `../backend/setup/output/sigma_verify.json`. The underlying generator requires an explicit `--input` path and fails if the source artifact cannot be read. `npm run build` runs this generation step before TypeScript compilation, so verifier builds must not reuse an existing generated CRS file.
 
-Use `npm run specs:generate` after editing JSON specs under `src/libs/artifact-loaders/specs/`.
+Use `npm run specs:generate` after editing JSON specs under `src/artifacts/specs/`.
 
 ## License
 

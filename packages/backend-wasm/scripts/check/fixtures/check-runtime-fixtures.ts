@@ -1,0 +1,338 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import {
+  RollingKeccakTranscript,
+  createCurveRuntime,
+  type AffinePointJson,
+  type PairingTerm,
+} from "../../../src/index.js";
+
+interface ScalarFixtureInput {
+  readonly operands: {
+    readonly a: string;
+    readonly b: string;
+    readonly c: string;
+  };
+}
+
+interface ScalarFixtureExpected {
+  readonly results: Record<string, string>;
+}
+
+interface MsmFixtureInput {
+  readonly bases: readonly AffinePointJson[];
+  readonly scalars: readonly string[];
+}
+
+interface RootsOfUnityFixtureInput {
+  readonly sizes: readonly number[];
+}
+
+interface RootsOfUnityFixtureExpected {
+  readonly cases: readonly RootsOfUnityExpectedCase[];
+}
+
+interface RootsOfUnityExpectedCase {
+  readonly size: number;
+  readonly root: string;
+}
+
+interface MsmFixtureExpected {
+  readonly result: AffinePointJson;
+}
+
+interface PairingFixtureInput {
+  readonly true_case: PairingFixtureCase;
+  readonly false_case: PairingFixtureCase;
+}
+
+interface PairingFixtureCase {
+  readonly left: readonly PairingTermJson[];
+  readonly right: readonly PairingTermJson[];
+}
+
+interface PairingTermJson {
+  readonly g1: AffinePointJson;
+  readonly g2: AffinePointJson;
+}
+
+interface PairingFixtureExpected {
+  readonly true_case_products_equal: boolean;
+  readonly false_case_products_equal: boolean;
+}
+
+interface TranscriptFixtureInput {
+  readonly operations: readonly TranscriptOperation[];
+}
+
+type TranscriptOperation =
+  | {
+      readonly type: "CommitBytes";
+      readonly value_hex: string;
+    }
+  | {
+      readonly type: "CommitField";
+      readonly value: string;
+    }
+  | {
+      readonly type: "CommitG1";
+      readonly value: AffinePointJson;
+    }
+  | {
+      readonly type: "GetChallenges";
+      readonly count: number;
+    };
+
+interface TranscriptFixtureExpected {
+  readonly challenges: readonly string[];
+}
+
+async function readJson<T>(filePath: string): Promise<T> {
+  return JSON.parse(await readFile(filePath, "utf8")) as T;
+}
+
+function assertEqual(actual: unknown, expected: unknown, label: string): void {
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new Error(`${label} mismatch: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  }
+}
+
+async function main(): Promise<void> {
+  const fixturesDir = path.resolve("fixtures/small");
+  const runtime = await createCurveRuntime();
+
+  try {
+    const scalarInput = await readJson<ScalarFixtureInput>(
+      path.join(fixturesDir, "input/scalar-ops-basic.json"),
+    );
+    const scalarExpected = await readJson<ScalarFixtureExpected>(
+      path.join(fixturesDir, "expected/scalar-ops-basic.json"),
+    );
+    const a = runtime.Fr.fromHex(scalarInput.operands.a);
+    const b = runtime.Fr.fromHex(scalarInput.operands.b);
+    const c = runtime.Fr.fromHex(scalarInput.operands.c);
+
+    assertEqual(runtime.Fr.toHex(runtime.Fr.zero), scalarExpected.results.zero, "scalar zero");
+    assertEqual(runtime.Fr.toHex(runtime.Fr.one), scalarExpected.results.one, "scalar one");
+    assertEqual(runtime.Fr.toHex(a), scalarExpected.results.a, "scalar a");
+    assertEqual(runtime.Fr.toHex(b), scalarExpected.results.b, "scalar b");
+    assertEqual(runtime.Fr.toHex(c), scalarExpected.results.c, "scalar c");
+    assertEqual(runtime.Fr.toHex(runtime.Fr.add(a, b)), scalarExpected.results.add_ab, "scalar add");
+    assertEqual(runtime.Fr.toHex(runtime.Fr.sub(a, b)), scalarExpected.results.sub_ab, "scalar sub");
+    assertEqual(runtime.Fr.toHex(runtime.Fr.mul(a, b)), scalarExpected.results.mul_ab, "scalar mul");
+    assertEqual(runtime.Fr.toHex(runtime.Fr.neg(a)), scalarExpected.results.neg_a, "scalar neg");
+    assertEqual(runtime.Fr.toHex(runtime.Fr.inv(b)), scalarExpected.results.inv_b, "scalar inv");
+    assertEqual(runtime.Fr.toHex(runtime.Fr.pow(a, 5n)), scalarExpected.results.pow_a_5, "scalar pow");
+    assertEqual(runtime.Fr.toHex(runtime.Fr.fromHex(runtime.Fr.toHex(c))), scalarExpected.results.round_trip_c, "scalar round trip");
+
+    const rootsInput = await readJson<RootsOfUnityFixtureInput>(
+      path.join(fixturesDir, "input/roots-of-unity-small.json"),
+    );
+    const rootsExpected = await readJson<RootsOfUnityFixtureExpected>(
+      path.join(fixturesDir, "expected/roots-of-unity-small.json"),
+    );
+    for (const size of rootsInput.sizes) {
+      const expectedCase = rootsExpected.cases.find((candidate) => candidate.size === size);
+      if (expectedCase === undefined) {
+        throw new Error(`Missing expected root-of-unity case: ${size}.`);
+      }
+
+      assertEqual(runtime.Fr.toHex(runtime.Fr.rootOfUnity(size)), expectedCase.root, `root of unity ${size}`);
+    }
+
+    const msmInput = await readJson<MsmFixtureInput>(path.join(fixturesDir, "input/msm-small.json"));
+    const msmExpected = await readJson<MsmFixtureExpected>(
+      path.join(fixturesDir, "expected/msm-small.json"),
+    );
+    const msmBases = msmInput.bases.map((base) => runtime.G1.parseAffine(base));
+    const msmScalars = msmInput.scalars.map((scalar) => runtime.Fr.fromHex(scalar));
+    checkAffineScalarMultiplication(runtime, msmBases, msmScalars);
+    await checkCoordinateFormPreservation(runtime, msmBases, msmScalars);
+    if (process.env.BACKEND_WASM_BENCH_AFFINE_MUL === "1") {
+      await benchmarkAffineScalarMultiplication(runtime, msmBases, msmScalars);
+    }
+
+    const msmResult = await runtime.G1.msmAffine(msmBases, msmScalars);
+    assertEqual(runtime.G1.formatAffine(msmResult), msmExpected.result, "G1 MSM");
+
+    const pairingInput = await readJson<PairingFixtureInput>(
+      path.join(fixturesDir, "input/pairing-small.json"),
+    );
+    const pairingExpected = await readJson<PairingFixtureExpected>(
+      path.join(fixturesDir, "expected/pairing-small.json"),
+    );
+    assertEqual(
+      await runtime.pairing.productsEqual(
+        parsePairingTerms(runtime, pairingInput.true_case.left),
+        parsePairingTerms(runtime, pairingInput.true_case.right),
+      ),
+      pairingExpected.true_case_products_equal,
+      "pairing true case",
+    );
+    assertEqual(
+      await runtime.pairing.productsEqual(
+        parsePairingTerms(runtime, pairingInput.false_case.left),
+        parsePairingTerms(runtime, pairingInput.false_case.right),
+      ),
+      pairingExpected.false_case_products_equal,
+      "pairing false case",
+    );
+
+    const transcriptInput = await readJson<TranscriptFixtureInput>(
+      path.join(fixturesDir, "input/transcript-small.json"),
+    );
+    const transcriptExpected = await readJson<TranscriptFixtureExpected>(
+      path.join(fixturesDir, "expected/transcript-small.json"),
+    );
+    const transcript = new RollingKeccakTranscript(runtime.Fr);
+    const challenges: string[] = [];
+
+    for (const operation of transcriptInput.operations) {
+      switch (operation.type) {
+        case "CommitBytes":
+          transcript.commitBytes(parseHexBytes(operation.value_hex));
+          break;
+        case "CommitField":
+          transcript.commitFieldHex(operation.value);
+          break;
+        case "CommitG1":
+          transcript.commitG1Affine(operation.value);
+          break;
+        case "GetChallenges":
+          challenges.push(...transcript.getChallenges(operation.count).map((challenge) => runtime.Fr.toHex(challenge)));
+          break;
+      }
+    }
+
+    assertEqual(challenges, transcriptExpected.challenges, "RollingKeccakTranscript challenges");
+  } finally {
+    await runtime.terminate();
+  }
+
+  console.log("Checked runtime field, MSM, pairing, and transcript fixtures");
+}
+
+function checkAffineScalarMultiplication(
+  runtime: Awaited<ReturnType<typeof createCurveRuntime>>,
+  bases: readonly Uint8Array[],
+  scalars: readonly Uint8Array[],
+): void {
+  if (bases.length !== scalars.length) {
+    throw new Error("Affine scalar multiplication check requires equal point and scalar counts.");
+  }
+
+  for (let index = 0; index < bases.length; index += 1) {
+    const generic = runtime.G1.mulScalar(bases[index], scalars[index]);
+    const affine = runtime.G1.mulAffineScalar(bases[index], scalars[index]);
+    if (!runtime.G1.eq(generic, affine)) {
+      throw new Error(`G1 affine scalar multiplication mismatch at index ${index}.`);
+    }
+  }
+}
+
+async function checkCoordinateFormPreservation(
+  runtime: Awaited<ReturnType<typeof createCurveRuntime>>,
+  bases: readonly Uint8Array[],
+  scalars: readonly Uint8Array[],
+): Promise<void> {
+  if (bases.length < 2 || scalars.length === 0) {
+    throw new Error("Coordinate-form preservation check requires at least two bases and one scalar.");
+  }
+
+  const projectiveBase = runtime.G1.add(bases[0], bases[1]);
+  const scalar = scalars[0];
+  const projectiveResult = runtime.G1.mulScalar(projectiveBase, scalar);
+  const affineResult = runtime.G1.mulAffineScalar(runtime.G1.toAffine(projectiveBase), scalar);
+
+  if (!runtime.G1.eq(projectiveResult, affineResult)) {
+    throw new Error("G1 projective scalar multiplication result does not match affine reference.");
+  }
+
+  let rejectedProjectiveBase = false;
+  try {
+    await runtime.G1.msmAffine([projectiveBase], [scalar]);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("affine G1 point")) {
+      rejectedProjectiveBase = true;
+    } else {
+      throw error;
+    }
+  }
+
+  if (!rejectedProjectiveBase) {
+    throw new Error("G1 msmAffine accepted a non-affine base.");
+  }
+}
+
+async function benchmarkAffineScalarMultiplication(
+  runtime: Awaited<ReturnType<typeof createCurveRuntime>>,
+  bases: readonly Uint8Array[],
+  scalars: readonly Uint8Array[],
+): Promise<void> {
+  const iterations = 200;
+  const genericMs = await measure(iterations, () => {
+    for (let index = 0; index < bases.length; index += 1) {
+      runtime.G1.mulScalar(bases[index], scalars[index]);
+    }
+  });
+  const affineMs = await measure(iterations, () => {
+    for (let index = 0; index < bases.length; index += 1) {
+      runtime.G1.mulAffineScalar(bases[index], scalars[index]);
+    }
+  });
+
+  console.log(
+    `G1 affine scalar multiplication timing: generic ${genericMs.toFixed(3)} ms/op affine ${affineMs.toFixed(
+      3,
+    )} ms/op`,
+  );
+}
+
+async function measure(iterations: number, callback: () => void): Promise<number> {
+  for (let index = 0; index < 10; index += 1) {
+    callback();
+  }
+
+  const start = performance.now();
+  for (let index = 0; index < iterations; index += 1) {
+    callback();
+  }
+
+  return (performance.now() - start) / iterations;
+}
+
+function parsePairingTerms(
+  runtime: Awaited<ReturnType<typeof createCurveRuntime>>,
+  terms: readonly PairingTermJson[],
+): PairingTerm[] {
+  return terms.map((term) => ({
+    g1: runtime.G1.parseAffine(term.g1),
+    g2: runtime.G2.parseAffine(term.g2),
+  }));
+}
+
+function parseHexBytes(value: string): Uint8Array {
+  if (!/^0x([0-9a-fA-F]{2})*$/.test(value)) {
+    throw new Error("Expected a 0x-prefixed even-length byte string.");
+  }
+
+  const hex = value.slice(2);
+  const output = new Uint8Array(hex.length / 2);
+  for (let index = 0; index < output.length; index += 1) {
+    output[index] = Number.parseInt(hex.slice(index * 2, index * 2 + 2), 16);
+  }
+
+  return output;
+}
+
+const entrypoint = fileURLToPath(import.meta.url);
+
+if (process.argv[1] === entrypoint) {
+  main().catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Runtime fixture check failed: ${message}`);
+    process.exitCode = 1;
+  });
+}

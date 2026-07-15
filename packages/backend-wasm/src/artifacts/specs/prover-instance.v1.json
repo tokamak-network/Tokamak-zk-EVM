@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "name": "prover_instance",
+  "sections": [
+    {
+      "label": "instance.public",
+      "type": "Instance",
+      "encoding": "ffjs-fr-montgomery-le-32",
+      "elementCount": null,
+      "elementByteLength": 32,
+      "points": []
+    }
+  ]
+}

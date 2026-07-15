@@ -1,8 +1,8 @@
-export * from "./binary-input.js";
-export * from "./challenges.js";
-export * from "./domain-context.js";
-export * from "./equations.js";
-export * from "./verify-binary.js";
+export * from "./api/binary-input.js";
+export * from "./equations/challenges.js";
+export * from "./equations/domain-context.js";
+export * from "./equations/equations.js";
+export * from "./api/verify-binary.js";
 export type {
   SigmaVerifyRuntime,
   VerifierInput,
@@ -10,4 +10,4 @@ export type {
   VerifierProof,
   VerifySnarkOptions,
   VerifySnarkResult,
-} from "./verify-snark.js";
+} from "./internal/verify-snark.js";

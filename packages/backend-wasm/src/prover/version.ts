@@ -1,1 +1,0 @@
-export const BACKEND_WASM_PACKAGE_VERSION = "2.1.1";
