@@ -111,7 +111,6 @@ export async function createProverState(input: {
   readonly publicInstance: readonly FieldElement[];
   readonly permutation: readonly ProverPermutationEntry[];
   readonly witness: WitnessPolynomials;
-  readonly mixer?: ProverMixer;
 }): Promise<ProverState> {
   return {
     setup: input.setup,
@@ -122,7 +121,7 @@ export async function createProverState(input: {
       input.permutation,
     ),
     witness: input.witness,
-    mixer: input.mixer ?? await createProverMixer(input.runtime),
+    mixer: await createProverMixer(input.runtime),
     quotients: createEmptyProverQuotients(input.runtime.Fr),
     cache: {},
   };

@@ -5,7 +5,6 @@ import { fileURLToPath } from "node:url";
 import { loadRuntimeArtifactBySpec } from "../../../src/artifacts/specs/format-spec-loader.js";
 import { PROVER_CRS_V1_SPEC } from "../../../src/artifacts/specs/prover-crs.v1.generated.js";
 import { SIGMA_VERIFY_V1_SPEC } from "../../../src/artifacts/specs/sigma-verify.v1.generated.js";
-import { TEST_BINARY_V1_SPEC } from "../../../src/artifacts/specs/test-binary.v1.generated.js";
 import { VERIFIER_PREPROCESS_V1_SPEC } from "../../../src/artifacts/specs/verifier-preprocess.v1.generated.js";
 import {
   BinaryArtifactFileKind,
@@ -28,6 +27,7 @@ import {
   validateRuntimeArtifactFile,
   validateRuntimeBundle,
 } from "../../../src/index.js";
+import { TEST_BINARY_V1_SPEC } from "../test-binary-spec.js";
 
 interface ScalarFixtureInput {
   readonly operands: {

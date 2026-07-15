@@ -48,11 +48,6 @@ const SPEC_JOBS: readonly SpecJob[] = [
     generatedPath: "src/artifacts/specs/prover-instance.v1.generated.ts",
     constName: "PROVER_INSTANCE_V1_SPEC",
   },
-  {
-    jsonPath: "src/artifacts/specs/test-binary.v1.json",
-    generatedPath: "src/artifacts/specs/test-binary.v1.generated.ts",
-    constName: "TEST_BINARY_V1_SPEC",
-  },
 ];
 
 interface RawSpec {
@@ -116,8 +111,7 @@ function parseRawSpec(raw: unknown, sourcePath: string): RawSpec {
     raw.name !== "prover_placement_variables" &&
     raw.name !== "prover_permutation" &&
     raw.name !== "prover_instance" &&
-    raw.name !== "prover_setup_params" &&
-    raw.name !== "test_binary"
+    raw.name !== "prover_setup_params"
   ) {
     throw new Error(`${sourcePath} has unsupported spec name: ${String(raw.name)}.`);
   }

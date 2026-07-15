@@ -1,5 +1,5 @@
-import { BinarySectionEncoding, BinarySectionType } from "../format/binary-format.js";
-import type { RuntimeArtifactFormatSpec } from "./types.js";
+import { BinarySectionEncoding, BinarySectionType } from "../../src/artifacts/format/binary-format.js";
+import type { RuntimeArtifactFormatSpec } from "../../src/artifacts/specs/types.js";
 
 export const TEST_BINARY_V1_SPEC = {
   schemaVersion: 1,
@@ -11,8 +11,7 @@ export const TEST_BINARY_V1_SPEC = {
       encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
       elementCount: null,
       elementByteLength: 32,
-      points: [
-      ],
+      points: [],
     },
     {
       label: "msm.bases",
@@ -20,8 +19,7 @@ export const TEST_BINARY_V1_SPEC = {
       encoding: BinarySectionEncoding.FfjsG1Affine96,
       elementCount: null,
       elementByteLength: 96,
-      points: [
-      ],
+      points: [],
     },
     {
       label: "msm.scalars",
@@ -29,8 +27,7 @@ export const TEST_BINARY_V1_SPEC = {
       encoding: BinarySectionEncoding.ScalarRawLe32,
       elementCount: null,
       elementByteLength: 32,
-      points: [
-      ],
+      points: [],
     },
     {
       label: "pairing.true.left.g1",
@@ -38,8 +35,7 @@ export const TEST_BINARY_V1_SPEC = {
       encoding: BinarySectionEncoding.FfjsG1Affine96,
       elementCount: null,
       elementByteLength: 96,
-      points: [
-      ],
+      points: [],
     },
     {
       label: "pairing.true.left.g2",
@@ -47,8 +43,7 @@ export const TEST_BINARY_V1_SPEC = {
       encoding: BinarySectionEncoding.FfjsG2Affine192,
       elementCount: null,
       elementByteLength: 192,
-      points: [
-      ],
+      points: [],
     },
     {
       label: "pairing.true.right.g1",
@@ -56,8 +51,7 @@ export const TEST_BINARY_V1_SPEC = {
       encoding: BinarySectionEncoding.FfjsG1Affine96,
       elementCount: null,
       elementByteLength: 96,
-      points: [
-      ],
+      points: [],
     },
     {
       label: "pairing.true.right.g2",
@@ -65,8 +59,7 @@ export const TEST_BINARY_V1_SPEC = {
       encoding: BinarySectionEncoding.FfjsG2Affine192,
       elementCount: null,
       elementByteLength: 192,
-      points: [
-      ],
+      points: [],
     },
     {
       label: "pairing.false.left.g1",
@@ -74,8 +67,7 @@ export const TEST_BINARY_V1_SPEC = {
       encoding: BinarySectionEncoding.FfjsG1Affine96,
       elementCount: null,
       elementByteLength: 96,
-      points: [
-      ],
+      points: [],
     },
     {
       label: "pairing.false.left.g2",
@@ -83,8 +75,7 @@ export const TEST_BINARY_V1_SPEC = {
       encoding: BinarySectionEncoding.FfjsG2Affine192,
       elementCount: null,
       elementByteLength: 192,
-      points: [
-      ],
+      points: [],
     },
     {
       label: "pairing.false.right.g1",
@@ -92,8 +83,7 @@ export const TEST_BINARY_V1_SPEC = {
       encoding: BinarySectionEncoding.FfjsG1Affine96,
       elementCount: null,
       elementByteLength: 96,
-      points: [
-      ],
+      points: [],
     },
     {
       label: "pairing.false.right.g2",
@@ -101,8 +91,7 @@ export const TEST_BINARY_V1_SPEC = {
       encoding: BinarySectionEncoding.FfjsG2Affine192,
       elementCount: null,
       elementByteLength: 192,
-      points: [
-      ],
+      points: [],
     },
   ],
 } as const satisfies RuntimeArtifactFormatSpec;
