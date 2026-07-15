@@ -15,12 +15,6 @@ import {
 } from "../../src/index.js";
 import type { VerifierInput } from "../../src/verifier/verify-snark.js";
 
-interface FullProofFixtureExpected {
-  readonly verification: {
-    readonly nativeVerifierResult: boolean;
-  };
-}
-
 declare global {
   interface Window {
     __tokamakVerifierResult?: {
@@ -53,10 +47,7 @@ main().catch((error: unknown) => {
 });
 
 async function main(): Promise<void> {
-  const [binaryFixture, expected] = await Promise.all([
-    loadPreparedBinaryVerifierFixture(),
-    fetchJson<FullProofFixtureExpected>("/fixtures/small/expected/full-proof-small.json"),
-  ]);
+  const binaryFixture = await loadPreparedBinaryVerifierFixture();
   const runtime = await createCurveRuntime({ singleThread: true });
 
   try {
@@ -81,10 +72,8 @@ async function main(): Promise<void> {
     );
     const valid = decodeVerifierBinaryResult(result);
 
-    if (valid !== expected.verification.nativeVerifierResult) {
-      throw new Error(
-        `Browser verifier result mismatch: expected ${expected.verification.nativeVerifierResult}, got ${valid}.`,
-      );
+    if (!valid) {
+      throw new Error("Browser verifier rejected the prepared runtime proof fixture.");
     }
 
     window.__tokamakVerifierResult = {
