@@ -48,7 +48,7 @@ export function saveSynthesisOutputToFiles(
     anchor.href = url;
     anchor.download = toDownloadFileName(fileName);
     anchor.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
   }
 }
 

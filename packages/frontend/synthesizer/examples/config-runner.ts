@@ -221,12 +221,13 @@ async function runConfigExample<TConfig>(
   const finalStateSnapshot = await stateManager.captureStateSnapshot();
   const subcircuitBuffers = loadSubcircuitWasm();
   const circuitGenerator = await createCircuitGenerator(synthesizer, subcircuitBuffers);
+  const circuitArtifacts = circuitGenerator.getArtifacts();
   const placements = circuitGenerator.circuitPlacements;
   if (placements === undefined) {
     throw new Error('Circuit placements are not generated yet.');
   }
   const output: SynthesisOutput = {
-    ...circuitGenerator.getArtifacts(),
+    ...circuitArtifacts,
     placements,
     finalStateSnapshot,
     evmAnalysis: {

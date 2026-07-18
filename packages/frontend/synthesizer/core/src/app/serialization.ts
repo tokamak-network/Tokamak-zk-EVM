@@ -60,9 +60,9 @@ const synthesisOutputArtifactDefinitions: readonly SynthesisOutputArtifactDefini
 
 function shouldIncludeArtifact(
   artifact: SynthesisOutputArtifactDefinition,
-  options: SynthesisOutputSelectionOptions,
+  options?: SynthesisOutputSelectionOptions,
 ): boolean {
-  return artifact.kind === 'primary' || options.outputSupplement === true;
+  return artifact.kind === 'primary' || options?.outputSupplement === true;
 }
 
 export function getSynthesisOutputArtifactDefinitions():
