@@ -1,20 +1,15 @@
 import { DataPtFactory } from '../../synthesizer/dataStructure/dataPt.ts';
 import {
-  // BUFFER_PLACEMENT,
   ISynthesizerProvider,
   MemoryPts,
   PlacementEntry,
   placementsDeepCopy,
   type DataPt,
-  type DataPtDescription,
   type Placements,
-  type ReservedVariable,
-  type SynthesizerOpts,
 } from '../types/index.ts';
 import { MemoryPt, StackPt } from '../dataStructure/index.ts';
 import { SubcircuitInfoByName, SubcircuitNames } from '../../subcircuit/configuredTypes.ts';
-import { InterpreterStep, Message } from '@ethereumjs/evm';
-import { Address, bytesToBigInt } from '@ethereumjs/util';
+import { InterpreterStep } from '@ethereumjs/evm';
 
 // export type CachedStorageEntry = {
 //   addressIndex: number,
@@ -61,8 +56,6 @@ export class ContextManager {
  * Manages the state of the synthesizer, including placements, auxin, and subcircuit information.
  */
 export class StateManager {
-  private parent: ISynthesizerProvider
-  private cachedOpts: SynthesizerOpts
   private _placements: Placements = []
 
   // public verifiedStorageMTIndices: [number, number][] = [] // [ADDRESS_INDEX, LEAF_INDEX]
@@ -77,8 +70,6 @@ export class StateManager {
   public contextByDepth: ContextManager[] = [];
 
   constructor(parent: ISynthesizerProvider) {
-    this.parent = parent
-    this.cachedOpts = parent.cachedOpts
     this.subcircuitInfoByName = parent.subcircuitLibrary.subcircuitInfoByName
   }
 

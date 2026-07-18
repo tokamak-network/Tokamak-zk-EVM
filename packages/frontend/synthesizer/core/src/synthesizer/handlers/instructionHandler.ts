@@ -1,8 +1,7 @@
 
-import { ISynthesizerProvider, MemoryPts, synthesizerOpcodeByName, SynthesizerOpts, SynthesizerSupportedArithOpcodes, SynthesizerSupportedBlkInfOpcodes, SynthesizerSupportedEnvInfOpcodes, SynthesizerSupportedLogOpcodes, SynthesizerSupportedSysFlowOpcodes, VARIABLE_DESCRIPTION, type DataPt, type ReservedVariable, type SynthesizerSupportedOpcodes } from '../types/index.ts';
+import { ISynthesizerProvider, MemoryPts, synthesizerOpcodeByName, SynthesizerOpts, SynthesizerSupportedArithOpcodes, SynthesizerSupportedBlkInfOpcodes, SynthesizerSupportedEnvInfOpcodes, SynthesizerSupportedLogOpcodes, SynthesizerSupportedSysFlowOpcodes, type DataPt, type ReservedVariable, type SynthesizerSupportedOpcodes } from '../types/index.ts';
 
 import {
-  addHexPrefix,
   Address,
   BIGINT_0,
   bytesToBigInt,
@@ -11,7 +10,6 @@ import {
   bigIntToHex,
   setLengthLeft,
   bigIntToBytes,
-  hexToBigInt,
 } from '@ethereumjs/util'
 import { InterpreterStep } from '@ethereumjs/evm'
 import { DEFAULT_SOURCE_BIT_SIZE } from '../../synthesizer/params/constants.ts';
@@ -820,7 +818,6 @@ export class InstructionHandler {
       case 'CODECOPY':
         {
           const memOffset = ins[0]
-          const codeOffset = ins[1]
           const dataLength = ins[2]
           checkRequiredInput(opts.memOut)
           const thisAddress = opts.thisAddress ?? this.cachedOpts.signedTransaction.to
@@ -857,7 +854,6 @@ export class InstructionHandler {
         {
           const addressBigInt = ins[0]
           const memOffset = ins[1]
-          const codeOffset = ins[2]
           const dataLength = ins[3]
           checkRequiredInput(opts.memOut)
           if (dataLength !== BIGINT_0) {

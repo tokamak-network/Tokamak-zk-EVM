@@ -1,5 +1,5 @@
 import { promises as fs } from 'fs';
-import { bytesToHex, hexToBytes, setLengthLeft, utf8ToBytes } from '@ethereumjs/util';
+import { bytesToHex, setLengthLeft, utf8ToBytes } from '@ethereumjs/util';
 import type { EdwardsPoint } from '@noble/curves/abstract/edwards';
 import { jubjub } from '@noble/curves/misc.js';
 import { ethers } from 'ethers';

@@ -1,4 +1,3 @@
-import { EVMError } from '@ethereumjs/evm'
 import type { DataPt } from '../types/index.ts'
 
 /**

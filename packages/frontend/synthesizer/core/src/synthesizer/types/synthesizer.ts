@@ -1,5 +1,3 @@
-import { LegacyTx } from '@ethereumjs/tx';
-import { InterpreterStep } from '@ethereumjs/evm';
 import { RunTxResult } from '@ethereumjs/vm';
 import { TokamakL2StateManager, TokamakL2Tx } from 'tokamak-l2js';
 import { StateManager } from '../handlers/index.ts';
