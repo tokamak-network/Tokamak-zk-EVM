@@ -204,11 +204,11 @@ Interpretation:
 
 ## Browser CRS-Sharded MSM Benchmark
 
-Audience: backend-wasm developers validating whether real prover CRS data can be shared across browser MSM workers without multiplying CRS memory by worker count.
+Audience: backend-wasm developers validating whether real prover CRS data can be shared across browser MSM workers without multiplying JavaScript-side CRS transfer memory by worker count.
 
 This benchmark runs in Chromium through Playwright. It reads the `sigma1.xy-powers` section metadata from a prepared prover CRS binary, serves only that real CRS section to the browser, and compares two worker input strategies:
 
-- shared: copy the real `sigma1.xy-powers` section into one `SharedArrayBuffer`; each worker receives row-band metadata and reads bases by offset.
+- shared: copy the real `sigma1.xy-powers` section into one JavaScript `SharedArrayBuffer`; each worker receives row-band metadata and reads bases by offset before calling the current ffjavascript MSM API.
 - transfer: copy each row-band CRS shard into a transferable buffer; each worker owns the copied shard.
 
 Both modes build worker-local scalar shards and return partial G1 MSM results. The browser main thread reduces the partial results and asserts that the selected modes agree.
@@ -235,7 +235,9 @@ Production relevance:
 
 - `SharedArrayBuffer` mode requires cross-origin isolation. The benchmark server sets `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp` for this reason.
 - Transfer mode remains useful as a compatibility baseline, but it still materializes CRS row-band bytes per worker dispatch.
-- The benchmark reports declared shared CRS bytes, transferred CRS bytes, scalar bytes, timing, and available Chromium heap metrics. Chromium heap metrics do not reliably include every ArrayBuffer or WASM allocation, so treat them as coarse signals and compare them with the declared byte counts.
+- The benchmark reports declared JavaScript shared-source CRS bytes, transferred CRS bytes, scalar bytes, timing, whether the current path is WASM zero-copy, and available Chromium heap metrics.
+- This benchmark does not prove WebAssembly zero-copy CRS access. The current ffjavascript `multiExpAffine()` path slices input typed arrays and copies chunks into WebAssembly linear memory before each MSM chunk runs.
+- Chromium heap metrics do not reliably include every ArrayBuffer or WASM allocation, so treat them as coarse signals and compare them with the declared byte counts.
 
 ### Latest CRS-Sharded Browser Result
 
@@ -247,16 +249,17 @@ npm run bench:msm:browser-crs-shards -- --rows=64 --cols=511 --stride=512 --work
 
 Environment: local Chromium run through Playwright, real prepared `sigma1.xy-powers` CRS section served from `fixtures/small/runtime/prover-crs-prepared-data/crs.bin`, `crossOriginIsolated=true`.
 
-| mode | workers | shard rows | points | active points | loaded xy-powers MiB | shared CRS MiB | transferred CRS MiB | scalar MiB | preload ms | msm ms |
-| :--- | ---: | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| shared | 6 | 11,11,11,11,10,10 | 32768 | 32704 | 384.000 | 384.000 | 0.000 | 1.000 | 263.030 | 468.660 |
-| transfer | 6 | 11,11,11,11,10,10 | 32768 | 32704 | 384.000 | 0.000 | 3.000 | 1.000 | 202.240 | 469.020 |
+| mode | workers | shard rows | points | active points | loaded xy-powers MiB | JS shared source CRS MiB | transferred CRS MiB | scalar MiB | WASM zero-copy | preload ms | msm ms |
+| :--- | ---: | :--- | ---: | ---: | ---: | ---: | ---: | ---: | :--- | ---: | ---: |
+| shared | 6 | 11,11,11,11,10,10 | 32768 | 32704 | 384.000 | 384.000 | 0.000 | 1.000 | no | 236.315 | 468.880 |
+| transfer | 6 | 11,11,11,11,10,10 | 32768 | 32704 | 384.000 | 0.000 | 3.000 | 1.000 | no | 171.820 | 468.295 |
 
 Interpretation:
 
 - The browser can run the CRS-sharded partial-MSM model with real `sigma1.xy-powers` CRS bytes.
-- `SharedArrayBuffer` mode avoided per-worker CRS row-band transfer; worker-visible CRS duplication was `0`.
+- `SharedArrayBuffer` mode avoided per-worker CRS row-band transfer at the JavaScript worker boundary; worker-visible transferred CRS bytes were `0`.
 - Transfer mode copied only the requested row-band shards, not the full CRS per worker.
+- The current ffjavascript MSM path is not WASM zero-copy, so WebAssembly linear-memory copies remain part of the production memory risk.
 - Chromium `performance.memory` stayed flat in this run, so the benchmark must still be treated as a declared-byte and timing check rather than a complete peak-memory profiler.
 
 ## Commitment Density Benchmark

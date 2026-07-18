@@ -66,9 +66,10 @@ interface ModeReport {
   readonly shardRows: readonly number[];
   readonly pointCount: number;
   readonly activePointCount: number;
-  readonly sharedCrsBytes: number;
+  readonly jsSharedSourceCrsBytes: number;
   readonly transferredCrsBytes: number;
   readonly scalarBytes: number;
+  readonly wasmZeroCopy: boolean;
   readonly preloadMs: number;
   readonly msmMs: number;
 }
@@ -376,9 +377,9 @@ function printReport(report: BenchmarkReport): void {
       ).toFixed(3)}`,
   );
   console.log(
-    "mode | workers | shard rows | points | active points | shared CRS MiB | transferred CRS MiB | scalar MiB | preload ms | msm ms",
+    "mode | workers | shard rows | points | active points | JS shared source CRS MiB | transferred CRS MiB | scalar MiB | WASM zero-copy | preload ms | msm ms",
   );
-  console.log(":--- | ---: | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---:");
+  console.log(":--- | ---: | :--- | ---: | ---: | ---: | ---: | ---: | :--- | ---: | ---:");
   for (const mode of report.modes) {
     console.log(
       [
@@ -387,9 +388,10 @@ function printReport(report: BenchmarkReport): void {
         mode.shardRows.join(","),
         mode.pointCount.toString(),
         mode.activePointCount.toString(),
-        bytesToMiB(mode.sharedCrsBytes).toFixed(3),
+        bytesToMiB(mode.jsSharedSourceCrsBytes).toFixed(3),
         bytesToMiB(mode.transferredCrsBytes).toFixed(3),
         bytesToMiB(mode.scalarBytes).toFixed(3),
+        mode.wasmZeroCopy ? "yes" : "no",
         mode.preloadMs.toFixed(3),
         mode.msmMs.toFixed(3),
       ].join(" | "),

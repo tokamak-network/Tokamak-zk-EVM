@@ -85,9 +85,10 @@ interface ModeReport {
   readonly shardRows: readonly number[];
   readonly pointCount: number;
   readonly activePointCount: number;
-  readonly sharedCrsBytes: number;
+  readonly jsSharedSourceCrsBytes: number;
   readonly transferredCrsBytes: number;
   readonly scalarBytes: number;
+  readonly wasmZeroCopy: boolean;
   readonly preloadMs: number;
   readonly msmMs: number;
 }
@@ -317,9 +318,10 @@ async function runMode(
         shardRows: shards.map((shard) => shard.rowEnd - shard.rowStart),
         pointCount,
         activePointCount,
-        sharedCrsBytes: mode === "shared" ? xyPowers.byteLength : 0,
+        jsSharedSourceCrsBytes: mode === "shared" ? xyPowers.byteLength : 0,
         transferredCrsBytes,
         scalarBytes,
+        wasmZeroCopy: false,
         preloadMs,
         msmMs,
       },
