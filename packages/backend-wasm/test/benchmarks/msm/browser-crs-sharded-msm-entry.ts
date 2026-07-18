@@ -19,9 +19,13 @@ interface BenchmarkOptions {
   readonly warmup: number;
   readonly seed: bigint;
   readonly modes: readonly BenchmarkMode[];
+  readonly chunkPoints: number;
+  readonly layout: BaseLayout;
 }
 
 type BenchmarkMode = "shared" | "transfer";
+type BaseLayout = "auto" | "stride" | "packed";
+type ResolvedBaseLayout = "stride" | "packed";
 
 interface CrsSectionInfo {
   readonly byteOffset: number;
@@ -51,6 +55,8 @@ interface WorkerInitCommand {
   readonly rowEnd: number;
   readonly colEnd: number;
   readonly stride: number;
+  readonly chunkPoints: number;
+  readonly baseLayout: ResolvedBaseLayout;
   readonly seed: string;
   readonly sharedBaseBuffer?: SharedArrayBuffer;
   readonly sharedBaseByteOffset?: number;
@@ -75,6 +81,8 @@ interface BenchmarkReport {
   readonly workers: number;
   readonly iterations: number;
   readonly warmup: number;
+  readonly chunkPoints: number;
+  readonly layout: ResolvedBaseLayout;
   readonly modes: readonly ModeReport[];
   readonly memory: BrowserMemoryReport;
 }
@@ -83,6 +91,9 @@ interface ModeReport {
   readonly mode: BenchmarkMode;
   readonly workerCount: number;
   readonly shardRows: readonly number[];
+  readonly chunkPoints: number;
+  readonly chunkCount: number;
+  readonly layout: ResolvedBaseLayout;
   readonly pointCount: number;
   readonly activePointCount: number;
   readonly jsSharedSourceCrsBytes: number;
@@ -132,13 +143,14 @@ async function main(): Promise<void> {
     const memoryBefore = readMemorySnapshot();
     const xyPowersSection = await fetchJson<CrsSectionInfo>("/crs/xy-powers-meta.json");
     validateOptionsAgainstSection(options, xyPowersSection);
+    const baseLayout = resolveBaseLayout(options);
     const xyPowers = await fetchXyPowersBuffer(xyPowersSection.byteLength, options.modes.includes("shared"));
     const memoryAfterCrsLoad = readMemorySnapshot();
 
     const reports: ModeReport[] = [];
     const expectedByMode: Uint8Array[] = [];
     for (const mode of options.modes) {
-      const result = await runMode(runtime, options, mode, xyPowers);
+      const result = await runMode(runtime, options, mode, xyPowers, baseLayout);
       reports.push(result.report);
       expectedByMode.push(result.reducedResult);
     }
@@ -160,6 +172,8 @@ async function main(): Promise<void> {
         workers: options.maxWorkers,
         iterations: options.iterations,
         warmup: options.warmup,
+        chunkPoints: options.chunkPoints,
+        layout: baseLayout,
         modes: reports,
         memory: {
           before: memoryBefore,
@@ -184,6 +198,8 @@ function parseOptions(params: URLSearchParams): BenchmarkOptions {
     warmup: parseNonNegativeInteger(params.get("warmup") ?? "0", "warmup"),
     seed: parseSeed(params.get("seed") ?? "0x544f4b414d414b"),
     modes: parseModes(params.get("modes") ?? "shared,transfer"),
+    chunkPoints: parsePositiveInteger(params.get("chunk-points") ?? "16384", "chunk-points"),
+    layout: parseLayout(params.get("layout") ?? "auto"),
   };
 }
 
@@ -235,6 +251,14 @@ function parseModes(value: string): BenchmarkMode[] {
   return output;
 }
 
+function parseLayout(value: string): BaseLayout {
+  if (value === "auto" || value === "stride" || value === "packed") {
+    return value;
+  }
+
+  throw new Error(`Unsupported benchmark layout '${value}'.`);
+}
+
 function validateOptionsAgainstSection(options: BenchmarkOptions, section: CrsSectionInfo): void {
   if (section.elementByteLength !== G1_AFFINE_BYTES) {
     throw new Error(`sigma1.xy-powers must use ${G1_AFFINE_BYTES}-byte affine G1 points.`);
@@ -245,6 +269,15 @@ function validateOptionsAgainstSection(options: BenchmarkOptions, section: CrsSe
   if (options.rows * options.stride > section.elementCount) {
     throw new Error("Requested CRS rows exceed the sigma1.xy-powers section.");
   }
+}
+
+function resolveBaseLayout(options: BenchmarkOptions): ResolvedBaseLayout {
+  if (options.layout === "stride" || options.layout === "packed") {
+    return options.layout;
+  }
+
+  const paddingColumns = options.stride - options.cols;
+  return paddingColumns <= Math.ceil(options.stride / 100) ? "stride" : "packed";
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -280,6 +313,7 @@ async function runMode(
   options: BenchmarkOptions,
   mode: BenchmarkMode,
   xyPowers: ArrayBuffer | SharedArrayBuffer,
+  baseLayout: ResolvedBaseLayout,
 ): Promise<{ readonly report: ModeReport; readonly reducedResult: Uint8Array }> {
   const shards = partitionRows(options.rows, Math.min(options.maxWorkers, options.rows));
   const preloadStart = performance.now();
@@ -288,7 +322,7 @@ async function runMode(
     await Promise.all(
       workers.map((worker, index) => {
         const shard = shards[index];
-        const command = buildInitCommand(options, mode, shard, xyPowers, index);
+        const command = buildInitCommand(options, mode, shard, xyPowers, baseLayout, index);
         const transfer =
           mode === "transfer" && command.transferredBaseShard !== undefined
             ? [command.transferredBaseShard.buffer]
@@ -305,7 +339,8 @@ async function runMode(
       reduceResults(runtime, await runWorkers(workers));
     });
 
-    const pointCount = options.rows * options.stride;
+    const pointsPerRow = baseLayout === "stride" ? options.stride : options.cols;
+    const pointCount = options.rows * pointsPerRow;
     const activePointCount = options.rows * options.cols;
     const scalarBytes = pointCount * SCALAR_RAW_BYTES;
     const transferredCrsBytes = mode === "transfer" ? pointCount * G1_AFFINE_BYTES : 0;
@@ -316,6 +351,12 @@ async function runMode(
         mode,
         workerCount: shards.length,
         shardRows: shards.map((shard) => shard.rowEnd - shard.rowStart),
+        chunkPoints: options.chunkPoints,
+        chunkCount: shards.reduce((sum, shard) => {
+          const shardPoints = (shard.rowEnd - shard.rowStart) * pointsPerRow;
+          return sum + Math.ceil(shardPoints / options.chunkPoints);
+        }, 0),
+        layout: baseLayout,
         pointCount,
         activePointCount,
         jsSharedSourceCrsBytes: mode === "shared" ? xyPowers.byteLength : 0,
@@ -355,10 +396,12 @@ function buildInitCommand(
   mode: BenchmarkMode,
   shard: WorkerShard,
   xyPowers: ArrayBuffer | SharedArrayBuffer,
+  baseLayout: ResolvedBaseLayout,
   id: number,
 ): WorkerInitCommand {
   const baseByteOffset = shard.rowStart * options.stride * G1_AFFINE_BYTES;
-  const baseByteLength = (shard.rowEnd - shard.rowStart) * options.stride * G1_AFFINE_BYTES;
+  const rows = shard.rowEnd - shard.rowStart;
+  const baseByteLength = rows * options.stride * G1_AFFINE_BYTES;
   const baseCommand = {
     id,
     command: "init" as const,
@@ -368,6 +411,8 @@ function buildInitCommand(
     rowEnd: shard.rowEnd,
     colEnd: options.cols,
     stride: options.stride,
+    chunkPoints: options.chunkPoints,
+    baseLayout,
     seed: formatSeed(options.seed),
   };
 
@@ -385,8 +430,28 @@ function buildInitCommand(
 
   return {
     ...baseCommand,
-    transferredBaseShard: new Uint8Array(new Uint8Array(xyPowers, baseByteOffset, baseByteLength)),
+    transferredBaseShard:
+      baseLayout === "stride"
+        ? new Uint8Array(new Uint8Array(xyPowers, baseByteOffset, baseByteLength))
+        : packActiveBaseRows(xyPowers, baseByteOffset, rows, options.cols, options.stride),
   };
+}
+
+function packActiveBaseRows(
+  xyPowers: ArrayBuffer | SharedArrayBuffer,
+  baseByteOffset: number,
+  rows: number,
+  cols: number,
+  stride: number,
+): Uint8Array {
+  const output = new Uint8Array(rows * cols * G1_AFFINE_BYTES);
+  const input = new Uint8Array(xyPowers);
+  for (let row = 0; row < rows; row += 1) {
+    const sourceOffset = baseByteOffset + row * stride * G1_AFFINE_BYTES;
+    const targetOffset = row * cols * G1_AFFINE_BYTES;
+    output.set(input.subarray(sourceOffset, sourceOffset + cols * G1_AFFINE_BYTES), targetOffset);
+  }
+  return output;
 }
 
 function createWorkerHandle(): WorkerHandle {

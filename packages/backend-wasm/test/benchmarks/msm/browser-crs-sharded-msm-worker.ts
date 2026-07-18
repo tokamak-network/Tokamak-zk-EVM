@@ -4,6 +4,7 @@ const G1_AFFINE_BYTES = 96;
 const SCALAR_RAW_BYTES = 32;
 
 type BenchmarkMode = "shared" | "transfer";
+type ResolvedBaseLayout = "stride" | "packed";
 
 interface WorkerInitCommand {
   readonly id: number;
@@ -14,6 +15,8 @@ interface WorkerInitCommand {
   readonly rowEnd: number;
   readonly colEnd: number;
   readonly stride: number;
+  readonly chunkPoints: number;
+  readonly baseLayout: ResolvedBaseLayout;
   readonly seed: string;
   readonly sharedBaseBuffer?: SharedArrayBuffer;
   readonly sharedBaseByteOffset?: number;
@@ -35,7 +38,18 @@ interface WorkerResult {
 let runtime: CurveRuntime | undefined;
 let workerIndex = -1;
 let bases: Uint8Array | undefined;
-let scalars: Uint8Array | undefined;
+let config: WorkerConfig | undefined;
+
+interface WorkerConfig {
+  readonly baseStorage: "stride" | "packed";
+  readonly rowStart: number;
+  readonly rowEnd: number;
+  readonly colEnd: number;
+  readonly stride: number;
+  readonly chunkPoints: number;
+  readonly baseLayout: ResolvedBaseLayout;
+  readonly seed: bigint;
+}
 
 self.addEventListener("message", (event: MessageEvent<unknown>) => {
   void handleMessage(event.data);
@@ -73,50 +87,111 @@ async function handleInit(message: WorkerInitCommand): Promise<void> {
   if (message.colEnd > message.stride) {
     throw new Error("Worker shard colEnd must be less than or equal to stride.");
   }
+  if (message.chunkPoints <= 0) {
+    throw new Error("Worker shard chunkPoints must be positive.");
+  }
 
-  const baseByteLength = rows * message.stride * G1_AFFINE_BYTES;
   if (message.mode === "shared") {
     if (message.sharedBaseBuffer === undefined || message.sharedBaseByteOffset === undefined) {
       throw new Error("Shared CRS shard initialization requires a SharedArrayBuffer and base offset.");
     }
-    bases = new Uint8Array(message.sharedBaseBuffer, message.sharedBaseByteOffset, baseByteLength);
+    bases = new Uint8Array(message.sharedBaseBuffer, message.sharedBaseByteOffset, rows * message.stride * G1_AFFINE_BYTES);
   } else {
     if (message.transferredBaseShard === undefined) {
       throw new Error("Transfer CRS shard initialization requires a transferred base shard.");
     }
+    const transferredPointsPerRow = message.baseLayout === "stride" ? message.stride : message.colEnd;
+    const baseByteLength = rows * transferredPointsPerRow * G1_AFFINE_BYTES;
     if (message.transferredBaseShard.byteLength !== baseByteLength) {
       throw new Error("Transferred CRS shard byte length does not match the requested row range.");
     }
     bases = message.transferredBaseShard;
   }
 
-  scalars = buildScalarShard(runtime, message);
+  config = {
+    baseStorage: message.mode === "shared" ? "stride" : message.baseLayout,
+    rowStart: message.rowStart,
+    rowEnd: message.rowEnd,
+    colEnd: message.colEnd,
+    stride: message.stride,
+    chunkPoints: message.chunkPoints,
+    baseLayout: message.baseLayout,
+    seed: parseSeed(message.seed),
+  };
 }
 
 async function handleRun(): Promise<WorkerResult> {
-  if (runtime === undefined || bases === undefined || scalars === undefined) {
+  if (runtime === undefined || bases === undefined || config === undefined) {
     throw new Error("CRS-sharded MSM worker was not initialized.");
+  }
+
+  let accumulator = runtime.G1.zero;
+  const pointsPerRow = config.baseLayout === "stride" ? config.stride : config.colEnd;
+  const pointCount = (config.rowEnd - config.rowStart) * pointsPerRow;
+  for (let offset = 0; offset < pointCount; offset += config.chunkPoints) {
+    const count = Math.min(config.chunkPoints, pointCount - offset);
+    const baseChunk = buildBaseChunk(bases, config, offset, count);
+    const scalarChunk = buildScalarChunk(runtime, config, offset, count);
+    accumulator = runtime.G1.add(accumulator, await runtime.G1.msmAffineRaw(baseChunk, scalarChunk));
   }
 
   return {
     workerIndex,
-    result: await runtime.G1.msmAffineRaw(bases, scalars),
+    result: accumulator,
   };
 }
 
-function buildScalarShard(runtime: CurveRuntime, message: WorkerInitCommand): Uint8Array {
-  const rows = message.rowEnd - message.rowStart;
-  const output = new Uint8Array(rows * message.stride * SCALAR_RAW_BYTES);
-  const seed = parseSeed(message.seed);
+function buildScalarChunk(
+  runtime: CurveRuntime,
+  workerConfig: WorkerConfig,
+  pointOffset: number,
+  count: number,
+): Uint8Array {
+  const output = new Uint8Array(count * SCALAR_RAW_BYTES);
+  const pointsPerRow = workerConfig.baseLayout === "stride" ? workerConfig.stride : workerConfig.colEnd;
 
-  for (let localRow = 0; localRow < rows; localRow += 1) {
-    const globalRow = message.rowStart + localRow;
-    for (let col = 0; col < message.colEnd; col += 1) {
-      const scalar = scalarForCell(runtime, seed, globalRow, col, message.stride);
-      output.set(runtime.Fr.toRawLittleEndian(scalar), (localRow * message.stride + col) * SCALAR_RAW_BYTES);
+  for (let index = 0; index < count; index += 1) {
+    const localPoint = pointOffset + index;
+    const localRow = Math.floor(localPoint / pointsPerRow);
+    const col = localPoint % pointsPerRow;
+    if (workerConfig.baseLayout === "stride" && col >= workerConfig.colEnd) {
+      continue;
     }
+
+    const globalRow = workerConfig.rowStart + localRow;
+    const scalar = scalarForCell(runtime, workerConfig.seed, globalRow, col, workerConfig.stride);
+    output.set(runtime.Fr.toRawLittleEndian(scalar), index * SCALAR_RAW_BYTES);
   }
 
+  return output;
+}
+
+function buildBaseChunk(
+  source: Uint8Array,
+  workerConfig: WorkerConfig,
+  pointOffset: number,
+  count: number,
+): Uint8Array {
+  if (workerConfig.baseLayout === "stride" && workerConfig.baseStorage === "stride") {
+    return source.subarray(pointOffset * G1_AFFINE_BYTES, (pointOffset + count) * G1_AFFINE_BYTES);
+  }
+
+  if (workerConfig.baseStorage === "packed") {
+    return source.subarray(pointOffset * G1_AFFINE_BYTES, (pointOffset + count) * G1_AFFINE_BYTES);
+  }
+
+  const output = new Uint8Array(count * G1_AFFINE_BYTES);
+  const pointsPerRow = workerConfig.colEnd;
+  for (let index = 0; index < count; index += 1) {
+    const localPoint = pointOffset + index;
+    const localRow = Math.floor(localPoint / pointsPerRow);
+    const col = localPoint % pointsPerRow;
+    const sourcePoint = localRow * workerConfig.stride + col;
+    output.set(
+      source.subarray(sourcePoint * G1_AFFINE_BYTES, (sourcePoint + 1) * G1_AFFINE_BYTES),
+      index * G1_AFFINE_BYTES,
+    );
+  }
   return output;
 }
 

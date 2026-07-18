@@ -26,6 +26,8 @@ interface RunnerOptions {
   readonly warmup: number;
   readonly seed: string;
   readonly modes: string;
+  readonly chunkPoints: number;
+  readonly layout: string;
   readonly timeoutMs: number;
   readonly jsonPath?: string;
 }
@@ -56,6 +58,8 @@ interface BenchmarkReport {
   readonly workers: number;
   readonly iterations: number;
   readonly warmup: number;
+  readonly chunkPoints: number;
+  readonly layout: "stride" | "packed";
   readonly modes: readonly ModeReport[];
   readonly memory: BrowserMemoryReport;
 }
@@ -64,6 +68,9 @@ interface ModeReport {
   readonly mode: "shared" | "transfer";
   readonly workerCount: number;
   readonly shardRows: readonly number[];
+  readonly chunkPoints: number;
+  readonly chunkCount: number;
+  readonly layout: "stride" | "packed";
   readonly pointCount: number;
   readonly activePointCount: number;
   readonly jsSharedSourceCrsBytes: number;
@@ -127,6 +134,8 @@ async function main(): Promise<void> {
       warmup: options.warmup.toString(),
       seed: options.seed,
       modes: options.modes,
+      "chunk-points": options.chunkPoints.toString(),
+      layout: options.layout,
     });
 
     await page.goto(`http://127.0.0.1:${address.port}/browser/crs-sharded-msm.html?${query.toString()}`, {
@@ -178,6 +187,8 @@ function parseOptions(args: readonly string[]): RunnerOptions {
     warmup: parseNonNegativeInteger(values.get("warmup") ?? "0", "warmup"),
     seed: values.get("seed") ?? "0x544f4b414d414b",
     modes: values.get("modes") ?? "shared,transfer",
+    chunkPoints: parsePositiveInteger(values.get("chunk-points") ?? "16384", "chunk-points"),
+    layout: parseLayout(values.get("layout") ?? "auto"),
     timeoutMs: parsePositiveInteger(values.get("timeout-ms") ?? "240000", "timeout-ms"),
     jsonPath: values.get("json"),
   };
@@ -202,6 +213,14 @@ function parseNonNegativeInteger(value: string, label: string): number {
   }
 
   return parsed;
+}
+
+function parseLayout(value: string): string {
+  if (value === "auto" || value === "stride" || value === "packed") {
+    return value;
+  }
+
+  throw new Error(`Unsupported layout '${value}'.`);
 }
 
 function validateRequestedShape(options: RunnerOptions, section: CrsSectionInfo): void {
@@ -372,20 +391,25 @@ function printReport(report: BenchmarkReport): void {
   console.log(
     `Browser CRS-sharded MSM benchmark crs=${report.crsPath} rows=${report.rows} cols=${report.cols} ` +
       `stride=${report.stride} workers=${report.workers} iterations=${report.iterations} warmup=${report.warmup} ` +
-      `crossOriginIsolated=${report.crossOriginIsolated} loadedXyPowersMiB=${bytesToMiB(
+      `chunkPoints=${report.chunkPoints} layout=${report.layout} crossOriginIsolated=${
+        report.crossOriginIsolated
+      } loadedXyPowersMiB=${bytesToMiB(
         report.loadedXyPowersBytes,
       ).toFixed(3)}`,
   );
   console.log(
-    "mode | workers | shard rows | points | active points | JS shared source CRS MiB | transferred CRS MiB | scalar MiB | WASM zero-copy | preload ms | msm ms",
+    "mode | workers | shard rows | layout | chunk points | chunks | points | active points | JS shared source CRS MiB | transferred CRS MiB | scalar MiB | WASM zero-copy | preload ms | msm ms",
   );
-  console.log(":--- | ---: | :--- | ---: | ---: | ---: | ---: | ---: | :--- | ---: | ---:");
+  console.log(":--- | ---: | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | :--- | ---: | ---:");
   for (const mode of report.modes) {
     console.log(
       [
         mode.mode,
         mode.workerCount.toString(),
         mode.shardRows.join(","),
+        mode.layout,
+        mode.chunkPoints.toString(),
+        mode.chunkCount.toString(),
         mode.pointCount.toString(),
         mode.activePointCount.toString(),
         bytesToMiB(mode.jsSharedSourceCrsBytes).toFixed(3),
