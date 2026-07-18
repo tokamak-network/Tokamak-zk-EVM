@@ -37,7 +37,7 @@ function updateJson(relativePath, updater, { optional = false } = {}) {
   writeJson(relativePath, manifest);
 }
 
-function updatePackageVersion(relativePath, dependencyUpdates = {}) {
+function updatePackageVersion(relativePath, dependencyUpdates = {}, options = {}) {
   updateJson(relativePath, manifest => {
     manifest.version = targetVersion;
 
@@ -48,7 +48,7 @@ function updatePackageVersion(relativePath, dependencyUpdates = {}) {
         }
       }
     }
-  });
+  }, options);
 }
 
 function updateBackendWorkspaceVersion() {
