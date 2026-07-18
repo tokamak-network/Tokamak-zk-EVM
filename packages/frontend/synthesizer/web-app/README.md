@@ -57,7 +57,7 @@ The package also provides:
 - `saveSynthesisOutputToFiles(...)`
 - `postSynthesisOutput(...)`
 
-Output helpers expose primary outputs by default. Supplementary outputs use logical keys such as `supplement/step_log.json` when `{ outputSupplement: true }` is provided.
+Output helpers expose primary outputs by default. Supplementary outputs use logical keys such as `supplement/step_log.json` and `supplement/placements.json` when `{ outputSupplement: true }` is provided.
 
 ## Transaction Support
 

@@ -39,6 +39,11 @@ Primary outputs are selected by default. Supplementary outputs are selected only
 - Used for debugging and adapter-side inspection.
 - Supplementary output.
 
+## supplement/placements.json
+- Circuit-compatible placements generated after unused EVM input wires are removed and EVM wires are converted into Circom-compatible wires.
+- Shares the same placement coordinate system used by `placementVariables.json` and `permutation.json`.
+- Supplementary output.
+
 ## supplement/message_code_addresses.json
 - Distinct message code addresses observed during execution.
 - Emitted from `synthesizer.messageCodeAddresses`.

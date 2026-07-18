@@ -2,6 +2,7 @@ import type { StateSnapshot, TxSnapshot } from 'tokamak-l2js';
 import type { CircuitArtifacts } from '../circuitGenerator/types/types.ts';
 import type { ResolvedSubcircuitLibrary } from '../subcircuit/libraryTypes.ts';
 import type { SynthesizerInterface } from '../synthesizer/types/index.ts';
+import type { Placements } from '../synthesizer/types/placements.ts';
 
 export type BlockInfo = {
   coinBase: `0x${string}`;
@@ -33,6 +34,7 @@ export interface SynthesisInput extends SynthesisPayloadInput {
 }
 
 export interface SynthesisOutput extends CircuitArtifacts {
+  placements: Placements;
   finalStateSnapshot: StateSnapshot;
   evmAnalysis: {
     stepLogs: SynthesizerInterface['stepLogs'];

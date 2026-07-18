@@ -50,7 +50,7 @@ const output = await synthesize(payload);
 saveSynthesisOutputToFiles(output);
 ```
 
-Use `{ outputSupplement: true }` to include supplementary outputs such as `supplement/step_log.json` in the Blob or payload map.
+Use `{ outputSupplement: true }` to include supplementary outputs such as `supplement/step_log.json` and `supplement/placements.json` in the Blob or payload map.
 
 The published web package already contains the subcircuit-library JSON and WASM assets.
 Callers only provide the transaction payload.

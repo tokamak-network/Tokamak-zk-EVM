@@ -21,6 +21,7 @@ Shared primary output model:
 
 Shared supplementary output model:
 - supplement/step_log.json
+- supplement/placements.json
 - supplement/message_code_addresses.json
 
 Supplementary outputs require --output-supplement in Node and { outputSupplement: true } in Web output helpers.

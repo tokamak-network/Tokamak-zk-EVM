@@ -47,6 +47,11 @@ const synthesisOutputArtifactDefinitions: readonly SynthesisOutputArtifactDefini
     serialize: (output) => JSON.stringify(output.evmAnalysis.stepLogs, null, 2),
   },
   {
+    path: 'supplement/placements.json',
+    kind: 'supplement',
+    serialize: (output) => JSON.stringify(output.placements, bigintJsonReplacer, 2),
+  },
+  {
     path: 'supplement/message_code_addresses.json',
     kind: 'supplement',
     serialize: (output) => JSON.stringify(output.evmAnalysis.messageCodeAddresses, null, 2),

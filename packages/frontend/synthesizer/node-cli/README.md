@@ -61,6 +61,7 @@ The CLI writes primary outputs by default:
 With `--output-supplement`, it also writes:
 
 - `supplement/step_log.json`
+- `supplement/placements.json`
 - `supplement/message_code_addresses.json`
 
 ## Notes

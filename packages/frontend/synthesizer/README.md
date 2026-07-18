@@ -35,6 +35,7 @@ Both packages share the same logical output artifacts. By default, adapters expo
 Supplementary outputs are included only when requested:
 
 - `supplement/step_log.json`
+- `supplement/placements.json`
 - `supplement/message_code_addresses.json`
 
 Node callers request supplementary outputs with `--output-supplement`. Web callers request them with `{ outputSupplement: true }`.
