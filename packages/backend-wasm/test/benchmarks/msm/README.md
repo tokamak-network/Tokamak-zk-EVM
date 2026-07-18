@@ -247,23 +247,23 @@ Production relevance:
 Command:
 
 ```bash
-npm run bench:msm:browser-crs-shards -- --rows=64 --cols=511 --stride=512 --workers=6 --modes=shared,transfer --chunk-points=16384 --layout=auto --iterations=1 --warmup=0 --timeout-ms=240000 --json=tmp/timing/browser-crs-sharded-msm.json
+npm run bench:msm:browser-crs-shards -- --rows=8192 --cols=511 --stride=512 --workers=6 --modes=shared,transfer --chunk-points=16384 --layout=auto --iterations=1 --warmup=0 --timeout-ms=1800000 --json=tmp/timing/browser-crs-sharded-msm-full.json
 ```
 
 Environment: local Chromium run through Playwright, real prepared `sigma1.xy-powers` CRS section served from `fixtures/small/runtime/prover-crs-prepared-data/crs.bin`, `crossOriginIsolated=true`.
 
 | mode | workers | shard rows | layout | chunk points | chunks | points | active points | loaded xy-powers MiB | JS shared source CRS MiB | transferred CRS MiB | scalar MiB | WASM zero-copy | preload ms | msm ms |
 | :--- | ---: | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | :--- | ---: | ---: |
-| shared | 6 | 11,11,11,11,10,10 | stride | 16384 | 6 | 32768 | 32704 | 384.000 | 384.000 | 0.000 | 1.000 | no | 197.345 | 496.835 |
-| transfer | 6 | 11,11,11,11,10,10 | stride | 16384 | 6 | 32768 | 32704 | 384.000 | 0.000 | 3.000 | 1.000 | no | 160.415 | 483.455 |
+| shared | 6 | 1366,1366,1365,1365,1365,1365 | stride | 16384 | 258 | 4194304 | 4186112 | 384.000 | 384.000 | 0.000 | 128.000 | no | 205.375 | 51759.030 |
+| transfer | 6 | 1366,1366,1365,1365,1365,1365 | stride | 16384 | 258 | 4194304 | 4186112 | 384.000 | 0.000 | 384.000 | 128.000 | no | 192.995 | 51938.500 |
 
 Interpretation:
 
-- The browser can run the CRS-sharded partial-MSM model with real `sigma1.xy-powers` CRS bytes.
+- The browser can run the CRS-sharded partial-MSM model at the full current `8192x511` target shape with real `sigma1.xy-powers` CRS bytes.
 - `SharedArrayBuffer` mode avoided per-worker CRS row-band transfer at the JavaScript worker boundary; worker-visible transferred CRS bytes were `0`.
 - Transfer mode copied only the requested row-band shards, not the full CRS per worker.
 - With `cols=511` and `stride=512`, `auto` selected stride layout because the padded-column overhead is below 1%.
-- The benchmark now enforces a maximum `G1.multiExpAffine()` input size through `--chunk-points`; the 64-row run stays below the default chunk cap per worker, while larger rows exercise multiple chunks.
+- The benchmark enforces a maximum `G1.multiExpAffine()` input size through `--chunk-points`; the full-shape run executed `258` bounded MSM chunks across the six workers.
 - The current ffjavascript MSM path is not WASM zero-copy, so WebAssembly linear-memory copies remain part of the production memory risk.
 - Chromium `performance.memory` stayed flat in this run, so the benchmark must still be treated as a declared-byte and timing check rather than a complete peak-memory profiler.
 
