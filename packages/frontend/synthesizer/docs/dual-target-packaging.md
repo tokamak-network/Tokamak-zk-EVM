@@ -89,6 +89,7 @@ The current shared entrypoints are:
 - `core/src/app.ts`
   - `synthesizeFromSnapshotInput`
   - `createSynthesisOutputJsonFiles`
+  - output artifact metadata and primary/supplementary scope selection
   - subcircuit-library resolution helpers
 - `core/src/circuit.ts`
   - `createCircuitGenerator`

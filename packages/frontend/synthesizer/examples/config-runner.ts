@@ -12,9 +12,10 @@ import {
   type TokamakL2TxData,
 } from 'tokamak-l2js';
 import { createCircuitGenerator } from '../core/src/circuit.ts';
+import type { SynthesisOutput } from '../core/src/app.ts';
 import type { BlockInfo } from '../core/src/synthesizer.ts';
 import { createSynthesizer } from '../node-cli/src/synthesizer/constructors.ts';
-import { writeCircuitJson, writeEvmAnalysisJson } from '../node-cli/src/io/jsonWriter.ts';
+import { writeSynthesisOutputJson } from '../node-cli/src/io/jsonWriter.ts';
 import { installedSubcircuitLibrary } from '../node-cli/src/subcircuit/installedLibrary.ts';
 import { loadSubcircuitWasm } from '../node-cli/src/subcircuit/wasmLoader.ts';
 import {
@@ -59,7 +60,10 @@ type ConfigAdapter<TConfig> = {
   toStateManagerChannelConfig(config: TConfig): ChannelStateConfig;
   getTxNonce(config: TConfig): number;
   getEntryContractAddress(config: TConfig): `0x${string}`;
-  allowAnalysisOnly?: boolean;
+};
+
+type ConfigRunnerOptions = {
+  outputSupplement: boolean;
 };
 
 const ALCHEMY_API_KEY_ENV_KEY = 'ALCHEMY_API_KEY';
@@ -148,7 +152,6 @@ const configAdapters: Record<ConfigExampleType, ConfigAdapter<any>> = {
     toStateManagerChannelConfig: toPrivateStateMintStateManagerChannelConfig,
     getTxNonce: (config: PrivateStateMintConfig) => config.txNonce,
     getEntryContractAddress: (config: PrivateStateMintConfig) => config.function.entryContractAddress,
-    allowAnalysisOnly: true,
   },
   'private-state-redeem': {
     loadConfig: loadPrivateStateRedeemConfig,
@@ -159,7 +162,6 @@ const configAdapters: Record<ConfigExampleType, ConfigAdapter<any>> = {
     toStateManagerChannelConfig: toPrivateStateRedeemStateManagerChannelConfig,
     getTxNonce: (config: PrivateStateRedeemConfig) => config.txNonce,
     getEntryContractAddress: (config: PrivateStateRedeemConfig) => config.function.entryContractAddress,
-    allowAnalysisOnly: true,
   },
   'private-state-transfer': {
     loadConfig: loadPrivateStateTransferConfig,
@@ -170,13 +172,13 @@ const configAdapters: Record<ConfigExampleType, ConfigAdapter<any>> = {
     toStateManagerChannelConfig: toPrivateStateTransferStateManagerChannelConfig,
     getTxNonce: (config: PrivateStateTransferConfig) => config.txNonce,
     getEntryContractAddress: (config: PrivateStateTransferConfig) => config.function.entryContractAddress,
-    allowAnalysisOnly: true,
   },
 };
 
 async function runConfigExample<TConfig>(
   adapter: ConfigAdapter<TConfig>,
   configPath: string,
+  options: ConfigRunnerOptions,
 ): Promise<void> {
   const config = await adapter.loadConfig(configPath);
   const rpcUrl = adapter.getRpcUrl(config, process.env);
@@ -216,13 +218,20 @@ async function runConfigExample<TConfig>(
     stateManager,
   });
   const runTxResult = await synthesizer.synthesizeTX();
-  await writeEvmAnalysisJson(synthesizer);
-
-  if (!(adapter.allowAnalysisOnly && process.env.PRIVATE_STATE_ANALYSIS_ONLY === '1')) {
-    const subcircuitBuffers = loadSubcircuitWasm();
-    const circuitGenerator = await createCircuitGenerator(synthesizer, subcircuitBuffers);
-    writeCircuitJson(circuitGenerator);
-  }
+  const finalStateSnapshot = await stateManager.captureStateSnapshot();
+  const subcircuitBuffers = loadSubcircuitWasm();
+  const circuitGenerator = await createCircuitGenerator(synthesizer, subcircuitBuffers);
+  const output: SynthesisOutput = {
+    ...circuitGenerator.getArtifacts(),
+    finalStateSnapshot,
+    evmAnalysis: {
+      stepLogs: synthesizer.stepLogs,
+      messageCodeAddresses: Array.from(synthesizer.messageCodeAddresses),
+    },
+  };
+  writeSynthesisOutputJson(output, undefined, {
+    outputSupplement: options.outputSupplement,
+  });
 
   if (runTxResult.execResult.exceptionError !== undefined) {
     console.error(`Exception Error: ${runTxResult.execResult.exceptionError}`);
@@ -241,21 +250,30 @@ async function runConfigExample<TConfig>(
 }
 
 async function main(): Promise<void> {
-  const exampleType = process.argv[2] as ConfigExampleType | undefined;
-  const configPath = process.argv[3];
+  const args = process.argv.slice(2);
+  const outputSupplement = args.includes('--output-supplement');
+  const positionalArgs = args.filter((arg) => arg !== '--output-supplement');
+  const unsupportedOption = positionalArgs.find((arg) => arg.startsWith('--'));
+
+  if (unsupportedOption !== undefined) {
+    throw new Error(`Unsupported option: ${unsupportedOption}`);
+  }
+
+  const exampleType = positionalArgs[0] as ConfigExampleType | undefined;
+  const configPath = positionalArgs[1];
 
   if (exampleType === undefined || !(exampleType in configAdapters)) {
     throw new Error(
-      'Example type required. Usage: tsx examples/config-runner.ts <erc20-transfer|private-state-mint|private-state-redeem|private-state-transfer> <config.json>',
+      'Example type required. Usage: tsx examples/config-runner.ts <erc20-transfer|private-state-mint|private-state-redeem|private-state-transfer> <config.json> [--output-supplement]',
     );
   }
   if (configPath === undefined) {
     throw new Error(
-      'Config file path required. Usage: tsx examples/config-runner.ts <example-type> <config.json>',
+      'Config file path required. Usage: tsx examples/config-runner.ts <example-type> <config.json> [--output-supplement]',
     );
   }
 
-  await runConfigExample(configAdapters[exampleType], configPath);
+  await runConfigExample(configAdapters[exampleType], configPath, { outputSupplement });
 }
 
 void main().catch((error) => {

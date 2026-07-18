@@ -17,6 +17,7 @@ export {
   createSynthesisOutputPayload,
   postSynthesisOutput,
   saveSynthesisOutputToFiles,
+  type WebSynthesisOutputOptions,
 } from './output/index.ts';
 export { synthesize } from './synthesize.ts';
 export type {

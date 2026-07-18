@@ -26,6 +26,7 @@ Stable entrypoints:
   - synthesis payload and output types
   - `synthesizeFromSnapshotInput`
   - `createSynthesisOutputJsonFiles`
+  - shared output artifact metadata, classification, and scope selection
 - `core/src/synthesizer.ts`
   - `createSynthesizer`
   - `SynthesizerInterface`

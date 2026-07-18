@@ -1,5 +1,6 @@
 export {
   createSynthesisOutputJsonFiles,
+  getSynthesisOutputArtifactDefinitions,
 } from './app/serialization.ts';
 export {
   loadResolvedSubcircuitLibrary,
@@ -16,3 +17,7 @@ export type {
   SynthesisOutput,
   SynthesisPayloadInput,
 } from './app/types.ts';
+export type {
+  SynthesisOutputArtifactKind,
+  SynthesisOutputSelectionOptions,
+} from './app/serialization.ts';

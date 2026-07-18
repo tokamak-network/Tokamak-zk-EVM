@@ -24,15 +24,20 @@ Both published packages work from the same transaction payload shape:
 
 ## Shared Output Model
 
-Both packages produce the same synthesized artifacts:
+Both packages share the same logical output artifacts. By default, adapters expose primary outputs only:
 
 - `placementVariables.json`
 - `instance.json`
 - `instance_description.json`
 - `permutation.json`
 - `state_snapshot.json`
-- `step_log.json`
-- `message_code_addresses.json`
+
+Supplementary outputs are included only when requested:
+
+- `supplement/step_log.json`
+- `supplement/message_code_addresses.json`
+
+Node callers request supplementary outputs with `--output-supplement`. Web callers request them with `{ outputSupplement: true }`.
 
 ## Runtime Model
 
@@ -57,7 +62,7 @@ Both packages expect one complete transaction replay payload with `previousState
 
 ### What does the synthesizer emit?
 
-The synthesizer emits circuit-ready placement data, public instances, permutation constraints, the final state snapshot, and execution analysis files.
+The synthesizer emits circuit-ready placement data, public instances, permutation constraints, and the final state snapshot by default. Execution analysis files are supplementary outputs and require an explicit request.
 
 <a id="transaction-support-faq"></a>
 

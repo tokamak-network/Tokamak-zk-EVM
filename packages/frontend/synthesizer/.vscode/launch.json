@@ -25,7 +25,8 @@
       "program": "${workspaceFolder}/examples/config-runner.ts",
       "args": [
         "erc20-transfer",
-        "${workspaceFolder}/examples/erc20Transfers/usdt/config-usdt-sepolia.json"
+        "${workspaceFolder}/examples/erc20Transfers/usdt/config-usdt-sepolia.json",
+        "--output-supplement"
       ],
       "cwd": "${workspaceFolder}/node-cli",
       "skipFiles": [
@@ -52,7 +53,8 @@
         "--block-info",
         "${workspaceFolder}/examples/privateState/mintNotes/mintNotes1/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes1/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes1/contract_codes.json",
+        "--output-supplement"
       ],
       "cwd": "${workspaceFolder}/node-cli",
       "skipFiles": [
@@ -79,7 +81,8 @@
         "--block-info",
         "${workspaceFolder}/examples/privateState/mintNotes/mintNotes2/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes2/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes2/contract_codes.json",
+        "--output-supplement"
       ],
       "cwd": "${workspaceFolder}/node-cli",
       "skipFiles": [
@@ -106,7 +109,8 @@
         "--block-info",
         "${workspaceFolder}/examples/privateState/mintNotes/mintNotes3/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes3/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes3/contract_codes.json",
+        "--output-supplement"
       ],
       "cwd": "${workspaceFolder}/node-cli",
       "skipFiles": [
@@ -133,7 +137,8 @@
         "--block-info",
         "${workspaceFolder}/examples/privateState/mintNotes/mintNotes4/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes4/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes4/contract_codes.json",
+        "--output-supplement"
       ],
       "cwd": "${workspaceFolder}/node-cli",
       "skipFiles": [
@@ -160,7 +165,8 @@
         "--block-info",
         "${workspaceFolder}/examples/privateState/mintNotes/mintNotes5/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes5/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes5/contract_codes.json",
+        "--output-supplement"
       ],
       "cwd": "${workspaceFolder}/node-cli",
       "skipFiles": [
@@ -187,7 +193,8 @@
         "--block-info",
         "${workspaceFolder}/examples/privateState/mintNotes/mintNotes6/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes6/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes6/contract_codes.json",
+        "--output-supplement"
       ],
       "cwd": "${workspaceFolder}/node-cli",
       "skipFiles": [
@@ -214,7 +221,8 @@
         "--block-info",
         "${workspaceFolder}/examples/privateState/transferNotes/transferNotes1To1/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes1To1/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes1To1/contract_codes.json",
+        "--output-supplement"
       ],
       "cwd": "${workspaceFolder}/node-cli",
       "skipFiles": [
@@ -241,7 +249,8 @@
         "--block-info",
         "${workspaceFolder}/examples/privateState/transferNotes/transferNotes1To2/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes1To2/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes1To2/contract_codes.json",
+        "--output-supplement"
       ],
       "cwd": "${workspaceFolder}/node-cli",
       "skipFiles": [
@@ -268,7 +277,8 @@
         "--block-info",
         "${workspaceFolder}/examples/privateState/transferNotes/transferNotes1To3/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes1To3/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes1To3/contract_codes.json",
+        "--output-supplement"
       ],
       "cwd": "${workspaceFolder}/node-cli",
       "skipFiles": [
@@ -295,7 +305,8 @@
         "--block-info",
         "${workspaceFolder}/examples/privateState/transferNotes/transferNotes2To1/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes2To1/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes2To1/contract_codes.json",
+        "--output-supplement"
       ],
       "cwd": "${workspaceFolder}/node-cli",
       "skipFiles": [
@@ -322,7 +333,8 @@
         "--block-info",
         "${workspaceFolder}/examples/privateState/transferNotes/transferNotes2To2/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes2To2/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes2To2/contract_codes.json",
+        "--output-supplement"
       ],
       "cwd": "${workspaceFolder}/node-cli",
       "skipFiles": [
@@ -349,7 +361,8 @@
         "--block-info",
         "${workspaceFolder}/examples/privateState/transferNotes/transferNotes3To1/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes3To1/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes3To1/contract_codes.json",
+        "--output-supplement"
       ],
       "cwd": "${workspaceFolder}/node-cli",
       "skipFiles": [
@@ -376,7 +389,8 @@
         "--block-info",
         "${workspaceFolder}/examples/privateState/transferNotes/transferNotes3To2/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes3To2/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes3To2/contract_codes.json",
+        "--output-supplement"
       ],
       "cwd": "${workspaceFolder}/node-cli",
       "skipFiles": [
@@ -403,7 +417,8 @@
         "--block-info",
         "${workspaceFolder}/examples/privateState/transferNotes/transferNotes4To1/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes4To1/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes4To1/contract_codes.json",
+        "--output-supplement"
       ],
       "cwd": "${workspaceFolder}/node-cli",
       "skipFiles": [
@@ -430,7 +445,8 @@
         "--block-info",
         "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes1/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes1/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes1/contract_codes.json",
+        "--output-supplement"
       ],
       "cwd": "${workspaceFolder}/node-cli",
       "skipFiles": [
@@ -457,7 +473,8 @@
         "--block-info",
         "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes2/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes2/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes2/contract_codes.json",
+        "--output-supplement"
       ],
       "cwd": "${workspaceFolder}/node-cli",
       "skipFiles": [
@@ -484,7 +501,8 @@
         "--block-info",
         "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes3/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes3/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes3/contract_codes.json",
+        "--output-supplement"
       ],
       "cwd": "${workspaceFolder}/node-cli",
       "skipFiles": [
@@ -511,7 +529,8 @@
         "--block-info",
         "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes4/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes4/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes4/contract_codes.json",
+        "--output-supplement"
       ],
       "cwd": "${workspaceFolder}/node-cli",
       "skipFiles": [
@@ -538,7 +557,8 @@
         "--block-info",
         "${workspaceFolder}/examples/L2StateChannel/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/L2StateChannel/contract_codes.json"
+        "${workspaceFolder}/examples/L2StateChannel/contract_codes.json",
+        "--output-supplement"
       ],
       "cwd": "${workspaceFolder}/node-cli",
       "skipFiles": [
