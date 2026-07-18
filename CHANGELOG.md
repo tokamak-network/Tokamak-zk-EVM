@@ -13,7 +13,7 @@ The format is based on Keep a Changelog.
 ### Repository
 
 - Synchronized the release version to `2.1.2` across the CLI, subcircuit library, synthesizer packages, and backend workspace.
-- Fixed synchronized version updates so optional generated package manifests can be absent in clean checkouts.
+- Kept synchronized version management scoped to source package manifests instead of generated qap-compiler dist metadata.
 
 ### CLI
 
