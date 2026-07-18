@@ -202,6 +202,63 @@ Interpretation:
 - Same-runtime `Promise.all` remains unsuitable as the production strategy; real parallelism needs separate browser workers with separate curve runtimes.
 - The benchmark validates the worker-pool direction, but production prover adoption still needs CRS preload and memory-pressure checks with real prover CRS data.
 
+## Browser CRS-Sharded MSM Benchmark
+
+Audience: backend-wasm developers validating whether real prover CRS data can be shared across browser MSM workers without multiplying CRS memory by worker count.
+
+This benchmark runs in Chromium through Playwright. It reads the `sigma1.xy-powers` section metadata from a prepared prover CRS binary, serves only that real CRS section to the browser, and compares two worker input strategies:
+
+- shared: copy the real `sigma1.xy-powers` section into one `SharedArrayBuffer`; each worker receives row-band metadata and reads bases by offset.
+- transfer: copy each row-band CRS shard into a transferable buffer; each worker owns the copied shard.
+
+Both modes build worker-local scalar shards and return partial G1 MSM results. The browser main thread reduces the partial results and asserts that the selected modes agree.
+
+Usage:
+
+```bash
+npm run bench:msm:browser-crs-shards -- --rows=64 --cols=511 --stride=512 --workers=6 --modes=shared,transfer
+```
+
+Useful options:
+
+- `--crs=fixtures/small/runtime/prover-crs-prepared-data/crs.bin`: prepared prover CRS binary path.
+- `--rows=64`: number of CRS rows to shard from `sigma1.xy-powers`.
+- `--cols=511`: active columns per row; inactive stride columns receive zero scalars.
+- `--stride=512`: native `2 * s_max` row stride.
+- `--workers=6`: maximum Web Worker count.
+- `--modes=shared,transfer`: comma-separated modes to run.
+- `--iterations=1`: measured iterations.
+- `--warmup=0`: warmup iterations.
+- `--json=tmp/timing/browser-crs-sharded-msm.json`: write a JSON report to an ignored diagnostics path.
+
+Production relevance:
+
+- `SharedArrayBuffer` mode requires cross-origin isolation. The benchmark server sets `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp` for this reason.
+- Transfer mode remains useful as a compatibility baseline, but it still materializes CRS row-band bytes per worker dispatch.
+- The benchmark reports declared shared CRS bytes, transferred CRS bytes, scalar bytes, timing, and available Chromium heap metrics. Chromium heap metrics do not reliably include every ArrayBuffer or WASM allocation, so treat them as coarse signals and compare them with the declared byte counts.
+
+### Latest CRS-Sharded Browser Result
+
+Command:
+
+```bash
+npm run bench:msm:browser-crs-shards -- --rows=64 --cols=511 --stride=512 --workers=6 --modes=shared,transfer --iterations=1 --warmup=0 --timeout-ms=240000 --json=tmp/timing/browser-crs-sharded-msm.json
+```
+
+Environment: local Chromium run through Playwright, real prepared `sigma1.xy-powers` CRS section served from `fixtures/small/runtime/prover-crs-prepared-data/crs.bin`, `crossOriginIsolated=true`.
+
+| mode | workers | shard rows | points | active points | loaded xy-powers MiB | shared CRS MiB | transferred CRS MiB | scalar MiB | preload ms | msm ms |
+| :--- | ---: | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| shared | 6 | 11,11,11,11,10,10 | 32768 | 32704 | 384.000 | 384.000 | 0.000 | 1.000 | 263.030 | 468.660 |
+| transfer | 6 | 11,11,11,11,10,10 | 32768 | 32704 | 384.000 | 0.000 | 3.000 | 1.000 | 202.240 | 469.020 |
+
+Interpretation:
+
+- The browser can run the CRS-sharded partial-MSM model with real `sigma1.xy-powers` CRS bytes.
+- `SharedArrayBuffer` mode avoided per-worker CRS row-band transfer; worker-visible CRS duplication was `0`.
+- Transfer mode copied only the requested row-band shards, not the full CRS per worker.
+- Chromium `performance.memory` stayed flat in this run, so the benchmark must still be treated as a declared-byte and timing check rather than a complete peak-memory profiler.
+
 ## Commitment Density Benchmark
 
 Audience: backend-wasm developers deciding whether prover commitments should use sparse nonzero extraction or compact rectangular MSM input construction.
