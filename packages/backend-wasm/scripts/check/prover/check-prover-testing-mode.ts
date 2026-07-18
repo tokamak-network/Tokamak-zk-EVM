@@ -8,14 +8,12 @@ import {
   RollingKeccakTranscript,
   RuntimeArtifactFileRole,
   buildDomainContext,
-  buildProverBinding,
   buildWitnessPolynomials,
   collectChallenges,
   createCurveRuntime,
   createProverState,
   createVerifierProofArtifactFromProverOutput,
   decodeVerifierBinaryResult,
-  encodePolynomialBufferWithSigma1,
   evalAPub,
   evalLagrangeK0,
   g1AddMany,
@@ -26,20 +24,10 @@ import {
   loadProverInputFromRuntimeBundles,
   loadVerifierInputFromRuntimeBundles,
   parseRuntimeArtifactBundleManifest,
-  prove0,
-  prove1,
-  prove2,
-  prove3,
-  prove4,
   verifyBinary,
   type CurveRuntime,
   type FieldElement,
   type G1Point,
-  type Prove0Computation,
-  type Prove1Computation,
-  type Prove2Computation,
-  type Prove3Output,
-  type Prove4Computation,
   type ProverCrsRuntime,
   type ProverRuntimeInput,
   type ProverState,
@@ -48,6 +36,16 @@ import {
   type VerifierDomainContext,
   type VerifierInput,
 } from "../../../src/index.js";
+import {
+  buildProverBinding,
+  encodePolynomialBufferWithSigma1,
+  prove0,
+  type Prove0Computation,
+} from "../../../src/prover/stages/prove0.js";
+import { prove1, type Prove1Computation } from "../../../src/prover/stages/prove1.js";
+import { prove2, type Prove2Computation } from "../../../src/prover/stages/prove2.js";
+import { prove3, type Prove3Output } from "../../../src/prover/stages/prove3.js";
+import { prove4, type Prove4Computation } from "../../../src/prover/stages/prove4.js";
 import {
   buildLagrangeK0,
   buildLagrangeKl,

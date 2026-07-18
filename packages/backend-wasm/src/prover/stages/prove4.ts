@@ -10,7 +10,8 @@ import {
   mulByOneMinusX,
   mulByTerm9,
 } from "./polynomial-ops.js";
-import { encodePolynomialBufferWithSigma1, encodePolynomialWithSigma1, type Prove0Computation } from "./prove0.js";
+import { encodePolynomialBufferWithSigma1, type Prove0Computation, type ProverStageOptions } from "./prove0.js";
+import { encodeSigma1CommitmentBarrier, requireCommitment } from "../internal/commitment-encoder.js";
 import type { Prove2Computation } from "./prove2.js";
 import type { Prove3Output } from "./prove3.js";
 import type { ProverState } from "../internal/state.js";
@@ -54,8 +55,9 @@ export async function prove4(input: {
   readonly chi: FieldElement;
   readonly zeta: FieldElement;
   readonly kappa1: FieldElement;
+  readonly options?: ProverStageOptions;
 }): Promise<Prove4Computation> {
-  const { runtime, crs, state, rXY, prove0, prove2, proof3, thetas, kappa0, chi, zeta, kappa1 } = input;
+  const { runtime, crs, state, rXY, prove0, prove2, proof3, thetas, kappa0, chi, zeta, kappa1, options = {} } = input;
   if (thetas.length < 3) {
     throw new Error("prove4 requires at least three theta challenges.");
   }
@@ -96,8 +98,6 @@ export async function prove4(input: {
     [field.neg(field.one), prove0.wZk],
   ]);
   const piADivision = pAXY.divByRuffini(chi, zeta);
-  const Pi_AX = await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, piADivision.quotientX);
-  const Pi_AY = await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, piADivision.quotientY);
   const RXY = linearCombinationBuffer(field, [
     [field.one, rXY],
     [state.mixer.rR_X, BivariatePolynomialBuffer.fromDense(state.instance.tMi)],
@@ -106,16 +106,11 @@ export async function prove4(input: {
   const mDivision = RXY
     .sub(constantPolynomialBuffer(field, proof3.R_omegaX_eval))
     .divByRuffini(field.mul(omegaMIInv, chi), zeta);
-  const M_X = await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, mDivision.quotientX);
-  const M_Y = await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, mDivision.quotientY);
   const nDivision = RXY
     .sub(constantPolynomialBuffer(field, proof3.R_omegaX_omegaY_eval))
     .divByRuffini(field.mul(omegaMIInv, chi), field.mul(omegaSMaxInv, zeta));
-  const N_X = await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, nDivision.quotientX);
-  const N_Y = await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, nDivision.quotientY);
-  const { Pi_CX, Pi_CY } = await buildCopyOpenings({
+  const copyDivision = await buildCopyOpeningPolynomials({
     runtime,
-    crs,
     state,
     rXY,
     RXY,
@@ -136,10 +131,34 @@ export async function prove4(input: {
   const piBDivision = state.instance.aFreeX
     .sub(constantPolynomial(field, aEval))
     .divByRuffini(chi, zeta);
-  const Pi_B = runtime.G1.mulScalar(
-    await encodePolynomialWithSigma1(runtime, crs, state.setup, piBDivision.quotientX),
-    kappa1Fourth,
+  const commitments = await encodeSigma1CommitmentBarrier(
+    options.commitmentEncoder ?? {
+      parallelSafe: false,
+      encodeSigma1PolynomialBuffer(job) {
+        return encodePolynomialBufferWithSigma1(runtime, crs, state.setup, job.polynomial);
+      },
+    },
+    [
+      { label: "Pi_AX", polynomial: piADivision.quotientX },
+      { label: "Pi_AY", polynomial: piADivision.quotientY },
+      { label: "M_X", polynomial: mDivision.quotientX },
+      { label: "M_Y", polynomial: mDivision.quotientY },
+      { label: "N_X", polynomial: nDivision.quotientX },
+      { label: "N_Y", polynomial: nDivision.quotientY },
+      { label: "Pi_CX", polynomial: copyDivision.quotientX },
+      { label: "Pi_CY", polynomial: copyDivision.quotientY },
+      { label: "Pi_B", polynomial: BivariatePolynomialBuffer.fromDense(piBDivision.quotientX) },
+    ],
   );
+  const Pi_AX = requireCommitment(commitments, "Pi_AX");
+  const Pi_AY = requireCommitment(commitments, "Pi_AY");
+  const M_X = requireCommitment(commitments, "M_X");
+  const M_Y = requireCommitment(commitments, "M_Y");
+  const N_X = requireCommitment(commitments, "N_X");
+  const N_Y = requireCommitment(commitments, "N_Y");
+  const Pi_CX = requireCommitment(commitments, "Pi_CX");
+  const Pi_CY = requireCommitment(commitments, "Pi_CY");
+  const Pi_B = runtime.G1.mulScalar(requireCommitment(commitments, "Pi_B"), kappa1Fourth);
   const Pi_X = runtime.G1.add(runtime.G1.add(Pi_AX, Pi_CX), Pi_B);
   const Pi_Y = runtime.G1.add(Pi_AY, Pi_CY);
 
@@ -166,9 +185,8 @@ export async function prove4(input: {
   };
 }
 
-async function buildCopyOpenings(input: {
+async function buildCopyOpeningPolynomials(input: {
   readonly runtime: CurveRuntime;
-  readonly crs: ProverCrsRuntime;
   readonly state: ProverState;
   readonly rXY: BivariatePolynomialBuffer;
   readonly RXY: BivariatePolynomialBuffer;
@@ -184,10 +202,9 @@ async function buildCopyOpenings(input: {
   readonly zeta: FieldElement;
   readonly omegaMIInv: FieldElement;
   readonly omegaSMaxInv: FieldElement;
-}): Promise<{ readonly Pi_CX: Uint8Array; readonly Pi_CY: Uint8Array }> {
+}): Promise<{ readonly quotientX: BivariatePolynomialBuffer; readonly quotientY: BivariatePolynomialBuffer }> {
   const {
     runtime,
-    crs,
     state,
     rXY,
     RXY,
@@ -278,8 +295,8 @@ async function buildCopyOpenings(input: {
   const division = lhsForCopy.divByRuffini(chi, zeta);
 
   return {
-    Pi_CX: await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, division.quotientX),
-    Pi_CY: await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, division.quotientY),
+    quotientX: division.quotientX,
+    quotientY: division.quotientY,
   };
 }
 

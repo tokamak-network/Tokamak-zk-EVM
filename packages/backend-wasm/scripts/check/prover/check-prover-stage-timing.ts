@@ -7,7 +7,6 @@ import {
   DensePolynomialExt,
   RollingKeccakTranscript,
   RuntimeArtifactFileRole,
-  buildProverBinding,
   buildWitnessPolynomials,
   createCurveRuntime,
   createProverState,
@@ -16,24 +15,23 @@ import {
   loadProverInputFromRuntimeBundles,
   loadRuntimeArtifactFile,
   parseRuntimeArtifactBundleManifest,
-  prove1,
-  prove3,
   verifyBinary,
   type CurveRuntime,
   type FieldElement,
-  type Prove0Computation,
-  type Prove0Output,
-  type Prove2Computation,
-  type Prove2Output,
-  type Prove3Output,
-  type Prove4Computation,
-  type Prove4DebugOutput,
-  type Prove4Output,
   type ProverCrsRuntime,
   type ProverRuntimeInput,
   type ProverState,
   type RuntimeArtifactBundleManifest,
 } from "../../../src/index.js";
+import { buildProverBinding, type Prove0Computation, type Prove0Output } from "../../../src/prover/stages/prove0.js";
+import { prove1 } from "../../../src/prover/stages/prove1.js";
+import { type Prove2Computation, type Prove2Output } from "../../../src/prover/stages/prove2.js";
+import { prove3, type Prove3Output } from "../../../src/prover/stages/prove3.js";
+import {
+  type Prove4Computation,
+  type Prove4DebugOutput,
+  type Prove4Output,
+} from "../../../src/prover/stages/prove4.js";
 import {
   buildLagrangeK0,
   buildLagrangeKl,

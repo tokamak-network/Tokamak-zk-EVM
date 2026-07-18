@@ -4,10 +4,12 @@ import {
   BivariatePolynomialBuffer,
   createCurveRuntime,
   DensePolynomialExt,
-  encodePolynomialBufferWithSigma1,
-  encodePolynomialWithSigma1,
 } from "../../../src/index.js";
 import type { CurveRuntime, FieldElement, ProverCrsRuntime, ProverSetupParams } from "../../../src/index.js";
+import {
+  encodePolynomialBufferWithSigma1,
+  encodePolynomialWithSigma1,
+} from "../../../src/prover/stages/prove0.js";
 
 async function main(): Promise<void> {
   const runtime = await createCurveRuntime();

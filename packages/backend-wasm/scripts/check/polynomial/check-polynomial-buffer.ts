@@ -6,11 +6,11 @@ import {
   DensePolynomialExt,
   biNttBuffer,
   createCurveRuntime,
-  encodePolynomialBufferWithSigma1,
   intt2d,
   ntt2d,
 } from "../../../src/index.js";
 import type { CurveRuntime, FieldElement, FieldRuntime, ProverCrsRuntime, ProverSetupParams } from "../../../src/index.js";
+import { encodePolynomialBufferWithSigma1 } from "../../../src/prover/stages/prove0.js";
 import {
   lowDegreeXTimesVanishingBuffer,
   lowDegreeYTimesVanishingBuffer,

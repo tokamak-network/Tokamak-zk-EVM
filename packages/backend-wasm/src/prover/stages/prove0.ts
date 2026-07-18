@@ -13,6 +13,11 @@ import {
   lowDegreeXTimesVanishingBuffer,
   lowDegreeYTimesVanishingBuffer,
 } from "./polynomial-ops.js";
+import {
+  encodeSigma1CommitmentBarrier,
+  requireCommitment,
+  type ProverCommitmentEncoder,
+} from "../internal/commitment-encoder.js";
 import type { ProverInstancePolynomials, ProverMixer } from "../internal/state.js";
 import type { ProverState } from "../internal/state.js";
 
@@ -38,6 +43,10 @@ export interface ProverBinding {
   readonly O_pub_free: Uint8Array;
   readonly O_mid: Uint8Array;
   readonly O_prv: Uint8Array;
+}
+
+export interface ProverStageOptions {
+  readonly commitmentEncoder?: ProverCommitmentEncoder;
 }
 
 export async function buildProverBinding(
@@ -85,6 +94,7 @@ export async function prove0(
   runtime: CurveRuntime,
   crs: ProverCrsRuntime,
   state: ProverState,
+  options: ProverStageOptions = {},
 ): Promise<Prove0Computation> {
   const field = runtime.Fr;
   const p0XY = await BivariatePolynomialBuffer.fromDense(state.witness.uXY).mul(
@@ -141,19 +151,44 @@ export async function prove0(
     [field.one, termBZk],
   ]);
 
+  const commitments = await encodeSigma1CommitmentBarrier(
+    options.commitmentEncoder ?? createDefaultCommitmentEncoder(runtime, crs, state.setup),
+    [
+      { label: "U", polynomial: UXY },
+      { label: "V", polynomial: VXY },
+      { label: "W", polynomial: WXY },
+      { label: "Q_AX", polynomial: Q_AX_XY },
+      { label: "Q_AY", polynomial: Q_AY_XY },
+      { label: "B", polynomial: BXY },
+    ],
+  );
+
   return {
     proof0: {
-      U: await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, UXY),
-      V: await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, VXY),
-      W: await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, WXY),
-      Q_AX: await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, Q_AX_XY),
-      Q_AY: await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, Q_AY_XY),
-      B: await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, BXY),
+      U: requireCommitment(commitments, "U"),
+      V: requireCommitment(commitments, "V"),
+      W: requireCommitment(commitments, "W"),
+      Q_AX: requireCommitment(commitments, "Q_AX"),
+      Q_AY: requireCommitment(commitments, "Q_AY"),
+      B: requireCommitment(commitments, "B"),
     },
     q0XY,
     q1XY,
     wZk,
     termBZk,
+  };
+}
+
+function createDefaultCommitmentEncoder(
+  runtime: CurveRuntime,
+  crs: ProverCrsRuntime,
+  setup: ProverSetupParams,
+): ProverCommitmentEncoder {
+  return {
+    parallelSafe: false,
+    encodeSigma1PolynomialBuffer(job) {
+      return encodePolynomialBufferWithSigma1(runtime, crs, setup, job.polynomial);
+    },
   };
 }
 

@@ -2,7 +2,8 @@ import { BivariatePolynomialBuffer } from "../../core/polynomial/bivariate-polyn
 import type { CurveRuntime } from "../../core/curve/curve.js";
 import type { FieldElement } from "../../core/field/field.js";
 import type { ProverCrsRuntime } from "../api/binary-input.js";
-import { encodePolynomialBufferWithSigma1 } from "./prove0.js";
+import { encodePolynomialBufferWithSigma1, type ProverStageOptions } from "./prove0.js";
+import { encodeSigma1CommitmentBarrier, requireCommitment } from "../internal/commitment-encoder.js";
 import {
   buildLagrangeK0,
   buildLagrangeKl,
@@ -33,8 +34,9 @@ export async function prove2(input: {
   readonly rXY: BivariatePolynomialBuffer;
   readonly thetas: readonly FieldElement[];
   readonly kappa0: FieldElement;
+  readonly options?: ProverStageOptions;
 }): Promise<Prove2Computation> {
-  const { runtime, crs, state, rXY, thetas, kappa0 } = input;
+  const { runtime, crs, state, rXY, thetas, kappa0, options = {} } = input;
   if (thetas.length < 3) {
     throw new Error("prove2 requires at least three theta challenges.");
   }
@@ -103,10 +105,23 @@ export async function prove2(input: {
     [kappa0Sq, qCyTerm3],
   ]);
 
+  const commitments = await encodeSigma1CommitmentBarrier(
+    options.commitmentEncoder ?? {
+      parallelSafe: false,
+      encodeSigma1PolynomialBuffer(job) {
+        return encodePolynomialBufferWithSigma1(runtime, crs, state.setup, job.polynomial);
+      },
+    },
+    [
+      { label: "Q_CX", polynomial: qCxXY },
+      { label: "Q_CY", polynomial: qCyXY },
+    ],
+  );
+
   return {
     proof2: {
-      Q_CX: await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, qCxXY),
-      Q_CY: await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, qCyXY),
+      Q_CX: requireCommitment(commitments, "Q_CX"),
+      Q_CY: requireCommitment(commitments, "Q_CY"),
     },
     q2XY,
     q3XY,

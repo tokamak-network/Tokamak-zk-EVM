@@ -2,7 +2,7 @@ import { BivariatePolynomialBuffer } from "../../core/polynomial/bivariate-polyn
 import type { CurveRuntime } from "../../core/curve/curve.js";
 import type { FieldElement } from "../../core/field/field.js";
 import type { ProverCrsRuntime } from "../api/binary-input.js";
-import { encodePolynomialBufferWithSigma1 } from "./prove0.js";
+import { encodePolynomialBufferWithSigma1, type ProverStageOptions } from "./prove0.js";
 import {
   computeRecursionEvalsBuffer,
   constantPolynomialBuffer,
@@ -24,6 +24,7 @@ export async function prove1(
   crs: ProverCrsRuntime,
   state: ProverState,
   thetas: readonly FieldElement[],
+  options: ProverStageOptions = {},
 ): Promise<Prove1Computation> {
   if (thetas.length < 3) {
     throw new Error("prove1 requires at least three theta challenges.");
@@ -59,7 +60,10 @@ export async function prove1(
 
   return {
     proof1: {
-      R: await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, RXY),
+      R: await (options.commitmentEncoder?.encodeSigma1PolynomialBuffer({
+        label: "R",
+        polynomial: RXY,
+      }) ?? encodePolynomialBufferWithSigma1(runtime, crs, state.setup, RXY)),
     },
     rXY,
   };

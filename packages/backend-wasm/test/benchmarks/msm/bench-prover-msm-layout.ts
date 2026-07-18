@@ -4,12 +4,12 @@ import path from "node:path";
 import {
   BivariatePolynomialBuffer,
   createCurveRuntime,
-  encodePolynomialBufferWithSigma1,
   type CurveRuntime,
   type FieldElement,
   type ProverCrsRuntime,
   type ProverSetupParams,
 } from "../../../src/index.js";
+import { encodePolynomialBufferWithSigma1 } from "../../../src/prover/stages/prove0.js";
 
 const G1_AFFINE_BYTES = 96;
 

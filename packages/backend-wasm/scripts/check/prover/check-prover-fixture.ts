@@ -5,7 +5,6 @@ import {
   BinaryArtifactFileKind,
   RollingKeccakTranscript,
   RuntimeArtifactFileRole,
-  buildProverBinding,
   buildWitnessPolynomials,
   createCurveRuntime,
   createProverState,
@@ -14,17 +13,17 @@ import {
   loadRuntimeArtifactFile,
   loadProverInputFromRuntimeBundles,
   parseRuntimeArtifactBundleManifest,
-  prove0,
-  prove1,
-  prove2,
-  prove3,
-  prove4,
   verifyBinary,
   type CurveRuntime,
   type FieldElement,
   type ProverRuntimeInput,
   type RuntimeArtifactBundleManifest,
 } from "../../../src/index.js";
+import { buildProverBinding, prove0 } from "../../../src/prover/stages/prove0.js";
+import { prove1 } from "../../../src/prover/stages/prove1.js";
+import { prove2 } from "../../../src/prover/stages/prove2.js";
+import { prove3 } from "../../../src/prover/stages/prove3.js";
+import { prove4 } from "../../../src/prover/stages/prove4.js";
 
 async function main(): Promise<void> {
   const runtimeDir = path.resolve("fixtures/small/runtime");
