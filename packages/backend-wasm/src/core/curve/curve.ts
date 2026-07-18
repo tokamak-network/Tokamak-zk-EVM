@@ -80,7 +80,7 @@ export interface CurveRuntime {
 }
 
 export async function createCurveRuntime(options: CurveRuntimeOptions = {}): Promise<CurveRuntime> {
-  const singleThread = options.singleThread ?? true;
+  const singleThread = options.singleThread ?? false;
   const raw = (await getCurveFromName("bls12381", singleThread)) as FfCurve;
   const Fr = createFieldRuntime(raw.Fr);
   const G1 = createG1Runtime(raw.G1, Fr);
