@@ -18,7 +18,6 @@ import {
   computeReplayPrivateStateEncryptedNoteSalt,
   computeReplayPrivateStateMappingKey,
   computeReplayPrivateStateNoteCommitment,
-  computeReplayPrivateStateNullifier,
   deriveReplayPrivateStateFieldValue,
   getPrivateStateManagedStorageAddresses,
   getPrivateStateControllerCommitmentExistsSlot,
@@ -28,12 +27,6 @@ import {
 type ParticipantEntry = {
   addressL1: `0x${string}`;
   prvSeedL2: string;
-};
-
-type StorageConfigEntry = {
-  address: `0x${string}`;
-  userStorageSlots: number[];
-  preAllocatedKeys: `0x${string}`[];
 };
 
 type DeploymentManifest = {

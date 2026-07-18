@@ -181,7 +181,6 @@ updateJson('packages/cli/package.json', manifest => {
   manifest.tokamakZkEvm.compatibleBackendVersion = targetCompatibleBackendVersion;
 });
 updatePackageVersion('packages/frontend/qap-compiler/package.json');
-updatePackageVersion('packages/frontend/qap-compiler/dist/package.json', {}, { optional: true });
 updatePackageVersion('packages/frontend/synthesizer/node-cli/package.json', {
   '@tokamak-zk-evm/subcircuit-library': `^${targetVersion}`,
 });

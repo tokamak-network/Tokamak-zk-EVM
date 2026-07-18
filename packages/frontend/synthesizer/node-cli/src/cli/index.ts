@@ -23,6 +23,7 @@ program
   .requiredOption('--transaction <path>', 'Path to transaction snapshot JSON file')
   .requiredOption('--block-info <path>', 'Path to block information JSON')
   .requiredOption('--contract-code <path>', 'Path to contract code JSON')
+  .option('--output-supplement', 'Write supplementary output artifacts')
   .action(async options => {
     try {
       await runTokamakChannelTxFromFiles({
@@ -30,6 +31,8 @@ program
         transaction: options.transaction,
         blockInfo: options.blockInfo,
         contractCode: options.contractCode,
+      }, undefined, {
+        outputSupplement: options.outputSupplement === true,
       });
     } catch (error: any) {
       console.error('❌ Transfer failed:', error.message);

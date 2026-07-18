@@ -46,17 +46,23 @@ This package uses the shared Synthesizer transaction-support boundary. It is not
 
 For the full consumer-facing answer, see the workspace [transaction support FAQ](../README.md#transaction-support-faq).
 
+Add `--output-supplement` when execution analysis outputs are needed.
+
 ## Output Files
 
-The CLI writes:
+The CLI writes primary outputs by default:
 
 - `placementVariables.json`
 - `instance.json`
 - `instance_description.json`
 - `permutation.json`
 - `state_snapshot.json`
-- `step_log.json`
-- `message_code_addresses.json`
+
+With `--output-supplement`, it also writes:
+
+- `supplement/step_log.json`
+- `supplement/placements.json`
+- `supplement/message_code_addresses.json`
 
 ## Notes
 

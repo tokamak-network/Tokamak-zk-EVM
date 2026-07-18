@@ -1,17 +1,17 @@
 import { AfterTxEvent, createVM, runTx, RunTxOpts, RunTxResult, VM, VMOpts } from '@ethereumjs/vm';
 
 import { BlockData, BlockOptions, createBlock, HeaderData } from '@ethereumjs/block';
-import { Address, bigIntToBytes, bigIntToHex, bytesToBigInt, bytesToHex, createAddressFromBigInt, hexToBigInt, setLengthLeft } from '@ethereumjs/util';
+import { bigIntToBytes, bigIntToHex, bytesToBigInt, bytesToHex, createAddressFromBigInt, setLengthLeft } from '@ethereumjs/util';
 
 import { EVMResult, InterpreterStep, Message } from '@ethereumjs/evm';
-import { DataAliasInfos, DataPt, MemoryPts, Placements, ReservedVariable, SynthesizerInterface, SynthesizerOpts, SynthesizerStepLogEntry, SynthesizerSupportedOpcodes } from './types/index.ts';
+import { DataAliasInfos, DataPt, MemoryPts, Placements, ReservedVariable, SynthesizerInterface, SynthesizerOpts, SynthesizerStepLogEntry } from './types/index.ts';
 import { ArithmeticManager, BufferManager, ContextConstructionData, ContextManager, InstructionHandler, MemoryManager, StateManager, SynthesizerOpHandler } from './handlers/index.ts';
 import { ArithmeticOperator, SubcircuitNames } from '../subcircuit/configuredTypes.ts';
 import type { ResolvedSubcircuitLibrary } from '../subcircuit/libraryTypes.ts';
 import { DataPtFactory } from './dataStructure/dataPt.ts';
 import { TypedTransaction } from '@ethereumjs/tx';
 import { MemoryPt } from './dataStructure/memoryPt.ts';
-import { FUNCTION_INPUT_LENGTH, NULL_STORAGE_KEY, poseidon_raw } from 'tokamak-l2js';
+import { FUNCTION_INPUT_LENGTH } from 'tokamak-l2js';
 
 /**
  * The Synthesizer class manages data related to subcircuits.
@@ -46,7 +46,7 @@ export class Synthesizer implements SynthesizerInterface
     if (vm.evm.events === undefined ) {
       throw new Error("EVM event emitter is turned off.")
     }
-    vm.events.on('beforeTx', (data: TypedTransaction, resolve?: (result?: any) => void) => {
+    vm.events.on('beforeTx', (_data: TypedTransaction, resolve?: (result?: any) => void) => {
       ; (async () => {
         try {
           await this._prepareSynthesizeTransaction()
@@ -133,7 +133,7 @@ export class Synthesizer implements SynthesizerInterface
       })()
     })
 
-    vm.events.on('afterTx', (data: AfterTxEvent, resolve?: (result?: any) => void) => {
+    vm.events.on('afterTx', (_data: AfterTxEvent, resolve?: (result?: any) => void) => {
       ; (async () => {
         try {
           await this._finalizeStorage()

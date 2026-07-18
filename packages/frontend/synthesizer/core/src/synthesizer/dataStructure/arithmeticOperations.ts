@@ -19,11 +19,9 @@ export class ArithmeticOperations {
   }
 
   private static readonly MAX_UINT256 = (1n << 256n) - 1n
-  private static readonly SIGN_BIT = 1n << 255n
    // N is 2^256, copied from opcodes/utils.ts. Used as modulo in EXP operations
   private static readonly N = 1n << 256n
   private static readonly BLS12381MODULUS = jubjub.Point.Fp.ORDER
-  private static readonly JUBJUBMODULUS = jubjub.Point.Fn.ORDER
   // Convert to signed integer (256-bit)
 
   static configure(config: {
@@ -571,7 +569,7 @@ export class ArithmeticOperations {
    * EdDsaVerify
    */
   static edDsaVerify(in_vals: bigint[]): bigint[] {
-    const {mod, add, sub, mul} = ArithmeticOperations._bls12381Arith()
+    const {add, mul} = ArithmeticOperations._bls12381Arith()
     
     const jubjubCheck = (point: bigint[]): void => {
       var A = 52435875175126190479447740508185965837690552500527637822603658699938581184512n;

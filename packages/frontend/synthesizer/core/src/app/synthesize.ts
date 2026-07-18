@@ -58,9 +58,14 @@ export async function synthesizeFromSnapshotInput(
   const finalStateSnapshot = await stateManager.captureStateSnapshot();
   const circuitGenerator = await createCircuitGenerator(synthesizer, input.wasmBuffers);
   const circuitArtifacts = circuitGenerator.getArtifacts();
+  const placements = circuitGenerator.circuitPlacements;
+  if (placements === undefined) {
+    throw new Error('Circuit placements are not generated yet.');
+  }
 
   return {
     ...circuitArtifacts,
+    placements,
     finalStateSnapshot,
     evmAnalysis: {
       stepLogs: synthesizer.stepLogs,

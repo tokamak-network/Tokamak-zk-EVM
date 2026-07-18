@@ -1,7 +1,5 @@
-import { GlobalWireList } from '../../subcircuit/libraryTypes.ts';
 import { Placements, PlacementVariables } from '../../synthesizer/types/placements.ts';
-import { BUFFER_DESCRIPTION, BUFFER_LIST, SubcircuitInfoByName, SubcircuitInfoByNameEntry } from '../../subcircuit/configuredTypes.ts';
-import { DataPt } from '../../synthesizer/types/dataStructure.ts';
+import { BUFFER_LIST, SubcircuitInfoByNameEntry } from '../../subcircuit/configuredTypes.ts';
 import { CircuitGenerator } from '../circuitGenerator.ts';
 import { VARIABLE_DESCRIPTION } from '../../synthesizer/types/buffers.ts';
 import { addHexPrefix, hexToBigInt } from '@ethereumjs/util';
@@ -13,8 +11,6 @@ type PlacementWireIndex = { globalWireId: number; placementId: number };
 // This class instantiates the compiler model in Section "3.1 Compilers" of the Tokamak zk-SNARK paper.
 export class PermutationGenerator {
   private parent: CircuitGenerator
-  // flattenMapInverse: {0, 1, ..., m_D-1} -> \union_{j=0}^{s_D - 1} {j} \times {0, 1, ...,m^{(j)}-1} }
-  private flattenMapInverse: GlobalWireList;
   private placementVariables: PlacementVariables;
   private circuitPlacements: Placements;
 
@@ -38,7 +34,6 @@ export class PermutationGenerator {
     }
     this.circuitPlacements = circuitPlacements
     this.placementVariables = placementVariables
-    this.flattenMapInverse = this.parent.subcircuitLibrary.data.globalWireList;
     // Construct permutation
     this.permGroup = this._buildPermGroup();
 
@@ -72,51 +67,6 @@ export class PermutationGenerator {
     this.permutation= this._correctPermutation();
   }
 
-  private _retrieveDataPtFromPlacementWireId(
-    inputIdx: PlacementWireIndex,
-  ): DataPt {
-    const [/*subcircuitId*/, localWireId] = this.flattenMapInverse[inputIdx.globalWireId] ?? [] as any;
-    if (localWireId === undefined) {
-      throw new Error(
-        `Permutation: Invalid global wire ID: ${inputIdx.globalWireId}`,
-      );
-    }
-
-    const placement = this.circuitPlacements[inputIdx.placementId];
-    if (!placement) {
-      throw new Error(
-        `Permutation: Placement not found: ${inputIdx.placementId}`,
-      );
-    }
-
-    const subcircuitInfo = this.parent.subcircuitLibrary.subcircuitInfoByName.get(placement.name);
-    if (!subcircuitInfo) {
-      throw new Error(
-        `Permutation: Subcircuit info not found for: ${placement.name}`,
-      );
-    }
-
-    const identifier = subcircuitInfo.NOutWires;
-    if (localWireId <= identifier) {
-      // output wire
-      const outPt = placement.outPts[localWireId - 1];
-      if (!outPt) {
-        throw new Error(
-          `Permutation: Output point not found at index ${localWireId - 1}`,
-        );
-      }
-      return outPt;
-    } else {
-      // input wire
-      const inPt = placement.inPts[localWireId - (identifier + 1)];
-      if (!inPt) {
-        throw new Error(
-          `Permutation: Input point not found at index ${localWireId - (identifier + 1)}`,
-        );
-      }
-      return inPt;
-    }
-  }
   private _correctPermutation(): {
     row: number;
     col: number;
@@ -366,22 +316,4 @@ class IdxSet {
     }
     this.flattenMap = subcircuitInfo.flattenMap;
   }
-}
-
-function searchInsert(
-  parent: PlacementWireIndex,
-  child: PlacementWireIndex,
-  permGroup: Map<string, boolean>[],
-): void {
-  const parentString = JSON.stringify({ ...parent });
-  const childString = JSON.stringify({ ...child });
-  for (const group of permGroup) {
-    if (group.has(parentString)) {
-      group.set(childString, true);
-      return;
-    }
-  }
-  throw new Error(
-    'Synthesizer: A wire has a parent, which however does not belong to any group.',
-  );
 }

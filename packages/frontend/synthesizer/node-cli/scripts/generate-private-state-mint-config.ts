@@ -362,12 +362,6 @@ const main = async () => {
     },
     keyMaterial,
   );
-  const decodedMintCall = mintInterface.decodeFunctionData(functionName, calldata);
-  const decodedOutputs = decodedMintCall[0] as Array<{
-    value: bigint;
-    encryptedNoteValue: [`0x${string}`, `0x${string}`, `0x${string}`];
-  }>;
-
   const fundedAccounts = Array.from(new Set([senderIndex, ...extraBalanceAccounts]));
   const liquidBalanceStorageKeys: `0x${string}`[] = [];
   const liquidBalanceStorageValue = ethers.zeroPadValue(ethers.toBeHex(totalNoteValue), 32);

@@ -14,6 +14,8 @@ synthesizer tokamak-ch-tx \
   --contract-code examples/privateState/mintNotes/mintNotes1/contract_codes.json
 ```
 
+Add `--output-supplement` to include supplementary analysis outputs under `outputs/supplement/`.
+
 The CLI:
 - loads the installed subcircuit library
 - loads WASM files from the installed package
@@ -48,17 +50,19 @@ const output = await synthesize(payload);
 saveSynthesisOutputToFiles(output);
 ```
 
+Use `{ outputSupplement: true }` to include supplementary outputs such as `supplement/step_log.json` and `supplement/placements.json` in the Blob or payload map.
+
 The published web package already contains the subcircuit-library JSON and WASM assets.
 Callers only provide the transaction payload.
 
-Use `postSynthesisOutput(url, output)` instead of downloads if the result should be sent to a server.
+Use `postSynthesisOutput(url, output)` instead of downloads if the result should be sent to a server. Use `postSynthesisOutput(url, output, undefined, { outputSupplement: true })` to include supplementary outputs in the posted payload.
 
 ## Debug-only config execution
 
 The workspace still keeps one debug entrypoint for config-based execution:
 
 ```bash
-node --import tsx examples/config-runner.ts private-state-mint path/to/config.json
+node --import tsx examples/config-runner.ts private-state-mint path/to/config.json --output-supplement
 ```
 
 That path is intentionally separate from the published Node CLI.

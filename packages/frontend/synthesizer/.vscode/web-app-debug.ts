@@ -9,7 +9,10 @@ import type {
 const workspaceDir = fileURLToPath(new URL('..', import.meta.url));
 
 type WebAppModule = {
-  createSynthesisOutputPayload(output: SynthesisOutput): Record<string, unknown>;
+  createSynthesisOutputPayload(
+    output: SynthesisOutput,
+    options?: { outputSupplement?: boolean },
+  ): Record<string, unknown>;
   loadSynthesisInputFromFiles(files: {
     previousState: Blob;
     transaction: Blob;
@@ -69,7 +72,7 @@ async function main(): Promise<void> {
   });
 
   const output = await synthesize(payload);
-  const outputPayload = createSynthesisOutputPayload(output);
+  const outputPayload = createSynthesisOutputPayload(output, { outputSupplement: true });
 
   console.log(
     JSON.stringify(

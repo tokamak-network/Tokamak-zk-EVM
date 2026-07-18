@@ -28,12 +28,6 @@ type ParticipantEntry = {
   prvSeedL2: string;
 };
 
-type StorageConfigEntry = {
-  address: `0x${string}`;
-  userStorageSlots: number[];
-  preAllocatedKeys: `0x${string}`[];
-};
-
 type DeploymentManifest = {
   chainId: number;
   contracts: {

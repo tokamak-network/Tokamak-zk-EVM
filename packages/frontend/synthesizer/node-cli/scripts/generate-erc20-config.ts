@@ -109,9 +109,9 @@ const resolveFromRoot = (...segments: string[]) =>
 const scriptsEnvPath = path.resolve(__dirname, '.env');
 const rootEnvPath = path.resolve(packageRoot, '.env');
 
-const ANALYSIS_DIR = resolveFromRoot('outputs', 'analysis');
-const STEP_LOG_PATH = path.join(ANALYSIS_DIR, 'step_log.json');
-const MESSAGE_CODE_ADDRESSES_PATH = path.join(ANALYSIS_DIR, 'message_code_addresses.json');
+const SUPPLEMENT_DIR = resolveFromRoot('outputs', 'supplement');
+const STEP_LOG_PATH = path.join(SUPPLEMENT_DIR, 'step_log.json');
+const MESSAGE_CODE_ADDRESSES_PATH = path.join(SUPPLEMENT_DIR, 'message_code_addresses.json');
 const FINAL_CONFIG_PATH = resolveFromRoot('scripts', 'config.json');
 const INSTANCE_DESCRIPTION_PATH = resolveFromRoot('outputs', 'instance_description.json');
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
@@ -173,7 +173,12 @@ const runCommand = (command: string, args: string[]) =>
   });
 
 const runExample = async (configPath: string) =>
-  runCommand('tsx', [resolveFromRoot('..', 'examples', 'config-runner.ts'), 'erc20-transfer', configPath]);
+  runCommand('tsx', [
+    resolveFromRoot('..', 'examples', 'config-runner.ts'),
+    'erc20-transfer',
+    configPath,
+    '--output-supplement',
+  ]);
 
 const ERROR_LOG_PATTERN = /error:/iu;
 

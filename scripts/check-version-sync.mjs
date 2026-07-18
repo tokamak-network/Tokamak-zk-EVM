@@ -60,7 +60,6 @@ if (!strictSemverPattern.test(expectedVersion)) {
 const packageTargets = [
   'packages/cli/package.json',
   'packages/frontend/qap-compiler/package.json',
-  'packages/frontend/qap-compiler/dist/package.json',
   'packages/frontend/synthesizer/node-cli/package.json',
   'packages/frontend/synthesizer/web-app/package.json',
 ];

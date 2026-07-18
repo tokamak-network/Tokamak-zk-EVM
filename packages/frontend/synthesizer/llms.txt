@@ -12,14 +12,19 @@ Shared input model:
 - blockInfo
 - contractCodes
 
-Shared output model:
+Shared primary output model:
 - placementVariables.json
 - instance.json
 - instance_description.json
 - permutation.json
 - state_snapshot.json
-- step_log.json
-- message_code_addresses.json
+
+Shared supplementary output model:
+- supplement/step_log.json
+- supplement/placements.json
+- supplement/message_code_addresses.json
+
+Supplementary outputs require --output-supplement in Node and { outputSupplement: true } in Web output helpers.
 
 Subcircuit library relationship:
 - The Node package resolves @tokamak-zk-evm/subcircuit-library from the installed dependency at runtime.

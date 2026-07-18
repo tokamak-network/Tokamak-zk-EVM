@@ -6,7 +6,6 @@ import {
   SubcircuitLibraryData,
 } from './libraryTypes.ts';
 import {
-  SUBCIRCUIT_LIST,
   SubcircuitInfoByName,
   SubcircuitInfoByNameEntry,
   SubcircuitNames,

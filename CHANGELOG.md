@@ -8,6 +8,35 @@ The format is based on Keep a Changelog.
 
 ## Unreleased
 
+## [2.1.2] - 2026-07-18
+
+### Repository
+
+- Synchronized the release version to `2.1.2` across the CLI, subcircuit library, synthesizer packages, and backend workspace.
+- Kept synchronized version management scoped to source package manifests instead of generated qap-compiler dist metadata.
+
+### CLI
+
+- Bumped `@tokamak-zk-evm/cli` to `2.1.2`.
+- Updated the CLI package to consume `@tokamak-zk-evm/synthesizer-node` through the synchronized `^2.1.2` dependency range.
+- Kept `packages/cli/package.json tokamakZkEvm.compatibleBackendVersion` at `2.1`.
+
+### Subcircuit Library
+
+- Bumped `@tokamak-zk-evm/subcircuit-library` to `2.1.2`.
+
+### Synthesizer
+
+- Bumped `@tokamak-zk-evm/synthesizer-node` and `@tokamak-zk-evm/synthesizer-web` to `2.1.2`.
+- Updated both synthesizer packages to consume `@tokamak-zk-evm/subcircuit-library` through the synchronized `^2.1.2` dependency range.
+- Added primary-only default output selection with explicit supplementary output selection for Node and Web adapters.
+- Added the Node `--output-supplement` flag and Web `{ outputSupplement: true }` output option.
+- Moved supplementary outputs to logical `supplement/*` artifact paths and added `supplement/placements.json`.
+
+### Backend Workspace
+
+- Bumped the backend Rust workspace version to `2.1.2`.
+
 ## [2.1.1] - 2026-07-11
 
 ### Repository
