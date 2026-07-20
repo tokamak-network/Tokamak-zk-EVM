@@ -23,6 +23,7 @@ npm run bench:prover-ops -- --shapes=16x16,32x16 --iterations=2 --warmup=1
 Useful options:
 
 - `--shapes=16x16,32x16`: comma-separated bivariate polynomial shapes.
+- `--groups=2d-ntt,field-vector-mul`: comma-separated benchmark groups. Valid groups are `2d-ntt`, `field-vector-mul`, `linear-combination`, `division`, and `materialization`.
 - `--iterations=2`: measured iterations per candidate.
 - `--warmup=1`: warmup iterations per candidate.
 - `--seed=0x544f4b414d414b`: deterministic pseudo-random seed.
@@ -96,3 +97,52 @@ Post-change `512x256` timing:
 | 2d-ntt | transpose-only-cost | 512x256 | 6.578 |
 
 This does not settle the larger NTT strategy. Transpose-backed or primitive-parallel row/column transforms still require dedicated candidate benchmarks before any deeper production rewrite.
+
+## Accepted Materialization Cache
+
+The `4096x256` selected matrix showed that dense roundtrip materialization is expensive at prover-representative shape:
+
+```bash
+npm run bench:prover-ops -- --shapes=4096x256 --groups=2d-ntt,field-vector-mul,materialization --iterations=1 --warmup=0 --json=tmp/timing/prover-operation-matrix-4096x256-selected.json
+```
+
+Selected result:
+
+| group | candidate | shape | ms/op |
+| --- | --- | ---: | ---: |
+| 2d-ntt | current-toRouEvals | 4096x256 | 2052.874 |
+| 2d-ntt | direct-biNttBuffer | 4096x256 | 2054.719 |
+| field-vector-mul | split-map-concat | 4096x256 | 483.189 |
+| field-vector-mul | tight-buffer-loop | 4096x256 | 254.164 |
+| materialization | buffer-clone | 4096x256 | 0.777 |
+| materialization | toDense-fromDense-roundtrip | 4096x256 | 169.243 |
+| materialization | fromBuffer-copy | 4096x256 | 1.021 |
+
+Production `ProverState` now builds `instanceBuffers` and `witnessBuffers` once and the integrated prover reuses those buffers instead of repeatedly calling `BivariatePolynomialBuffer.fromDense(...)` for state-owned witness and instance polynomials.
+
+Verification:
+
+```bash
+npm run typecheck
+npm run typecheck:scripts
+npm run prover:witness:check
+npm run prover:ops:check
+npm run prover:check
+npm run prover:testing-mode:check
+npm run build
+npm pack --dry-run --json
+```
+
+Measured full prover check after the cache:
+
+| step | duration |
+| --- | ---: |
+| build prover binding | 2.14 s |
+| prove0 diagnostic label | 76.23 s |
+| prove1 diagnostic label | 24.43 s |
+| prove2 diagnostic label | 261.47 s |
+| prove3 diagnostic label | 9.68 s |
+| prove4 diagnostic label | 147.41 s |
+| verify generated proof | 19 ms |
+
+Historical `prove*` names in the table are diagnostic labels only.

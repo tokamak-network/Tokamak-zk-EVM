@@ -1,3 +1,4 @@
+import { BivariatePolynomialBuffer } from "../../core/polynomial/bivariate-polynomial-buffer.js";
 import { DensePolynomialExt } from "../../core/polynomial/dense-polynomial.js";
 import type { CurveRuntime } from "../../core/curve/curve.js";
 import type { FieldElement, FieldRuntime } from "../../core/field/field.js";
@@ -10,6 +11,23 @@ export interface ProverInstancePolynomials {
   readonly tSMax: DensePolynomialExt;
   readonly s0XY: DensePolynomialExt;
   readonly s1XY: DensePolynomialExt;
+}
+
+export interface ProverInstancePolynomialBuffers {
+  readonly aFreeX: BivariatePolynomialBuffer;
+  readonly tN: BivariatePolynomialBuffer;
+  readonly tMi: BivariatePolynomialBuffer;
+  readonly tSMax: BivariatePolynomialBuffer;
+  readonly s0XY: BivariatePolynomialBuffer;
+  readonly s1XY: BivariatePolynomialBuffer;
+}
+
+export interface WitnessPolynomialBuffers {
+  readonly bXY: BivariatePolynomialBuffer;
+  readonly uXY: BivariatePolynomialBuffer;
+  readonly vXY: BivariatePolynomialBuffer;
+  readonly wXY: BivariatePolynomialBuffer;
+  readonly rXY: BivariatePolynomialBuffer;
 }
 
 export interface ProverMixer {
@@ -46,7 +64,9 @@ export interface ProverCache {
 export interface ProverState {
   readonly setup: ProverSetupParams;
   readonly instance: ProverInstancePolynomials;
+  readonly instanceBuffers: ProverInstancePolynomialBuffers;
   readonly witness: WitnessPolynomials;
+  readonly witnessBuffers: WitnessPolynomialBuffers;
   readonly mixer: ProverMixer;
   readonly quotients: ProverQuotients;
   readonly cache: ProverCache;
@@ -112,18 +132,45 @@ export async function createProverState(input: {
   readonly permutation: readonly ProverPermutationEntry[];
   readonly witness: WitnessPolynomials;
 }): Promise<ProverState> {
+  const instance = await buildProverInstancePolynomials(
+    input.runtime.Fr,
+    input.setup,
+    input.publicInstance,
+    input.permutation,
+  );
+
   return {
     setup: input.setup,
-    instance: await buildProverInstancePolynomials(
-      input.runtime.Fr,
-      input.setup,
-      input.publicInstance,
-      input.permutation,
-    ),
+    instance,
+    instanceBuffers: buildProverInstancePolynomialBuffers(instance),
     witness: input.witness,
+    witnessBuffers: buildWitnessPolynomialBuffers(input.witness),
     mixer: await createProverMixer(input.runtime),
     quotients: createEmptyProverQuotients(input.runtime.Fr),
     cache: {},
+  };
+}
+
+function buildProverInstancePolynomialBuffers(
+  instance: ProverInstancePolynomials,
+): ProverInstancePolynomialBuffers {
+  return {
+    aFreeX: BivariatePolynomialBuffer.fromDense(instance.aFreeX),
+    tN: BivariatePolynomialBuffer.fromDense(instance.tN),
+    tMi: BivariatePolynomialBuffer.fromDense(instance.tMi),
+    tSMax: BivariatePolynomialBuffer.fromDense(instance.tSMax),
+    s0XY: BivariatePolynomialBuffer.fromDense(instance.s0XY),
+    s1XY: BivariatePolynomialBuffer.fromDense(instance.s1XY),
+  };
+}
+
+function buildWitnessPolynomialBuffers(witness: WitnessPolynomials): WitnessPolynomialBuffers {
+  return {
+    bXY: BivariatePolynomialBuffer.fromDense(witness.bXY),
+    uXY: BivariatePolynomialBuffer.fromDense(witness.uXY),
+    vXY: BivariatePolynomialBuffer.fromDense(witness.vXY),
+    wXY: BivariatePolynomialBuffer.fromDense(witness.wXY),
+    rXY: BivariatePolynomialBuffer.fromDense(witness.rXY),
   };
 }
 

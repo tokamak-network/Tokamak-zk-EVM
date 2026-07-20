@@ -53,13 +53,13 @@ export async function computeCopyQuotientCommitments(input: {
   const yMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 1, 2);
   const theta2 = constantPolynomialBuffer(field, thetas[2]);
   const fXY = linearCombinationBuffer(field, [
-    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.bXY)],
-    [thetas[0], BivariatePolynomialBuffer.fromDense(state.instance.s0XY)],
-    [thetas[1], BivariatePolynomialBuffer.fromDense(state.instance.s1XY)],
+    [field.one, state.witnessBuffers.bXY],
+    [thetas[0], state.instanceBuffers.s0XY],
+    [thetas[1], state.instanceBuffers.s1XY],
     [field.one, theta2],
   ]);
   const gXY = linearCombinationBuffer(field, [
-    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.bXY)],
+    [field.one, state.witnessBuffers.bXY],
     [thetas[0], xMonomial],
     [thetas[1], yMonomial],
     [field.one, theta2],

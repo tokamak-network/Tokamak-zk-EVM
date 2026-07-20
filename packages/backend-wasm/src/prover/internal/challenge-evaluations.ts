@@ -24,14 +24,14 @@ export function evaluateChallengePoints(input: {
   const omegaMI = field.rootOfUnity(mI);
   const omegaSMax = field.rootOfUnity(state.setup.s_max);
   const VXY = linearCombinationBuffer(field, [
-    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.vXY)],
-    [state.mixer.rV_X, BivariatePolynomialBuffer.fromDense(state.instance.tN)],
-    [state.mixer.rV_Y, BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+    [field.one, state.witnessBuffers.vXY],
+    [state.mixer.rV_X, state.instanceBuffers.tN],
+    [state.mixer.rV_Y, state.instanceBuffers.tSMax],
   ]);
   const RXY = linearCombinationBuffer(field, [
     [field.one, rXY],
-    [state.mixer.rR_X, BivariatePolynomialBuffer.fromDense(state.instance.tMi)],
-    [state.mixer.rR_Y, BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+    [state.mixer.rR_X, state.instanceBuffers.tMi],
+    [state.mixer.rR_Y, state.instanceBuffers.tSMax],
   ]);
   const rOmegaX = RXY.scaleCoeffsX(field.inv(omegaMI));
   const rOmegaXOmegaY = rOmegaX.scaleCoeffsY(field.inv(omegaSMax));

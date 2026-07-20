@@ -17,10 +17,21 @@ import {
 interface BenchmarkOptions {
   readonly seed: bigint;
   readonly shapes: readonly Shape[];
+  readonly groups: ReadonlySet<BenchmarkGroup>;
   readonly iterations: number;
   readonly warmup: number;
   readonly jsonPath: string;
 }
+
+type BenchmarkGroup = "2d-ntt" | "field-vector-mul" | "linear-combination" | "division" | "materialization";
+
+const ALL_GROUPS: readonly BenchmarkGroup[] = [
+  "2d-ntt",
+  "field-vector-mul",
+  "linear-combination",
+  "division",
+  "materialization",
+];
 
 interface Shape {
   readonly xSize: number;
@@ -40,6 +51,7 @@ interface BenchmarkReport {
   readonly options: {
     readonly seed: string;
     readonly shapes: readonly string[];
+    readonly groups: readonly BenchmarkGroup[];
     readonly iterations: number;
     readonly warmup: number;
   };
@@ -54,11 +66,21 @@ async function main(): Promise<void> {
     const records: BenchmarkRecord[] = [];
     for (const shape of options.shapes) {
       const context = buildCase(runtime.Fr, shape, options.seed);
-      records.push(...await benchmarkNtt(runtime.Fr, context, options));
-      records.push(...await benchmarkElementWiseMul(runtime.Fr, context, options));
-      records.push(...await benchmarkLinearCombination(runtime.Fr, context, options));
-      records.push(...await benchmarkDivision(runtime.Fr, context, options));
-      records.push(...await benchmarkMaterialization(runtime.Fr, context, options));
+      if (options.groups.has("2d-ntt")) {
+        records.push(...await benchmarkNtt(runtime.Fr, context, options));
+      }
+      if (options.groups.has("field-vector-mul")) {
+        records.push(...await benchmarkElementWiseMul(runtime.Fr, context, options));
+      }
+      if (options.groups.has("linear-combination")) {
+        records.push(...await benchmarkLinearCombination(runtime.Fr, context, options));
+      }
+      if (options.groups.has("division")) {
+        records.push(...await benchmarkDivision(runtime.Fr, context, options));
+      }
+      if (options.groups.has("materialization")) {
+        records.push(...await benchmarkMaterialization(runtime.Fr, context, options));
+      }
     }
 
     printRecords(records);
@@ -404,6 +426,7 @@ function parseOptions(args: readonly string[]): BenchmarkOptions {
   return {
     seed: parseSeed(values.get("seed") ?? "0x544f4b414d414b"),
     shapes: parseShapes(values.get("shapes") ?? "16x16,32x16"),
+    groups: parseGroups(values.get("groups") ?? ALL_GROUPS.join(",")),
     iterations: parsePositiveInteger(values.get("iterations") ?? "2", "iterations"),
     warmup: parseNonNegativeInteger(values.get("warmup") ?? "1", "warmup"),
     jsonPath: values.get("json") ?? "tmp/timing/prover-operation-matrix.json",
@@ -432,6 +455,21 @@ function parseShapes(value: string): Shape[] {
     throw new Error("At least one shape is required.");
   }
   return shapes;
+}
+
+function parseGroups(value: string): ReadonlySet<BenchmarkGroup> {
+  const groups = new Set<BenchmarkGroup>();
+  for (const entry of value.split(",")) {
+    const group = entry.trim();
+    if (!ALL_GROUPS.includes(group as BenchmarkGroup)) {
+      throw new Error(`Invalid benchmark group '${entry}'. Expected one of ${ALL_GROUPS.join(", ")}.`);
+    }
+    groups.add(group as BenchmarkGroup);
+  }
+  if (groups.size === 0) {
+    throw new Error("At least one benchmark group is required.");
+  }
+  return groups;
 }
 
 function parsePositiveInteger(value: string, label: string): number {
@@ -485,6 +523,7 @@ async function writeReport(options: BenchmarkOptions, records: readonly Benchmar
     options: {
       seed: `0x${options.seed.toString(16)}`,
       shapes: options.shapes.map(formatShape),
+      groups: [...options.groups],
       iterations: options.iterations,
       warmup: options.warmup,
     },

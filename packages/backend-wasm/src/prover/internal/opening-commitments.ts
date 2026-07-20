@@ -91,21 +91,21 @@ export async function computeOpeningCommitments(input: {
   const rW_X = DensePolynomialExt.fromCoeffs(field, state.mixer.rW_X, state.mixer.rW_X.length, 1);
   const rW_Y = DensePolynomialExt.fromCoeffs(field, state.mixer.rW_Y, 1, state.mixer.rW_Y.length);
   const VXY = linearCombinationBuffer(field, [
-    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.vXY)],
-    [state.mixer.rV_X, BivariatePolynomialBuffer.fromDense(state.instance.tN)],
-    [state.mixer.rV_Y, BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+    [field.one, state.witnessBuffers.vXY],
+    [state.mixer.rV_X, state.instanceBuffers.tN],
+    [state.mixer.rV_Y, state.instanceBuffers.tSMax],
   ]);
   const pAXY = linearCombinationBuffer(field, [
     [kappa1, VXY.sub(constantPolynomialBuffer(field, evaluations.V_eval))],
-    [smallVEval, BivariatePolynomialBuffer.fromDense(state.witness.uXY)],
-    [field.neg(field.one), BivariatePolynomialBuffer.fromDense(state.witness.wXY)],
+    [smallVEval, state.witnessBuffers.uXY],
+    [field.neg(field.one), state.witnessBuffers.wXY],
     [field.neg(tNEval), initialRelation.q0XY],
     [field.neg(tSMaxEval), initialRelation.q1XY],
-    [field.mul(smallVEval, state.mixer.rU_X), BivariatePolynomialBuffer.fromDense(state.instance.tN)],
-    [field.mul(smallVEval, state.mixer.rU_Y), BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+    [field.mul(smallVEval, state.mixer.rU_X), state.instanceBuffers.tN],
+    [field.mul(smallVEval, state.mixer.rU_Y), state.instanceBuffers.tSMax],
     [
       field.neg(field.add(field.mul(state.mixer.rU_X, tNEval), field.mul(state.mixer.rU_Y, tSMaxEval))),
-      BivariatePolynomialBuffer.fromDense(state.witness.vXY),
+      state.witnessBuffers.vXY,
     ],
     [tNEval, BivariatePolynomialBuffer.fromDense(rW_X)],
     [tSMaxEval, BivariatePolynomialBuffer.fromDense(rW_Y)],
@@ -114,8 +114,8 @@ export async function computeOpeningCommitments(input: {
   const piADivision = pAXY.divByRuffini(chi, zeta);
   const RXY = linearCombinationBuffer(field, [
     [field.one, rXY],
-    [state.mixer.rR_X, BivariatePolynomialBuffer.fromDense(state.instance.tMi)],
-    [state.mixer.rR_Y, BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+    [state.mixer.rR_X, state.instanceBuffers.tMi],
+    [state.mixer.rR_Y, state.instanceBuffers.tSMax],
   ]);
   const mDivision = RXY
     .sub(constantPolynomialBuffer(field, evaluations.R_omegaX_eval))
@@ -244,13 +244,13 @@ async function buildCopyOpeningPolynomials(input: {
   const yMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 1, 2);
   const theta2 = constantPolynomialBuffer(field, thetas[2]);
   const fXY = linearCombinationBuffer(field, [
-    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.bXY)],
-    [thetas[0], BivariatePolynomialBuffer.fromDense(state.instance.s0XY)],
-    [thetas[1], BivariatePolynomialBuffer.fromDense(state.instance.s1XY)],
+    [field.one, state.witnessBuffers.bXY],
+    [thetas[0], state.instanceBuffers.s0XY],
+    [thetas[1], state.instanceBuffers.s1XY],
     [field.one, theta2],
   ]);
   const gXY = linearCombinationBuffer(field, [
-    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.bXY)],
+    [field.one, state.witnessBuffers.bXY],
     [thetas[0], xMonomial],
     [thetas[1], yMonomial],
     [field.one, theta2],
