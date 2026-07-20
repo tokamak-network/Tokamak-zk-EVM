@@ -44,23 +44,6 @@ export interface ProverMixer {
   readonly rO_mid: FieldElement;
 }
 
-export interface ProverQuotients {
-  readonly q0XY: DensePolynomialExt;
-  readonly q1XY: DensePolynomialExt;
-  readonly q2XY: DensePolynomialExt;
-  readonly q3XY: DensePolynomialExt;
-  readonly q4XY: DensePolynomialExt;
-  readonly q5XY: DensePolynomialExt;
-  readonly q6XY: DensePolynomialExt;
-  readonly q7XY: DensePolynomialExt;
-}
-
-export interface ProverCache {
-  wZk?: DensePolynomialExt;
-  termBZk?: DensePolynomialExt;
-  lagrangeKlXY?: DensePolynomialExt;
-}
-
 export interface ProverState {
   readonly setup: ProverSetupParams;
   readonly instance: ProverInstancePolynomials;
@@ -68,8 +51,6 @@ export interface ProverState {
   readonly witness: WitnessPolynomials;
   readonly witnessBuffers: WitnessPolynomialBuffers;
   readonly mixer: ProverMixer;
-  readonly quotients: ProverQuotients;
-  readonly cache: ProverCache;
 }
 
 export async function buildProverInstancePolynomials(
@@ -112,19 +93,6 @@ export async function createProverMixer(runtime: CurveRuntime): Promise<ProverMi
   };
 }
 
-export function createEmptyProverQuotients(field: FieldRuntime): ProverQuotients {
-  return {
-    q0XY: DensePolynomialExt.zero(field),
-    q1XY: DensePolynomialExt.zero(field),
-    q2XY: DensePolynomialExt.zero(field),
-    q3XY: DensePolynomialExt.zero(field),
-    q4XY: DensePolynomialExt.zero(field),
-    q5XY: DensePolynomialExt.zero(field),
-    q6XY: DensePolynomialExt.zero(field),
-    q7XY: DensePolynomialExt.zero(field),
-  };
-}
-
 export async function createProverState(input: {
   readonly runtime: CurveRuntime;
   readonly setup: ProverSetupParams;
@@ -146,8 +114,6 @@ export async function createProverState(input: {
     witness: input.witness,
     witnessBuffers: buildWitnessPolynomialBuffers(input.witness),
     mixer: await createProverMixer(input.runtime),
-    quotients: createEmptyProverQuotients(input.runtime.Fr),
-    cache: {},
   };
 }
 
