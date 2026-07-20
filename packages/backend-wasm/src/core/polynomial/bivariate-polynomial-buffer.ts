@@ -270,6 +270,13 @@ export class BivariatePolynomialBuffer {
 
     const xSize = nextPowerOfTwo(leftDegree.xDegree + rightDegree.xDegree + 1);
     const ySize = nextPowerOfTwo(leftDegree.yDegree + rightDegree.yDegree + 1);
+    if (leftDegree.yDegree === 0 || rightDegree.yDegree === 0) {
+      return await multiplyByXUnivariateFactor(this, other, xSize, ySize);
+    }
+    if (leftDegree.xDegree === 0 || rightDegree.xDegree === 0) {
+      return await multiplyByYUnivariateFactor(this, other, xSize, ySize);
+    }
+
     const leftEvals = await this.resize(xSize, ySize).toRouEvals();
     const rightEvals = await other.resize(xSize, ySize).toRouEvals();
     const outputEvals = this.field.createZeroBuffer(xSize * ySize);
@@ -613,6 +620,78 @@ export class BivariatePolynomialBuffer {
 
     return { quotient, remainder };
   }
+}
+
+async function multiplyByXUnivariateFactor(
+  left: BivariatePolynomialBuffer,
+  right: BivariatePolynomialBuffer,
+  xSize: number,
+  ySize: number,
+): Promise<BivariatePolynomialBuffer> {
+  const xFactor = left.findDegree().yDegree === 0 ? left : right;
+  const other = xFactor === left ? right : left;
+  const field = left.field;
+  const xFactorEvals = await xFactor.resize(xSize, 1).toRouEvals();
+  const output = field.createZeroBuffer(xSize * ySize);
+
+  for (let y = 0; y < ySize; y += 1) {
+    const column = field.createZeroBuffer(xSize);
+    if (y < other.ySize) {
+      for (let x = 0; x < Math.min(other.xSize, xSize); x += 1) {
+        field.writeBufferElement(column, x, other.getCoeff(x, y));
+      }
+    }
+
+    const columnEvals = await field.fftBuffer(column);
+    for (let x = 0; x < xSize; x += 1) {
+      field.writeBufferElement(
+        columnEvals,
+        x,
+        field.mul(field.readBufferElement(columnEvals, x), field.readBufferElement(xFactorEvals, x)),
+      );
+    }
+    const columnCoeffs = await field.ifftBuffer(columnEvals);
+    for (let x = 0; x < xSize; x += 1) {
+      field.writeBufferElement(output, x * ySize + y, field.readBufferElement(columnCoeffs, x));
+    }
+  }
+
+  return BivariatePolynomialBuffer.fromBuffer(field, output, xSize, ySize);
+}
+
+async function multiplyByYUnivariateFactor(
+  left: BivariatePolynomialBuffer,
+  right: BivariatePolynomialBuffer,
+  xSize: number,
+  ySize: number,
+): Promise<BivariatePolynomialBuffer> {
+  const yFactor = left.findDegree().xDegree === 0 ? left : right;
+  const other = yFactor === left ? right : left;
+  const field = left.field;
+  const yFactorEvals = await yFactor.resize(1, ySize).toRouEvals();
+  const output = field.createZeroBuffer(xSize * ySize);
+
+  for (let x = 0; x < xSize; x += 1) {
+    const row = field.createZeroBuffer(ySize);
+    if (x < other.xSize) {
+      for (let y = 0; y < Math.min(other.ySize, ySize); y += 1) {
+        field.writeBufferElement(row, y, other.getCoeff(x, y));
+      }
+    }
+
+    const rowEvals = await field.fftBuffer(row);
+    for (let y = 0; y < ySize; y += 1) {
+      field.writeBufferElement(
+        rowEvals,
+        y,
+        field.mul(field.readBufferElement(rowEvals, y), field.readBufferElement(yFactorEvals, y)),
+      );
+    }
+    const rowCoeffs = await field.ifftBuffer(rowEvals);
+    output.set(rowCoeffs, x * ySize * field.byteLength);
+  }
+
+  return BivariatePolynomialBuffer.fromBuffer(field, output, xSize, ySize);
 }
 
 export async function biNttBuffer(

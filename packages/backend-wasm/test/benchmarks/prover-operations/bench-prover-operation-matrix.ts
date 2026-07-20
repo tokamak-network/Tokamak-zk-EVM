@@ -23,11 +23,18 @@ interface BenchmarkOptions {
   readonly jsonPath: string;
 }
 
-type BenchmarkGroup = "2d-ntt" | "field-vector-mul" | "linear-combination" | "division" | "materialization";
+type BenchmarkGroup =
+  | "2d-ntt"
+  | "field-vector-mul"
+  | "polynomial-mul"
+  | "linear-combination"
+  | "division"
+  | "materialization";
 
 const ALL_GROUPS: readonly BenchmarkGroup[] = [
   "2d-ntt",
   "field-vector-mul",
+  "polynomial-mul",
   "linear-combination",
   "division",
   "materialization",
@@ -71,6 +78,9 @@ async function main(): Promise<void> {
       }
       if (options.groups.has("field-vector-mul")) {
         records.push(...await benchmarkElementWiseMul(runtime.Fr, context, options));
+      }
+      if (options.groups.has("polynomial-mul")) {
+        records.push(...await benchmarkPolynomialMul(runtime.Fr, context, options));
       }
       if (options.groups.has("linear-combination")) {
         records.push(...await benchmarkLinearCombination(runtime.Fr, context, options));
@@ -191,6 +201,63 @@ async function benchmarkElementWiseMul(
   ];
 }
 
+async function benchmarkPolynomialMul(
+  field: FieldRuntime,
+  testCase: BenchmarkCase,
+  options: BenchmarkOptions,
+): Promise<BenchmarkRecord[]> {
+  const shape = formatShape(testCase.shape);
+  const xFactor = randomPolynomial(field, { xSize: testCase.shape.xSize, ySize: 1 }, options.seed + 0x44n);
+  const yFactor = randomPolynomial(field, { xSize: 1, ySize: testCase.shape.ySize }, options.seed + 0x55n);
+
+  const xAxisCurrent = await testCase.left.mul(xFactor);
+  const xAxisGeneric = await generic2dNttMul(testCase.left, xFactor);
+  assertBytesEqual(
+    xAxisCurrent.coefficients,
+    xAxisGeneric.coefficients,
+    `X-axis polynomial multiplication mismatch at ${shape}`,
+  );
+
+  const yAxisCurrent = await testCase.left.mul(yFactor);
+  const yAxisGeneric = await generic2dNttMul(testCase.left, yFactor);
+  assertBytesEqual(
+    yAxisCurrent.coefficients,
+    yAxisGeneric.coefficients,
+    `Y-axis polynomial multiplication mismatch at ${shape}`,
+  );
+
+  return [
+    {
+      group: "polynomial-mul",
+      candidate: "current-x-axis-factor",
+      shape,
+      ms: await measure(options, () => testCase.left.mul(xFactor)),
+      notes: "Current BivariatePolynomialBuffer.mul path when one operand is X-only.",
+    },
+    {
+      group: "polynomial-mul",
+      candidate: "generic-2d-ntt-x-axis-factor",
+      shape,
+      ms: await measure(options, () => generic2dNttMul(testCase.left, xFactor)),
+      notes: "Reference path that forces the old full 2D NTT multiplication shape.",
+    },
+    {
+      group: "polynomial-mul",
+      candidate: "current-y-axis-factor",
+      shape,
+      ms: await measure(options, () => testCase.left.mul(yFactor)),
+      notes: "Current BivariatePolynomialBuffer.mul path when one operand is Y-only.",
+    },
+    {
+      group: "polynomial-mul",
+      candidate: "generic-2d-ntt-y-axis-factor",
+      shape,
+      ms: await measure(options, () => generic2dNttMul(testCase.left, yFactor)),
+      notes: "Reference path that forces the old full 2D NTT multiplication shape.",
+    },
+  ];
+}
+
 async function benchmarkLinearCombination(
   field: FieldRuntime,
   testCase: BenchmarkCase,
@@ -297,10 +364,57 @@ async function benchmarkMaterialization(
   ];
 }
 
+async function generic2dNttMul(
+  left: BivariatePolynomialBuffer,
+  right: BivariatePolynomialBuffer,
+): Promise<BivariatePolynomialBuffer> {
+  const leftDegree = left.findDegree();
+  const rightDegree = right.findDegree();
+  if (
+    leftDegree.xDegree < 0 ||
+    leftDegree.yDegree < 0 ||
+    rightDegree.xDegree < 0 ||
+    rightDegree.yDegree < 0
+  ) {
+    return BivariatePolynomialBuffer.zero(left.field);
+  }
+
+  const xSize = nextPowerOfTwo(leftDegree.xDegree + rightDegree.xDegree + 1);
+  const ySize = nextPowerOfTwo(leftDegree.yDegree + rightDegree.yDegree + 1);
+  const leftEvals = await left.resize(xSize, ySize).toRouEvals();
+  const rightEvals = await right.resize(xSize, ySize).toRouEvals();
+  const outputEvals = left.field.createZeroBuffer(xSize * ySize);
+
+  for (let index = 0; index < xSize * ySize; index += 1) {
+    left.field.writeBufferElement(
+      outputEvals,
+      index,
+      left.field.mul(
+        left.field.readBufferElement(leftEvals, index),
+        left.field.readBufferElement(rightEvals, index),
+      ),
+    );
+  }
+
+  return await BivariatePolynomialBuffer.fromRouEvals(left.field, outputEvals, xSize, ySize);
+}
+
 function multiplyViaSplit(field: FieldRuntime, left: Uint8Array, right: Uint8Array): Uint8Array {
   const leftValues = field.split(left);
   const rightValues = field.split(right);
   return field.concat(leftValues.map((value, index) => field.mul(value, rightValues[index])));
+}
+
+function nextPowerOfTwo(value: number): number {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error("Cannot compute power-of-two size for a non-positive value.");
+  }
+
+  let size = 1;
+  while (size < value) {
+    size *= 2;
+  }
+  return size;
 }
 
 function multiplyTightLoop(field: FieldRuntime, left: Uint8Array, right: Uint8Array): Uint8Array {

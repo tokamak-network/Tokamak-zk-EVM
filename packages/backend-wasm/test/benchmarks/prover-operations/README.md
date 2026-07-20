@@ -4,10 +4,11 @@ Audience: backend-wasm developers selecting measured prover hot-path optimizatio
 
 This benchmark is diagnostics-only. It is not imported by `src/`, is not part of package distribution, and writes structured reports under ignored `tmp/timing/`.
 
-The matrix covers the five optimization candidate groups currently required by `tmp/planning.md`:
+The matrix covers the optimization candidate groups currently required by `tmp/planning.md`:
 
 - `2d-ntt`: current 2D ROU conversion, direct `biNttBuffer`, and transpose overhead for future contiguous row/column candidates.
 - `field-vector-mul`: allocation-heavy split/map/concat multiplication versus a tight indexed buffer loop.
+- `polynomial-mul`: current `BivariatePolynomialBuffer.mul` versus a generic full 2D NTT reference for axis-specific factors.
 - `linear-combination`: current `linearCombinationBuffer` versus a same-shape preallocated accumulator.
 - `division`: current Ruffini opening division and native-style vanishing quotient recurrence with reconstruction checks.
 - `materialization`: buffer clone, dense roundtrip, and public `fromBuffer` copy boundary costs.
@@ -23,7 +24,7 @@ npm run bench:prover-ops -- --shapes=16x16,32x16 --iterations=2 --warmup=1
 Useful options:
 
 - `--shapes=16x16,32x16`: comma-separated bivariate polynomial shapes.
-- `--groups=2d-ntt,field-vector-mul`: comma-separated benchmark groups. Valid groups are `2d-ntt`, `field-vector-mul`, `linear-combination`, `division`, and `materialization`.
+- `--groups=2d-ntt,field-vector-mul`: comma-separated benchmark groups. Valid groups are `2d-ntt`, `field-vector-mul`, `polynomial-mul`, `linear-combination`, `division`, and `materialization`.
 - `--iterations=2`: measured iterations per candidate.
 - `--warmup=1`: warmup iterations per candidate.
 - `--seed=0x544f4b414d414b`: deterministic pseudo-random seed.
@@ -144,5 +145,46 @@ Measured full prover check after the cache:
 | prove3 diagnostic label | 9.68 s |
 | prove4 diagnostic label | 147.41 s |
 | verify generated proof | 19 ms |
+
+Historical `prove*` names in the table are diagnostic labels only.
+
+## Accepted Axis-Specific Multiplication
+
+Strict prover timing showed the dominant non-MSM cost had moved to polynomial multiplication and combination, especially copy-quotient and opening numerator construction. Several hot multiplications have one operand that is X-only or Y-only, but the previous buffer multiplication path still forced a full 2D NTT product.
+
+`BivariatePolynomialBuffer.mul()` now detects X-only and Y-only factors and performs independent 1D NTT products along the relevant axis. It preserves the same output shape and coefficients as the generic full 2D NTT reference.
+
+Representative benchmark:
+
+```bash
+npm run bench:prover-ops -- --shapes=4096x256 --groups=polynomial-mul --iterations=1 --warmup=0 --json=tmp/timing/prover-operation-polynomial-mul-4096x256.json
+```
+
+| group | candidate | shape | ms/op |
+| --- | --- | ---: | ---: |
+| polynomial-mul | current-x-axis-factor | 4096x256 | 5536.177 |
+| polynomial-mul | generic-2d-ntt-x-axis-factor | 4096x256 | 13155.656 |
+| polynomial-mul | current-y-axis-factor | 4096x256 | 4005.074 |
+| polynomial-mul | generic-2d-ntt-y-axis-factor | 4096x256 | 13009.296 |
+
+Verification:
+
+```bash
+npm run typecheck
+npm run typecheck:scripts
+npm run polynomial:buffer:check
+npm run prover:ops:polynomial
+npm run prover:testing-mode:check
+npm run build
+npm pack --dry-run --json
+```
+
+Observed diagnostics after this change:
+
+| step | duration |
+| --- | ---: |
+| prove2 diagnostic label | 182.32 s |
+| prove4 diagnostic label | 120.59 s |
+| verify generated proof | 14 ms |
 
 Historical `prove*` names in the table are diagnostic labels only.
