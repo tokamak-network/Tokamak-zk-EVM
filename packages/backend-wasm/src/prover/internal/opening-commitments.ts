@@ -1,5 +1,4 @@
 import { BivariatePolynomialBuffer } from "../../core/polynomial/bivariate-polynomial-buffer.js";
-import { DensePolynomialExt } from "../../core/polynomial/dense-polynomial.js";
 import type { CurveRuntime } from "../../core/curve/curve.js";
 import type { FieldElement } from "../../core/field/field.js";
 import type { ProverCrsRuntime } from "../api/binary-input.js";
@@ -88,8 +87,8 @@ export async function computeOpeningCommitments(input: {
   const tNEval = state.instance.tN.eval(chi, field.one);
   const tSMaxEval = state.instance.tSMax.eval(field.one, zeta);
   const smallVEval = state.witness.vXY.eval(chi, zeta);
-  const rW_X = DensePolynomialExt.fromCoeffs(field, state.mixer.rW_X, state.mixer.rW_X.length, 1);
-  const rW_Y = DensePolynomialExt.fromCoeffs(field, state.mixer.rW_Y, 1, state.mixer.rW_Y.length);
+  const rW_X = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_X, state.mixer.rW_X.length, 1);
+  const rW_Y = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_Y, 1, state.mixer.rW_Y.length);
   const VXY = linearCombinationBuffer(field, [
     [field.one, state.witnessBuffers.vXY],
     [state.mixer.rV_X, state.instanceBuffers.tN],
@@ -107,8 +106,8 @@ export async function computeOpeningCommitments(input: {
       field.neg(field.add(field.mul(state.mixer.rU_X, tNEval), field.mul(state.mixer.rU_Y, tSMaxEval))),
       state.witnessBuffers.vXY,
     ],
-    [tNEval, BivariatePolynomialBuffer.fromDense(rW_X)],
-    [tSMaxEval, BivariatePolynomialBuffer.fromDense(rW_Y)],
+    [tNEval, rW_X],
+    [tSMaxEval, rW_Y],
     [field.neg(field.one), initialRelation.wZk],
   ]);
   const piADivision = pAXY.divByRuffini(chi, zeta);
@@ -142,8 +141,8 @@ export async function computeOpeningCommitments(input: {
     omegaSMaxInv,
   });
   const aEval = state.instance.aFreeX.eval(chi, zeta);
-  const piBDivision = state.instance.aFreeX
-    .sub(constantPolynomial(field, aEval))
+  const piBDivision = state.instanceBuffers.aFreeX
+    .sub(constantPolynomialBuffer(field, aEval))
     .divByRuffini(chi, zeta);
   const commitments = await encodeSigma1CommitmentBarrier(
     options.commitmentEncoder ?? {
@@ -161,7 +160,7 @@ export async function computeOpeningCommitments(input: {
       { label: "N_Y", polynomial: nDivision.quotientY },
       { label: "Pi_CX", polynomial: copyDivision.quotientX },
       { label: "Pi_CY", polynomial: copyDivision.quotientY },
-      { label: "Pi_B", polynomial: BivariatePolynomialBuffer.fromDense(piBDivision.quotientX) },
+      { label: "Pi_B", polynomial: piBDivision.quotientX },
     ],
   );
   const Pi_AX = requireCommitment(commitments, "Pi_AX");
@@ -312,8 +311,4 @@ async function buildCopyOpeningPolynomials(input: {
     quotientX: division.quotientX,
     quotientY: division.quotientY,
   };
-}
-
-function constantPolynomial(field: CurveRuntime["Fr"], value: FieldElement): DensePolynomialExt {
-  return DensePolynomialExt.fromCoeffs(field, [value], 1, 1);
 }

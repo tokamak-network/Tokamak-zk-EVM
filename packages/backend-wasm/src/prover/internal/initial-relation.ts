@@ -106,8 +106,8 @@ export async function computeInitialRelationCommitments(
     state.setup.s_max,
   );
 
-  const rW_X = DensePolynomialExt.fromCoeffs(field, state.mixer.rW_X, state.mixer.rW_X.length, 1);
-  const rW_Y = DensePolynomialExt.fromCoeffs(field, state.mixer.rW_Y, 1, state.mixer.rW_Y.length);
+  const rW_X = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_X, state.mixer.rW_X.length, 1);
+  const rW_Y = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_Y, 1, state.mixer.rW_Y.length);
   const UXY = linearCombinationBuffer(field, [
     [field.one, state.witnessBuffers.uXY],
     [state.mixer.rU_X, state.instanceBuffers.tN],
@@ -130,7 +130,7 @@ export async function computeInitialRelationCommitments(
     [field.one, q0XY],
     [state.mixer.rU_X, state.witnessBuffers.vXY],
     [state.mixer.rV_X, state.witnessBuffers.uXY],
-    [field.neg(field.one), BivariatePolynomialBuffer.fromDense(rW_X)],
+    [field.neg(field.one), rW_X],
     [field.mul(state.mixer.rU_X, state.mixer.rV_X), state.instanceBuffers.tN],
     [field.mul(state.mixer.rU_Y, state.mixer.rV_X), state.instanceBuffers.tSMax],
   ]);
@@ -138,7 +138,7 @@ export async function computeInitialRelationCommitments(
     [field.one, q1XY],
     [state.mixer.rU_Y, state.witnessBuffers.vXY],
     [state.mixer.rV_Y, state.witnessBuffers.uXY],
-    [field.neg(field.one), BivariatePolynomialBuffer.fromDense(rW_Y)],
+    [field.neg(field.one), rW_Y],
     [field.mul(state.mixer.rU_X, state.mixer.rV_Y), state.instanceBuffers.tN],
     [field.mul(state.mixer.rU_Y, state.mixer.rV_Y), state.instanceBuffers.tSMax],
   ]);
