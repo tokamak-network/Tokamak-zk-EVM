@@ -114,9 +114,9 @@ Interpretation:
 - Total runtime changed by only about `1%` in this benchmark because `G1.multiExpAffine` dominates the measured cost at these lengths.
 - This result means the current prover slowdown cannot be explained by CRS/scalar buffer preparation alone. The next optimization target remains reducing the number, size, or scheduling cost of large MSM calls, and checking whether the curve runtime should use ffjavascript's threaded path for prover diagnostics.
 
-## Deprecated Parallel Worker Wrapper Benchmarks
+## Deprecated Worker Wrapper Benchmarks
 
-The independent MSM process benchmark, browser worker-pool benchmark, browser CRS-sharded worker benchmark, and worker parallelization report have moved to `deprecated/parallel-worker-wrapper/`.
+The independent MSM process benchmark, browser worker-pool benchmark, browser CRS-sharded worker benchmark, and worker parallelization report have moved to [deprecated/parallel-worker-wrapper](./deprecated/parallel-worker-wrapper/).
 
 These files are retained only as historical diagnostics for the discarded backend-wasm worker-wrapper plan. Current production prover code uses ffjavascript primitive parallelism instead of backend-wasm-managed worker commitment scheduling.
 
