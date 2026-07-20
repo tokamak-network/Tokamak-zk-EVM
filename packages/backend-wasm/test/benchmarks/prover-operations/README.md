@@ -189,6 +189,23 @@ Observed diagnostics after this change:
 
 Historical `prove*` names in the table are diagnostic labels only.
 
+### Rejected Generic Concurrent ROU Candidate
+
+The `polynomial-mul` benchmark also compares the current generic bivariate multiplication path against a diagnostic-only candidate that starts left and right ROU conversions concurrently before pointwise multiplication.
+
+Representative benchmark:
+
+```bash
+npm run bench:prover-ops -- --shapes=1024x256 --groups=polynomial-mul --iterations=1 --warmup=0 --json=tmp/timing/prover-operation-polynomial-mul-generic-1024x256.json
+```
+
+| group | candidate | shape | ms/op |
+| --- | --- | ---: | ---: |
+| polynomial-mul | current-bivariate | 1024x256 | 6328.878 |
+| polynomial-mul | concurrent-input-rou-bivariate | 1024x256 | 6348.507 |
+
+The concurrent candidate is not faster in this local run, so it must not be promoted to production without new representative timing evidence.
+
 ## Accepted Scaled-Add Fast Path
 
 `linearCombinationBuffer()` ultimately uses `BivariatePolynomialBuffer.addScaledPrefixAssign()`. Many integrated prover terms use scale factors equal to `0`, `1`, or `-1`, but the previous implementation still routed every source coefficient through a field multiplication.

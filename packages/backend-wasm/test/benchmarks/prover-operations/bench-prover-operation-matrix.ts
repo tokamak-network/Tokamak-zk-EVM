@@ -226,7 +226,29 @@ async function benchmarkPolynomialMul(
     `Y-axis polynomial multiplication mismatch at ${shape}`,
   );
 
+  const bivariateCurrent = await testCase.left.mul(testCase.right);
+  const bivariateConcurrent = await generic2dNttMulConcurrentInputs(testCase.left, testCase.right);
+  assertBytesEqual(
+    bivariateCurrent.coefficients,
+    bivariateConcurrent.coefficients,
+    `Concurrent-input bivariate multiplication mismatch at ${shape}`,
+  );
+
   return [
+    {
+      group: "polynomial-mul",
+      candidate: "current-bivariate",
+      shape,
+      ms: await measure(options, () => testCase.left.mul(testCase.right)),
+      notes: "Current BivariatePolynomialBuffer.mul path for two bivariate operands.",
+    },
+    {
+      group: "polynomial-mul",
+      candidate: "concurrent-input-rou-bivariate",
+      shape,
+      ms: await measure(options, () => generic2dNttMulConcurrentInputs(testCase.left, testCase.right)),
+      notes: "Reference path that starts the left and right ROU conversions concurrently before pointwise multiplication.",
+    },
     {
       group: "polynomial-mul",
       candidate: "current-x-axis-factor",
@@ -383,6 +405,43 @@ async function generic2dNttMul(
   const ySize = nextPowerOfTwo(leftDegree.yDegree + rightDegree.yDegree + 1);
   const leftEvals = await left.resize(xSize, ySize).toRouEvals();
   const rightEvals = await right.resize(xSize, ySize).toRouEvals();
+  const outputEvals = left.field.createZeroBuffer(xSize * ySize);
+
+  for (let index = 0; index < xSize * ySize; index += 1) {
+    left.field.writeBufferElement(
+      outputEvals,
+      index,
+      left.field.mul(
+        left.field.readBufferElement(leftEvals, index),
+        left.field.readBufferElement(rightEvals, index),
+      ),
+    );
+  }
+
+  return await BivariatePolynomialBuffer.fromRouEvals(left.field, outputEvals, xSize, ySize);
+}
+
+async function generic2dNttMulConcurrentInputs(
+  left: BivariatePolynomialBuffer,
+  right: BivariatePolynomialBuffer,
+): Promise<BivariatePolynomialBuffer> {
+  const leftDegree = left.findDegree();
+  const rightDegree = right.findDegree();
+  if (
+    leftDegree.xDegree < 0 ||
+    leftDegree.yDegree < 0 ||
+    rightDegree.xDegree < 0 ||
+    rightDegree.yDegree < 0
+  ) {
+    return BivariatePolynomialBuffer.zero(left.field);
+  }
+
+  const xSize = nextPowerOfTwo(leftDegree.xDegree + rightDegree.xDegree + 1);
+  const ySize = nextPowerOfTwo(leftDegree.yDegree + rightDegree.yDegree + 1);
+  const [leftEvals, rightEvals] = await Promise.all([
+    left.resize(xSize, ySize).toRouEvals(),
+    right.resize(xSize, ySize).toRouEvals(),
+  ]);
   const outputEvals = left.field.createZeroBuffer(xSize * ySize);
 
   for (let index = 0; index < xSize * ySize; index += 1) {
