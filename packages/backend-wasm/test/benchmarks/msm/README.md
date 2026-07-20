@@ -11,6 +11,8 @@ This directory contains a standalone benchmark for comparing four ways to comput
 
 The benchmark asserts that all methods return the same G1 point before it reports timing.
 
+Historical note: [worker-parallelization-report.md](./worker-parallelization-report.md) records the discarded browser worker MSM parallelization plan, the measurements that motivated it, and why the current production path uses ffjavascript primitive parallelism instead.
+
 ## Usage
 
 ```bash
