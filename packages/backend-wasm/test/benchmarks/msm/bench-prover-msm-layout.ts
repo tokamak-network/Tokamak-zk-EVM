@@ -41,9 +41,13 @@ interface TimingRow {
   readonly currentPrepMs: number;
   readonly currentMsmMs: number;
   readonly currentTotalMs: number;
+  readonly rawSlicePrepMs: number;
+  readonly rawSliceMsmMs: number;
+  readonly rawSliceTotalMs: number;
   readonly snarkjsPrepMs: number;
   readonly snarkjsMsmMs: number;
   readonly snarkjsTotalMs: number;
+  readonly rawSliceSpeedup: number;
   readonly totalSpeedup: number;
 }
 
@@ -224,9 +228,13 @@ async function assertEqualResults(runtime: CurveRuntime, benchmarkCase: Benchmar
     benchmarkCase.polynomial,
   );
   const snarkjsStyle = await runSnarkjsStyleMsm(runtime, benchmarkCase);
+  const rawSliceStyle = await runRawSliceSparseMsm(runtime, benchmarkCase);
 
   if (!runtime.G1.eq(current, snarkjsStyle)) {
     throw new Error(`Current and snarkjs-style MSM results differ at length ${benchmarkCase.length}.`);
+  }
+  if (!runtime.G1.eq(current, rawSliceStyle)) {
+    throw new Error(`Current and raw-slice MSM results differ at length ${benchmarkCase.length}.`);
   }
 }
 
@@ -247,6 +255,18 @@ async function measureCase(
     await runtime.G1.msmAffineRaw(prepared.bases, prepared.scalars);
   });
 
+  const rawSlicePrepared = prepareRawSliceSparseMsm(runtime, benchmarkCase);
+  const rawSlicePrepMs = await measure(options, () => {
+    prepareRawSliceSparseMsm(runtime, benchmarkCase);
+  });
+  const rawSliceMsmMs = await measure(options, async () => {
+    await runtime.G1.msmAffineRaw(rawSlicePrepared.bases, rawSlicePrepared.scalars);
+  });
+  const rawSliceTotalMs = await measure(options, async () => {
+    const prepared = prepareRawSliceSparseMsm(runtime, benchmarkCase);
+    await runtime.G1.msmAffineRaw(prepared.bases, prepared.scalars);
+  });
+
   const snarkjsPrepMs = await measure(options, async () => {
     await prepareSnarkjsStyleScalars(runtime, benchmarkCase.polynomial);
   });
@@ -263,9 +283,13 @@ async function measureCase(
     currentPrepMs,
     currentMsmMs,
     currentTotalMs,
+    rawSlicePrepMs,
+    rawSliceMsmMs,
+    rawSliceTotalMs,
     snarkjsPrepMs,
     snarkjsMsmMs,
     snarkjsTotalMs,
+    rawSliceSpeedup: currentTotalMs / rawSliceTotalMs,
     totalSpeedup: currentTotalMs / snarkjsTotalMs,
   };
 }
@@ -312,11 +336,60 @@ function prepareCurrentStyleMsm(runtime: CurveRuntime, benchmarkCase: BenchmarkC
   return { bases, scalars };
 }
 
+function prepareRawSliceSparseMsm(runtime: CurveRuntime, benchmarkCase: BenchmarkCase): PreparedMsmInput {
+  const { xDegree, yDegree } = benchmarkCase.polynomial.findDegree();
+  if (xDegree < 0 || yDegree < 0) {
+    return { bases: new Uint8Array(), scalars: new Uint8Array() };
+  }
+
+  const xSize = xDegree + 1;
+  const ySize = yDegree + 1;
+  const referenceStringYSize = benchmarkCase.setup.s_max * 2;
+  let nonzeroCount = 0;
+  for (let x = 0; x < xSize; x += 1) {
+    for (let y = 0; y < ySize; y += 1) {
+      if (!runtime.Fr.isZero(benchmarkCase.polynomial.getCoeff(x, y))) {
+        nonzeroCount += 1;
+      }
+    }
+  }
+
+  const bases = new Uint8Array(nonzeroCount * G1_AFFINE_BYTES);
+  const scalars = new Uint8Array(nonzeroCount * runtime.Fr.byteLength);
+  let outputIndex = 0;
+  for (let x = 0; x < xSize; x += 1) {
+    for (let y = 0; y < ySize; y += 1) {
+      const scalar = benchmarkCase.polynomial.getCoeff(x, y);
+      if (runtime.Fr.isZero(scalar)) {
+        continue;
+      }
+
+      const crsIndex = referenceStringYSize * x + y;
+      const baseOffset = crsIndex * G1_AFFINE_BYTES;
+      const baseEnd = baseOffset + G1_AFFINE_BYTES;
+      if (baseEnd > benchmarkCase.crs.sigma1.xyPowersRaw.byteLength) {
+        throw new Error("Synthetic CRS raw xy-powers section is shorter than the raw-slice MSM shape.");
+      }
+
+      bases.set(benchmarkCase.crs.sigma1.xyPowersRaw.subarray(baseOffset, baseEnd), outputIndex * G1_AFFINE_BYTES);
+      scalars.set(runtime.Fr.toRawLittleEndian(scalar), outputIndex * runtime.Fr.byteLength);
+      outputIndex += 1;
+    }
+  }
+
+  return { bases, scalars };
+}
+
 async function prepareSnarkjsStyleScalars(
   runtime: CurveRuntime,
   polynomial: BivariatePolynomialBuffer,
 ): Promise<Uint8Array> {
   return await runtime.Fr.batchFromMontgomeryBuffer(polynomial.coefficients);
+}
+
+async function runRawSliceSparseMsm(runtime: CurveRuntime, benchmarkCase: BenchmarkCase): Promise<Uint8Array> {
+  const prepared = prepareRawSliceSparseMsm(runtime, benchmarkCase);
+  return await runtime.G1.msmAffineRaw(prepared.bases, prepared.scalars);
 }
 
 async function runSnarkjsStyleMsm(runtime: CurveRuntime, benchmarkCase: BenchmarkCase): Promise<Uint8Array> {
@@ -344,9 +417,9 @@ function printRows(rows: readonly TimingRow[], options: BenchmarkOptions): void 
     } mode=${options.singleThread ? "single-thread" : "multi-thread"}`,
   );
   console.log(
-    "length | current prep ms | current msm ms | current total ms | snarkjs prep ms | snarkjs msm ms | snarkjs total ms | total speedup",
+    "length | current prep ms | current msm ms | current total ms | raw-slice prep ms | raw-slice msm ms | raw-slice total ms | raw-slice speedup | snarkjs prep ms | snarkjs msm ms | snarkjs total ms | snarkjs speedup",
   );
-  console.log("---: | ---: | ---: | ---: | ---: | ---: | ---: | ---:");
+  console.log("---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---:");
 
   for (const row of rows) {
     console.log(
@@ -355,6 +428,10 @@ function printRows(rows: readonly TimingRow[], options: BenchmarkOptions): void 
         row.currentPrepMs.toFixed(3),
         row.currentMsmMs.toFixed(3),
         row.currentTotalMs.toFixed(3),
+        row.rawSlicePrepMs.toFixed(3),
+        row.rawSliceMsmMs.toFixed(3),
+        row.rawSliceTotalMs.toFixed(3),
+        `${row.rawSliceSpeedup.toFixed(2)}x`,
         row.snarkjsPrepMs.toFixed(3),
         row.snarkjsMsmMs.toFixed(3),
         row.snarkjsTotalMs.toFixed(3),
