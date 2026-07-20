@@ -18,7 +18,7 @@ import {
   requireCommitment,
   type ProverCommitmentEncoder,
 } from "./commitment-encoder.js";
-import type { ProverInstancePolynomials, ProverMixer } from "./state.js";
+import type { ProverMixer } from "./state.js";
 import type { ProverState } from "./state.js";
 
 export interface InitialRelationCommitments {
@@ -55,10 +55,10 @@ export async function buildProverBinding(
   setup: ProverSetupParams,
   placementVariables: readonly ProverPlacementVariables[],
   subcircuitInfos: readonly ProverSubcircuitInfo[],
-  instance: ProverInstancePolynomials,
+  aFreeX: BivariatePolynomialBuffer,
   mixer: ProverMixer,
 ): Promise<ProverBinding> {
-  const A_free = await encodePolynomialWithSigma1(runtime, crs, setup, instance.aFreeX);
+  const A_free = await encodePolynomialBufferWithSigma1(runtime, crs, setup, aFreeX);
   const O_pub_free = await encodeOPubFree(runtime, crs, placementVariables, subcircuitInfos);
   const O_mid_core = await encodeOMidNoZk(runtime, crs, setup, placementVariables, subcircuitInfos);
   const O_mid = runtime.G1.add(O_mid_core, runtime.G1.mulAffineScalar(crs.sigma1.delta, mixer.rO_mid));

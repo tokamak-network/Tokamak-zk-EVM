@@ -146,7 +146,7 @@ async function provePreparedInputWithTestingModeChecks(
       input.witness.setup,
       input.witness.placementVariables,
       input.witness.subcircuitInfos,
-      state.instance,
+      state.instanceBuffers.aFreeX,
       state.mixer,
     ),
   );

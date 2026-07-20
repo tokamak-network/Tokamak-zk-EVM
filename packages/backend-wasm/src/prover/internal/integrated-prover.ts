@@ -36,7 +36,7 @@ export async function runIntegratedProver(
     input.witness.setup,
     input.witness.placementVariables,
     input.witness.subcircuitInfos,
-    state.instance,
+    state.instanceBuffers.aFreeX,
     state.mixer,
   );
   const transcript = new RollingKeccakTranscript(runtime.Fr);

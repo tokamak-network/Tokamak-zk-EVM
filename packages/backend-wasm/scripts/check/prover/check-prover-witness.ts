@@ -4,6 +4,7 @@ import {
   BinarySectionType,
   createBinaryArtifactFile,
   createCurveRuntime,
+  BivariatePolynomialBuffer,
   loadVerifierProofArtifact,
   loadRuntimeArtifactFile,
   RuntimeArtifactBundleKind,
@@ -253,7 +254,7 @@ async function main(): Promise<void> {
       prove0Setup,
       [],
       [],
-      smallProverState.instance,
+      smallProverState.instanceBuffers.aFreeX,
       smallProverState.mixer,
     );
     const verifierProofArtifact = await loadRuntimeArtifactFile(
@@ -576,7 +577,7 @@ async function main(): Promise<void> {
       GENERATED_PROVER_SETUP_PARAMS,
       [],
       proverInput.witness.subcircuitInfos,
-      generatedInstancePolynomials,
+      BivariatePolynomialBuffer.fromDense(generatedInstancePolynomials.aFreeX),
       generatedMixer,
     );
     assertEqual(binding.A_free.byteLength, 96, "binding A_free byte length");

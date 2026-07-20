@@ -101,7 +101,7 @@ async function provePreparedInputWithTimings(runtime: CurveRuntime, input: Prove
       input.witness.setup,
       input.witness.placementVariables,
       input.witness.subcircuitInfos,
-      state.instance,
+      state.instanceBuffers.aFreeX,
       state.mixer,
     ),
   );
