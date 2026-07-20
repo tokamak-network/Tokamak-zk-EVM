@@ -337,14 +337,20 @@ export class BivariatePolynomialBuffer {
 
   addScaledAssign(other: BivariatePolynomialBuffer, factor: FieldElement): this {
     this.assertSameShape(other);
+    if (this.field.isZero(factor)) {
+      return this;
+    }
+    const isOne = this.field.eq(factor, this.field.one);
+    const isMinusOne = this.field.eq(factor, this.field.neg(this.field.one));
+
     for (let index = 0; index < this.xSize * this.ySize; index += 1) {
+      const left = this.field.readBufferElement(this.coefficients, index);
+      const right = this.field.readBufferElement(other.coefficients, index);
+      const scaled = isOne ? right : isMinusOne ? this.field.neg(right) : this.field.mul(right, factor);
       this.field.writeBufferElement(
         this.coefficients,
         index,
-        this.field.add(
-          this.field.readBufferElement(this.coefficients, index),
-          this.field.mul(this.field.readBufferElement(other.coefficients, index), factor),
-        ),
+        this.field.add(left, scaled),
       );
     }
     return this;
@@ -357,17 +363,22 @@ export class BivariatePolynomialBuffer {
     if (other.xSize > this.xSize || other.ySize > this.ySize) {
       throw new Error("Source polynomial shape must fit inside the target polynomial shape.");
     }
+    if (this.field.isZero(factor)) {
+      return this;
+    }
+    const isOne = this.field.eq(factor, this.field.one);
+    const isMinusOne = this.field.eq(factor, this.field.neg(this.field.one));
 
     for (let x = 0; x < other.xSize; x += 1) {
       for (let y = 0; y < other.ySize; y += 1) {
         const targetIndex = this.coefficientIndex(x, y);
+        const target = this.field.readBufferElement(this.coefficients, targetIndex);
+        const source = other.getCoeff(x, y);
+        const scaled = isOne ? source : isMinusOne ? this.field.neg(source) : this.field.mul(source, factor);
         this.field.writeBufferElement(
           this.coefficients,
           targetIndex,
-          this.field.add(
-            this.field.readBufferElement(this.coefficients, targetIndex),
-            this.field.mul(other.getCoeff(x, y), factor),
-          ),
+          this.field.add(target, scaled),
         );
       }
     }

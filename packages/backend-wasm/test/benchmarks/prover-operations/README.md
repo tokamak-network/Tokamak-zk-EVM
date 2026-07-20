@@ -188,3 +188,42 @@ Observed diagnostics after this change:
 | verify generated proof | 14 ms |
 
 Historical `prove*` names in the table are diagnostic labels only.
+
+## Accepted Scaled-Add Fast Path
+
+`linearCombinationBuffer()` ultimately uses `BivariatePolynomialBuffer.addScaledPrefixAssign()`. Many integrated prover terms use scale factors equal to `0`, `1`, or `-1`, but the previous implementation still routed every source coefficient through a field multiplication.
+
+`addScaledAssign()` and `addScaledPrefixAssign()` now skip work for zero factors and avoid field multiplication for `1` and `-1` factors.
+
+Representative benchmark:
+
+```bash
+npm run bench:prover-ops -- --shapes=4096x256 --groups=linear-combination --iterations=1 --warmup=0 --json=tmp/timing/prover-operation-linear-combination-factor-fast-path.json
+```
+
+| group | candidate | shape | ms/op |
+| --- | --- | ---: | ---: |
+| linear-combination | current-linearCombinationBuffer | 4096x256 | 1232.803 |
+| linear-combination | preallocated-addScaledPrefixAssign | 4096x256 | 1149.804 |
+
+The benchmark uses non-unit synthetic factors, so it mainly confirms that the fast-path checks do not materially regress the generic path. The integrated prover diagnostics are the relevant acceptance signal for unit and negative-unit factors.
+
+Verification:
+
+```bash
+npm run typecheck
+npm run polynomial:buffer:check
+npm run prover:testing-mode:check
+npm run build
+npm pack --dry-run --json
+```
+
+Observed diagnostics after this change:
+
+| step | duration |
+| --- | ---: |
+| prove2 diagnostic label | 166.27 s |
+| prove4 diagnostic label | 106.44 s |
+| verify generated proof | 17 ms |
+
+Historical `prove*` names in the table are diagnostic labels only.
