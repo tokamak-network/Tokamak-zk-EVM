@@ -4,7 +4,6 @@ import path from "node:path";
 import {
   BinaryArtifactFileKind,
   BivariatePolynomialBuffer,
-  DensePolynomialExt,
   RollingKeccakTranscript,
   RuntimeArtifactFileRole,
   buildDomainContext,
@@ -245,9 +244,9 @@ async function checkWitnessCopySetup(
   const field = runtime.Fr;
   const mI = state.setup.l_D - state.setup.l;
   const sMax = state.setup.s_max;
-  const bXYEvals = await BivariatePolynomialBuffer.fromDense(state.witness.bXY).resize(mI, sMax).toRouEvals();
-  const s0XYEvals = await BivariatePolynomialBuffer.fromDense(state.instance.s0XY).resize(mI, sMax).toRouEvals();
-  const s1XYEvals = await BivariatePolynomialBuffer.fromDense(state.instance.s1XY).resize(mI, sMax).toRouEvals();
+  const bXYEvals = await state.witness.bXY.resize(mI, sMax).toRouEvals();
+  const s0XYEvals = await state.instance.s0XY.resize(mI, sMax).toRouEvals();
+  const s1XYEvals = await state.instance.s1XY.resize(mI, sMax).toRouEvals();
   const xPowers = powerTable(field, field.rootOfUnity(mI), mI);
   const yPowers = powerTable(field, field.rootOfUnity(sMax), sMax);
   const thetas = [field.fromBigInt(2n), field.fromBigInt(3n), field.fromBigInt(5n)] as const;
@@ -288,9 +287,9 @@ async function checkProve0Arithmetic(
   prove0Output: InitialRelationComputation,
 ): Promise<void> {
   const field = runtime.Fr;
-  const uXY = BivariatePolynomialBuffer.fromDense(state.witness.uXY).resize(state.setup.n, state.setup.s_max);
-  const vXY = BivariatePolynomialBuffer.fromDense(state.witness.vXY).resize(state.setup.n, state.setup.s_max);
-  const wXY = BivariatePolynomialBuffer.fromDense(state.witness.wXY).resize(state.setup.n, state.setup.s_max);
+  const uXY = state.witness.uXY.resize(state.setup.n, state.setup.s_max);
+  const vXY = state.witness.vXY.resize(state.setup.n, state.setup.s_max);
+  const wXY = state.witness.wXY.resize(state.setup.n, state.setup.s_max);
   const uXYEvals = await uXY.toRouEvals();
   const vXYEvals = await vXY.toRouEvals();
   const wXYEvals = await wXY.toRouEvals();
@@ -306,10 +305,10 @@ async function checkProve0Arithmetic(
     }
   }
 
-  const p0XY = await BivariatePolynomialBuffer.fromDense(state.witness.uXY).mul(
-    BivariatePolynomialBuffer.fromDense(state.witness.vXY),
+  const p0XY = await state.witness.uXY.mul(
+    state.witness.vXY,
   );
-  p0XY.subAssign(BivariatePolynomialBuffer.fromDense(state.witness.wXY).resize(p0XY.xSize, p0XY.ySize));
+  p0XY.subAssign(state.witness.wXY.resize(p0XY.xSize, p0XY.ySize));
   assertVanishingQuotientAtPoint(runtime, {
     label: "prove0 arithmetic quotient",
     numerator: p0XY,
@@ -321,40 +320,40 @@ async function checkProve0Arithmetic(
     yPoint: field.fromBigInt(11n),
   });
 
-  const rW_X = DensePolynomialExt.fromCoeffs(field, state.mixer.rW_X, state.mixer.rW_X.length, 1);
-  const rW_Y = DensePolynomialExt.fromCoeffs(field, state.mixer.rW_Y, 1, state.mixer.rW_Y.length);
+  const rW_X = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_X, state.mixer.rW_X.length, 1);
+  const rW_Y = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_Y, 1, state.mixer.rW_Y.length);
   const UXY = linearCombinationBuffer(field, [
-    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.uXY)],
-    [state.mixer.rU_X, BivariatePolynomialBuffer.fromDense(state.instance.tN)],
-    [state.mixer.rU_Y, BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+    [field.one, state.witness.uXY],
+    [state.mixer.rU_X, state.instance.tN],
+    [state.mixer.rU_Y, state.instance.tSMax],
   ]);
   const VXY = linearCombinationBuffer(field, [
-    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.vXY)],
-    [state.mixer.rV_X, BivariatePolynomialBuffer.fromDense(state.instance.tN)],
-    [state.mixer.rV_Y, BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+    [field.one, state.witness.vXY],
+    [state.mixer.rV_X, state.instance.tN],
+    [state.mixer.rV_Y, state.instance.tSMax],
   ]);
   const WXY = linearCombinationBuffer(field, [
-    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.wXY)],
+    [field.one, state.witness.wXY],
     [field.one, prove0Output.wZk],
   ]);
   const Q_AX_XY = linearCombinationBuffer(field, [
     [field.one, prove0Output.q0XY],
-    [state.mixer.rU_X, BivariatePolynomialBuffer.fromDense(state.witness.vXY)],
-    [state.mixer.rV_X, BivariatePolynomialBuffer.fromDense(state.witness.uXY)],
-    [field.neg(field.one), BivariatePolynomialBuffer.fromDense(rW_X)],
-    [field.mul(state.mixer.rU_X, state.mixer.rV_X), BivariatePolynomialBuffer.fromDense(state.instance.tN)],
-    [field.mul(state.mixer.rU_Y, state.mixer.rV_X), BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+    [state.mixer.rU_X, state.witness.vXY],
+    [state.mixer.rV_X, state.witness.uXY],
+    [field.neg(field.one), rW_X],
+    [field.mul(state.mixer.rU_X, state.mixer.rV_X), state.instance.tN],
+    [field.mul(state.mixer.rU_Y, state.mixer.rV_X), state.instance.tSMax],
   ]);
   const Q_AY_XY = linearCombinationBuffer(field, [
     [field.one, prove0Output.q1XY],
-    [state.mixer.rU_Y, BivariatePolynomialBuffer.fromDense(state.witness.vXY)],
-    [state.mixer.rV_Y, BivariatePolynomialBuffer.fromDense(state.witness.uXY)],
-    [field.neg(field.one), BivariatePolynomialBuffer.fromDense(rW_Y)],
-    [field.mul(state.mixer.rU_X, state.mixer.rV_Y), BivariatePolynomialBuffer.fromDense(state.instance.tN)],
-    [field.mul(state.mixer.rU_Y, state.mixer.rV_Y), BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+    [state.mixer.rU_Y, state.witness.vXY],
+    [state.mixer.rV_Y, state.witness.uXY],
+    [field.neg(field.one), rW_Y],
+    [field.mul(state.mixer.rU_X, state.mixer.rV_Y), state.instance.tN],
+    [field.mul(state.mixer.rU_Y, state.mixer.rV_Y), state.instance.tSMax],
   ]);
   const BXY = linearCombinationBuffer(field, [
-    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.bXY)],
+    [field.one, state.witness.bXY],
     [
       field.one,
       linearCombinationBuffer(field, [
@@ -508,51 +507,51 @@ async function checkProve4Openings(input: {
   const tSMaxEval = state.instance.tSMax.eval(field.one, zeta);
   const smallVEval = state.witness.vXY.eval(chi, zeta);
   const VXY = linearCombinationBuffer(field, [
-    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.vXY)],
-    [state.mixer.rV_X, BivariatePolynomialBuffer.fromDense(state.instance.tN)],
-    [state.mixer.rV_Y, BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+    [field.one, state.witness.vXY],
+    [state.mixer.rV_X, state.instance.tN],
+    [state.mixer.rV_Y, state.instance.tSMax],
   ]);
   const UXY = linearCombinationBuffer(field, [
-    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.uXY)],
-    [state.mixer.rU_X, BivariatePolynomialBuffer.fromDense(state.instance.tN)],
-    [state.mixer.rU_Y, BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+    [field.one, state.witness.uXY],
+    [state.mixer.rU_X, state.instance.tN],
+    [state.mixer.rU_Y, state.instance.tSMax],
   ]);
-  const rW_X = DensePolynomialExt.fromCoeffs(field, state.mixer.rW_X, state.mixer.rW_X.length, 1);
-  const rW_Y = DensePolynomialExt.fromCoeffs(field, state.mixer.rW_Y, 1, state.mixer.rW_Y.length);
+  const rW_X = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_X, state.mixer.rW_X.length, 1);
+  const rW_Y = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_Y, 1, state.mixer.rW_Y.length);
   const WXY = linearCombinationBuffer(field, [
-    [field.one, BivariatePolynomialBuffer.fromDense(state.witness.wXY)],
+    [field.one, state.witness.wXY],
     [field.one, prove0Output.wZk],
   ]);
   const Q_AX_XY = linearCombinationBuffer(field, [
     [field.one, prove0Output.q0XY],
-    [state.mixer.rU_X, BivariatePolynomialBuffer.fromDense(state.witness.vXY)],
-    [state.mixer.rV_X, BivariatePolynomialBuffer.fromDense(state.witness.uXY)],
-    [field.neg(field.one), BivariatePolynomialBuffer.fromDense(rW_X)],
-    [field.mul(state.mixer.rU_X, state.mixer.rV_X), BivariatePolynomialBuffer.fromDense(state.instance.tN)],
-    [field.mul(state.mixer.rU_Y, state.mixer.rV_X), BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+    [state.mixer.rU_X, state.witness.vXY],
+    [state.mixer.rV_X, state.witness.uXY],
+    [field.neg(field.one), rW_X],
+    [field.mul(state.mixer.rU_X, state.mixer.rV_X), state.instance.tN],
+    [field.mul(state.mixer.rU_Y, state.mixer.rV_X), state.instance.tSMax],
   ]);
   const Q_AY_XY = linearCombinationBuffer(field, [
     [field.one, prove0Output.q1XY],
-    [state.mixer.rU_Y, BivariatePolynomialBuffer.fromDense(state.witness.vXY)],
-    [state.mixer.rV_Y, BivariatePolynomialBuffer.fromDense(state.witness.uXY)],
-    [field.neg(field.one), BivariatePolynomialBuffer.fromDense(rW_Y)],
-    [field.mul(state.mixer.rU_X, state.mixer.rV_Y), BivariatePolynomialBuffer.fromDense(state.instance.tN)],
-    [field.mul(state.mixer.rU_Y, state.mixer.rV_Y), BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+    [state.mixer.rU_Y, state.witness.vXY],
+    [state.mixer.rV_Y, state.witness.uXY],
+    [field.neg(field.one), rW_Y],
+    [field.mul(state.mixer.rU_X, state.mixer.rV_Y), state.instance.tN],
+    [field.mul(state.mixer.rU_Y, state.mixer.rV_Y), state.instance.tSMax],
   ]);
   const pAXY = linearCombinationBuffer(field, [
     [kappa1, VXY.sub(constantPolynomialBuffer(field, evaluations.V_eval))],
-    [smallVEval, BivariatePolynomialBuffer.fromDense(state.witness.uXY)],
-    [field.neg(field.one), BivariatePolynomialBuffer.fromDense(state.witness.wXY)],
+    [smallVEval, state.witness.uXY],
+    [field.neg(field.one), state.witness.wXY],
     [field.neg(tNEval), prove0Output.q0XY],
     [field.neg(tSMaxEval), prove0Output.q1XY],
-    [field.mul(smallVEval, state.mixer.rU_X), BivariatePolynomialBuffer.fromDense(state.instance.tN)],
-    [field.mul(smallVEval, state.mixer.rU_Y), BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+    [field.mul(smallVEval, state.mixer.rU_X), state.instance.tN],
+    [field.mul(smallVEval, state.mixer.rU_Y), state.instance.tSMax],
     [
       field.neg(field.add(field.mul(state.mixer.rU_X, tNEval), field.mul(state.mixer.rU_Y, tSMaxEval))),
-      BivariatePolynomialBuffer.fromDense(state.witness.vXY),
+      state.witness.vXY,
     ],
-    [tNEval, BivariatePolynomialBuffer.fromDense(rW_X)],
-    [tSMaxEval, BivariatePolynomialBuffer.fromDense(rW_Y)],
+    [tNEval, rW_X],
+    [tSMaxEval, rW_Y],
     [field.neg(field.one), prove0Output.wZk],
   ]);
   const proof0Numerator = linearCombinationBuffer(field, [
@@ -578,8 +577,8 @@ async function checkProve4Openings(input: {
 
   const RXY = linearCombinationBuffer(field, [
     [field.one, rXY],
-    [state.mixer.rR_X, BivariatePolynomialBuffer.fromDense(state.instance.tMi)],
-    [state.mixer.rR_Y, BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+    [state.mixer.rR_X, state.instance.tMi],
+    [state.mixer.rR_Y, state.instance.tSMax],
   ]);
   const mDivision = RXY
     .sub(constantPolynomialBuffer(field, evaluations.R_omegaX_eval))
@@ -633,7 +632,7 @@ async function checkProve4Openings(input: {
   const aEval = state.instance.aFreeX.eval(chi, zeta);
   const bindingNumerator = state.instance.aFreeX.sub(constantPolynomial(field, aEval));
   const bindingDivision = bindingNumerator.divByRuffini(chi, zeta);
-  assertDenseRuffiniDivisionAtPoint(runtime, {
+  assertRuffiniDivisionAtPoint(runtime, {
     label: "prove4 binding opening",
     numerator: bindingNumerator,
     quotientX: bindingDivision.quotientX,
@@ -950,13 +949,13 @@ function buildCopyPolynomials(
 
   return {
     fXY: linearCombinationBuffer(field, [
-      [field.one, BivariatePolynomialBuffer.fromDense(state.witness.bXY)],
-      [thetas[0], BivariatePolynomialBuffer.fromDense(state.instance.s0XY)],
-      [thetas[1], BivariatePolynomialBuffer.fromDense(state.instance.s1XY)],
+      [field.one, state.witness.bXY],
+      [thetas[0], state.instance.s0XY],
+      [thetas[1], state.instance.s1XY],
       [field.one, theta2],
     ]),
     gXY: linearCombinationBuffer(field, [
-      [field.one, BivariatePolynomialBuffer.fromDense(state.witness.bXY)],
+      [field.one, state.witness.bXY],
       [thetas[0], xMonomial],
       [thetas[1], yMonomial],
       [field.one, theta2],
@@ -1008,32 +1007,6 @@ function assertRuffiniDivisionAtPoint(
     field.mul(input.quotientY.eval(xPoint, yPoint), field.sub(yPoint, input.yRoot)),
   );
   assertFieldEqual(runtime, input.numerator.eval(xPoint, yPoint), rhs, { label: `${input.label} reconstruction` });
-}
-
-function assertDenseRuffiniDivisionAtPoint(
-  runtime: CurveRuntime,
-  input: {
-    readonly label: string;
-    readonly numerator: DensePolynomialExt;
-    readonly quotientX: DensePolynomialExt;
-    readonly quotientY: DensePolynomialExt;
-    readonly xRoot: FieldElement;
-    readonly yRoot: FieldElement;
-  },
-): void {
-  const field = runtime.Fr;
-  const division = input.numerator.divByRuffini(input.xRoot, input.yRoot);
-  assertFieldEqual(runtime, division.remainder, field.zero, { label: `${input.label} remainder` });
-
-  const xPoint = field.fromBigInt(37n);
-  const yPoint = field.fromBigInt(41n);
-  const rhs = field.add(
-    field.mul(input.quotientX.eval(xPoint, yPoint), field.sub(xPoint, input.xRoot)),
-    field.mul(input.quotientY.eval(xPoint, yPoint), field.sub(yPoint, input.yRoot)),
-  );
-  assertFieldEqual(runtime, input.numerator.eval(xPoint, yPoint), rhs, {
-    label: `${input.label} reconstruction`,
-  });
 }
 
 async function assertPairing(runtime: CurveRuntime, label: string, result: Promise<boolean>): Promise<void> {
@@ -1123,8 +1096,8 @@ function powerTable(field: CurveRuntime["Fr"], base: FieldElement, length: numbe
   return output;
 }
 
-function constantPolynomial(field: CurveRuntime["Fr"], value: FieldElement): DensePolynomialExt {
-  return DensePolynomialExt.fromCoeffs(field, [value], 1, 1);
+function constantPolynomial(field: CurveRuntime["Fr"], value: FieldElement): BivariatePolynomialBuffer {
+  return BivariatePolynomialBuffer.fromCoeffs(field, [value], 1, 1);
 }
 
 async function timed<T>(label: string, callback: () => Promise<T>): Promise<T> {

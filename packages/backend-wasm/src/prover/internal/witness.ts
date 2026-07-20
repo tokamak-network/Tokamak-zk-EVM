@@ -1,4 +1,4 @@
-import { DensePolynomialExt } from "../../core/polynomial/dense-polynomial.js";
+import { BivariatePolynomialBuffer } from "../../core/polynomial/bivariate-polynomial-buffer.js";
 import type { FieldElement, FieldRuntime } from "../../core/field/field.js";
 
 export interface ProverSetupParams {
@@ -62,11 +62,11 @@ export interface ProverWitnessInput {
 }
 
 export interface WitnessPolynomials {
-  readonly bXY: DensePolynomialExt;
-  readonly uXY: DensePolynomialExt;
-  readonly vXY: DensePolynomialExt;
-  readonly wXY: DensePolynomialExt;
-  readonly rXY: DensePolynomialExt;
+  readonly bXY: BivariatePolynomialBuffer;
+  readonly uXY: BivariatePolynomialBuffer;
+  readonly vXY: BivariatePolynomialBuffer;
+  readonly wXY: BivariatePolynomialBuffer;
+  readonly rXY: BivariatePolynomialBuffer;
 }
 
 export async function buildWitnessPolynomials(
@@ -91,7 +91,7 @@ export async function buildWitnessPolynomials(
     uXY,
     vXY,
     wXY,
-    rXY: DensePolynomialExt.zero(field),
+    rXY: BivariatePolynomialBuffer.zero(field),
   };
 }
 
@@ -100,7 +100,7 @@ export async function genBXY(
   placementVariables: readonly ProverPlacementVariables[],
   subcircuitInfos: readonly ProverSubcircuitInfo[],
   setup: ProverSetupParams,
-): Promise<DensePolynomialExt> {
+): Promise<BivariatePolynomialBuffer> {
   validateSetupParams(setup);
   validateSubcircuitInfos(subcircuitInfos);
   validatePlacements(placementVariables, subcircuitInfos, setup);
@@ -121,7 +121,7 @@ export async function genBXY(
     }
   }
 
-  return DensePolynomialExt.fromRouEvals(field, evals, mI, setup.s_max);
+  return BivariatePolynomialBuffer.fromRouEvals(field, field.concat(evals), mI, setup.s_max);
 }
 
 export async function genUvwXY(
@@ -130,9 +130,9 @@ export async function genUvwXY(
   r1csBySubcircuit: readonly (ProverSparseSubcircuitR1cs | undefined)[],
   setup: ProverSetupParams,
 ): Promise<{
-  readonly uXY: DensePolynomialExt;
-  readonly vXY: DensePolynomialExt;
-  readonly wXY: DensePolynomialExt;
+  readonly uXY: BivariatePolynomialBuffer;
+  readonly vXY: BivariatePolynomialBuffer;
+  readonly wXY: BivariatePolynomialBuffer;
 }> {
   validateSetupParams(setup);
   if (placementVariables.length > setup.s_max) {
@@ -181,9 +181,9 @@ export async function genUvwXY(
   const wEvals = transposePlacementMajorToRowMajor(wByPlacement, setup.s_max, setup.n);
 
   return {
-    uXY: await DensePolynomialExt.fromRouEvals(field, uEvals, setup.n, setup.s_max),
-    vXY: await DensePolynomialExt.fromRouEvals(field, vEvals, setup.n, setup.s_max),
-    wXY: await DensePolynomialExt.fromRouEvals(field, wEvals, setup.n, setup.s_max),
+    uXY: await BivariatePolynomialBuffer.fromRouEvals(field, field.concat(uEvals), setup.n, setup.s_max),
+    vXY: await BivariatePolynomialBuffer.fromRouEvals(field, field.concat(vEvals), setup.n, setup.s_max),
+    wXY: await BivariatePolynomialBuffer.fromRouEvals(field, field.concat(wEvals), setup.n, setup.s_max),
   };
 }
 

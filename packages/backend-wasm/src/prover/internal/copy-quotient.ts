@@ -12,6 +12,7 @@ import {
   mulByLinearX,
   mulByLinearY,
   mulByXMinusOne,
+  multiplyPairWithSharedRight,
 } from "./polynomial-ops.js";
 import type { ProverState } from "./state.js";
 
@@ -67,10 +68,11 @@ export async function computeCopyQuotientCommitments(input: {
   const lagrangeKlXY = await buildLagrangeKl(field, mI, sMax);
   const lagrangeK0XY = await buildLagrangeK0(field, mI);
   const rGXY = await rXY.mul(gXY);
+  const [rOmegaXFXY, rOmegaXOmegaYFXY] = await multiplyPairWithSharedRight(rOmegaX, rOmegaXOmegaY, fXY);
   const p1XY = await rXY.sub(constantPolynomialBuffer(field, field.one)).mul(lagrangeKlXY);
-  const p2Input = rGXY.sub(await rOmegaX.mul(fXY));
+  const p2Input = rGXY.sub(rOmegaXFXY);
   const p2XY = mulByXMinusOne(p2Input);
-  const p3XY = await lagrangeK0XY.mul(rGXY.sub(await rOmegaXOmegaY.mul(fXY)));
+  const p3XY = await lagrangeK0XY.mul(rGXY.sub(rOmegaXOmegaYFXY));
   const pCombined = linearCombinationBuffer(field, [
     [field.one, p1XY],
     [kappa0, p2XY],

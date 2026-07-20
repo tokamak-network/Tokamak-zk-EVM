@@ -3,13 +3,9 @@ import { fileURLToPath } from "node:url";
 import {
   BivariatePolynomialBuffer,
   createCurveRuntime,
-  DensePolynomialExt,
 } from "../../../src/index.js";
 import type { CurveRuntime, FieldElement, ProverCrsRuntime, ProverSetupParams } from "../../../src/index.js";
-import {
-  encodePolynomialBufferWithSigma1,
-  encodePolynomialWithSigma1,
-} from "../../../src/prover/internal/initial-relation.js";
+import { encodePolynomialBufferWithSigma1 } from "../../../src/prover/internal/initial-relation.js";
 
 async function main(): Promise<void> {
   const runtime = await createCurveRuntime();
@@ -59,13 +55,6 @@ async function checkCommitmentOps(runtime: CurveRuntime): Promise<void> {
   const actualBuffer = await encodePolynomialBufferWithSigma1(runtime, crs, setup, polynomial);
   assertG1Equal(runtime, actualBuffer, expected, "encodePolynomialBufferWithSigma1");
 
-  const actualDense = await encodePolynomialWithSigma1(
-    runtime,
-    crs,
-    setup,
-    DensePolynomialExt.fromCoeffs(runtime.Fr, coefficients, 4, 4),
-  );
-  assertG1Equal(runtime, actualDense, expected, "encodePolynomialWithSigma1 dense wrapper");
   const compact = await encodeCompactRectangleWithSigma1(runtime, crs, setup, polynomial);
   assertG1Equal(runtime, compact, actualBuffer, "compact rectangle commitment oracle");
 

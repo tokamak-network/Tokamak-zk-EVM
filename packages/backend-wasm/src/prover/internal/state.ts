@@ -1,16 +1,15 @@
 import { BivariatePolynomialBuffer } from "../../core/polynomial/bivariate-polynomial-buffer.js";
-import { DensePolynomialExt } from "../../core/polynomial/dense-polynomial.js";
 import type { CurveRuntime } from "../../core/curve/curve.js";
 import type { FieldElement, FieldRuntime } from "../../core/field/field.js";
 import type { ProverPermutationEntry, ProverSetupParams, WitnessPolynomials } from "./witness.js";
 
 export interface ProverInstancePolynomials {
-  readonly aFreeX: DensePolynomialExt;
-  readonly tN: DensePolynomialExt;
-  readonly tMi: DensePolynomialExt;
-  readonly tSMax: DensePolynomialExt;
-  readonly s0XY: DensePolynomialExt;
-  readonly s1XY: DensePolynomialExt;
+  readonly aFreeX: BivariatePolynomialBuffer;
+  readonly tN: BivariatePolynomialBuffer;
+  readonly tMi: BivariatePolynomialBuffer;
+  readonly tSMax: BivariatePolynomialBuffer;
+  readonly s0XY: BivariatePolynomialBuffer;
+  readonly s1XY: BivariatePolynomialBuffer;
 }
 
 export interface ProverInstancePolynomialBuffers {
@@ -68,7 +67,7 @@ export async function buildProverInstancePolynomials(
   const [s0XY, s1XY] = await buildPermutationPolynomials(field, setup, permutation);
 
   return {
-    aFreeX: await DensePolynomialExt.fromRouEvals(field, publicInstance, setup.l_free, 1),
+    aFreeX: await BivariatePolynomialBuffer.fromRouEvals(field, field.concat(publicInstance), setup.l_free, 1),
     tN: vanishingPolynomialX(field, setup.n),
     tMi: vanishingPolynomialX(field, mI),
     tSMax: vanishingPolynomialY(field, setup.s_max),
@@ -110,33 +109,10 @@ export async function createProverState(input: {
   return {
     setup: input.setup,
     instance,
-    instanceBuffers: buildProverInstancePolynomialBuffers(instance),
+    instanceBuffers: instance,
     witness: input.witness,
-    witnessBuffers: buildWitnessPolynomialBuffers(input.witness),
+    witnessBuffers: input.witness,
     mixer: await createProverMixer(input.runtime),
-  };
-}
-
-function buildProverInstancePolynomialBuffers(
-  instance: ProverInstancePolynomials,
-): ProverInstancePolynomialBuffers {
-  return {
-    aFreeX: BivariatePolynomialBuffer.fromDense(instance.aFreeX),
-    tN: BivariatePolynomialBuffer.fromDense(instance.tN),
-    tMi: BivariatePolynomialBuffer.fromDense(instance.tMi),
-    tSMax: BivariatePolynomialBuffer.fromDense(instance.tSMax),
-    s0XY: BivariatePolynomialBuffer.fromDense(instance.s0XY),
-    s1XY: BivariatePolynomialBuffer.fromDense(instance.s1XY),
-  };
-}
-
-function buildWitnessPolynomialBuffers(witness: WitnessPolynomials): WitnessPolynomialBuffers {
-  return {
-    bXY: BivariatePolynomialBuffer.fromDense(witness.bXY),
-    uXY: BivariatePolynomialBuffer.fromDense(witness.uXY),
-    vXY: BivariatePolynomialBuffer.fromDense(witness.vXY),
-    wXY: BivariatePolynomialBuffer.fromDense(witness.wXY),
-    rXY: BivariatePolynomialBuffer.fromDense(witness.rXY),
   };
 }
 
@@ -144,7 +120,7 @@ async function buildPermutationPolynomials(
   field: FieldRuntime,
   setup: ProverSetupParams,
   permutation: readonly ProverPermutationEntry[],
-): Promise<readonly [DensePolynomialExt, DensePolynomialExt]> {
+): Promise<readonly [BivariatePolynomialBuffer, BivariatePolynomialBuffer]> {
   const mI = setup.l_D - setup.l;
   const omegaMI = field.rootOfUnity(mI);
   const omegaSMax = field.rootOfUnity(setup.s_max);
@@ -168,8 +144,8 @@ async function buildPermutationPolynomials(
   }
 
   return [
-    await DensePolynomialExt.fromRouEvals(field, s0Evals, mI, setup.s_max),
-    await DensePolynomialExt.fromRouEvals(field, s1Evals, mI, setup.s_max),
+    await BivariatePolynomialBuffer.fromRouEvals(field, field.concat(s0Evals), mI, setup.s_max),
+    await BivariatePolynomialBuffer.fromRouEvals(field, field.concat(s1Evals), mI, setup.s_max),
   ];
 }
 
@@ -182,16 +158,16 @@ function powerTable(field: FieldRuntime, base: FieldElement, length: number): Fi
   return output;
 }
 
-function vanishingPolynomialX(field: FieldRuntime, degree: number): DensePolynomialExt {
+function vanishingPolynomialX(field: FieldRuntime, degree: number): BivariatePolynomialBuffer {
   const coefficients = Array.from({ length: degree * 2 }, () => field.zero);
   coefficients[0] = field.neg(field.one);
   coefficients[degree] = field.one;
-  return DensePolynomialExt.fromCoeffs(field, coefficients, degree * 2, 1);
+  return BivariatePolynomialBuffer.fromCoeffs(field, coefficients, degree * 2, 1);
 }
 
-function vanishingPolynomialY(field: FieldRuntime, degree: number): DensePolynomialExt {
+function vanishingPolynomialY(field: FieldRuntime, degree: number): BivariatePolynomialBuffer {
   const coefficients = Array.from({ length: degree * 2 }, () => field.zero);
   coefficients[0] = field.neg(field.one);
   coefficients[degree] = field.one;
-  return DensePolynomialExt.fromCoeffs(field, coefficients, 1, degree * 2);
+  return BivariatePolynomialBuffer.fromCoeffs(field, coefficients, 1, degree * 2);
 }

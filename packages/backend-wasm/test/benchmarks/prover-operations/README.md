@@ -6,9 +6,9 @@ This benchmark is diagnostics-only. It is not imported by `src/`, is not part of
 
 The matrix covers the optimization candidate groups currently required by `tmp/planning.md`:
 
-- `2d-ntt`: current 2D ROU conversion, direct `biNttBuffer`, and transpose overhead for future contiguous row/column candidates.
+- `2d-ntt`: current 2D ROU conversion, direct `biNttBuffer`, transpose-scheduled row/column NTT, and transpose overhead for future contiguous row/column candidates.
 - `field-vector-mul`: allocation-heavy split/map/concat multiplication versus a tight indexed buffer loop.
-- `polynomial-mul`: current `BivariatePolynomialBuffer.mul` versus a generic full 2D NTT reference for axis-specific factors.
+- `polynomial-mul`: current `BivariatePolynomialBuffer.mul` versus generic full 2D NTT references, including benchmark-only concurrent-input ROU and transpose-scheduled candidates.
 - `linear-combination`: current `linearCombinationBuffer` versus a same-shape preallocated accumulator.
 - `division`: current Ruffini opening division and native-style vanishing quotient recurrence with reconstruction checks.
 - `materialization`: buffer clone, dense roundtrip, and public `fromBuffer` copy boundary costs.
@@ -205,6 +205,136 @@ npm run bench:prover-ops -- --shapes=1024x256 --groups=polynomial-mul --iteratio
 | polynomial-mul | concurrent-input-rou-bivariate | 1024x256 | 6348.507 |
 
 The concurrent candidate is not faster in this local run, so it must not be promoted to production without new representative timing evidence.
+
+### Row/Column Scheduling Candidate
+
+The `2d-ntt` and `polynomial-mul` groups now include a benchmark-only transpose-scheduled candidate. It transforms Y rows, transposes the buffer, transforms former X columns as contiguous rows, then transposes the result back. This keeps the same mathematical transform and checks output parity against the current path before timing.
+
+Representative benchmark:
+
+```bash
+npm run bench:prover-ops -- --groups=2d-ntt,polynomial-mul --shapes=1024x256 --iterations=1 --warmup=0 --json=tmp/timing/row-column-scheduling-benchmark-1024x256.json
+```
+
+| group | candidate | shape | ms/op |
+| --- | --- | ---: | ---: |
+| 2d-ntt | current-toRouEvals | 1024x256 | 459.506 |
+| 2d-ntt | direct-biNttBuffer | 1024x256 | 460.178 |
+| 2d-ntt | transpose-scheduled-biNttBuffer | 1024x256 | 454.413 |
+| 2d-ntt | transpose-only-cost | 1024x256 | 12.413 |
+| polynomial-mul | current-bivariate | 1024x256 | 6473.963 |
+| polynomial-mul | concurrent-input-rou-bivariate | 1024x256 | 6490.954 |
+| polynomial-mul | transpose-scheduled-bivariate | 1024x256 | 6275.907 |
+
+This result is mildly positive for the transpose-scheduled candidate, but it is not enough for production promotion. The next step is a representative shape sweep with repeated iterations, followed by parity diagnostics for forward, inverse, and coset variants if the timing win remains stable.
+
+Repeated local sweep:
+
+```bash
+npm run bench:prover-ops -- --groups=2d-ntt,polynomial-mul --shapes=512x256,1024x256 --iterations=2 --warmup=1 --json=tmp/timing/row-column-scheduling-shape-sweep.json
+```
+
+| group | candidate | shape | ms/op |
+| --- | --- | ---: | ---: |
+| 2d-ntt | current-toRouEvals | 512x256 | 216.648 |
+| 2d-ntt | transpose-scheduled-biNttBuffer | 512x256 | 216.411 |
+| polynomial-mul | current-bivariate | 512x256 | 3085.133 |
+| polynomial-mul | transpose-scheduled-bivariate | 512x256 | 3034.095 |
+| 2d-ntt | current-toRouEvals | 1024x256 | 465.771 |
+| 2d-ntt | transpose-scheduled-biNttBuffer | 1024x256 | 456.233 |
+| polynomial-mul | current-bivariate | 1024x256 | 6493.067 |
+| polynomial-mul | transpose-scheduled-bivariate | 1024x256 | 6295.499 |
+
+The repeated sweep kept the candidate alive but was not enough on its own for production promotion.
+
+Fixture-shape benchmark:
+
+```bash
+npm run bench:prover-ops -- --groups=2d-ntt,polynomial-mul --shapes=4096x256 --iterations=1 --warmup=0 --json=tmp/timing/row-column-scheduling-fixture-shape-4096x256.json
+```
+
+| group | candidate | shape | ms/op |
+| --- | --- | ---: | ---: |
+| 2d-ntt | current-toRouEvals | 4096x256 | 2017.446 |
+| 2d-ntt | transpose-scheduled-biNttBuffer | 4096x256 | 1954.511 |
+| polynomial-mul | current-bivariate | 4096x256 | 28059.481 |
+| polynomial-mul | transpose-scheduled-bivariate | 4096x256 | 26910.071 |
+
+The fixture-shape operation benchmark was positive, so the candidate was temporarily tested in production `biNttBuffer()`. The full integrated prover timing did not confirm the improvement.
+
+Verification:
+
+```bash
+npm run typecheck
+npm run typecheck:scripts
+npm run polynomial:buffer:check
+npm run prover:ops:check
+npm run prover:testing-mode:check
+npm pack --dry-run --json
+```
+
+Temporary production spot benchmark:
+
+```bash
+npm run bench:prover-ops -- --groups=2d-ntt,polynomial-mul --shapes=1024x256 --iterations=1 --warmup=0 --json=tmp/timing/row-column-scheduling-after-production-1024x256.json
+```
+
+| group | candidate | shape | ms/op |
+| --- | --- | ---: | ---: |
+| 2d-ntt | current-toRouEvals | 1024x256 | 462.666 |
+| 2d-ntt | direct-biNttBuffer | 1024x256 | 454.136 |
+| polynomial-mul | current-bivariate | 1024x256 | 6249.329 |
+
+Full integrated timing after the temporary production change:
+
+| category | before | after |
+| --- | ---: | ---: |
+| stage | 375.46 s | 397.60 s |
+| poly_detail | 339.43 s | 359.02 s |
+| poly | 228.27 s | 244.10 s |
+| encode | 115.06 s | 119.43 s |
+
+The candidate is therefore not promoted to production. Keep it in this benchmark as a diagnostic reference only.
+
+### Accepted Shared-Right Local Multiplication Kernel
+
+The `polynomial-mul` benchmark includes a diagnostics-only candidate for two bivariate products that share the same right operand. This matches the copy-quotient pattern where two products use the same `fXY` polynomial. The accepted production change is deliberately local: it reuses the shared right operand ROU evals only inside that expression and does not introduce a global eval cache.
+
+Representative benchmarks:
+
+```bash
+npm run bench:prover-ops -- --groups=polynomial-mul --shapes=1024x256 --iterations=1 --warmup=0 --json=tmp/timing/shared-right-1024x256.json
+npm run bench:prover-ops -- --groups=polynomial-mul --shapes=4096x256 --iterations=1 --warmup=0 --json=tmp/timing/shared-right-4096x256.json
+```
+
+| group | candidate | shape | ms/op |
+| --- | --- | ---: | ---: |
+| polynomial-mul | current-two-bivariate-shared-right | 1024x256 | 12241.948 |
+| polynomial-mul | shared-right-rou-two-bivariate | 1024x256 | 10345.247 |
+| polynomial-mul | current-two-bivariate-shared-right | 4096x256 | 52897.629 |
+| polynomial-mul | shared-right-rou-two-bivariate | 4096x256 | 44619.771 |
+
+Verification:
+
+```bash
+npm run typecheck
+npm run typecheck:scripts
+npm run prover:ops:polynomial
+npm run prover:ops:commitment
+npm run prover:testing-mode:check
+npm run prover:stage-timing:check
+```
+
+Observed diagnostics after this change:
+
+| signal | before | after |
+| --- | ---: | ---: |
+| testing-mode prove2 diagnostic label | 167.13 s | 152.58 s |
+| stage-timing prove2 diagnostic label | 158.81 s | 152.67 s |
+| stage-timing stage total | 355.31 s | 349.14 s |
+| stage-timing poly total | 213.36 s | 207.43 s |
+
+The stage-timing script mirrors the production shared-right path and reports `poly.combine.prove2.shared_f_products` as a single local expression span. Do not generalize this into broad expression rewriting without a local benchmark and full diagnostics for the specific expression.
 
 ## Accepted Scaled-Add Fast Path
 

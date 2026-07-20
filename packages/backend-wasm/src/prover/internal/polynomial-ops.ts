@@ -25,6 +25,35 @@ export function linearCombinationBuffer(
   return accumulator;
 }
 
+export async function multiplyPairWithSharedRight(
+  firstLeft: BivariatePolynomialBuffer,
+  secondLeft: BivariatePolynomialBuffer,
+  sharedRight: BivariatePolynomialBuffer,
+): Promise<readonly [BivariatePolynomialBuffer, BivariatePolynomialBuffer]> {
+  if (firstLeft.field !== secondLeft.field || firstLeft.field !== sharedRight.field) {
+    throw new Error("Shared-right multiplication inputs must use the same field.");
+  }
+
+  const firstShape = multiplicationShape(firstLeft, sharedRight);
+  const secondShape = multiplicationShape(secondLeft, sharedRight);
+  if (firstShape === undefined && secondShape === undefined) {
+    return [BivariatePolynomialBuffer.zero(firstLeft.field), BivariatePolynomialBuffer.zero(firstLeft.field)];
+  }
+  if (firstShape === undefined || secondShape === undefined) {
+    throw new Error("Shared-right multiplication requires both products to be non-zero.");
+  }
+  if (firstShape.xSize !== secondShape.xSize || firstShape.ySize !== secondShape.ySize) {
+    throw new Error("Shared-right multiplication requires matching output shapes.");
+  }
+
+  const { xSize, ySize } = firstShape;
+  const sharedRightEvals = await sharedRight.resize(xSize, ySize).toRouEvals();
+  return [
+    await multiplyWithSharedRightEvals(firstLeft, sharedRightEvals, xSize, ySize),
+    await multiplyWithSharedRightEvals(secondLeft, sharedRightEvals, xSize, ySize),
+  ];
+}
+
 export function lowDegreeXTimesVanishingBuffer(
   field: CurveRuntime["Fr"],
   coefficients: readonly FieldElement[],
@@ -194,6 +223,51 @@ export function mulByTerm9(
     .scale(constant)
     .add(polynomial.mulMonomial(1, 0).scale(xCoeff))
     .add(polynomial.mulMonomial(0, 1).scale(yCoeff));
+}
+
+function multiplicationShape(
+  left: BivariatePolynomialBuffer,
+  right: BivariatePolynomialBuffer,
+): { readonly xSize: number; readonly ySize: number } | undefined {
+  const leftDegree = left.findDegree();
+  const rightDegree = right.findDegree();
+  if (
+    leftDegree.xDegree < 0 ||
+    leftDegree.yDegree < 0 ||
+    rightDegree.xDegree < 0 ||
+    rightDegree.yDegree < 0
+  ) {
+    return undefined;
+  }
+
+  return {
+    xSize: nextPowerOfTwo(leftDegree.xDegree + rightDegree.xDegree + 1),
+    ySize: nextPowerOfTwo(leftDegree.yDegree + rightDegree.yDegree + 1),
+  };
+}
+
+async function multiplyWithSharedRightEvals(
+  left: BivariatePolynomialBuffer,
+  sharedRightEvals: Uint8Array,
+  xSize: number,
+  ySize: number,
+): Promise<BivariatePolynomialBuffer> {
+  const field = left.field;
+  if (field.bufferElementCount(sharedRightEvals) !== xSize * ySize) {
+    throw new Error("Shared-right ROU eval buffer length does not match the multiplication shape.");
+  }
+
+  const leftEvals = await left.resize(xSize, ySize).toRouEvals();
+  const outputEvals = field.createZeroBuffer(xSize * ySize);
+  for (let index = 0; index < xSize * ySize; index += 1) {
+    field.writeBufferElement(
+      outputEvals,
+      index,
+      field.mul(field.readBufferElement(leftEvals, index), field.readBufferElement(sharedRightEvals, index)),
+    );
+  }
+
+  return BivariatePolynomialBuffer.fromRouEvals(field, outputEvals, xSize, ySize);
 }
 
 function nextPowerOfTwo(value: number): number {

@@ -1,5 +1,4 @@
 import { BivariatePolynomialBuffer } from "../../core/polynomial/bivariate-polynomial-buffer.js";
-import { DensePolynomialExt } from "../../core/polynomial/dense-polynomial.js";
 import type { CurveRuntime } from "../../core/curve/curve.js";
 import type { FieldElement } from "../../core/field/field.js";
 import type { ProverCrsRuntime } from "../api/binary-input.js";
@@ -190,15 +189,6 @@ function createDefaultCommitmentEncoder(
       return encodePolynomialBufferWithSigma1(runtime, crs, setup, job.polynomial);
     },
   };
-}
-
-export async function encodePolynomialWithSigma1(
-  runtime: CurveRuntime,
-  crs: ProverCrsRuntime,
-  setup: ProverSetupParams,
-  polynomial: DensePolynomialExt,
-): Promise<Uint8Array> {
-  return encodePolynomialBufferWithSigma1(runtime, crs, setup, BivariatePolynomialBuffer.fromDense(polynomial));
 }
 
 export async function encodePolynomialBufferWithSigma1(

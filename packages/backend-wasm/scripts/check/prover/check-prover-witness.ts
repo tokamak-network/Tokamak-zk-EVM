@@ -11,7 +11,6 @@ import {
   RuntimeArtifactFileRole,
   type BinarySectionInput,
   type FieldElement,
-  DensePolynomialExt,
 } from "../../../src/index.js";
 import {
   buildProverWitnessInputFromRuntimeArtifacts,
@@ -21,7 +20,7 @@ import {
 import {
   buildProverBinding,
   computeInitialRelationCommitments,
-  encodePolynomialWithSigma1,
+  encodePolynomialBufferWithSigma1,
 } from "../../../src/prover/internal/initial-relation.js";
 import { computeRecursionCommitment } from "../../../src/prover/internal/recursion-commitment.js";
 import { computeCopyQuotientCommitments } from "../../../src/prover/internal/copy-quotient.js";
@@ -174,11 +173,11 @@ async function main(): Promise<void> {
       s_max: 4,
     };
     const prove0Witness = {
-      bXY: DensePolynomialExt.zero(runtime.Fr),
+      bXY: BivariatePolynomialBuffer.zero(runtime.Fr),
       uXY: monomialPolynomial(4, 4, fr(1n), 8, 8),
-      vXY: DensePolynomialExt.fromCoeffs(runtime.Fr, [fr(1n)], 1, 1),
-      wXY: DensePolynomialExt.zero(runtime.Fr),
-      rXY: DensePolynomialExt.zero(runtime.Fr),
+      vXY: BivariatePolynomialBuffer.fromCoeffs(runtime.Fr, [fr(1n)], 1, 1),
+      wXY: BivariatePolynomialBuffer.zero(runtime.Fr),
+      rXY: BivariatePolynomialBuffer.zero(runtime.Fr),
     };
     const smallProverState = await createProverState({
       runtime,
@@ -554,11 +553,11 @@ async function main(): Promise<void> {
     assertEqual(proverInput.crs.sigma1.xyPowers.length, 2, "bundle prover CRS xy powers length");
     assertEqual(proverInput.crs.sigma2.y.byteLength, 192, "bundle prover CRS sigma2.y byte length");
 
-    const encodedPolynomial = await encodePolynomialWithSigma1(
+    const encodedPolynomial = await encodePolynomialBufferWithSigma1(
       runtime,
       proverInput.crs,
       GENERATED_PROVER_SETUP_PARAMS,
-      DensePolynomialExt.fromCoeffs(runtime.Fr, [fr(3n), fr(5n)], 1, 2),
+      BivariatePolynomialBuffer.fromCoeffs(runtime.Fr, [fr(3n), fr(5n)], 1, 2),
     );
     const expectedEncoding = runtime.G1.mulAffineScalar(runtime.G1.generator, fr(8n));
     if (!runtime.G1.eq(encodedPolynomial, expectedEncoding)) {
@@ -577,7 +576,7 @@ async function main(): Promise<void> {
       GENERATED_PROVER_SETUP_PARAMS,
       [],
       proverInput.witness.subcircuitInfos,
-      BivariatePolynomialBuffer.fromDense(generatedInstancePolynomials.aFreeX),
+      generatedInstancePolynomials.aFreeX,
       generatedMixer,
     );
     assertEqual(binding.A_free.byteLength, 96, "binding A_free byte length");
@@ -671,10 +670,10 @@ async function main(): Promise<void> {
     coefficient: FieldElement,
     xSize: number,
     ySize: number,
-  ): DensePolynomialExt {
+  ): BivariatePolynomialBuffer {
     const coefficients = Array.from({ length: xSize * ySize }, () => runtime.Fr.zero);
     coefficients[xIndex * ySize + yIndex] = coefficient;
-    return DensePolynomialExt.fromCoeffs(runtime.Fr, coefficients, xSize, ySize);
+    return BivariatePolynomialBuffer.fromCoeffs(runtime.Fr, coefficients, xSize, ySize);
   }
 }
 

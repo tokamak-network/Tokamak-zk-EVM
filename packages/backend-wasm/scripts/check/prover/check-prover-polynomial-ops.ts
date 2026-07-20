@@ -15,6 +15,7 @@ import {
   mulByOneMinusX,
   mulByTerm9,
   mulByXMinusOne,
+  multiplyPairWithSharedRight,
   transposeRowMajorBuffer,
 } from "../../../src/prover/internal/polynomial-ops.js";
 
@@ -36,6 +37,7 @@ async function checkProverPolynomialOps(field: FieldRuntime): Promise<void> {
   checkRecursionEvals(field);
   await checkLagrangeBuilders(field);
   checkSpecialProducts(field);
+  await checkSharedRightMultiplication(field);
 }
 
 function checkLinearCombination(field: FieldRuntime): void {
@@ -161,6 +163,31 @@ function checkSpecialProducts(field: FieldRuntime): void {
   assertThrows(() => mulByLinearX(buffer, [field.one]), "mulByLinearX invalid coefficient count");
   assertThrows(() => mulByLinearY(buffer, [field.one]), "mulByLinearY invalid coefficient count");
   assertThrows(() => mulByTerm9(buffer, [field.one], yCoefficients, tMiEval, tSMaxEval), "mulByTerm9 invalid rB_X count");
+}
+
+async function checkSharedRightMultiplication(field: FieldRuntime): Promise<void> {
+  const firstLeft = BivariatePolynomialBuffer.fromCoeffs(
+    field,
+    [3n, 5n, 7n, 11n].map((value) => field.fromBigInt(value)),
+    2,
+    2,
+  );
+  const secondLeft = BivariatePolynomialBuffer.fromCoeffs(
+    field,
+    [13n, 17n, 19n, 23n].map((value) => field.fromBigInt(value)),
+    2,
+    2,
+  );
+  const sharedRight = BivariatePolynomialBuffer.fromCoeffs(
+    field,
+    [29n, 31n, 37n, 41n].map((value) => field.fromBigInt(value)),
+    2,
+    2,
+  );
+
+  const [actualFirst, actualSecond] = await multiplyPairWithSharedRight(firstLeft, secondLeft, sharedRight);
+  assertBufferDenseEqual(actualFirst, (await firstLeft.mul(sharedRight)).toDense(), "multiplyPairWithSharedRight first");
+  assertBufferDenseEqual(actualSecond, (await secondLeft.mul(sharedRight)).toDense(), "multiplyPairWithSharedRight second");
 }
 
 function lowDegreeXTimesVanishingDense(

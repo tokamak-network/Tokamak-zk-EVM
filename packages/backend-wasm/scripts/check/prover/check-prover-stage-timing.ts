@@ -4,7 +4,6 @@ import path from "node:path";
 import {
   BinaryArtifactFileKind,
   BivariatePolynomialBuffer,
-  DensePolynomialExt,
   RollingKeccakTranscript,
   RuntimeArtifactFileRole,
   buildWitnessPolynomials,
@@ -44,6 +43,7 @@ import {
   mulByOneMinusX,
   mulByTerm9,
   mulByXMinusOne,
+  multiplyPairWithSharedRight,
 } from "../../../src/prover/internal/polynomial-ops.js";
 
 interface SizeInfo {
@@ -292,10 +292,10 @@ async function prove0Timed(
     "poly.combine.prove0.p0XY",
     "poly",
     async () => {
-      const product = await BivariatePolynomialBuffer.fromDense(state.witness.uXY).mul(
-        BivariatePolynomialBuffer.fromDense(state.witness.vXY),
+      const product = await state.witness.uXY.mul(
+        state.witness.vXY,
       );
-      product.subAssign(BivariatePolynomialBuffer.fromDense(state.witness.wXY).resize(product.xSize, product.ySize));
+      product.subAssign(state.witness.wXY.resize(product.xSize, product.ySize));
       return product;
     },
     [shapeSize("uXY", state.witness.uXY.xSize, state.witness.uXY.ySize)],
@@ -307,20 +307,20 @@ async function prove0Timed(
     [shapeSize("vanishing", state.setup.n, state.setup.s_max)],
   );
 
-  const rW_X = DensePolynomialExt.fromCoeffs(field, state.mixer.rW_X, state.mixer.rW_X.length, 1);
-  const rW_Y = DensePolynomialExt.fromCoeffs(field, state.mixer.rW_Y, 1, state.mixer.rW_Y.length);
+  const rW_X = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_X, state.mixer.rW_X.length, 1);
+  const rW_Y = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_Y, 1, state.mixer.rW_Y.length);
   const UXY = timing.spanSync("poly.combine.prove0.U", "poly", () =>
     linearCombinationBuffer(field, [
-      [field.one, BivariatePolynomialBuffer.fromDense(state.witness.uXY)],
-      [state.mixer.rU_X, BivariatePolynomialBuffer.fromDense(state.instance.tN)],
-      [state.mixer.rU_Y, BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+      [field.one, state.witness.uXY],
+      [state.mixer.rU_X, state.instance.tN],
+      [state.mixer.rU_Y, state.instance.tSMax],
     ]),
   );
   const VXY = timing.spanSync("poly.combine.prove0.V", "poly", () =>
     linearCombinationBuffer(field, [
-      [field.one, BivariatePolynomialBuffer.fromDense(state.witness.vXY)],
-      [state.mixer.rV_X, BivariatePolynomialBuffer.fromDense(state.instance.tN)],
-      [state.mixer.rV_Y, BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+      [field.one, state.witness.vXY],
+      [state.mixer.rV_X, state.instance.tN],
+      [state.mixer.rV_Y, state.instance.tSMax],
     ]),
   );
   const wZk = timing.spanSync("poly.combine.prove0.W_zk", "poly", () =>
@@ -331,28 +331,28 @@ async function prove0Timed(
   );
   const WXY = timing.spanSync("poly.combine.prove0.W", "poly", () =>
     linearCombinationBuffer(field, [
-      [field.one, BivariatePolynomialBuffer.fromDense(state.witness.wXY)],
+      [field.one, state.witness.wXY],
       [field.one, wZk],
     ]),
   );
   const Q_AX_XY = timing.spanSync("poly.combine.prove0.Q_AX", "poly", () =>
     linearCombinationBuffer(field, [
       [field.one, q0XY],
-      [state.mixer.rU_X, BivariatePolynomialBuffer.fromDense(state.witness.vXY)],
-      [state.mixer.rV_X, BivariatePolynomialBuffer.fromDense(state.witness.uXY)],
-      [field.neg(field.one), BivariatePolynomialBuffer.fromDense(rW_X)],
-      [field.mul(state.mixer.rU_X, state.mixer.rV_X), BivariatePolynomialBuffer.fromDense(state.instance.tN)],
-      [field.mul(state.mixer.rU_Y, state.mixer.rV_X), BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+      [state.mixer.rU_X, state.witness.vXY],
+      [state.mixer.rV_X, state.witness.uXY],
+      [field.neg(field.one), rW_X],
+      [field.mul(state.mixer.rU_X, state.mixer.rV_X), state.instance.tN],
+      [field.mul(state.mixer.rU_Y, state.mixer.rV_X), state.instance.tSMax],
     ]),
   );
   const Q_AY_XY = timing.spanSync("poly.combine.prove0.Q_AY", "poly", () =>
     linearCombinationBuffer(field, [
       [field.one, q1XY],
-      [state.mixer.rU_Y, BivariatePolynomialBuffer.fromDense(state.witness.vXY)],
-      [state.mixer.rV_Y, BivariatePolynomialBuffer.fromDense(state.witness.uXY)],
-      [field.neg(field.one), BivariatePolynomialBuffer.fromDense(rW_Y)],
-      [field.mul(state.mixer.rU_X, state.mixer.rV_Y), BivariatePolynomialBuffer.fromDense(state.instance.tN)],
-      [field.mul(state.mixer.rU_Y, state.mixer.rV_Y), BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+      [state.mixer.rU_Y, state.witness.vXY],
+      [state.mixer.rV_Y, state.witness.uXY],
+      [field.neg(field.one), rW_Y],
+      [field.mul(state.mixer.rU_X, state.mixer.rV_Y), state.instance.tN],
+      [field.mul(state.mixer.rU_Y, state.mixer.rV_Y), state.instance.tSMax],
     ]),
   );
   const termBZk = timing.spanSync("poly.combine.prove0.term_B_zk", "poly", () =>
@@ -363,7 +363,7 @@ async function prove0Timed(
   );
   const BXY = timing.spanSync("poly.combine.prove0.B", "poly", () =>
     linearCombinationBuffer(field, [
-      [field.one, BivariatePolynomialBuffer.fromDense(state.witness.bXY)],
+      [field.one, state.witness.bXY],
       [field.one, termBZk],
     ]),
   );
@@ -412,15 +412,15 @@ async function prove2Timed(input: {
   const theta2 = constantPolynomialBuffer(field, thetas[2]);
   const fXY = timing.spanSync("poly.combine.prove2.fXY", "poly", () =>
     linearCombinationBuffer(field, [
-      [field.one, BivariatePolynomialBuffer.fromDense(state.witness.bXY)],
-      [thetas[0], BivariatePolynomialBuffer.fromDense(state.instance.s0XY)],
-      [thetas[1], BivariatePolynomialBuffer.fromDense(state.instance.s1XY)],
+      [field.one, state.witness.bXY],
+      [thetas[0], state.instance.s0XY],
+      [thetas[1], state.instance.s1XY],
       [field.one, theta2],
     ]),
   );
   const gXY = timing.spanSync("poly.combine.prove2.gXY", "poly", () =>
     linearCombinationBuffer(field, [
-      [field.one, BivariatePolynomialBuffer.fromDense(state.witness.bXY)],
+      [field.one, state.witness.bXY],
       [thetas[0], xMonomial],
       [thetas[1], yMonomial],
       [field.one, theta2],
@@ -433,15 +433,18 @@ async function prove2Timed(input: {
     buildLagrangeK0(field, mI),
   );
   const rGXY = await timing.span("poly.combine.prove2.rG", "poly", () => rXY.mul(gXY));
+  const [rOmegaXFXY, rOmegaXOmegaYFXY] = await timing.span(
+    "poly.combine.prove2.shared_f_products",
+    "poly",
+    () => multiplyPairWithSharedRight(rOmegaX, rOmegaXOmegaY, fXY),
+  );
   const p1XY = await timing.span("poly.combine.prove2.p1", "poly", () =>
     rXY.sub(constantPolynomialBuffer(field, field.one)).mul(lagrangeKlXY),
   );
-  const p2Input = await timing.span("poly.combine.prove2.p2_input", "poly", async () =>
-    Promise.resolve(rGXY.sub(await rOmegaX.mul(fXY))),
-  );
+  const p2Input = timing.spanSync("poly.combine.prove2.p2_input", "poly", () => rGXY.sub(rOmegaXFXY));
   const p2XY = timing.spanSync("poly.combine.prove2.p2", "poly", () => mulByXMinusOne(p2Input));
   const p3XY = await timing.span("poly.combine.prove2.p3", "poly", async () =>
-    lagrangeK0XY.mul(rGXY.sub(await rOmegaXOmegaY.mul(fXY))),
+    lagrangeK0XY.mul(rGXY.sub(rOmegaXOmegaYFXY)),
   );
   const pCombined = timing.spanSync("poly.combine.prove2.p_comb", "poly", () =>
     linearCombinationBuffer(field, [
@@ -543,30 +546,30 @@ async function prove4Timed(input: {
   const tNEval = state.instance.tN.eval(chi, field.one);
   const tSMaxEval = state.instance.tSMax.eval(field.one, zeta);
   const smallVEval = state.witness.vXY.eval(chi, zeta);
-  const rW_X = DensePolynomialExt.fromCoeffs(field, state.mixer.rW_X, state.mixer.rW_X.length, 1);
-  const rW_Y = DensePolynomialExt.fromCoeffs(field, state.mixer.rW_Y, 1, state.mixer.rW_Y.length);
+  const rW_X = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_X, state.mixer.rW_X.length, 1);
+  const rW_Y = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_Y, 1, state.mixer.rW_Y.length);
   const VXY = timing.spanSync("poly.combine.prove4.V", "poly", () =>
     linearCombinationBuffer(field, [
-      [field.one, BivariatePolynomialBuffer.fromDense(state.witness.vXY)],
-      [state.mixer.rV_X, BivariatePolynomialBuffer.fromDense(state.instance.tN)],
-      [state.mixer.rV_Y, BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+      [field.one, state.witness.vXY],
+      [state.mixer.rV_X, state.instance.tN],
+      [state.mixer.rV_Y, state.instance.tSMax],
     ]),
   );
   const pAXY = timing.spanSync("poly.combine.prove4.Pi_A", "poly", () =>
     linearCombinationBuffer(field, [
       [kappa1, VXY.sub(constantPolynomialBuffer(field, evaluations.V_eval))],
-      [smallVEval, BivariatePolynomialBuffer.fromDense(state.witness.uXY)],
-      [field.neg(field.one), BivariatePolynomialBuffer.fromDense(state.witness.wXY)],
+      [smallVEval, state.witness.uXY],
+      [field.neg(field.one), state.witness.wXY],
       [field.neg(tNEval), prove0.q0XY],
       [field.neg(tSMaxEval), prove0.q1XY],
-      [field.mul(smallVEval, state.mixer.rU_X), BivariatePolynomialBuffer.fromDense(state.instance.tN)],
-      [field.mul(smallVEval, state.mixer.rU_Y), BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+      [field.mul(smallVEval, state.mixer.rU_X), state.instance.tN],
+      [field.mul(smallVEval, state.mixer.rU_Y), state.instance.tSMax],
       [
         field.neg(field.add(field.mul(state.mixer.rU_X, tNEval), field.mul(state.mixer.rU_Y, tSMaxEval))),
-        BivariatePolynomialBuffer.fromDense(state.witness.vXY),
+        state.witness.vXY,
       ],
-      [tNEval, BivariatePolynomialBuffer.fromDense(rW_X)],
-      [tSMaxEval, BivariatePolynomialBuffer.fromDense(rW_Y)],
+      [tNEval, rW_X],
+      [tSMaxEval, rW_Y],
       [field.neg(field.one), prove0.wZk],
     ]),
   );
@@ -578,8 +581,8 @@ async function prove4Timed(input: {
   const RXY = timing.spanSync("poly.combine.prove4.R", "poly", () =>
     linearCombinationBuffer(field, [
       [field.one, rXY],
-      [state.mixer.rR_X, BivariatePolynomialBuffer.fromDense(state.instance.tMi)],
-      [state.mixer.rR_Y, BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
+      [state.mixer.rR_X, state.instance.tMi],
+      [state.mixer.rR_Y, state.instance.tSMax],
     ]),
   );
   const mDivision = await timing.span("poly.div_by_ruffini.prove4.M", "poly", async () =>
@@ -622,7 +625,7 @@ async function prove4Timed(input: {
     state.instance.aFreeX.sub(constantPolynomial(field, aEval)).divByRuffini(chi, zeta),
   );
   const Pi_B = runtime.G1.mulScalar(
-    await encodePolynomialWithSigma1Timed(runtime, crs, state.setup, piBDivision.quotientX, "prove4.Pi_B"),
+    await encodePolynomialBufferWithSigma1Timed(runtime, crs, state.setup, piBDivision.quotientX, "prove4.Pi_B"),
     kappa1Fourth,
   );
   const Pi_X = runtime.G1.add(runtime.G1.add(Pi_AX, Pi_CX), Pi_B);
@@ -701,15 +704,15 @@ async function buildCopyOpeningsTimed(input: {
   const theta2 = constantPolynomialBuffer(field, thetas[2]);
   const fXY = timing.spanSync("poly.combine.prove4.fXY", "poly", () =>
     linearCombinationBuffer(field, [
-      [field.one, BivariatePolynomialBuffer.fromDense(state.witness.bXY)],
-      [thetas[0], BivariatePolynomialBuffer.fromDense(state.instance.s0XY)],
-      [thetas[1], BivariatePolynomialBuffer.fromDense(state.instance.s1XY)],
+      [field.one, state.witness.bXY],
+      [thetas[0], state.instance.s0XY],
+      [thetas[1], state.instance.s1XY],
       [field.one, theta2],
     ]),
   );
   const gXY = timing.spanSync("poly.combine.prove4.gXY", "poly", () =>
     linearCombinationBuffer(field, [
-      [field.one, BivariatePolynomialBuffer.fromDense(state.witness.bXY)],
+      [field.one, state.witness.bXY],
       [thetas[0], xMonomial],
       [thetas[1], yMonomial],
       [field.one, theta2],
@@ -790,16 +793,6 @@ async function buildCopyOpeningsTimed(input: {
     Pi_CX: await encodePolynomialBufferWithSigma1Timed(runtime, crs, state.setup, division.quotientX, "prove4.Pi_CX"),
     Pi_CY: await encodePolynomialBufferWithSigma1Timed(runtime, crs, state.setup, division.quotientY, "prove4.Pi_CY"),
   };
-}
-
-async function encodePolynomialWithSigma1Timed(
-  runtime: CurveRuntime,
-  crs: ProverCrsRuntime,
-  setup: ProverRuntimeInput["witness"]["setup"],
-  polynomial: DensePolynomialExt,
-  label: string,
-): Promise<Uint8Array> {
-  return encodePolynomialBufferWithSigma1Timed(runtime, crs, setup, BivariatePolynomialBuffer.fromDense(polynomial), label);
 }
 
 async function encodePolynomialBufferWithSigma1Timed(
@@ -956,8 +949,8 @@ function wrapStaticMethod(
   };
 }
 
-function constantPolynomial(field: CurveRuntime["Fr"], value: FieldElement): DensePolynomialExt {
-  return DensePolynomialExt.fromCoeffs(field, [value], 1, 1);
+function constantPolynomial(field: CurveRuntime["Fr"], value: FieldElement): BivariatePolynomialBuffer {
+  return BivariatePolynomialBuffer.fromCoeffs(field, [value], 1, 1);
 }
 
 function collectThetaChallenges(

@@ -142,7 +142,15 @@ async function benchmarkNtt(
   const shape = formatShape(testCase.shape);
   const current = await testCase.left.toRouEvals();
   const direct = await biNttBuffer(field, testCase.left.coefficients, testCase.shape.xSize, testCase.shape.ySize, "forward");
+  const transposeScheduled = await biNttBufferViaTransposeSchedule(
+    field,
+    testCase.left.coefficients,
+    testCase.shape.xSize,
+    testCase.shape.ySize,
+    "forward",
+  );
   assertBytesEqual(current, direct, `2D NTT current/direct mismatch at ${shape}`);
+  assertBytesEqual(current, transposeScheduled, `2D NTT transpose-scheduled mismatch at ${shape}`);
 
   const transposed = transposeRowMajorBuffer(field, testCase.left.coefficients, testCase.shape.xSize, testCase.shape.ySize);
   const doubleTransposed = transposeRowMajorBuffer(field, transposed, testCase.shape.ySize, testCase.shape.xSize);
@@ -162,6 +170,15 @@ async function benchmarkNtt(
       shape,
       ms: await measure(options, () => biNttBuffer(field, testCase.left.coefficients, testCase.shape.xSize, testCase.shape.ySize, "forward")),
       notes: "Direct buffer NTT call without the toRouEvals wrapper clone.",
+    },
+    {
+      group: "2d-ntt",
+      candidate: "transpose-scheduled-biNttBuffer",
+      shape,
+      ms: await measure(options, () =>
+        biNttBufferViaTransposeSchedule(field, testCase.left.coefficients, testCase.shape.xSize, testCase.shape.ySize, "forward"),
+      ),
+      notes: "Benchmark-only candidate: transform Y rows, transpose, transform X rows contiguously, then transpose back.",
     },
     {
       group: "2d-ntt",
@@ -233,6 +250,16 @@ async function benchmarkPolynomialMul(
     bivariateConcurrent.coefficients,
     `Concurrent-input bivariate multiplication mismatch at ${shape}`,
   );
+  const bivariateTransposeScheduled = await generic2dNttMulTransposeScheduled(testCase.left, testCase.right);
+  assertBytesEqual(
+    bivariateCurrent.coefficients,
+    bivariateTransposeScheduled.coefficients,
+    `Transpose-scheduled bivariate multiplication mismatch at ${shape}`,
+  );
+  const [separateFirst, separateSecond] = await currentTwoBivariateMulSharedRight(testCase.left, testCase.right, testCase.third);
+  const [sharedFirst, sharedSecond] = await generic2dNttTwoMulSharedRight(testCase.left, testCase.right, testCase.third);
+  assertBytesEqual(separateFirst.coefficients, sharedFirst.coefficients, `Shared-right first product mismatch at ${shape}`);
+  assertBytesEqual(separateSecond.coefficients, sharedSecond.coefficients, `Shared-right second product mismatch at ${shape}`);
 
   return [
     {
@@ -248,6 +275,27 @@ async function benchmarkPolynomialMul(
       shape,
       ms: await measure(options, () => generic2dNttMulConcurrentInputs(testCase.left, testCase.right)),
       notes: "Reference path that starts the left and right ROU conversions concurrently before pointwise multiplication.",
+    },
+    {
+      group: "polynomial-mul",
+      candidate: "transpose-scheduled-bivariate",
+      shape,
+      ms: await measure(options, () => generic2dNttMulTransposeScheduled(testCase.left, testCase.right)),
+      notes: "Benchmark-only generic multiplication candidate using transpose-scheduled forward and inverse 2D NTTs.",
+    },
+    {
+      group: "polynomial-mul",
+      candidate: "current-two-bivariate-shared-right",
+      shape,
+      ms: await measure(options, () => currentTwoBivariateMulSharedRight(testCase.left, testCase.right, testCase.third)),
+      notes: "Current path for two unrelated bivariate products that share the same right operand.",
+    },
+    {
+      group: "polynomial-mul",
+      candidate: "shared-right-rou-two-bivariate",
+      shape,
+      ms: await measure(options, () => generic2dNttTwoMulSharedRight(testCase.left, testCase.right, testCase.third)),
+      notes: "Benchmark-only local expression kernel that reuses the shared right operand ROU evals across two same-shape bivariate products.",
     },
     {
       group: "polynomial-mul",
@@ -277,6 +325,17 @@ async function benchmarkPolynomialMul(
       ms: await measure(options, () => generic2dNttMul(testCase.left, yFactor)),
       notes: "Reference path that forces the old full 2D NTT multiplication shape.",
     },
+  ];
+}
+
+async function currentTwoBivariateMulSharedRight(
+  firstLeft: BivariatePolynomialBuffer,
+  sharedRight: BivariatePolynomialBuffer,
+  secondLeft: BivariatePolynomialBuffer,
+): Promise<readonly [BivariatePolynomialBuffer, BivariatePolynomialBuffer]> {
+  return [
+    await firstLeft.mul(sharedRight),
+    await secondLeft.mul(sharedRight),
   ];
 }
 
@@ -456,6 +515,129 @@ async function generic2dNttMulConcurrentInputs(
   }
 
   return await BivariatePolynomialBuffer.fromRouEvals(left.field, outputEvals, xSize, ySize);
+}
+
+async function generic2dNttMulTransposeScheduled(
+  left: BivariatePolynomialBuffer,
+  right: BivariatePolynomialBuffer,
+): Promise<BivariatePolynomialBuffer> {
+  const leftDegree = left.findDegree();
+  const rightDegree = right.findDegree();
+  if (
+    leftDegree.xDegree < 0 ||
+    leftDegree.yDegree < 0 ||
+    rightDegree.xDegree < 0 ||
+    rightDegree.yDegree < 0
+  ) {
+    return BivariatePolynomialBuffer.zero(left.field);
+  }
+
+  const xSize = nextPowerOfTwo(leftDegree.xDegree + rightDegree.xDegree + 1);
+  const ySize = nextPowerOfTwo(leftDegree.yDegree + rightDegree.yDegree + 1);
+  const leftCoeffs = left.resize(xSize, ySize).coefficients;
+  const rightCoeffs = right.resize(xSize, ySize).coefficients;
+  const leftEvals = await biNttBufferViaTransposeSchedule(left.field, leftCoeffs, xSize, ySize, "forward");
+  const rightEvals = await biNttBufferViaTransposeSchedule(left.field, rightCoeffs, xSize, ySize, "forward");
+  const outputEvals = left.field.createZeroBuffer(xSize * ySize);
+
+  for (let index = 0; index < xSize * ySize; index += 1) {
+    left.field.writeBufferElement(
+      outputEvals,
+      index,
+      left.field.mul(
+        left.field.readBufferElement(leftEvals, index),
+        left.field.readBufferElement(rightEvals, index),
+      ),
+    );
+  }
+
+  const coefficients = await biNttBufferViaTransposeSchedule(left.field, outputEvals, xSize, ySize, "inverse");
+  return BivariatePolynomialBuffer.fromBuffer(left.field, coefficients, xSize, ySize);
+}
+
+async function generic2dNttTwoMulSharedRight(
+  firstLeft: BivariatePolynomialBuffer,
+  sharedRight: BivariatePolynomialBuffer,
+  secondLeft: BivariatePolynomialBuffer,
+): Promise<readonly [BivariatePolynomialBuffer, BivariatePolynomialBuffer]> {
+  const firstShape = multiplicationShape(firstLeft, sharedRight);
+  const secondShape = multiplicationShape(secondLeft, sharedRight);
+  if (firstShape === undefined || secondShape === undefined) {
+    return [
+      BivariatePolynomialBuffer.zero(firstLeft.field),
+      BivariatePolynomialBuffer.zero(firstLeft.field),
+    ];
+  }
+  if (firstShape.xSize !== secondShape.xSize || firstShape.ySize !== secondShape.ySize) {
+    throw new Error("Shared-right multiplication benchmark requires matching output shapes.");
+  }
+
+  const { xSize, ySize } = firstShape;
+  const sharedRightEvals = await sharedRight.resize(xSize, ySize).toRouEvals();
+  const firstLeftEvals = await firstLeft.resize(xSize, ySize).toRouEvals();
+  const secondLeftEvals = await secondLeft.resize(xSize, ySize).toRouEvals();
+  const firstOutputEvals = multiplyTightLoop(firstLeft.field, firstLeftEvals, sharedRightEvals);
+  const secondOutputEvals = multiplyTightLoop(firstLeft.field, secondLeftEvals, sharedRightEvals);
+
+  return [
+    await BivariatePolynomialBuffer.fromRouEvals(firstLeft.field, firstOutputEvals, xSize, ySize),
+    await BivariatePolynomialBuffer.fromRouEvals(firstLeft.field, secondOutputEvals, xSize, ySize),
+  ];
+}
+
+function multiplicationShape(
+  left: BivariatePolynomialBuffer,
+  right: BivariatePolynomialBuffer,
+): Shape | undefined {
+  const leftDegree = left.findDegree();
+  const rightDegree = right.findDegree();
+  if (
+    leftDegree.xDegree < 0 ||
+    leftDegree.yDegree < 0 ||
+    rightDegree.xDegree < 0 ||
+    rightDegree.yDegree < 0
+  ) {
+    return undefined;
+  }
+
+  return {
+    xSize: nextPowerOfTwo(leftDegree.xDegree + rightDegree.xDegree + 1),
+    ySize: nextPowerOfTwo(leftDegree.yDegree + rightDegree.yDegree + 1),
+  };
+}
+
+async function biNttBufferViaTransposeSchedule(
+  field: FieldRuntime,
+  values: Uint8Array,
+  xSize: number,
+  ySize: number,
+  direction: "forward" | "inverse",
+): Promise<Uint8Array> {
+  if (field.bufferElementCount(values) !== xSize * ySize) {
+    throw new Error("NTT input count does not match the bivariate shape.");
+  }
+
+  const transform = direction === "forward" ? field.fftBuffer.bind(field) : field.ifftBuffer.bind(field);
+  if (xSize === 1 || ySize === 1) {
+    return await transform(values);
+  }
+
+  const yTransformed = field.createZeroBuffer(xSize * ySize);
+  for (let x = 0; x < xSize; x += 1) {
+    const rowStart = x * ySize * field.byteLength;
+    const row = values.slice(rowStart, rowStart + ySize * field.byteLength);
+    yTransformed.set(await transform(row), rowStart);
+  }
+
+  const transposed = transposeRowMajorBuffer(field, yTransformed, xSize, ySize);
+  const xTransformedTransposed = field.createZeroBuffer(xSize * ySize);
+  for (let y = 0; y < ySize; y += 1) {
+    const rowStart = y * xSize * field.byteLength;
+    const row = transposed.slice(rowStart, rowStart + xSize * field.byteLength);
+    xTransformedTransposed.set(await transform(row), rowStart);
+  }
+
+  return transposeRowMajorBuffer(field, xTransformedTransposed, ySize, xSize);
 }
 
 function multiplyViaSplit(field: FieldRuntime, left: Uint8Array, right: Uint8Array): Uint8Array {
