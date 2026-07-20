@@ -1,4 +1,4 @@
-import { createCurveRuntime, type CurveRuntime, type FieldElement } from "../../../src/index.js";
+import { createCurveRuntime, type CurveRuntime, type FieldElement } from "../../../../../src/index.js";
 
 const G1_AFFINE_BYTES = 96;
 const SCALAR_RAW_BYTES = 32;

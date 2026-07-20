@@ -285,7 +285,7 @@ function readFixedAscii(bytes: Uint8Array, offset: number, length: number): stri
 
 async function buildBrowserBundles(): Promise<void> {
   await build({
-    entryPoints: ["test/benchmarks/msm/browser-crs-sharded-msm-entry.ts"],
+    entryPoints: ["test/benchmarks/msm/deprecated/parallel-worker-wrapper/browser-crs-sharded-msm-entry.ts"],
     bundle: true,
     format: "esm",
     platform: "browser",
@@ -294,7 +294,7 @@ async function buildBrowserBundles(): Promise<void> {
     sourcemap: false,
   });
   await build({
-    entryPoints: ["test/benchmarks/msm/browser-crs-sharded-msm-worker.ts"],
+    entryPoints: ["test/benchmarks/msm/deprecated/parallel-worker-wrapper/browser-crs-sharded-msm-worker.ts"],
     bundle: true,
     format: "esm",
     platform: "browser",

@@ -168,7 +168,7 @@ function parseNonNegativeInteger(value: string, label: string): number {
 
 async function buildBrowserBundles(): Promise<void> {
   await build({
-    entryPoints: ["test/benchmarks/msm/browser-msm-worker-entry.ts"],
+    entryPoints: ["test/benchmarks/msm/deprecated/parallel-worker-wrapper/browser-msm-worker-entry.ts"],
     bundle: true,
     format: "esm",
     platform: "browser",
@@ -177,7 +177,7 @@ async function buildBrowserBundles(): Promise<void> {
     sourcemap: false,
   });
   await build({
-    entryPoints: ["test/benchmarks/msm/browser-msm-worker.ts"],
+    entryPoints: ["test/benchmarks/msm/deprecated/parallel-worker-wrapper/browser-msm-worker.ts"],
     bundle: true,
     format: "esm",
     platform: "browser",

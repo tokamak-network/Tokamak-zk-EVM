@@ -3,7 +3,7 @@ import path from "node:path";
 import { fork, type ChildProcess } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-import { createCurveRuntime, type CurveRuntime, type FieldElement } from "../../../src/index.js";
+import { createCurveRuntime, type CurveRuntime, type FieldElement } from "../../../../../src/index.js";
 
 const G1_AFFINE_BYTES = 96;
 

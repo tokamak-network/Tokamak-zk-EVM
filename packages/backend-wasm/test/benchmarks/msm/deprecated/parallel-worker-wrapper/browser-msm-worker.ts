@@ -1,4 +1,4 @@
-import { createCurveRuntime, type CurveRuntime } from "../../../src/index.js";
+import { createCurveRuntime, type CurveRuntime } from "../../../../../src/index.js";
 
 interface WorkerJob {
   readonly index: number;
