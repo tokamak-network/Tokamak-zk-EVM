@@ -5,32 +5,32 @@ import {
   BinarySectionType,
 } from "../../artifacts/format/binary-format.js";
 import type { CurveRuntime } from "../../core/curve/curve.js";
-import type { ProverBinding, Prove0Computation } from "../stages/prove0.js";
-import type { Prove1Computation } from "../stages/prove1.js";
-import type { Prove2Computation } from "../stages/prove2.js";
-import type { Prove3Output } from "../stages/prove3.js";
-import type { Prove4Computation } from "../stages/prove4.js";
+import type { ProverBinding, InitialRelationComputation } from "../internal/initial-relation.js";
+import type { RecursionComputation } from "../internal/recursion-commitment.js";
+import type { CopyQuotientComputation } from "../internal/copy-quotient.js";
+import type { ChallengeEvaluations } from "../internal/challenge-evaluations.js";
+import type { OpeningCommitmentsComputation } from "../internal/opening-commitments.js";
 import { BACKEND_WASM_PACKAGE_VERSION } from "../internal/version.js";
 
 export interface ProverVerifierProofOutputInput {
   readonly runtime: CurveRuntime;
   readonly binding: ProverBinding;
-  readonly prove0: Prove0Computation;
-  readonly prove1: Prove1Computation;
-  readonly prove2: Prove2Computation;
-  readonly proof3: Prove3Output;
-  readonly prove4: Prove4Computation;
+  readonly initialRelation: InitialRelationComputation;
+  readonly recursion: RecursionComputation;
+  readonly copyQuotient: CopyQuotientComputation;
+  readonly evaluations: ChallengeEvaluations;
+  readonly openings: OpeningCommitmentsComputation;
   readonly sourcePackageVersion?: string;
 }
 
 export async function createVerifierProofArtifactFromProverOutput(
   input: ProverVerifierProofOutputInput,
 ): Promise<Uint8Array> {
-  const { runtime, binding, prove0, prove1, prove2, proof3, prove4 } = input;
-  const proof0 = prove0.proof0;
-  const proof1 = prove1.proof1;
-  const proof2 = prove2.proof2;
-  const proof4 = prove4.proof4;
+  const { runtime, binding, initialRelation, recursion, copyQuotient, evaluations, openings } = input;
+  const initialCommitments = initialRelation.commitments;
+  const recursionCommitment = recursion.commitment;
+  const copyCommitments = copyQuotient.commitments;
+  const openingCommitments = openings.commitments;
 
   return createBinaryArtifactFile({
     kind: BinaryArtifactFileKind.VerifierProof,
@@ -44,23 +44,23 @@ export async function createVerifierProofArtifactFromProverOutput(
         elementByteLength: 96,
         data: concatBytes(
           [
-            proof0.U,
-            proof0.V,
-            proof0.W,
+            initialCommitments.U,
+            initialCommitments.V,
+            initialCommitments.W,
             binding.O_mid,
             binding.O_prv,
-            proof0.Q_AX,
-            proof0.Q_AY,
-            proof2.Q_CX,
-            proof2.Q_CY,
-            proof4.Pi_X,
-            proof4.Pi_Y,
-            proof0.B,
-            proof1.R,
-            proof4.M_Y,
-            proof4.M_X,
-            proof4.N_Y,
-            proof4.N_X,
+            initialCommitments.Q_AX,
+            initialCommitments.Q_AY,
+            copyCommitments.Q_CX,
+            copyCommitments.Q_CY,
+            openingCommitments.Pi_X,
+            openingCommitments.Pi_Y,
+            initialCommitments.B,
+            recursionCommitment.R,
+            openingCommitments.M_Y,
+            openingCommitments.M_X,
+            openingCommitments.N_Y,
+            openingCommitments.N_X,
             binding.O_pub_free,
             binding.A_free,
           ].map((point) => runtime.G1.toAffine(point)),
@@ -73,10 +73,10 @@ export async function createVerifierProofArtifactFromProverOutput(
         elementCount: 4,
         elementByteLength: 32,
         data: concatBytes([
-          proof3.R_eval,
-          proof3.R_omegaX_eval,
-          proof3.R_omegaX_omegaY_eval,
-          proof3.V_eval,
+          evaluations.R_eval,
+          evaluations.R_omegaX_eval,
+          evaluations.R_omegaX_omegaY_eval,
+          evaluations.V_eval,
         ]),
       },
     ],

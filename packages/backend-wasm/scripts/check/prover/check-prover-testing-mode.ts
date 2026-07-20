@@ -39,13 +39,13 @@ import {
 import {
   buildProverBinding,
   encodePolynomialBufferWithSigma1,
-  prove0,
-  type Prove0Computation,
-} from "../../../src/prover/stages/prove0.js";
-import { prove1, type Prove1Computation } from "../../../src/prover/stages/prove1.js";
-import { prove2, type Prove2Computation } from "../../../src/prover/stages/prove2.js";
-import { prove3, type Prove3Output } from "../../../src/prover/stages/prove3.js";
-import { prove4, type Prove4Computation } from "../../../src/prover/stages/prove4.js";
+  computeInitialRelationCommitments,
+  type InitialRelationComputation,
+} from "../../../src/prover/internal/initial-relation.js";
+import { computeRecursionCommitment, type RecursionComputation } from "../../../src/prover/internal/recursion-commitment.js";
+import { computeCopyQuotientCommitments, type CopyQuotientComputation } from "../../../src/prover/internal/copy-quotient.js";
+import { evaluateChallengePoints, type ChallengeEvaluations } from "../../../src/prover/internal/challenge-evaluations.js";
+import { type OpeningCommitmentsComputation, computeOpeningCommitments } from "../../../src/prover/internal/opening-commitments.js";
 import {
   buildLagrangeK0,
   buildLagrangeKl,
@@ -57,11 +57,11 @@ import {
   mulByOneMinusX,
   mulByTerm9,
   mulByXMinusOne,
-} from "../../../src/prover/stages/polynomial-ops.js";
+} from "../../../src/prover/internal/polynomial-ops.js";
 
 interface ProverTestingModeOutput {
   readonly proofArtifact: Uint8Array;
-  readonly prove4: Prove4Computation;
+  readonly openings: OpeningCommitmentsComputation;
 }
 
 async function main(): Promise<void> {
@@ -103,7 +103,7 @@ async function main(): Promise<void> {
       loadVerifierInputFromRuntimeBundles(runtime, verifierProofInput, verifierSetupInput, proofResolver),
     );
     await timed("check verifier testing-mode split pairings", () =>
-      checkVerifierTestingModeSplitPairings(runtime, verifierInput, proverOutput.prove4),
+      checkVerifierTestingModeSplitPairings(runtime, verifierInput, proverOutput.openings),
     );
 
     const verificationResult = await timed("verify generated proof", () =>
@@ -151,16 +151,16 @@ async function provePreparedInputWithTestingModeChecks(
     ),
   );
   const transcript = new RollingKeccakTranscript(runtime.Fr);
-  const prove0Output = await timed("prove0", () => prove0(runtime, input.crs, state));
+  const prove0Output = await timed("prove0", () => computeInitialRelationCommitments(runtime, input.crs, state));
   await timed("check prove0 arithmetic", () => checkProve0Arithmetic(runtime, input.crs, state, prove0Output));
 
-  const thetas = collectThetaChallenges(runtime, transcript, prove0Output.proof0);
-  const prove1Output = await timed("prove1", () => prove1(runtime, input.crs, state, thetas));
+  const thetas = collectThetaChallenges(runtime, transcript, prove0Output.commitments);
+  const prove1Output = await timed("prove1", () => computeRecursionCommitment(runtime, input.crs, state, thetas));
   await timed("check prove1 recursion", () => checkProve1Recursion(runtime, state, thetas, prove1Output));
 
-  const kappa0 = collectKappa0Challenge(runtime, transcript, prove1Output.proof1);
+  const kappa0 = collectKappa0Challenge(runtime, transcript, prove1Output.commitment);
   const prove2Output = await timed("prove2", () =>
-    prove2({
+    computeCopyQuotientCommitments({
       runtime,
       crs: input.crs,
       state,
@@ -173,10 +173,10 @@ async function provePreparedInputWithTestingModeChecks(
     checkProve2CopyQuotient(runtime, state, prove1Output.rXY, thetas, kappa0, prove2Output),
   );
 
-  const { chi, zeta } = collectEvaluationChallenges(runtime, transcript, prove2Output.proof2);
-  const proof3 = await timed("prove3", () =>
+  const { chi, zeta } = collectEvaluationChallenges(runtime, transcript, prove2Output.commitments);
+  const evaluations = await timed("prove3", () =>
     Promise.resolve(
-      prove3({
+      evaluateChallengePoints({
         runtime,
         state,
         rXY: prove1Output.rXY,
@@ -185,16 +185,16 @@ async function provePreparedInputWithTestingModeChecks(
       }),
     ),
   );
-  const kappa1 = collectKappa1Challenge(transcript, proof3);
+  const kappa1 = collectKappa1Challenge(transcript, evaluations);
   const prove4Output = await timed("prove4", () =>
-    prove4({
+    computeOpeningCommitments({
       runtime,
       crs: input.crs,
       state,
       rXY: prove1Output.rXY,
-      prove0: prove0Output,
-      prove2: prove2Output,
-      proof3,
+      initialRelation: prove0Output,
+      copyQuotient: prove2Output,
+      evaluations,
       thetas,
       kappa0,
       chi,
@@ -208,9 +208,9 @@ async function provePreparedInputWithTestingModeChecks(
       state,
       rXY: prove1Output.rXY,
       crs: input.crs,
-      prove0: prove0Output,
-      prove2: prove2Output,
-      proof3,
+      initialRelation: prove0Output,
+      copyQuotient: prove2Output,
+      evaluations,
       thetas,
       kappa0,
       chi,
@@ -223,17 +223,17 @@ async function provePreparedInputWithTestingModeChecks(
     createVerifierProofArtifactFromProverOutput({
       runtime,
       binding,
-      prove0: prove0Output,
-      prove1: prove1Output,
-      prove2: prove2Output,
-      proof3,
-      prove4: prove4Output,
+      initialRelation: prove0Output,
+      recursion: prove1Output,
+      copyQuotient: prove2Output,
+      evaluations,
+      openings: prove4Output,
     }),
   );
 
   return {
     proofArtifact,
-    prove4: prove4Output,
+    openings: prove4Output,
   };
 }
 
@@ -285,7 +285,7 @@ async function checkProve0Arithmetic(
   runtime: CurveRuntime,
   crs: ProverCrsRuntime,
   state: ProverState,
-  prove0Output: Prove0Computation,
+  prove0Output: InitialRelationComputation,
 ): Promise<void> {
   const field = runtime.Fr;
   const uXY = BivariatePolynomialBuffer.fromDense(state.witness.uXY).resize(state.setup.n, state.setup.s_max);
@@ -364,12 +364,12 @@ async function checkProve0Arithmetic(
     ],
   ]);
 
-  assertG1Equal(runtime, prove0Output.proof0.U, await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, UXY), "prove0 U commitment");
-  assertG1Equal(runtime, prove0Output.proof0.V, await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, VXY), "prove0 V commitment");
-  assertG1Equal(runtime, prove0Output.proof0.W, await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, WXY), "prove0 W commitment");
-  assertG1Equal(runtime, prove0Output.proof0.Q_AX, await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, Q_AX_XY), "prove0 Q_AX commitment");
-  assertG1Equal(runtime, prove0Output.proof0.Q_AY, await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, Q_AY_XY), "prove0 Q_AY commitment");
-  assertG1Equal(runtime, prove0Output.proof0.B, await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, BXY), "prove0 B commitment");
+  assertG1Equal(runtime, prove0Output.commitments.U, await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, UXY), "prove0 U commitment");
+  assertG1Equal(runtime, prove0Output.commitments.V, await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, VXY), "prove0 V commitment");
+  assertG1Equal(runtime, prove0Output.commitments.W, await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, WXY), "prove0 W commitment");
+  assertG1Equal(runtime, prove0Output.commitments.Q_AX, await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, Q_AX_XY), "prove0 Q_AX commitment");
+  assertG1Equal(runtime, prove0Output.commitments.Q_AY, await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, Q_AY_XY), "prove0 Q_AY commitment");
+  assertG1Equal(runtime, prove0Output.commitments.B, await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, BXY), "prove0 B commitment");
 
   const alpha = field.fromBigInt(43n);
   const beta = field.fromBigInt(47n);
@@ -383,17 +383,17 @@ async function checkProve0Arithmetic(
   ]);
   const directCombinedCommitment = await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, combinedPolynomial);
   const linearCombinedCommitment = g1AddMany(runtime.G1, [
-    runtime.G1.mulScalar(prove0Output.proof0.U, alpha),
-    runtime.G1.mulScalar(prove0Output.proof0.V, beta),
-    runtime.G1.mulScalar(prove0Output.proof0.W, gamma),
-    runtime.G1.neg(runtime.G1.mulScalar(prove0Output.proof0.Q_AX, alpha)),
-    runtime.G1.neg(runtime.G1.mulScalar(prove0Output.proof0.Q_AY, beta)),
+    runtime.G1.mulScalar(prove0Output.commitments.U, alpha),
+    runtime.G1.mulScalar(prove0Output.commitments.V, beta),
+    runtime.G1.mulScalar(prove0Output.commitments.W, gamma),
+    runtime.G1.neg(runtime.G1.mulScalar(prove0Output.commitments.Q_AX, alpha)),
+    runtime.G1.neg(runtime.G1.mulScalar(prove0Output.commitments.Q_AY, beta)),
   ]);
   assertG1Equal(runtime, linearCombinedCommitment, directCombinedCommitment, "prove0 actual CRS commitment linearity");
   assertG1Equal(
     runtime,
-    runtime.G1.mulScalar(prove0Output.proof0.U, alpha),
-    runtime.G1.mulAffineScalar(runtime.G1.toAffine(prove0Output.proof0.U), alpha),
+    runtime.G1.mulScalar(prove0Output.commitments.U, alpha),
+    runtime.G1.mulAffineScalar(runtime.G1.toAffine(prove0Output.commitments.U), alpha),
     "prove0 projective scalar multiplication",
   );
 }
@@ -402,7 +402,7 @@ async function checkProve1Recursion(
   runtime: CurveRuntime,
   state: ProverState,
   thetas: readonly FieldElement[],
-  prove1Output: Prove1Computation,
+  prove1Output: RecursionComputation,
 ): Promise<void> {
   const field = runtime.Fr;
   const mI = state.setup.l_D - state.setup.l;
@@ -446,7 +446,7 @@ async function checkProve2CopyQuotient(
   rXY: BivariatePolynomialBuffer,
   thetas: readonly FieldElement[],
   kappa0: FieldElement,
-  prove2Output: Prove2Computation,
+  prove2Output: CopyQuotientComputation,
 ): Promise<void> {
   const field = runtime.Fr;
   const mI = state.setup.l_D - state.setup.l;
@@ -488,16 +488,16 @@ async function checkProve4Openings(input: {
   readonly state: ProverState;
   readonly rXY: BivariatePolynomialBuffer;
   readonly crs: ProverCrsRuntime;
-  readonly prove0: Prove0Computation;
-  readonly prove2: Prove2Computation;
-  readonly proof3: Prove3Output;
+  readonly initialRelation: InitialRelationComputation;
+  readonly copyQuotient: CopyQuotientComputation;
+  readonly evaluations: ChallengeEvaluations;
   readonly thetas: readonly FieldElement[];
   readonly kappa0: FieldElement;
   readonly chi: FieldElement;
   readonly zeta: FieldElement;
   readonly kappa1: FieldElement;
 }): Promise<void> {
-  const { runtime, state, rXY, crs, prove0: prove0Output, prove2: prove2Output, proof3, thetas, kappa0, chi, zeta, kappa1 } =
+  const { runtime, state, rXY, crs, initialRelation: prove0Output, copyQuotient: prove2Output, evaluations, thetas, kappa0, chi, zeta, kappa1 } =
     input;
   const field = runtime.Fr;
   const mI = state.setup.l_D - state.setup.l;
@@ -540,7 +540,7 @@ async function checkProve4Openings(input: {
     [field.mul(state.mixer.rU_Y, state.mixer.rV_Y), BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
   ]);
   const pAXY = linearCombinationBuffer(field, [
-    [kappa1, VXY.sub(constantPolynomialBuffer(field, proof3.V_eval))],
+    [kappa1, VXY.sub(constantPolynomialBuffer(field, evaluations.V_eval))],
     [smallVEval, BivariatePolynomialBuffer.fromDense(state.witness.uXY)],
     [field.neg(field.one), BivariatePolynomialBuffer.fromDense(state.witness.wXY)],
     [field.neg(tNEval), prove0Output.q0XY],
@@ -556,16 +556,16 @@ async function checkProve4Openings(input: {
     [field.neg(field.one), prove0Output.wZk],
   ]);
   const proof0Numerator = linearCombinationBuffer(field, [
-    [proof3.V_eval, UXY],
+    [evaluations.V_eval, UXY],
     [field.neg(field.one), WXY],
-    [kappa1, VXY.sub(constantPolynomialBuffer(field, proof3.V_eval))],
+    [kappa1, VXY.sub(constantPolynomialBuffer(field, evaluations.V_eval))],
     [field.neg(tNEval), Q_AX_XY],
     [field.neg(tSMaxEval), Q_AY_XY],
   ]);
   assertPolynomialEqual(runtime, proof0Numerator, pAXY, "prove4 arithmetic numerator polynomial");
   const piADivision = pAXY.divByRuffini(chi, zeta);
   const pACommitment = await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, pAXY);
-  const lhsACommitment = lhsArithFromProverOutput(runtime, crs.G, prove0Output, proof3, tNEval, tSMaxEval, kappa1);
+  const lhsACommitment = lhsArithFromProverOutput(runtime, crs.G, prove0Output, evaluations, tNEval, tSMaxEval, kappa1);
   assertG1Equal(runtime, lhsACommitment, pACommitment, "prove4 arithmetic numerator commitment");
   assertRuffiniDivisionAtPoint(runtime, {
     label: "prove4 arithmetic opening",
@@ -582,18 +582,18 @@ async function checkProve4Openings(input: {
     [state.mixer.rR_Y, BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
   ]);
   const mDivision = RXY
-    .sub(constantPolynomialBuffer(field, proof3.R_omegaX_eval))
+    .sub(constantPolynomialBuffer(field, evaluations.R_omegaX_eval))
     .divByRuffini(field.mul(omegaMIInv, chi), zeta);
   assertRuffiniDivisionAtPoint(runtime, {
     label: "prove4 M opening",
-    numerator: RXY.sub(constantPolynomialBuffer(field, proof3.R_omegaX_eval)),
+    numerator: RXY.sub(constantPolynomialBuffer(field, evaluations.R_omegaX_eval)),
     quotientX: mDivision.quotientX,
     quotientY: mDivision.quotientY,
     xRoot: field.mul(omegaMIInv, chi),
     yRoot: zeta,
   });
 
-  const nNumerator = RXY.sub(constantPolynomialBuffer(field, proof3.R_omegaX_omegaY_eval));
+  const nNumerator = RXY.sub(constantPolynomialBuffer(field, evaluations.R_omegaX_omegaY_eval));
   const nDivision = nNumerator.divByRuffini(field.mul(omegaMIInv, chi), field.mul(omegaSMaxInv, zeta));
   assertRuffiniDivisionAtPoint(runtime, {
     label: "prove4 N opening",
@@ -609,9 +609,9 @@ async function checkProve4Openings(input: {
     state,
     rXY,
     RXY,
-    prove0: prove0Output,
-    prove2: prove2Output,
-    proof3,
+    initialRelation: prove0Output,
+    copyQuotient: prove2Output,
+    evaluations,
     thetas,
     kappa0,
     kappa1,
@@ -646,7 +646,7 @@ async function checkProve4Openings(input: {
 async function checkVerifierTestingModeSplitPairings(
   runtime: CurveRuntime,
   input: VerifierInput,
-  prove4Output: Prove4Computation,
+  prove4Output: OpeningCommitmentsComputation,
 ): Promise<void> {
   const challenges = await collectChallenges(runtime.Fr, runtime.G1, () => runtime.Fr.one, input.proof);
   const domain = buildDomainContext(runtime.Fr, input.setup, challenges);
@@ -671,7 +671,7 @@ async function verifyArithSplit(
   input: VerifierInput,
   domain: VerifierDomainContext,
   challenges: VerifierChallenges,
-  prove4Output: Prove4Computation,
+  prove4Output: OpeningCommitmentsComputation,
 ): Promise<boolean> {
   const Pi_AX = runtime.G1.toAffine(prove4Output.debug.Pi_AX);
   const Pi_AY = runtime.G1.toAffine(prove4Output.debug.Pi_AY);
@@ -696,7 +696,7 @@ async function verifyCopySplit(
   domain: VerifierDomainContext,
   challenges: VerifierChallenges,
   lagrangeK0Eval: FieldElement,
-  prove4Output: Prove4Computation,
+  prove4Output: OpeningCommitmentsComputation,
 ): Promise<boolean> {
   const field = runtime.Fr;
   const lhsC = await lhsCopyMsm(field, runtime.G1, input, domain, challenges, lagrangeK0Eval);
@@ -716,7 +716,7 @@ async function verifyBindingSplit(
   input: VerifierInput,
   challenges: VerifierChallenges,
   aEval: FieldElement,
-  prove4Output: Prove4Computation,
+  prove4Output: OpeningCommitmentsComputation,
 ): Promise<boolean> {
   const field = runtime.Fr;
   const Pi_B = runtime.G1.toAffine(prove4Output.debug.Pi_B);
@@ -744,7 +744,7 @@ async function verifyBindingSplit(
 
 function copyAux(
   runtime: CurveRuntime,
-  proof4: Prove4Computation["debug"],
+  proof4: OpeningCommitmentsComputation["debug"],
   domain: VerifierDomainContext,
   challenges: VerifierChallenges,
 ): { readonly aux: G1Point; readonly auxX: G1Point; readonly auxY: G1Point } {
@@ -783,8 +783,8 @@ function copyAux(
 function lhsArithFromProverOutput(
   runtime: CurveRuntime,
   sigmaG: G1Point,
-  prove0Output: Prove0Computation,
-  proof3: Prove3Output,
+  prove0Output: InitialRelationComputation,
+  evaluations: ChallengeEvaluations,
   tNEval: FieldElement,
   tSMaxEval: FieldElement,
   kappa1: FieldElement,
@@ -793,15 +793,15 @@ function lhsArithFromProverOutput(
     runtime.G1.sub(
       runtime.G1.sub(
         runtime.G1.add(
-          runtime.G1.sub(runtime.G1.mulScalar(prove0Output.proof0.U, proof3.V_eval), prove0Output.proof0.W),
+          runtime.G1.sub(runtime.G1.mulScalar(prove0Output.commitments.U, evaluations.V_eval), prove0Output.commitments.W),
           runtime.G1.mulScalar(
-            runtime.G1.sub(prove0Output.proof0.V, runtime.G1.mulScalar(sigmaG, proof3.V_eval)),
+            runtime.G1.sub(prove0Output.commitments.V, runtime.G1.mulScalar(sigmaG, evaluations.V_eval)),
             kappa1,
           ),
         ),
-        runtime.G1.mulScalar(prove0Output.proof0.Q_AX, tNEval),
+        runtime.G1.mulScalar(prove0Output.commitments.Q_AX, tNEval),
       ),
-      runtime.G1.mulScalar(prove0Output.proof0.Q_AY, tSMaxEval),
+      runtime.G1.mulScalar(prove0Output.commitments.Q_AY, tSMaxEval),
     ),
     runtime.G1.zero,
   );
@@ -844,9 +844,9 @@ async function buildCopyOpeningNumerator(input: {
   readonly state: ProverState;
   readonly rXY: BivariatePolynomialBuffer;
   readonly RXY: BivariatePolynomialBuffer;
-  readonly prove0: Prove0Computation;
-  readonly prove2: Prove2Computation;
-  readonly proof3: Prove3Output;
+  readonly initialRelation: InitialRelationComputation;
+  readonly copyQuotient: CopyQuotientComputation;
+  readonly evaluations: ChallengeEvaluations;
   readonly thetas: readonly FieldElement[];
   readonly kappa0: FieldElement;
   readonly kappa1: FieldElement;
@@ -860,9 +860,9 @@ async function buildCopyOpeningNumerator(input: {
     state,
     rXY,
     RXY,
-    prove0: prove0Output,
-    prove2: prove2Output,
-    proof3,
+    initialRelation: prove0Output,
+    copyQuotient: prove2Output,
+    evaluations,
     thetas,
     kappa0,
     kappa1,
@@ -922,7 +922,7 @@ async function buildCopyOpeningNumerator(input: {
     [lagrangeK0Eval, term10],
     [field.neg(field.one), lhsZk2Product],
   ]);
-  const rMinusEval = RXY.sub(constantPolynomialBuffer(field, proof3.R_eval));
+  const rMinusEval = RXY.sub(constantPolynomialBuffer(field, evaluations.R_eval));
   const kappa1SqActual = field.square(kappa1);
   const kappa1Cube = field.mul(kappa1SqActual, kappa1);
 
@@ -1191,7 +1191,7 @@ function collectEvaluationChallenges(
 
 function collectKappa1Challenge(
   transcript: RollingKeccakTranscript,
-  proof3: {
+  evaluations: {
     readonly V_eval: FieldElement;
     readonly R_eval: FieldElement;
     readonly R_omegaX_eval: FieldElement;
@@ -1199,10 +1199,10 @@ function collectKappa1Challenge(
   },
 ): FieldElement {
   transcript
-    .commitField(proof3.V_eval)
-    .commitField(proof3.R_eval)
-    .commitField(proof3.R_omegaX_eval)
-    .commitField(proof3.R_omegaX_omegaY_eval);
+    .commitField(evaluations.V_eval)
+    .commitField(evaluations.R_eval)
+    .commitField(evaluations.R_omegaX_eval)
+    .commitField(evaluations.R_omegaX_omegaY_eval);
 
   return transcript.squeezeChallenge();
 }

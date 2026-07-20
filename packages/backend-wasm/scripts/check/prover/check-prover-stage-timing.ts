@@ -23,15 +23,15 @@ import {
   type ProverState,
   type RuntimeArtifactBundleManifest,
 } from "../../../src/index.js";
-import { buildProverBinding, type Prove0Computation, type Prove0Output } from "../../../src/prover/stages/prove0.js";
-import { prove1 } from "../../../src/prover/stages/prove1.js";
-import { type Prove2Computation, type Prove2Output } from "../../../src/prover/stages/prove2.js";
-import { prove3, type Prove3Output } from "../../../src/prover/stages/prove3.js";
+import { buildProverBinding, type InitialRelationComputation, type InitialRelationCommitments } from "../../../src/prover/internal/initial-relation.js";
+import { computeRecursionCommitment } from "../../../src/prover/internal/recursion-commitment.js";
+import { type CopyQuotientComputation, type CopyQuotientCommitments } from "../../../src/prover/internal/copy-quotient.js";
+import { evaluateChallengePoints, type ChallengeEvaluations } from "../../../src/prover/internal/challenge-evaluations.js";
 import {
-  type Prove4Computation,
-  type Prove4DebugOutput,
-  type Prove4Output,
-} from "../../../src/prover/stages/prove4.js";
+  type OpeningCommitmentsComputation,
+  type OpeningDebugCommitments,
+  type OpeningProofCommitments,
+} from "../../../src/prover/internal/opening-commitments.js";
 import {
   buildLagrangeK0,
   buildLagrangeKl,
@@ -44,7 +44,7 @@ import {
   mulByOneMinusX,
   mulByTerm9,
   mulByXMinusOne,
-} from "../../../src/prover/stages/polynomial-ops.js";
+} from "../../../src/prover/internal/polynomial-ops.js";
 
 interface SizeInfo {
   readonly label: string;
@@ -228,9 +228,9 @@ async function provePreparedInputWithStrictTimings(runtime: CurveRuntime, input:
 
   const transcript = new RollingKeccakTranscript(runtime.Fr);
   const prove0Output = await timing.span("prove0", "stage", () => prove0Timed(runtime, input.crs, state));
-  const thetas = collectThetaChallenges(runtime, transcript, prove0Output.proof0);
-  const prove1Output = await timing.span("prove1", "stage", () => prove1(runtime, input.crs, state, thetas));
-  const kappa0 = collectKappa0Challenge(runtime, transcript, prove1Output.proof1);
+  const thetas = collectThetaChallenges(runtime, transcript, prove0Output.commitments);
+  const prove1Output = await timing.span("prove1", "stage", () => computeRecursionCommitment(runtime, input.crs, state, thetas));
+  const kappa0 = collectKappa0Challenge(runtime, transcript, prove1Output.commitment);
   const prove2Output = await timing.span("prove2", "stage", () =>
     prove2Timed({
       runtime,
@@ -241,9 +241,9 @@ async function provePreparedInputWithStrictTimings(runtime: CurveRuntime, input:
       kappa0,
     }),
   );
-  const { chi, zeta } = collectEvaluationChallenges(runtime, transcript, prove2Output.proof2);
-  const proof3 = timing.spanSync("prove3", "stage", () =>
-    prove3({
+  const { chi, zeta } = collectEvaluationChallenges(runtime, transcript, prove2Output.commitments);
+  const evaluations = timing.spanSync("prove3", "stage", () =>
+    evaluateChallengePoints({
       runtime,
       state,
       rXY: prove1Output.rXY,
@@ -251,16 +251,16 @@ async function provePreparedInputWithStrictTimings(runtime: CurveRuntime, input:
       zeta,
     }),
   );
-  const kappa1 = collectKappa1Challenge(transcript, proof3);
+  const kappa1 = collectKappa1Challenge(transcript, evaluations);
   const prove4Output = await timing.span("prove4", "stage", () =>
     prove4Timed({
       runtime,
       crs: input.crs,
       state,
       rXY: prove1Output.rXY,
-      prove0: prove0Output,
-      prove2: prove2Output,
-      proof3,
+      initialRelation: prove0Output,
+      copyQuotient: prove2Output,
+      evaluations,
       thetas,
       kappa0,
       chi,
@@ -273,11 +273,11 @@ async function provePreparedInputWithStrictTimings(runtime: CurveRuntime, input:
     createVerifierProofArtifactFromProverOutput({
       runtime,
       binding,
-      prove0: prove0Output,
-      prove1: prove1Output,
-      prove2: prove2Output,
-      proof3,
-      prove4: prove4Output,
+      initialRelation: prove0Output,
+      recursion: prove1Output,
+      copyQuotient: prove2Output,
+      evaluations,
+      openings: prove4Output,
     }),
   );
 }
@@ -286,7 +286,7 @@ async function prove0Timed(
   runtime: CurveRuntime,
   crs: ProverCrsRuntime,
   state: ProverState,
-): Promise<Prove0Computation> {
+): Promise<InitialRelationComputation> {
   const field = runtime.Fr;
   const p0XY = await timing.span(
     "poly.combine.prove0.p0XY",
@@ -369,7 +369,7 @@ async function prove0Timed(
   );
 
   return {
-    proof0: {
+    commitments: {
       U: await encodePolynomialBufferWithSigma1Timed(runtime, crs, state.setup, UXY, "prove0.U"),
       V: await encodePolynomialBufferWithSigma1Timed(runtime, crs, state.setup, VXY, "prove0.V"),
       W: await encodePolynomialBufferWithSigma1Timed(runtime, crs, state.setup, WXY, "prove0.W"),
@@ -391,7 +391,7 @@ async function prove2Timed(input: {
   readonly rXY: BivariatePolynomialBuffer;
   readonly thetas: readonly FieldElement[];
   readonly kappa0: FieldElement;
-}): Promise<Prove2Computation> {
+}): Promise<CopyQuotientComputation> {
   const { runtime, crs, state, rXY, thetas, kappa0 } = input;
   if (thetas.length < 3) {
     throw new Error("prove2 requires at least three theta challenges.");
@@ -489,7 +489,7 @@ async function prove2Timed(input: {
   });
 
   return {
-    proof2: {
+    commitments: {
       Q_CX: await encodePolynomialBufferWithSigma1Timed(runtime, crs, state.setup, qCxXY, "prove2.Q_CX"),
       Q_CY: await encodePolynomialBufferWithSigma1Timed(runtime, crs, state.setup, qCyXY, "prove2.Q_CY"),
     },
@@ -504,16 +504,29 @@ async function prove4Timed(input: {
   readonly crs: ProverCrsRuntime;
   readonly state: ProverState;
   readonly rXY: BivariatePolynomialBuffer;
-  readonly prove0: Prove0Computation;
-  readonly prove2: Prove2Computation;
-  readonly proof3: Prove3Output;
+  readonly initialRelation: InitialRelationComputation;
+  readonly copyQuotient: CopyQuotientComputation;
+  readonly evaluations: ChallengeEvaluations;
   readonly thetas: readonly FieldElement[];
   readonly kappa0: FieldElement;
   readonly chi: FieldElement;
   readonly zeta: FieldElement;
   readonly kappa1: FieldElement;
-}): Promise<Prove4Computation> {
-  const { runtime, crs, state, rXY, prove0, prove2, proof3, thetas, kappa0, chi, zeta, kappa1 } = input;
+}): Promise<OpeningCommitmentsComputation> {
+  const {
+    runtime,
+    crs,
+    state,
+    rXY,
+    initialRelation: prove0,
+    copyQuotient: prove2,
+    evaluations,
+    thetas,
+    kappa0,
+    chi,
+    zeta,
+    kappa1,
+  } = input;
   if (thetas.length < 3) {
     throw new Error("prove4 requires at least three theta challenges.");
   }
@@ -541,7 +554,7 @@ async function prove4Timed(input: {
   );
   const pAXY = timing.spanSync("poly.combine.prove4.Pi_A", "poly", () =>
     linearCombinationBuffer(field, [
-      [kappa1, VXY.sub(constantPolynomialBuffer(field, proof3.V_eval))],
+      [kappa1, VXY.sub(constantPolynomialBuffer(field, evaluations.V_eval))],
       [smallVEval, BivariatePolynomialBuffer.fromDense(state.witness.uXY)],
       [field.neg(field.one), BivariatePolynomialBuffer.fromDense(state.witness.wXY)],
       [field.neg(tNEval), prove0.q0XY],
@@ -571,7 +584,7 @@ async function prove4Timed(input: {
   );
   const mDivision = await timing.span("poly.div_by_ruffini.prove4.M", "poly", async () =>
     Promise.resolve(
-      RXY.sub(constantPolynomialBuffer(field, proof3.R_omegaX_eval)).divByRuffini(field.mul(omegaMIInv, chi), zeta),
+      RXY.sub(constantPolynomialBuffer(field, evaluations.R_omegaX_eval)).divByRuffini(field.mul(omegaMIInv, chi), zeta),
     ),
   );
   const M_X = await encodePolynomialBufferWithSigma1Timed(runtime, crs, state.setup, mDivision.quotientX, "prove4.M_X");
@@ -579,7 +592,7 @@ async function prove4Timed(input: {
   const nDivision = await timing.span("poly.div_by_ruffini.prove4.N", "poly", async () =>
     Promise.resolve(
       RXY
-        .sub(constantPolynomialBuffer(field, proof3.R_omegaX_omegaY_eval))
+        .sub(constantPolynomialBuffer(field, evaluations.R_omegaX_omegaY_eval))
         .divByRuffini(field.mul(omegaMIInv, chi), field.mul(omegaSMaxInv, zeta)),
     ),
   );
@@ -591,9 +604,9 @@ async function prove4Timed(input: {
     state,
     rXY,
     RXY,
-    prove0,
-    prove2,
-    proof3,
+    initialRelation: prove0,
+    copyQuotient: prove2,
+    evaluations,
     thetas,
     kappa0,
     kappa0Sq,
@@ -616,7 +629,7 @@ async function prove4Timed(input: {
   const Pi_Y = runtime.G1.add(Pi_AY, Pi_CY);
 
   return {
-    proof4: {
+    commitments: {
       Pi_X,
       Pi_Y,
       M_X,
@@ -644,9 +657,9 @@ async function buildCopyOpeningsTimed(input: {
   readonly state: ProverState;
   readonly rXY: BivariatePolynomialBuffer;
   readonly RXY: BivariatePolynomialBuffer;
-  readonly prove0: Prove0Computation;
-  readonly prove2: Prove2Computation;
-  readonly proof3: Prove3Output;
+  readonly initialRelation: InitialRelationComputation;
+  readonly copyQuotient: CopyQuotientComputation;
+  readonly evaluations: ChallengeEvaluations;
   readonly thetas: readonly FieldElement[];
   readonly kappa0: FieldElement;
   readonly kappa0Sq: FieldElement;
@@ -663,9 +676,9 @@ async function buildCopyOpeningsTimed(input: {
     state,
     rXY,
     RXY,
-    prove0,
-    prove2,
-    proof3,
+    initialRelation: prove0,
+    copyQuotient: prove2,
+    evaluations,
     thetas,
     kappa0,
     kappa0Sq,
@@ -759,7 +772,7 @@ async function buildCopyOpeningsTimed(input: {
     ]);
   });
   const rMinusEval = timing.spanSync("poly.combine.prove4.R_minus_eval", "poly", () =>
-    RXY.sub(constantPolynomialBuffer(field, proof3.R_eval)),
+    RXY.sub(constantPolynomialBuffer(field, evaluations.R_eval)),
   );
   const lhsForCopy = timing.spanSync("poly.combine.prove4.LHS_for_copy", "poly", () =>
     linearCombinationBuffer(field, [
@@ -950,7 +963,7 @@ function constantPolynomial(field: CurveRuntime["Fr"], value: FieldElement): Den
 function collectThetaChallenges(
   runtime: CurveRuntime,
   transcript: RollingKeccakTranscript,
-  proof0: Prove0Output,
+  proof0: InitialRelationCommitments,
 ): readonly [FieldElement, FieldElement, FieldElement] {
   transcript
     .commitG1Point(proof0.U, runtime.G1)
@@ -976,7 +989,7 @@ function collectKappa0Challenge(
 function collectEvaluationChallenges(
   runtime: CurveRuntime,
   transcript: RollingKeccakTranscript,
-  proof2: Prove2Output,
+  proof2: CopyQuotientCommitments,
 ): { readonly chi: FieldElement; readonly zeta: FieldElement } {
   transcript.commitG1Point(proof2.Q_CX, runtime.G1).commitG1Point(proof2.Q_CY, runtime.G1);
 
@@ -986,12 +999,12 @@ function collectEvaluationChallenges(
   };
 }
 
-function collectKappa1Challenge(transcript: RollingKeccakTranscript, proof3: Prove3Output): FieldElement {
+function collectKappa1Challenge(transcript: RollingKeccakTranscript, evaluations: ChallengeEvaluations): FieldElement {
   transcript
-    .commitField(proof3.V_eval)
-    .commitField(proof3.R_eval)
-    .commitField(proof3.R_omegaX_eval)
-    .commitField(proof3.R_omegaX_omegaY_eval);
+    .commitField(evaluations.V_eval)
+    .commitField(evaluations.R_eval)
+    .commitField(evaluations.R_omegaX_eval)
+    .commitField(evaluations.R_omegaX_omegaY_eval);
 
   return transcript.squeezeChallenge();
 }

@@ -2,22 +2,22 @@ import { BivariatePolynomialBuffer } from "../../core/polynomial/bivariate-polyn
 import type { CurveRuntime } from "../../core/curve/curve.js";
 import type { FieldElement } from "../../core/field/field.js";
 import { linearCombinationBuffer } from "./polynomial-ops.js";
-import type { ProverState } from "../internal/state.js";
+import type { ProverState } from "./state.js";
 
-export interface Prove3Output {
+export interface ChallengeEvaluations {
   readonly V_eval: FieldElement;
   readonly R_eval: FieldElement;
   readonly R_omegaX_eval: FieldElement;
   readonly R_omegaX_omegaY_eval: FieldElement;
 }
 
-export function prove3(input: {
+export function evaluateChallengePoints(input: {
   readonly runtime: CurveRuntime;
   readonly state: ProverState;
   readonly rXY: BivariatePolynomialBuffer;
   readonly chi: FieldElement;
   readonly zeta: FieldElement;
-}): Prove3Output {
+}): ChallengeEvaluations {
   const { runtime, state, rXY, chi, zeta } = input;
   const field = runtime.Fr;
   const mI = state.setup.l_D - state.setup.l;

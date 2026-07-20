@@ -6,11 +6,11 @@ import type { ProverVerifierProofOutputInput } from "../api/proof-output.js";
 import type { ProverCommitmentEncoder } from "./commitment-encoder.js";
 import { createProverState } from "./state.js";
 import { buildWitnessPolynomials } from "./witness.js";
-import { buildProverBinding, prove0 } from "../stages/prove0.js";
-import { prove1 } from "../stages/prove1.js";
-import { prove2 } from "../stages/prove2.js";
-import { prove3 } from "../stages/prove3.js";
-import { prove4 } from "../stages/prove4.js";
+import { buildProverBinding, computeInitialRelationCommitments } from "./initial-relation.js";
+import { computeRecursionCommitment } from "./recursion-commitment.js";
+import { computeCopyQuotientCommitments } from "./copy-quotient.js";
+import { evaluateChallengePoints } from "./challenge-evaluations.js";
+import { computeOpeningCommitments } from "./opening-commitments.js";
 
 export interface IntegratedProverOptions {
   readonly commitmentEncoder?: ProverCommitmentEncoder;
@@ -40,53 +40,53 @@ export async function runIntegratedProver(
     state.mixer,
   );
   const transcript = new RollingKeccakTranscript(runtime.Fr);
-  const stageOptions = { commitmentEncoder: options.commitmentEncoder };
-  const proof0 = await prove0(runtime, input.crs, state, stageOptions);
-  const thetas = collectThetaChallenges(runtime, transcript, proof0.proof0);
-  const prove1Output = await prove1(runtime, input.crs, state, thetas, stageOptions);
-  const kappa0 = collectKappa0Challenge(runtime, transcript, prove1Output.proof1);
-  const prove2Output = await prove2({
+  const operationOptions = { commitmentEncoder: options.commitmentEncoder };
+  const initialRelation = await computeInitialRelationCommitments(runtime, input.crs, state, operationOptions);
+  const thetas = collectThetaChallenges(runtime, transcript, initialRelation.commitments);
+  const recursion = await computeRecursionCommitment(runtime, input.crs, state, thetas, operationOptions);
+  const kappa0 = collectKappa0Challenge(runtime, transcript, recursion.commitment);
+  const copyQuotient = await computeCopyQuotientCommitments({
     runtime,
     crs: input.crs,
     state,
-    rXY: prove1Output.rXY,
+    rXY: recursion.rXY,
     thetas,
     kappa0,
-    options: stageOptions,
+    options: operationOptions,
   });
-  const { chi, zeta } = collectEvaluationChallenges(runtime, transcript, prove2Output.proof2);
-  const proof3 = prove3({
+  const { chi, zeta } = collectEvaluationChallenges(runtime, transcript, copyQuotient.commitments);
+  const evaluations = evaluateChallengePoints({
     runtime,
     state,
-    rXY: prove1Output.rXY,
+    rXY: recursion.rXY,
     chi,
     zeta,
   });
-  const kappa1 = collectKappa1Challenge(transcript, proof3);
-  const prove4Output = await prove4({
+  const kappa1 = collectKappa1Challenge(transcript, evaluations);
+  const openings = await computeOpeningCommitments({
     runtime,
     crs: input.crs,
     state,
-    rXY: prove1Output.rXY,
-    prove0: proof0,
-    prove2: prove2Output,
-    proof3,
+    rXY: recursion.rXY,
+    initialRelation,
+    copyQuotient,
+    evaluations,
     thetas,
     kappa0,
     chi,
     zeta,
     kappa1,
-    options: stageOptions,
+    options: operationOptions,
   });
 
   return {
     runtime,
     binding,
-    prove0: proof0,
-    prove1: prove1Output,
-    prove2: prove2Output,
-    proof3,
-    prove4: prove4Output,
+    initialRelation,
+    recursion,
+    copyQuotient,
+    evaluations,
+    openings,
     sourcePackageVersion: options.sourcePackageVersion,
   };
 }
@@ -94,7 +94,7 @@ export async function runIntegratedProver(
 function collectThetaChallenges(
   runtime: CurveRuntime,
   transcript: RollingKeccakTranscript,
-  proof0: {
+  commitments: {
     readonly U: Uint8Array;
     readonly V: Uint8Array;
     readonly W: Uint8Array;
@@ -104,12 +104,12 @@ function collectThetaChallenges(
   },
 ): readonly [FieldElement, FieldElement, FieldElement] {
   transcript
-    .commitG1Point(proof0.U, runtime.G1)
-    .commitG1Point(proof0.V, runtime.G1)
-    .commitG1Point(proof0.W, runtime.G1)
-    .commitG1Point(proof0.Q_AX, runtime.G1)
-    .commitG1Point(proof0.Q_AY, runtime.G1)
-    .commitG1Point(proof0.B, runtime.G1);
+    .commitG1Point(commitments.U, runtime.G1)
+    .commitG1Point(commitments.V, runtime.G1)
+    .commitG1Point(commitments.W, runtime.G1)
+    .commitG1Point(commitments.Q_AX, runtime.G1)
+    .commitG1Point(commitments.Q_AY, runtime.G1)
+    .commitG1Point(commitments.B, runtime.G1);
   const thetas = transcript.getChallenges(3);
 
   return [thetas[0], thetas[1], thetas[2]];
@@ -118,18 +118,18 @@ function collectThetaChallenges(
 function collectKappa0Challenge(
   runtime: CurveRuntime,
   transcript: RollingKeccakTranscript,
-  proof1: { readonly R: Uint8Array },
+  commitment: { readonly R: Uint8Array },
 ): FieldElement {
-  transcript.commitG1Point(proof1.R, runtime.G1);
+  transcript.commitG1Point(commitment.R, runtime.G1);
   return transcript.squeezeChallenge();
 }
 
 function collectEvaluationChallenges(
   runtime: CurveRuntime,
   transcript: RollingKeccakTranscript,
-  proof2: { readonly Q_CX: Uint8Array; readonly Q_CY: Uint8Array },
+  commitments: { readonly Q_CX: Uint8Array; readonly Q_CY: Uint8Array },
 ): { readonly chi: FieldElement; readonly zeta: FieldElement } {
-  transcript.commitG1Point(proof2.Q_CX, runtime.G1).commitG1Point(proof2.Q_CY, runtime.G1);
+  transcript.commitG1Point(commitments.Q_CX, runtime.G1).commitG1Point(commitments.Q_CY, runtime.G1);
 
   return {
     chi: transcript.squeezeChallenge(),
@@ -139,7 +139,7 @@ function collectEvaluationChallenges(
 
 function collectKappa1Challenge(
   transcript: RollingKeccakTranscript,
-  proof3: {
+  evaluations: {
     readonly V_eval: FieldElement;
     readonly R_eval: FieldElement;
     readonly R_omegaX_eval: FieldElement;
@@ -147,10 +147,10 @@ function collectKappa1Challenge(
   },
 ): FieldElement {
   transcript
-    .commitField(proof3.V_eval)
-    .commitField(proof3.R_eval)
-    .commitField(proof3.R_omegaX_eval)
-    .commitField(proof3.R_omegaX_omegaY_eval);
+    .commitField(evaluations.V_eval)
+    .commitField(evaluations.R_eval)
+    .commitField(evaluations.R_omegaX_eval)
+    .commitField(evaluations.R_omegaX_omegaY_eval);
 
   return transcript.squeezeChallenge();
 }

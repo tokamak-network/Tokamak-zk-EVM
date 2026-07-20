@@ -7,7 +7,7 @@ import type {
   ProverPlacementVariables,
   ProverSetupParams,
   ProverSubcircuitInfo,
-} from "../internal/witness.js";
+} from "./witness.js";
 import {
   linearCombinationBuffer,
   lowDegreeXTimesVanishingBuffer,
@@ -17,11 +17,11 @@ import {
   encodeSigma1CommitmentBarrier,
   requireCommitment,
   type ProverCommitmentEncoder,
-} from "../internal/commitment-encoder.js";
-import type { ProverInstancePolynomials, ProverMixer } from "../internal/state.js";
-import type { ProverState } from "../internal/state.js";
+} from "./commitment-encoder.js";
+import type { ProverInstancePolynomials, ProverMixer } from "./state.js";
+import type { ProverState } from "./state.js";
 
-export interface Prove0Output {
+export interface InitialRelationCommitments {
   readonly U: Uint8Array;
   readonly V: Uint8Array;
   readonly W: Uint8Array;
@@ -30,8 +30,8 @@ export interface Prove0Output {
   readonly B: Uint8Array;
 }
 
-export interface Prove0Computation {
-  readonly proof0: Prove0Output;
+export interface InitialRelationComputation {
+  readonly commitments: InitialRelationCommitments;
   readonly q0XY: BivariatePolynomialBuffer;
   readonly q1XY: BivariatePolynomialBuffer;
   readonly wZk: BivariatePolynomialBuffer;
@@ -45,7 +45,7 @@ export interface ProverBinding {
   readonly O_prv: Uint8Array;
 }
 
-export interface ProverStageOptions {
+export interface ProverOperationOptions {
   readonly commitmentEncoder?: ProverCommitmentEncoder;
 }
 
@@ -90,12 +90,12 @@ export async function buildProverBinding(
   };
 }
 
-export async function prove0(
+export async function computeInitialRelationCommitments(
   runtime: CurveRuntime,
   crs: ProverCrsRuntime,
   state: ProverState,
-  options: ProverStageOptions = {},
-): Promise<Prove0Computation> {
+  options: ProverOperationOptions = {},
+): Promise<InitialRelationComputation> {
   const field = runtime.Fr;
   const p0XY = await BivariatePolynomialBuffer.fromDense(state.witness.uXY).mul(
     BivariatePolynomialBuffer.fromDense(state.witness.vXY),
@@ -164,7 +164,7 @@ export async function prove0(
   );
 
   return {
-    proof0: {
+    commitments: {
       U: requireCommitment(commitments, "U"),
       V: requireCommitment(commitments, "V"),
       W: requireCommitment(commitments, "W"),

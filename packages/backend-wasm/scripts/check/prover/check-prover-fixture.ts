@@ -19,11 +19,14 @@ import {
   type ProverRuntimeInput,
   type RuntimeArtifactBundleManifest,
 } from "../../../src/index.js";
-import { buildProverBinding, prove0 } from "../../../src/prover/stages/prove0.js";
-import { prove1 } from "../../../src/prover/stages/prove1.js";
-import { prove2 } from "../../../src/prover/stages/prove2.js";
-import { prove3 } from "../../../src/prover/stages/prove3.js";
-import { prove4 } from "../../../src/prover/stages/prove4.js";
+import {
+  buildProverBinding,
+  computeInitialRelationCommitments,
+} from "../../../src/prover/internal/initial-relation.js";
+import { computeRecursionCommitment } from "../../../src/prover/internal/recursion-commitment.js";
+import { computeCopyQuotientCommitments } from "../../../src/prover/internal/copy-quotient.js";
+import { evaluateChallengePoints } from "../../../src/prover/internal/challenge-evaluations.js";
+import { computeOpeningCommitments } from "../../../src/prover/internal/opening-commitments.js";
 
 async function main(): Promise<void> {
   const runtimeDir = path.resolve("fixtures/small/runtime");
@@ -103,12 +106,12 @@ async function provePreparedInputWithTimings(runtime: CurveRuntime, input: Prove
     ),
   );
   const transcript = new RollingKeccakTranscript(runtime.Fr);
-  const prove0Output = await timed("prove0", () => prove0(runtime, input.crs, state));
-  const thetas = collectThetaChallenges(runtime, transcript, prove0Output.proof0);
-  const prove1Output = await timed("prove1", () => prove1(runtime, input.crs, state, thetas));
-  const kappa0 = collectKappa0Challenge(runtime, transcript, prove1Output.proof1);
+  const prove0Output = await timed("prove0", () => computeInitialRelationCommitments(runtime, input.crs, state));
+  const thetas = collectThetaChallenges(runtime, transcript, prove0Output.commitments);
+  const prove1Output = await timed("prove1", () => computeRecursionCommitment(runtime, input.crs, state, thetas));
+  const kappa0 = collectKappa0Challenge(runtime, transcript, prove1Output.commitment);
   const prove2Output = await timed("prove2", () =>
-    prove2({
+    computeCopyQuotientCommitments({
       runtime,
       crs: input.crs,
       state,
@@ -117,10 +120,10 @@ async function provePreparedInputWithTimings(runtime: CurveRuntime, input: Prove
       kappa0,
     }),
   );
-  const { chi, zeta } = collectEvaluationChallenges(runtime, transcript, prove2Output.proof2);
-  const proof3 = await timed("prove3", () =>
+  const { chi, zeta } = collectEvaluationChallenges(runtime, transcript, prove2Output.commitments);
+  const evaluations = await timed("prove3", () =>
     Promise.resolve(
-      prove3({
+      evaluateChallengePoints({
         runtime,
         state,
         rXY: prove1Output.rXY,
@@ -129,16 +132,16 @@ async function provePreparedInputWithTimings(runtime: CurveRuntime, input: Prove
       }),
     ),
   );
-  const kappa1 = collectKappa1Challenge(transcript, proof3);
+  const kappa1 = collectKappa1Challenge(transcript, evaluations);
   const prove4Output = await timed("prove4", () =>
-    prove4({
+    computeOpeningCommitments({
       runtime,
       crs: input.crs,
       state,
       rXY: prove1Output.rXY,
-      prove0: prove0Output,
-      prove2: prove2Output,
-      proof3,
+      initialRelation: prove0Output,
+      copyQuotient: prove2Output,
+      evaluations,
       thetas,
       kappa0,
       chi,
@@ -151,11 +154,11 @@ async function provePreparedInputWithTimings(runtime: CurveRuntime, input: Prove
     createVerifierProofArtifactFromProverOutput({
       runtime,
       binding,
-      prove0: prove0Output,
-      prove1: prove1Output,
-      prove2: prove2Output,
-      proof3,
-      prove4: prove4Output,
+      initialRelation: prove0Output,
+      recursion: prove1Output,
+      copyQuotient: prove2Output,
+      evaluations,
+      openings: prove4Output,
     }),
   );
 }
@@ -224,7 +227,7 @@ function collectEvaluationChallenges(
 
 function collectKappa1Challenge(
   transcript: RollingKeccakTranscript,
-  proof3: {
+  evaluations: {
     readonly V_eval: FieldElement;
     readonly R_eval: FieldElement;
     readonly R_omegaX_eval: FieldElement;
@@ -232,10 +235,10 @@ function collectKappa1Challenge(
   },
 ): FieldElement {
   transcript
-    .commitField(proof3.V_eval)
-    .commitField(proof3.R_eval)
-    .commitField(proof3.R_omegaX_eval)
-    .commitField(proof3.R_omegaX_omegaY_eval);
+    .commitField(evaluations.V_eval)
+    .commitField(evaluations.R_eval)
+    .commitField(evaluations.R_omegaX_eval)
+    .commitField(evaluations.R_omegaX_omegaY_eval);
 
   return transcript.squeezeChallenge();
 }

@@ -16,7 +16,7 @@ import {
   mulByTerm9,
   mulByXMinusOne,
   transposeRowMajorBuffer,
-} from "../../../src/prover/stages/polynomial-ops.js";
+} from "../../../src/prover/internal/polynomial-ops.js";
 
 async function main(): Promise<void> {
   const runtime = await createCurveRuntime();

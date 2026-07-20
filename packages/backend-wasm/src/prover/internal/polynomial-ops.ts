@@ -71,7 +71,7 @@ export function computeRecursionEvalsBuffer(
   sMax: number,
 ): Uint8Array {
   if (field.bufferElementCount(gXYEvals) !== mI * sMax || field.bufferElementCount(fXYEvals) !== mI * sMax) {
-    throw new Error("prove1 recursion input eval length does not match the setup grid.");
+    throw new Error("computeRecursionCommitment recursion input eval length does not match the setup grid.");
   }
 
   const transposed = field.createZeroBuffer(mI * sMax);

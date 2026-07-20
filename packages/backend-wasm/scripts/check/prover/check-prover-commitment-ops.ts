@@ -9,7 +9,7 @@ import type { CurveRuntime, FieldElement, ProverCrsRuntime, ProverSetupParams } 
 import {
   encodePolynomialBufferWithSigma1,
   encodePolynomialWithSigma1,
-} from "../../../src/prover/stages/prove0.js";
+} from "../../../src/prover/internal/initial-relation.js";
 
 async function main(): Promise<void> {
   const runtime = await createCurveRuntime();

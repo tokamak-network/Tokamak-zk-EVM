@@ -2,32 +2,32 @@ import { BivariatePolynomialBuffer } from "../../core/polynomial/bivariate-polyn
 import type { CurveRuntime } from "../../core/curve/curve.js";
 import type { FieldElement } from "../../core/field/field.js";
 import type { ProverCrsRuntime } from "../api/binary-input.js";
-import { encodePolynomialBufferWithSigma1, type ProverStageOptions } from "./prove0.js";
+import { encodePolynomialBufferWithSigma1, type ProverOperationOptions } from "./initial-relation.js";
 import {
   computeRecursionEvalsBuffer,
   constantPolynomialBuffer,
   linearCombinationBuffer,
 } from "./polynomial-ops.js";
-import type { ProverState } from "../internal/state.js";
+import type { ProverState } from "./state.js";
 
-export interface Prove1Output {
+export interface RecursionCommitment {
   readonly R: Uint8Array;
 }
 
-export interface Prove1Computation {
-  readonly proof1: Prove1Output;
+export interface RecursionComputation {
+  readonly commitment: RecursionCommitment;
   readonly rXY: BivariatePolynomialBuffer;
 }
 
-export async function prove1(
+export async function computeRecursionCommitment(
   runtime: CurveRuntime,
   crs: ProverCrsRuntime,
   state: ProverState,
   thetas: readonly FieldElement[],
-  options: ProverStageOptions = {},
-): Promise<Prove1Computation> {
+  options: ProverOperationOptions = {},
+): Promise<RecursionComputation> {
   if (thetas.length < 3) {
-    throw new Error("prove1 requires at least three theta challenges.");
+    throw new Error("computeRecursionCommitment requires at least three theta challenges.");
   }
 
   const field = runtime.Fr;
@@ -59,7 +59,7 @@ export async function prove1(
   ]);
 
   return {
-    proof1: {
+    commitment: {
       R: await (options.commitmentEncoder?.encodeSigma1PolynomialBuffer({
         label: "R",
         polynomial: RXY,

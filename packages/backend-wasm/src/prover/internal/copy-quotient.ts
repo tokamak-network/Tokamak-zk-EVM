@@ -2,8 +2,8 @@ import { BivariatePolynomialBuffer } from "../../core/polynomial/bivariate-polyn
 import type { CurveRuntime } from "../../core/curve/curve.js";
 import type { FieldElement } from "../../core/field/field.js";
 import type { ProverCrsRuntime } from "../api/binary-input.js";
-import { encodePolynomialBufferWithSigma1, type ProverStageOptions } from "./prove0.js";
-import { encodeSigma1CommitmentBarrier, requireCommitment } from "../internal/commitment-encoder.js";
+import { encodePolynomialBufferWithSigma1, type ProverOperationOptions } from "./initial-relation.js";
+import { encodeSigma1CommitmentBarrier, requireCommitment } from "./commitment-encoder.js";
 import {
   buildLagrangeK0,
   buildLagrangeKl,
@@ -13,32 +13,32 @@ import {
   mulByLinearY,
   mulByXMinusOne,
 } from "./polynomial-ops.js";
-import type { ProverState } from "../internal/state.js";
+import type { ProverState } from "./state.js";
 
-export interface Prove2Output {
+export interface CopyQuotientCommitments {
   readonly Q_CX: Uint8Array;
   readonly Q_CY: Uint8Array;
 }
 
-export interface Prove2Computation {
-  readonly proof2: Prove2Output;
+export interface CopyQuotientComputation {
+  readonly commitments: CopyQuotientCommitments;
   readonly q2XY: BivariatePolynomialBuffer;
   readonly q3XY: BivariatePolynomialBuffer;
   readonly lagrangeKlXY: BivariatePolynomialBuffer;
 }
 
-export async function prove2(input: {
+export async function computeCopyQuotientCommitments(input: {
   readonly runtime: CurveRuntime;
   readonly crs: ProverCrsRuntime;
   readonly state: ProverState;
   readonly rXY: BivariatePolynomialBuffer;
   readonly thetas: readonly FieldElement[];
   readonly kappa0: FieldElement;
-  readonly options?: ProverStageOptions;
-}): Promise<Prove2Computation> {
+  readonly options?: ProverOperationOptions;
+}): Promise<CopyQuotientComputation> {
   const { runtime, crs, state, rXY, thetas, kappa0, options = {} } = input;
   if (thetas.length < 3) {
-    throw new Error("prove2 requires at least three theta challenges.");
+    throw new Error("computeCopyQuotientCommitments requires at least three theta challenges.");
   }
 
   const field = runtime.Fr;
@@ -119,7 +119,7 @@ export async function prove2(input: {
   );
 
   return {
-    proof2: {
+    commitments: {
       Q_CX: requireCommitment(commitments, "Q_CX"),
       Q_CY: requireCommitment(commitments, "Q_CY"),
     },

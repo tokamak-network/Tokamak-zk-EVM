@@ -10,13 +10,13 @@ import {
   mulByOneMinusX,
   mulByTerm9,
 } from "./polynomial-ops.js";
-import { encodePolynomialBufferWithSigma1, type Prove0Computation, type ProverStageOptions } from "./prove0.js";
-import { encodeSigma1CommitmentBarrier, requireCommitment } from "../internal/commitment-encoder.js";
-import type { Prove2Computation } from "./prove2.js";
-import type { Prove3Output } from "./prove3.js";
-import type { ProverState } from "../internal/state.js";
+import { encodePolynomialBufferWithSigma1, type InitialRelationComputation, type ProverOperationOptions } from "./initial-relation.js";
+import { encodeSigma1CommitmentBarrier, requireCommitment } from "./commitment-encoder.js";
+import type { CopyQuotientComputation } from "./copy-quotient.js";
+import type { ChallengeEvaluations } from "./challenge-evaluations.js";
+import type { ProverState } from "./state.js";
 
-export interface Prove4Output {
+export interface OpeningProofCommitments {
   readonly Pi_X: Uint8Array;
   readonly Pi_Y: Uint8Array;
   readonly M_X: Uint8Array;
@@ -25,7 +25,7 @@ export interface Prove4Output {
   readonly N_Y: Uint8Array;
 }
 
-export interface Prove4DebugOutput {
+export interface OpeningDebugCommitments {
   readonly Pi_AX: Uint8Array;
   readonly Pi_AY: Uint8Array;
   readonly Pi_CX: Uint8Array;
@@ -37,29 +37,43 @@ export interface Prove4DebugOutput {
   readonly N_Y: Uint8Array;
 }
 
-export interface Prove4Computation {
-  readonly proof4: Prove4Output;
-  readonly debug: Prove4DebugOutput;
+export interface OpeningCommitmentsComputation {
+  readonly commitments: OpeningProofCommitments;
+  readonly debug: OpeningDebugCommitments;
 }
 
-export async function prove4(input: {
+export async function computeOpeningCommitments(input: {
   readonly runtime: CurveRuntime;
   readonly crs: ProverCrsRuntime;
   readonly state: ProverState;
   readonly rXY: BivariatePolynomialBuffer;
-  readonly prove0: Prove0Computation;
-  readonly prove2: Prove2Computation;
-  readonly proof3: Prove3Output;
+  readonly initialRelation: InitialRelationComputation;
+  readonly copyQuotient: CopyQuotientComputation;
+  readonly evaluations: ChallengeEvaluations;
   readonly thetas: readonly FieldElement[];
   readonly kappa0: FieldElement;
   readonly chi: FieldElement;
   readonly zeta: FieldElement;
   readonly kappa1: FieldElement;
-  readonly options?: ProverStageOptions;
-}): Promise<Prove4Computation> {
-  const { runtime, crs, state, rXY, prove0, prove2, proof3, thetas, kappa0, chi, zeta, kappa1, options = {} } = input;
+  readonly options?: ProverOperationOptions;
+}): Promise<OpeningCommitmentsComputation> {
+  const {
+    runtime,
+    crs,
+    state,
+    rXY,
+    initialRelation,
+    copyQuotient,
+    evaluations,
+    thetas,
+    kappa0,
+    chi,
+    zeta,
+    kappa1,
+    options = {},
+  } = input;
   if (thetas.length < 3) {
-    throw new Error("prove4 requires at least three theta challenges.");
+    throw new Error("computeOpeningCommitments requires at least three theta challenges.");
   }
 
   const field = runtime.Fr;
@@ -82,11 +96,11 @@ export async function prove4(input: {
     [state.mixer.rV_Y, BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
   ]);
   const pAXY = linearCombinationBuffer(field, [
-    [kappa1, VXY.sub(constantPolynomialBuffer(field, proof3.V_eval))],
+    [kappa1, VXY.sub(constantPolynomialBuffer(field, evaluations.V_eval))],
     [smallVEval, BivariatePolynomialBuffer.fromDense(state.witness.uXY)],
     [field.neg(field.one), BivariatePolynomialBuffer.fromDense(state.witness.wXY)],
-    [field.neg(tNEval), prove0.q0XY],
-    [field.neg(tSMaxEval), prove0.q1XY],
+    [field.neg(tNEval), initialRelation.q0XY],
+    [field.neg(tSMaxEval), initialRelation.q1XY],
     [field.mul(smallVEval, state.mixer.rU_X), BivariatePolynomialBuffer.fromDense(state.instance.tN)],
     [field.mul(smallVEval, state.mixer.rU_Y), BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
     [
@@ -95,7 +109,7 @@ export async function prove4(input: {
     ],
     [tNEval, BivariatePolynomialBuffer.fromDense(rW_X)],
     [tSMaxEval, BivariatePolynomialBuffer.fromDense(rW_Y)],
-    [field.neg(field.one), prove0.wZk],
+    [field.neg(field.one), initialRelation.wZk],
   ]);
   const piADivision = pAXY.divByRuffini(chi, zeta);
   const RXY = linearCombinationBuffer(field, [
@@ -104,19 +118,19 @@ export async function prove4(input: {
     [state.mixer.rR_Y, BivariatePolynomialBuffer.fromDense(state.instance.tSMax)],
   ]);
   const mDivision = RXY
-    .sub(constantPolynomialBuffer(field, proof3.R_omegaX_eval))
+    .sub(constantPolynomialBuffer(field, evaluations.R_omegaX_eval))
     .divByRuffini(field.mul(omegaMIInv, chi), zeta);
   const nDivision = RXY
-    .sub(constantPolynomialBuffer(field, proof3.R_omegaX_omegaY_eval))
+    .sub(constantPolynomialBuffer(field, evaluations.R_omegaX_omegaY_eval))
     .divByRuffini(field.mul(omegaMIInv, chi), field.mul(omegaSMaxInv, zeta));
   const copyDivision = await buildCopyOpeningPolynomials({
     runtime,
     state,
     rXY,
     RXY,
-    prove0,
-    prove2,
-    proof3,
+    initialRelation,
+    copyQuotient,
+    evaluations,
     thetas,
     kappa0,
     kappa0Sq,
@@ -163,7 +177,7 @@ export async function prove4(input: {
   const Pi_Y = runtime.G1.add(Pi_AY, Pi_CY);
 
   return {
-    proof4: {
+    commitments: {
       Pi_X,
       Pi_Y,
       M_X,
@@ -190,9 +204,9 @@ async function buildCopyOpeningPolynomials(input: {
   readonly state: ProverState;
   readonly rXY: BivariatePolynomialBuffer;
   readonly RXY: BivariatePolynomialBuffer;
-  readonly prove0: Prove0Computation;
-  readonly prove2: Prove2Computation;
-  readonly proof3: Prove3Output;
+  readonly initialRelation: InitialRelationComputation;
+  readonly copyQuotient: CopyQuotientComputation;
+  readonly evaluations: ChallengeEvaluations;
   readonly thetas: readonly FieldElement[];
   readonly kappa0: FieldElement;
   readonly kappa0Sq: FieldElement;
@@ -208,9 +222,9 @@ async function buildCopyOpeningPolynomials(input: {
     state,
     rXY,
     RXY,
-    prove0,
-    prove2,
-    proof3,
+    initialRelation,
+    copyQuotient,
+    evaluations,
     thetas,
     kappa0,
     kappa0Sq,
@@ -257,11 +271,11 @@ async function buildCopyOpeningPolynomials(input: {
     [field.neg(smallROmegaXOmegaYEval), fXY],
   ]);
   const pCXY = linearCombinationBuffer(field, [
-    [field.sub(smallREval, field.one), prove2.lagrangeKlXY],
+    [field.sub(smallREval, field.one), copyQuotient.lagrangeKlXY],
     [field.mul(kappa0, field.sub(chi, field.one)), term5],
     [field.mul(kappa0Sq, lagrangeK0Eval), term6],
-    [field.neg(tMiEval), prove2.q2XY],
-    [field.neg(tSMaxEval), prove2.q3XY],
+    [field.neg(tMiEval), copyQuotient.q2XY],
+    [field.neg(tSMaxEval), copyQuotient.q3XY],
   ]);
   const rD1 = rXY.sub(rOmegaX);
   const rD2 = rXY.sub(rOmegaXOmegaY);
@@ -273,7 +287,7 @@ async function buildCopyOpeningPolynomials(input: {
   const rD1Term9 = mulByTerm9(rD1, state.mixer.rB_X, state.mixer.rB_Y, tMiEval, tSMaxEval);
   const rD1Term9PlusTerm10 = rD1Term9.add(term10);
   const lhsZk1 = linearCombinationBuffer(field, [
-    [field.mul(field.sub(chi, field.one), rD1Eval), prove0.termBZk],
+    [field.mul(field.sub(chi, field.one), rD1Eval), initialRelation.termBZk],
     [field.one, mulByOneMinusX(rD1Term9PlusTerm10)],
     [field.sub(chi, field.one), term10],
   ]);
@@ -281,11 +295,11 @@ async function buildCopyOpeningPolynomials(input: {
   const rD2Term9PlusTerm10 = rD2Term9.add(term10);
   const lhsZk2Product = await lagrangeK0XY.mul(rD2Term9PlusTerm10);
   const lhsZk2 = linearCombinationBuffer(field, [
-    [field.mul(lagrangeK0Eval, rD2Eval), prove0.termBZk],
+    [field.mul(lagrangeK0Eval, rD2Eval), initialRelation.termBZk],
     [lagrangeK0Eval, term10],
     [field.neg(field.one), lhsZk2Product],
   ]);
-  const rMinusEval = RXY.sub(constantPolynomialBuffer(field, proof3.R_eval));
+  const rMinusEval = RXY.sub(constantPolynomialBuffer(field, evaluations.R_eval));
   const lhsForCopy = linearCombinationBuffer(field, [
     [kappa1Sq, pCXY],
     [field.mul(kappa1Sq, kappa0), lhsZk1],

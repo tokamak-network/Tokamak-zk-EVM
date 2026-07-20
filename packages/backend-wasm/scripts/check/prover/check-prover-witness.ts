@@ -17,11 +17,15 @@ import {
   loadProverInputFromRuntimeBundles,
   loadProverRuntimeWitnessInputParts,
 } from "../../../src/prover/api/binary-input.js";
-import { buildProverBinding, encodePolynomialWithSigma1, prove0 } from "../../../src/prover/stages/prove0.js";
-import { prove1 } from "../../../src/prover/stages/prove1.js";
-import { prove2 } from "../../../src/prover/stages/prove2.js";
-import { prove3 } from "../../../src/prover/stages/prove3.js";
-import { prove4 } from "../../../src/prover/stages/prove4.js";
+import {
+  buildProverBinding,
+  computeInitialRelationCommitments,
+  encodePolynomialWithSigma1,
+} from "../../../src/prover/internal/initial-relation.js";
+import { computeRecursionCommitment } from "../../../src/prover/internal/recursion-commitment.js";
+import { computeCopyQuotientCommitments } from "../../../src/prover/internal/copy-quotient.js";
+import { evaluateChallengePoints } from "../../../src/prover/internal/challenge-evaluations.js";
+import { computeOpeningCommitments } from "../../../src/prover/internal/opening-commitments.js";
 import { proveSnark } from "../../../src/prover/api/prove-snark.js";
 import { createVerifierProofArtifactFromProverOutput } from "../../../src/prover/api/proof-output.js";
 import { buildProverInstancePolynomials, createProverMixer, createProverState } from "../../../src/prover/internal/state.js";
@@ -183,22 +187,22 @@ async function main(): Promise<void> {
       witness: prove0Witness,
     });
     const smallCrs = createSyntheticProverCrs(prove0Setup, 64);
-    const smallProve0 = await prove0(runtime, smallCrs, smallProverState);
-    assertEqual(smallProve0.proof0.U.byteLength, 144, "prove0 U byte length");
-    assertEqual(smallProve0.proof0.B.byteLength, 144, "prove0 B byte length");
-    const smallProve1 = await prove1(
+    const smallProve0 = await computeInitialRelationCommitments(runtime, smallCrs, smallProverState);
+    assertEqual(smallProve0.commitments.U.byteLength, 144, "prove0 U byte length");
+    assertEqual(smallProve0.commitments.B.byteLength, 144, "prove0 B byte length");
+    const smallProve1 = await computeRecursionCommitment(
       runtime,
       smallCrs,
       smallProverState,
       [runtime.Fr.zero, runtime.Fr.zero, runtime.Fr.one],
     );
-    assertEqual(smallProve1.proof1.R.byteLength, 144, "prove1 R byte length");
+    assertEqual(smallProve1.commitment.R.byteLength, 144, "prove1 R byte length");
     await assertRouEvals(
       smallProve1.rXY,
       Array.from({ length: (prove0Setup.l_D - prove0Setup.l) * prove0Setup.s_max }, () => 1n),
       "prove1 rXY",
     );
-    const smallProve2 = await prove2({
+    const smallProve2 = await computeCopyQuotientCommitments({
       runtime,
       crs: smallCrs,
       state: smallProverState,
@@ -206,9 +210,9 @@ async function main(): Promise<void> {
       thetas: [runtime.Fr.zero, runtime.Fr.zero, runtime.Fr.one],
       kappa0: fr(9n),
     });
-    assertEqual(smallProve2.proof2.Q_CX.byteLength, 144, "prove2 Q_CX byte length");
-    assertEqual(smallProve2.proof2.Q_CY.byteLength, 144, "prove2 Q_CY byte length");
-    const smallProve3 = prove3({
+    assertEqual(smallProve2.commitments.Q_CX.byteLength, 144, "prove2 Q_CX byte length");
+    assertEqual(smallProve2.commitments.Q_CY.byteLength, 144, "prove2 Q_CY byte length");
+    const smallProve3 = evaluateChallengePoints({
       runtime,
       state: smallProverState,
       rXY: smallProve1.rXY,
@@ -223,26 +227,26 @@ async function main(): Promise<void> {
       runtime.Fr.byteLength,
       "prove3 R_omegaX_omegaY_eval byte length",
     );
-    const smallProve4 = await prove4({
+    const smallProve4 = await computeOpeningCommitments({
       runtime,
       crs: smallCrs,
       state: smallProverState,
       rXY: smallProve1.rXY,
-      prove0: smallProve0,
-      prove2: smallProve2,
-      proof3: smallProve3,
+      initialRelation: smallProve0,
+      copyQuotient: smallProve2,
+      evaluations: smallProve3,
       thetas: [runtime.Fr.zero, runtime.Fr.zero, runtime.Fr.one],
       kappa0: fr(9n),
       chi: fr(11n),
       zeta: fr(13n),
       kappa1: fr(15n),
     });
-    assertEqual(smallProve4.proof4.Pi_X.byteLength, 144, "prove4 Pi_X byte length");
-    assertEqual(smallProve4.proof4.Pi_Y.byteLength, 144, "prove4 Pi_Y byte length");
-    assertEqual(smallProve4.proof4.M_X.byteLength, 144, "prove4 M_X byte length");
-    assertEqual(smallProve4.proof4.M_Y.byteLength, 144, "prove4 M_Y byte length");
-    assertEqual(smallProve4.proof4.N_X.byteLength, 144, "prove4 N_X byte length");
-    assertEqual(smallProve4.proof4.N_Y.byteLength, 144, "prove4 N_Y byte length");
+    assertEqual(smallProve4.commitments.Pi_X.byteLength, 144, "prove4 Pi_X byte length");
+    assertEqual(smallProve4.commitments.Pi_Y.byteLength, 144, "prove4 Pi_Y byte length");
+    assertEqual(smallProve4.commitments.M_X.byteLength, 144, "prove4 M_X byte length");
+    assertEqual(smallProve4.commitments.M_Y.byteLength, 144, "prove4 M_Y byte length");
+    assertEqual(smallProve4.commitments.N_X.byteLength, 144, "prove4 N_X byte length");
+    assertEqual(smallProve4.commitments.N_Y.byteLength, 144, "prove4 N_Y byte length");
     const smallBinding = await buildProverBinding(
       runtime,
       smallCrs,
@@ -256,11 +260,11 @@ async function main(): Promise<void> {
       await createVerifierProofArtifactFromProverOutput({
         runtime,
         binding: smallBinding,
-        prove0: smallProve0,
-        prove1: smallProve1,
-        prove2: smallProve2,
-        proof3: smallProve3,
-        prove4: smallProve4,
+        initialRelation: smallProve0,
+        recursion: smallProve1,
+        copyQuotient: smallProve2,
+        evaluations: smallProve3,
+        openings: smallProve4,
       }),
     );
     assertEqual(verifierProofArtifact.kind, BinaryArtifactFileKind.VerifierProof, "prover output artifact kind");
@@ -268,9 +272,9 @@ async function main(): Promise<void> {
     const verifierProof = loadVerifierProofArtifact(verifierProofArtifact);
     assertEqual(verifierProof.sections[0]?.section.data.byteLength, 19 * 96, "prover output proof.g1 byte length");
     assertEqual(verifierProof.sections[1]?.section.data.byteLength, 4 * 32, "prover output proof.evals byte length");
-    assertBytesEqual(verifierProof.pointsByName["proof0.U"], runtime.G1.toAffine(smallProve0.proof0.U), "proof0.U affine output");
-    assertBytesEqual(verifierProof.pointsByName["proof1.R"], runtime.G1.toAffine(smallProve1.proof1.R), "proof1.R affine output");
-    assertBytesEqual(verifierProof.pointsByName["proof4.N_X"], runtime.G1.toAffine(smallProve4.proof4.N_X), "proof4.N_X affine output");
+    assertBytesEqual(verifierProof.pointsByName["proof0.U"], runtime.G1.toAffine(smallProve0.commitments.U), "proof0.U affine output");
+    assertBytesEqual(verifierProof.pointsByName["proof1.R"], runtime.G1.toAffine(smallProve1.commitment.R), "proof1.R affine output");
+    assertBytesEqual(verifierProof.pointsByName["proof4.N_X"], runtime.G1.toAffine(smallProve4.commitments.N_X), "proof4.N_X affine output");
     assertBytesEqual(verifierProof.pointsByName["proof3.V_eval"], smallProve3.V_eval, "proof3.V_eval output");
     const snarkResult = await proveSnark(runtime, {
       witness: {
