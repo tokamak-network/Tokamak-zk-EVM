@@ -405,6 +405,10 @@ export class BivariatePolynomialBuffer {
   }
 
   async toRouEvals(cosetX?: FieldElement, cosetY?: FieldElement): Promise<Uint8Array> {
+    if (cosetX === undefined && cosetY === undefined && this.xSize > 1 && this.ySize > 1) {
+      return await biNttBuffer(this.field, this.coefficients, this.xSize, this.ySize, "forward");
+    }
+
     const scaled = this.clone();
     if (cosetX !== undefined) {
       scaled.scaleCoeffsXAssign(cosetX);

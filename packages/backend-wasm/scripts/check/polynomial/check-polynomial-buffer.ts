@@ -143,6 +143,10 @@ async function checkBivariatePolynomialBuffer(field: FieldRuntime): Promise<void
   checkPrefixAdd(field);
   assertDenseEqual((await buffer.mul(otherBuffer)).toDense(), dense.mul(otherDense), "ntt mul");
 
+  const beforeRou = buffer.toHexCoeffs();
+  await buffer.toRouEvals();
+  assertEqual(buffer.toHexCoeffs(), beforeRou, "toRouEvals must not mutate coefficients");
+
   await assertRouParity(field, dense, buffer, undefined, undefined, "rou");
   await assertRouParity(field, dense, buffer, xScale, yScale, "coset rou");
   checkRuffiniDivision(field);

@@ -74,3 +74,25 @@ Interpretation:
 - This initial run only proves that the five-candidate benchmark matrix is wired and produces correctness-checked timing records.
 - It does not select a production optimization candidate. The shapes and iteration count are too small for a prover hot-path decision.
 - The next useful run should use prover-representative shapes and enough iterations to separate arithmetic cost from measurement noise.
+
+## Accepted Small Production Change
+
+The `512x256` scaled matrix showed that `current-toRouEvals` and `direct-biNttBuffer` produce identical outputs and have nearly identical timing, while the direct path avoids an unconditional coefficient-buffer clone. Production `BivariatePolynomialBuffer.toRouEvals()` now skips the clone for non-coset true 2D transforms and calls `biNttBuffer()` directly.
+
+Verification:
+
+```bash
+npm run polynomial:buffer:check
+npm run typecheck
+npm run bench:prover-ops -- --shapes=512x256 --iterations=1 --warmup=0 --json=tmp/timing/prover-operation-matrix-512x256-after-ntt-clone.json
+```
+
+Post-change `512x256` timing:
+
+| group | candidate | shape | ms/op |
+| --- | --- | ---: | ---: |
+| 2d-ntt | current-toRouEvals | 512x256 | 213.667 |
+| 2d-ntt | direct-biNttBuffer | 512x256 | 215.078 |
+| 2d-ntt | transpose-only-cost | 512x256 | 6.578 |
+
+This does not settle the larger NTT strategy. Transpose-backed or primitive-parallel row/column transforms still require dedicated candidate benchmarks before any deeper production rewrite.
