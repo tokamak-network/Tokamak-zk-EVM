@@ -4,7 +4,7 @@
 
 The native backend in `packages/backend` remains the ICICLE/arkworks implementation. This package ports the same custom bivariate-polynomial protocol to TypeScript with browser-compatible runtime dependencies, primarily `ffjavascript` for BLS12-381 field, group, MSM, FFT, and pairing operations.
 
-The implementation is verifier-first. The current package contains shared runtime primitives, parity fixtures, binary artifact loaders, verifier orchestration, and prover stage placeholders that will be filled as the prover port progresses.
+The current implementation contains shared runtime primitives, binary artifact loaders, verifier orchestration, and an integrated prover path. Prover diagnostics still use historical native-stage labels in non-runtime scripts, but production prover code is organized by integrated protocol operations rather than `prove0` through `prove4` stage modules.
 
 ## Purpose
 
@@ -37,7 +37,6 @@ packages/backend-wasm/
       api/
       generated/
       internal/
-      stages/
     tooling/
       artifact-converters/
       artifact-validators/
@@ -83,14 +82,13 @@ This layer composes `src/core/` and `src/artifacts/` primitives and should not p
 
 ### `src/prover/`
 
-Prover orchestration entry points and stage implementations.
+Prover orchestration entry points and integrated prover implementation.
 
 - `api/`: public binary prover entrypoint, decoded prover orchestration, runtime binary input assembly, and proof output assembly.
-- `stages/`: `prove0` through `prove4` and shared stage-local polynomial helpers.
-- `internal/`: witness/state construction and package version helpers.
+- `internal/`: integrated prover orchestration, operation-named protocol computations, witness/state construction, commitment encoding boundary, and package version helpers.
 - `generated/`: build-generated subcircuit-library data.
 
-The prover port should preserve the native backend's accepted algorithmic structure and optimization strategy instead of replacing it with a naive expression-only translation.
+The prover port should preserve the native backend's accepted algorithmic structure and optimization strategy while using web-compatible `ffjavascript` primitives. Production code must not reintroduce `src/prover/stages/` as an architectural boundary.
 
 ### `src/tooling/`
 
