@@ -9,7 +9,7 @@ The matrix covers the optimization candidate groups currently required by `tmp/p
 - `2d-ntt`: current 2D ROU conversion, direct `biNttBuffer`, transpose-scheduled row/column NTT, and transpose overhead for future contiguous row/column candidates.
 - `field-vector-mul`: allocation-heavy split/map/concat multiplication versus a tight indexed buffer loop.
 - `polynomial-mul`: current `BivariatePolynomialBuffer.mul` versus generic full 2D NTT references, including benchmark-only concurrent-input ROU and transpose-scheduled candidates.
-- `linear-combination`: current `linearCombinationBuffer` versus a same-shape preallocated accumulator.
+- `linear-combination`: current add/sub/scale/addScaled/linear-combination paths versus diagnostics-only same-shape flat-buffer candidates.
 - `division`: current Ruffini opening division and native-style vanishing quotient recurrence with reconstruction checks.
 - `materialization`: buffer clone, dense roundtrip, and public `fromBuffer` copy boundary costs.
 
@@ -147,6 +147,45 @@ Measured full prover check after the cache:
 | verify generated proof | 19 ms |
 
 Historical `prove*` names in the table are diagnostic labels only.
+
+## Candidate 1: Same-Shape Flat Linear Kernels
+
+The first linear-operation candidate keeps the same arithmetic semantics as the current polynomial buffer implementation and changes only the coefficient access pattern for same-shape inputs. It uses flat byte offsets over raw coefficient buffers and avoids per-coefficient `getCoeff()` / `readBufferElement()` allocation paths where that is safe.
+
+This is diagnostics-only. The benchmark checks byte-for-byte parity before timing:
+
+- `add`, `sub`, `scale`, `addScaledAssign`, and `linearCombinationBuffer` parity against the current implementation.
+- Factors `0`, `1`, `-1`, and a non-unit scalar.
+- Self-aliasing `addScaledAssign` behavior.
+- Representative shapes from tiny unit cases to prover-scale buffers.
+
+Command:
+
+```bash
+npm run bench:prover-ops -- --groups=linear-combination --shapes=4x4,32x32,512x256,1024x256,4096x256 --iterations=1 --warmup=0 --json=tmp/timing/linear-combination-candidate1.json
+```
+
+Representative result:
+
+| candidate | 4x4 | 32x32 | 512x256 | 1024x256 | 4096x256 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| current-add | 0.025 | 0.426 | 54.670 | 110.732 | 451.306 |
+| candidate1-flat-same-shape-add | 0.019 | 0.185 | 21.573 | 43.478 | 177.008 |
+| current-sub | 0.037 | 0.573 | 70.418 | 141.715 | 568.337 |
+| candidate1-flat-same-shape-sub | 0.021 | 0.326 | 32.106 | 64.776 | 265.697 |
+| current-scale | 0.011 | 0.241 | 26.511 | 54.103 | 218.804 |
+| candidate1-flat-same-shape-scale | 0.010 | 0.240 | 27.486 | 53.059 | 216.390 |
+| current-addScaledAssign | 0.017 | 0.448 | 45.415 | 92.343 | 376.203 |
+| candidate1-flat-same-shape-addScaled | 0.017 | 0.413 | 42.976 | 90.228 | 354.706 |
+| current-linearCombinationBuffer | 0.057 | 1.578 | 166.367 | 330.106 | 1337.317 |
+| candidate1-flat-same-shape-linearCombination | 0.037 | 1.192 | 130.456 | 264.506 | 1078.967 |
+
+Initial conclusion:
+
+- Same-shape add/sub are materially faster, roughly 2.1x to 2.6x at prover-scale shapes.
+- Same-shape linear combination is consistently faster, roughly 1.2x to 1.3x at prover-scale shapes.
+- Generic non-unit `scale` and `addScaledAssign` improve little on their own, so they should not be promoted in isolation.
+- Production promotion should wait until the next prefix-shape candidate is tested, because integrated prover calls still include both same-shape and prefix-shape paths.
 
 ## Accepted Axis-Specific Multiplication
 
