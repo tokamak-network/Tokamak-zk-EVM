@@ -103,19 +103,16 @@ interface TimingInvariantCheck {
 }
 
 const lowestOperationOrder = [
-  "polynomial.add",
-  "polynomial.sub",
-  "polynomial.mul",
+  "polynomial.combination_without_multiplication",
+  "polynomial.combination_with_multiplication",
   "polynomial.div_ruffini",
   "polynomial.div_vanishing",
-  "polynomial.scale",
   "polynomial.encode",
 ] as const;
 
-const middleOperationOrder = ["polynomial.combine", "polynomial.division", "polynomial.encode"] as const;
+const middleOperationOrder = ["polynomial.combination", "polynomial.division", "polynomial.encode"] as const;
 const topOperationOrder = ["field.operations", "polynomial.encode"] as const;
 type LowestOperation = (typeof lowestOperationOrder)[number];
-const unclassifiedProverCategory = "unclassified.prover";
 const timingToleranceMs = 1;
 
 interface ActiveTimingSpan {
@@ -209,7 +206,7 @@ function polynomialAdd(
   left: BivariatePolynomialBuffer,
   right: BivariatePolynomialBuffer,
 ): BivariatePolynomialBuffer {
-  return polynomialOperationSync("polynomial.add", label, () => left.add(right), [
+  return polynomialOperationSync("polynomial.combination_without_multiplication", label, () => left.add(right), [
     shapeSize("left", left.xSize, left.ySize),
     shapeSize("right", right.xSize, right.ySize),
   ]);
@@ -220,7 +217,7 @@ function polynomialSub(
   left: BivariatePolynomialBuffer,
   right: BivariatePolynomialBuffer,
 ): BivariatePolynomialBuffer {
-  return polynomialOperationSync("polynomial.sub", label, () => left.sub(right), [
+  return polynomialOperationSync("polynomial.combination_without_multiplication", label, () => left.sub(right), [
     shapeSize("left", left.xSize, left.ySize),
     shapeSize("right", right.xSize, right.ySize),
   ]);
@@ -231,7 +228,7 @@ function polynomialScale(
   polynomial: BivariatePolynomialBuffer,
   scalar: FieldElement,
 ): BivariatePolynomialBuffer {
-  return polynomialOperationSync("polynomial.scale", label, () => polynomial.scale(scalar), [
+  return polynomialOperationSync("polynomial.combination_without_multiplication", label, () => polynomial.scale(scalar), [
     shapeSize("polynomial", polynomial.xSize, polynomial.ySize),
   ]);
 }
@@ -241,7 +238,7 @@ function polynomialScaleX(
   polynomial: BivariatePolynomialBuffer,
   scalar: FieldElement,
 ): BivariatePolynomialBuffer {
-  return unclassifiedProverOperationSync(label, () => polynomial.scaleCoeffsX(scalar), [
+  return polynomialOperationSync("polynomial.combination_without_multiplication", label, () => polynomial.scaleCoeffsX(scalar), [
     shapeSize("polynomial", polynomial.xSize, polynomial.ySize),
   ]);
 }
@@ -251,7 +248,7 @@ function polynomialScaleY(
   polynomial: BivariatePolynomialBuffer,
   scalar: FieldElement,
 ): BivariatePolynomialBuffer {
-  return unclassifiedProverOperationSync(label, () => polynomial.scaleCoeffsY(scalar), [
+  return polynomialOperationSync("polynomial.combination_without_multiplication", label, () => polynomial.scaleCoeffsY(scalar), [
     shapeSize("polynomial", polynomial.xSize, polynomial.ySize),
   ]);
 }
@@ -261,7 +258,7 @@ async function polynomialMul(
   left: BivariatePolynomialBuffer,
   right: BivariatePolynomialBuffer,
 ): Promise<BivariatePolynomialBuffer> {
-  return polynomialOperation("polynomial.mul", label, () => left.mul(right), [
+  return polynomialOperation("polynomial.combination_with_multiplication", label, () => left.mul(right), [
     shapeSize("left", left.xSize, left.ySize),
     shapeSize("right", right.xSize, right.ySize),
   ]);
@@ -272,7 +269,7 @@ function polynomialMulSpecial(
   callback: () => BivariatePolynomialBuffer,
   sizes: readonly SizeInfo[] = [],
 ): BivariatePolynomialBuffer {
-  return polynomialOperationSync("polynomial.mul", label, callback, sizes);
+  return polynomialOperationSync("polynomial.combination_with_multiplication", label, callback, sizes);
 }
 
 async function polynomialDivVanishing(
@@ -314,100 +311,40 @@ function polynomialDivRuffiniSync(
   ]);
 }
 
-function unclassifiedProverOperationSync<T>(
-  label: string,
-  callback: () => T,
-  sizes: readonly SizeInfo[] = [],
-): T {
-  return timing.spanSync(label, unclassifiedProverCategory, callback, sizes);
-}
-
 function polynomialLinearCombination(
   label: string,
   field: CurveRuntime["Fr"],
   terms: readonly (readonly [FieldElement, BivariatePolynomialBuffer])[],
 ): BivariatePolynomialBuffer {
-  let xSize = 1;
-  let ySize = 1;
-  let firstNonZeroTerm: number | undefined;
-  for (let index = 0; index < terms.length; index += 1) {
-    const [scalar, polynomial] = terms[index];
-    if (polynomial.field !== field) {
-      throw new Error("Linear combination terms must use the requested field.");
-    }
-    xSize = Math.max(xSize, polynomial.xSize);
-    ySize = Math.max(ySize, polynomial.ySize);
-    if (firstNonZeroTerm === undefined && !field.isZero(scalar)) {
-      firstNonZeroTerm = index;
-    }
-  }
-
-  if (firstNonZeroTerm === undefined) {
-    return BivariatePolynomialBuffer.zero(field).resize(xSize, ySize);
-  }
-
-  const [firstScalar, firstPolynomial] = terms[firstNonZeroTerm];
-  const accumulator = scaleTermIntoShapeForTiming(`${label}.term${firstNonZeroTerm}`, field, firstPolynomial, firstScalar, xSize, ySize);
-  for (let index = firstNonZeroTerm + 1; index < terms.length; index += 1) {
-    const [scalar, polynomial] = terms[index];
-    if (field.isZero(scalar)) {
-      continue;
+  return polynomialOperationSync("polynomial.combination_without_multiplication", label, () => {
+    let xSize = 1;
+    let ySize = 1;
+    let firstNonZeroTerm: number | undefined;
+    for (let index = 0; index < terms.length; index += 1) {
+      const [scalar, polynomial] = terms[index];
+      if (polynomial.field !== field) {
+        throw new Error("Linear combination terms must use the requested field.");
+      }
+      xSize = Math.max(xSize, polynomial.xSize);
+      ySize = Math.max(ySize, polynomial.ySize);
+      if (firstNonZeroTerm === undefined && !field.isZero(scalar)) {
+        firstNonZeroTerm = index;
+      }
     }
 
-    if (field.eq(scalar, field.one)) {
-      polynomialOperationSync("polynomial.add", `${label}.term${index}.add`, () =>
-        accumulator.addScaledPrefixAssign(polynomial, scalar),
-        [
-          shapeSize("accumulator", accumulator.xSize, accumulator.ySize),
-          shapeSize("term", polynomial.xSize, polynomial.ySize),
-        ],
-      );
-    } else if (field.eq(scalar, field.neg(field.one))) {
-      polynomialOperationSync("polynomial.sub", `${label}.term${index}.sub`, () =>
-        accumulator.addScaledPrefixAssign(polynomial, scalar),
-        [
-          shapeSize("accumulator", accumulator.xSize, accumulator.ySize),
-          shapeSize("term", polynomial.xSize, polynomial.ySize),
-        ],
-      );
-    } else {
-      const scaledTerm = scaleTermIntoShapeForTiming(
-        `${label}.term${index}.scale`,
-        field,
-        polynomial,
-        scalar,
-        accumulator.xSize,
-        accumulator.ySize,
-      );
-      polynomialOperationSync("polynomial.add", `${label}.term${index}.add_scaled`, () =>
-        accumulator.addScaledPrefixAssign(scaledTerm, field.one),
-        [
-          shapeSize("accumulator", accumulator.xSize, accumulator.ySize),
-          shapeSize("term", scaledTerm.xSize, scaledTerm.ySize),
-        ],
-      );
+    if (firstNonZeroTerm === undefined) {
+      return BivariatePolynomialBuffer.zero(field).resize(xSize, ySize);
     }
-  }
 
-  return accumulator;
-}
+    const [firstScalar, firstPolynomial] = terms[firstNonZeroTerm];
+    const accumulator = scaleTermIntoShape(field, firstPolynomial, firstScalar, xSize, ySize);
+    for (let index = firstNonZeroTerm + 1; index < terms.length; index += 1) {
+      const [scalar, polynomial] = terms[index];
+      accumulator.addScaledPrefixAssign(polynomial, scalar);
+    }
 
-function scaleTermIntoShapeForTiming(
-  label: string,
-  field: CurveRuntime["Fr"],
-  polynomial: BivariatePolynomialBuffer,
-  scalar: FieldElement,
-  xSize: number,
-  ySize: number,
-): BivariatePolynomialBuffer {
-  if (field.eq(scalar, field.one)) {
-    return scaleTermIntoShape(field, polynomial, scalar, xSize, ySize);
-  }
-
-  return polynomialOperationSync("polynomial.scale", label, () => scaleTermIntoShape(field, polynomial, scalar, xSize, ySize), [
-    shapeSize("polynomial", polynomial.xSize, polynomial.ySize),
-    shapeSize("output", xSize, ySize),
-  ]);
+    return accumulator;
+  });
 }
 
 function scaleTermIntoShape(
@@ -608,16 +545,8 @@ async function prove0Timed(
 ): Promise<InitialRelationComputation> {
   const field = runtime.Fr;
   const p0Product = await polynomialMul("prove0.p0XY.mul", state.witness.uXY, state.witness.vXY);
-  const p0W = unclassifiedProverOperationSync(
-    "prove0.p0XY.resize_w",
-    () => state.witness.wXY.resize(p0Product.xSize, p0Product.ySize),
-    [
-      shapeSize("source", state.witness.wXY.xSize, state.witness.wXY.ySize),
-      shapeSize("output", p0Product.xSize, p0Product.ySize),
-    ],
-  );
-  const p0XY = polynomialOperationSync("polynomial.sub", "prove0.p0XY.sub_w", () => {
-    p0Product.subAssign(p0W);
+  const p0XY = polynomialOperationSync("polynomial.combination_without_multiplication", "prove0.p0XY.sub_w", () => {
+    p0Product.subAssign(state.witness.wXY.resize(p0Product.xSize, p0Product.ySize));
     return p0Product;
   }, [shapeSize("product", p0Product.xSize, p0Product.ySize)]);
   const { quotientX: q0XY, quotientY: q1XY } = await polynomialDivVanishing(
@@ -814,13 +743,13 @@ async function prove2Timed(input: {
       [field.one, theta2],
     ],
   );
-  const lagrangeKlXY = await polynomialOperation("polynomial.mul", "prove2.lagrange_KL", () =>
+  const lagrangeKlXY = await polynomialOperation("polynomial.combination_with_multiplication", "prove2.lagrange_KL", () =>
     buildLagrangeKl(field, mI, sMax),
   );
   const lagrangeK0XY = await buildLagrangeK0(field, mI);
   const rGXY = await polynomialMul("prove2.rG", rXY, gXY);
   const [rOmegaXFXY, rOmegaXOmegaYFXY] = await polynomialOperation(
-    "polynomial.mul",
+    "polynomial.combination_with_multiplication",
     "prove2.shared_f_products",
     () => multiplyPairWithSharedRight(rOmegaX, rOmegaXOmegaY, fXY),
   );
@@ -1536,15 +1465,11 @@ function buildMiddleOperationTotals(
   const totals = createFixedOperationTotals(middleOperationOrder);
   addOperationTotal(
     totals,
-    "polynomial.combine",
-    operationDuration(lowestOperationTotals, "polynomial.add") +
-      operationDuration(lowestOperationTotals, "polynomial.sub") +
-      operationDuration(lowestOperationTotals, "polynomial.mul") +
-      operationDuration(lowestOperationTotals, "polynomial.scale"),
-    operationCount(lowestOperationTotals, "polynomial.add") +
-      operationCount(lowestOperationTotals, "polynomial.sub") +
-      operationCount(lowestOperationTotals, "polynomial.mul") +
-      operationCount(lowestOperationTotals, "polynomial.scale"),
+    "polynomial.combination",
+    operationDuration(lowestOperationTotals, "polynomial.combination_without_multiplication") +
+      operationDuration(lowestOperationTotals, "polynomial.combination_with_multiplication"),
+    operationCount(lowestOperationTotals, "polynomial.combination_without_multiplication") +
+      operationCount(lowestOperationTotals, "polynomial.combination_with_multiplication"),
   );
   addOperationTotal(
     totals,
@@ -1569,9 +1494,9 @@ function buildTopOperationTotals(middleOperationTotals: readonly OperationTiming
   addOperationTotal(
     totals,
     "field.operations",
-    operationDuration(middleOperationTotals, "polynomial.combine") +
+    operationDuration(middleOperationTotals, "polynomial.combination") +
       operationDuration(middleOperationTotals, "polynomial.division"),
-    operationCount(middleOperationTotals, "polynomial.combine") +
+    operationCount(middleOperationTotals, "polynomial.combination") +
       operationCount(middleOperationTotals, "polynomial.division"),
   );
   addOperationTotal(
@@ -1598,12 +1523,10 @@ function isLowestOperation(category: string): category is LowestOperation {
 
 function isPolynomialFieldOperation(category: string): boolean {
   return (
-    category === "polynomial.add" ||
-    category === "polynomial.sub" ||
-    category === "polynomial.mul" ||
+    category === "polynomial.combination_without_multiplication" ||
+    category === "polynomial.combination_with_multiplication" ||
     category === "polynomial.div_ruffini" ||
-    category === "polynomial.div_vanishing" ||
-    category === "polynomial.scale"
+    category === "polynomial.div_vanishing"
   );
 }
 
@@ -1672,18 +1595,19 @@ function buildTimingInvariantChecks(input: {
     });
   }
 
-  const forbiddenOfficialEvents = events.filter(
+  const oldLowestCategoryEvents = events.filter(
     (event) =>
-      isLowestOperation(event.category) &&
-      (event.name.includes("addScaledPrefixAssign") ||
-        event.name.includes("scaleCoeffsX") ||
-        event.name.includes("scaleCoeffsY")),
+      event.category === "polynomial.add" ||
+      event.category === "polynomial.sub" ||
+      event.category === "polynomial.mul" ||
+      event.category === "polynomial.scale" ||
+      event.category === "polynomial.combine",
   );
   checks.push({
-    name: "official_events_have_no_forbidden_helper_folding",
+    name: "old_lowest_operation_categories_absent",
     parentMs: 0,
-    childMs: forbiddenOfficialEvents.length,
-    ok: forbiddenOfficialEvents.length === 0,
+    childMs: oldLowestCategoryEvents.length,
+    ok: oldLowestCategoryEvents.length === 0,
   });
 
   const directDerivedLayerEvents = events.filter(
@@ -1714,19 +1638,15 @@ function buildTimingInvariantChecks(input: {
   });
 
   checks.push({
-    name: "middle_combine_equals_lowest_sum",
-    parentMs: operationDuration(middleOperationTotals, "polynomial.combine"),
+    name: "middle_combination_equals_lowest_sum",
+    parentMs: operationDuration(middleOperationTotals, "polynomial.combination"),
     childMs:
-      operationDuration(lowestOperationTotals, "polynomial.add") +
-      operationDuration(lowestOperationTotals, "polynomial.sub") +
-      operationDuration(lowestOperationTotals, "polynomial.mul") +
-      operationDuration(lowestOperationTotals, "polynomial.scale"),
+      operationDuration(lowestOperationTotals, "polynomial.combination_without_multiplication") +
+      operationDuration(lowestOperationTotals, "polynomial.combination_with_multiplication"),
     ok: durationsEqual(
-      operationDuration(middleOperationTotals, "polynomial.combine"),
-      operationDuration(lowestOperationTotals, "polynomial.add") +
-        operationDuration(lowestOperationTotals, "polynomial.sub") +
-        operationDuration(lowestOperationTotals, "polynomial.mul") +
-        operationDuration(lowestOperationTotals, "polynomial.scale"),
+      operationDuration(middleOperationTotals, "polynomial.combination"),
+      operationDuration(lowestOperationTotals, "polynomial.combination_without_multiplication") +
+        operationDuration(lowestOperationTotals, "polynomial.combination_with_multiplication"),
     ),
   });
   checks.push({
@@ -1754,11 +1674,11 @@ function buildTimingInvariantChecks(input: {
     name: "top_field_operations_equals_middle_sum",
     parentMs: operationDuration(topOperationTotals, "field.operations"),
     childMs:
-      operationDuration(middleOperationTotals, "polynomial.combine") +
+      operationDuration(middleOperationTotals, "polynomial.combination") +
       operationDuration(middleOperationTotals, "polynomial.division"),
     ok: durationsEqual(
       operationDuration(topOperationTotals, "field.operations"),
-      operationDuration(middleOperationTotals, "polynomial.combine") +
+      operationDuration(middleOperationTotals, "polynomial.combination") +
         operationDuration(middleOperationTotals, "polynomial.division"),
     ),
   });
@@ -1802,15 +1722,16 @@ function buildMarkdownTimingReport(report: TimingReport): string {
   lines.push("- Timing is recorded as flat accumulated events, matching the native prover timing report model.");
   lines.push("- The reported operation taxonomy is fixed. Implementation method names are raw diagnostic event names only and are not reported as operation buckets.");
   lines.push("- Rows inside each reported layer are mutually exclusive.");
-  lines.push("- The lowest layer is limited to seven polynomial operations: add, subtract, multiply, Ruffini division, vanishing division, scale, and encode.");
-  lines.push("- `polynomial.scale` means polynomial scalar multiplication only.");
-  lines.push("- Fused scaled-add work is decomposed for diagnostics or excluded from official operation rows.");
-  lines.push("- `scaleCoeffsX` and `scaleCoeffsY` are excluded from official operation rows and remain unclassified unless a new row is approved.");
-  lines.push("- The middle layer is limited to polynomial combine, polynomial division, and polynomial encode.");
+  lines.push(
+    "- The lowest layer is limited to five production-like polynomial operations: combination without multiplication, combination with multiplication, Ruffini division, vanishing division, and encode.",
+  );
+  lines.push("- Polynomial combination includes add, subtract, scale, fused scaled-add accumulation, coefficient rescale, and related shape/materialization work.");
+  lines.push("- Fused polynomial combination work is measured at its production-like call-site boundary and is not decomposed into artificial helper rows.");
+  lines.push("- The middle layer is limited to polynomial combination, polynomial division, and polynomial encode.");
   lines.push("- The top layer is limited to field operations and polynomial encode.");
-  lines.push("- `polynomial.combine = add + subtract + multiply + scale`.");
+  lines.push("- `polynomial.combination = polynomial.combination_without_multiplication + polynomial.combination_with_multiplication`.");
   lines.push("- `polynomial.division = Ruffini division + vanishing division`.");
-  lines.push("- `field.operations = polynomial.combine + polynomial.division`.");
+  lines.push("- `field.operations = polynomial.combination + polynomial.division`.");
   lines.push("");
   lines.push("## Lowest Operation Layer");
   lines.push("");
@@ -1889,8 +1810,8 @@ function formatDuration(milliseconds: number): string {
 
 function middleOperationDefinition(operation: string): string {
   switch (operation) {
-    case "polynomial.combine":
-      return "polynomial.add + polynomial.sub + polynomial.mul + polynomial.scale";
+    case "polynomial.combination":
+      return "polynomial.combination_without_multiplication + polynomial.combination_with_multiplication";
     case "polynomial.division":
       return "polynomial.div_ruffini + polynomial.div_vanishing";
     case "polynomial.encode":
@@ -1903,7 +1824,7 @@ function middleOperationDefinition(operation: string): string {
 function topOperationDefinition(operation: string): string {
   switch (operation) {
     case "field.operations":
-      return "polynomial.combine + polynomial.division";
+      return "polynomial.combination + polynomial.division";
     case "polynomial.encode":
       return "polynomial.encode";
     default:
