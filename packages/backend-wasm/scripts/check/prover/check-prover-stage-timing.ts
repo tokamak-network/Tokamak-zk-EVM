@@ -57,15 +57,30 @@ interface SizeInfo {
 }
 
 interface TimingEvent {
+  readonly id: number;
+  readonly parentId?: number;
   readonly name: string;
   readonly category: string;
+  readonly startMs: number;
+  readonly endMs: number;
   readonly durationMs: number;
+  readonly selfDurationMs: number;
   readonly sizes: readonly SizeInfo[];
+  readonly diagnosticKind: "wall-clock" | "nested-detail";
 }
 
 interface TimingReport {
   readonly generatedAt: string;
+  readonly wallClock: TimingSummary;
+  readonly nestedDiagnostics: TimingSummary;
+  readonly exclusiveSelf: TimingSummary;
   readonly events: readonly TimingEvent[];
+  readonly totalsByCategory: readonly TimingTotal[];
+  readonly topEvents: readonly TimingEvent[];
+  readonly topSelfEvents: readonly TimingEvent[];
+}
+
+interface TimingSummary {
   readonly totalsByCategory: readonly TimingTotal[];
   readonly topEvents: readonly TimingEvent[];
 }
@@ -76,8 +91,20 @@ interface TimingTotal {
   readonly count: number;
 }
 
+interface ActiveTimingSpan {
+  readonly id: number;
+  readonly parentId?: number;
+  readonly name: string;
+  readonly category: string;
+  readonly startMs: number;
+  readonly sizes: readonly SizeInfo[];
+  readonly diagnosticKind: "wall-clock" | "nested-detail";
+}
+
 class TimingCollector {
   readonly events: TimingEvent[] = [];
+  private nextId = 1;
+  private readonly spanStack: number[] = [];
   private readonly detailStack: string[] = [];
 
   async span<T>(
@@ -91,15 +118,14 @@ class TimingCollector {
       this.detailStack.push(name);
     }
 
-    const start = performance.now();
+    const active = this.startRecord(name, category, sizes, "wall-clock");
     try {
       return await callback();
     } finally {
-      const durationMs = performance.now() - start;
       if (activeDetail) {
         this.detailStack.pop();
       }
-      this.record(name, category, durationMs, sizes);
+      this.endRecord(active);
     }
   }
 
@@ -114,30 +140,67 @@ class TimingCollector {
       this.detailStack.push(name);
     }
 
-    const start = performance.now();
+    const active = this.startRecord(name, category, sizes, "wall-clock");
     try {
       return callback();
     } finally {
-      const durationMs = performance.now() - start;
       if (activeDetail) {
         this.detailStack.pop();
       }
-      this.record(name, category, durationMs, sizes);
+      this.endRecord(active);
     }
   }
 
-  recordDetail(operation: string, durationMs: number, sizes: readonly SizeInfo[]): void {
+  startDetail(operation: string, sizes: readonly SizeInfo[]): ActiveTimingSpan | undefined {
     const context = this.detailStack[this.detailStack.length - 1];
     if (context === undefined) {
-      return;
+      return undefined;
     }
 
     const suffix = context.startsWith("poly.combine.") ? context.slice("poly.combine.".length) : context;
-    this.record(`poly_detail.${operation}.${suffix}`, "poly_detail", durationMs, sizes);
+    return this.startRecord(`poly_detail.${operation}.${suffix}`, "poly_detail", sizes, "nested-detail");
   }
 
-  private record(name: string, category: string, durationMs: number, sizes: readonly SizeInfo[]): void {
-    this.events.push({ name, category, durationMs, sizes });
+  endDetail(active: ActiveTimingSpan | undefined): void {
+    if (active !== undefined) {
+      this.endRecord(active);
+    }
+  }
+
+  private startRecord(
+    name: string,
+    category: string,
+    sizes: readonly SizeInfo[],
+    diagnosticKind: "wall-clock" | "nested-detail",
+  ): ActiveTimingSpan {
+    const active = {
+      id: this.nextId++,
+      parentId: this.spanStack[this.spanStack.length - 1],
+      name,
+      category,
+      startMs: performance.now(),
+      sizes,
+      diagnosticKind,
+    };
+    this.spanStack.push(active.id);
+    return active;
+  }
+
+  private endRecord(active: ActiveTimingSpan): void {
+    const end = performance.now();
+    const popped = this.spanStack.pop();
+    if (popped !== active.id) {
+      throw new Error(`Timing stack mismatch while closing ${active.name}.`);
+    }
+    this.record({
+      ...active,
+      endMs: end,
+      durationMs: end - active.startMs,
+    });
+  }
+
+  private record(event: Omit<TimingEvent, "selfDurationMs">): void {
+    this.events.push({ ...event, selfDurationMs: event.durationMs });
   }
 }
 
@@ -861,16 +924,21 @@ function wrapPrototypeMethod(
   }
 
   prototype[methodName] = function wrappedPolynomialMethod(this: BivariatePolynomialBuffer, ...args: unknown[]): unknown {
-    const start = performance.now();
-    const result = original.apply(this, args) as unknown;
-    if (result instanceof Promise) {
-      return result.finally(() => {
-        collector.recordDetail(methodName, performance.now() - start, [shapeSize("self", this.xSize, this.ySize)]);
-      });
-    }
+    const active = collector.startDetail(methodName, [shapeSize("self", this.xSize, this.ySize)]);
+    try {
+      const result = original.apply(this, args) as unknown;
+      if (result instanceof Promise) {
+        return result.finally(() => {
+          collector.endDetail(active);
+        });
+      }
 
-    collector.recordDetail(methodName, performance.now() - start, [shapeSize("self", this.xSize, this.ySize)]);
-    return result;
+      collector.endDetail(active);
+      return result;
+    } catch (error) {
+      collector.endDetail(active);
+      throw error;
+    }
   };
 }
 
@@ -885,16 +953,21 @@ function wrapStaticMethod(
   }
 
   constructor[methodName] = function wrappedPolynomialStaticMethod(...args: unknown[]): unknown {
-    const start = performance.now();
-    const result = original.apply(this, args) as unknown;
-    if (result instanceof Promise) {
-      return result.finally(() => {
-        collector.recordDetail(`static_${methodName}`, performance.now() - start, []);
-      });
-    }
+    const active = collector.startDetail(`static_${methodName}`, []);
+    try {
+      const result = original.apply(this, args) as unknown;
+      if (result instanceof Promise) {
+        return result.finally(() => {
+          collector.endDetail(active);
+        });
+      }
 
-    collector.recordDetail(`static_${methodName}`, performance.now() - start, []);
-    return result;
+      collector.endDetail(active);
+      return result;
+    } catch (error) {
+      collector.endDetail(active);
+      throw error;
+    }
   };
 }
 
@@ -1022,34 +1095,79 @@ function resolvePreparedRuntimePath(runtimeDir: string, artifactPath: string): s
 }
 
 function buildTimingReport(events: readonly TimingEvent[]): TimingReport {
-  const totals = new Map<string, { durationMs: number; count: number }>();
-  for (const event of events) {
-    const total = totals.get(event.category) ?? { durationMs: 0, count: 0 };
-    total.durationMs += event.durationMs;
-    total.count += 1;
-    totals.set(event.category, total);
-  }
+  const finalizedEvents = withSelfDurations(events);
+  const wallClockEvents = finalizedEvents.filter((event) => event.parentId === undefined);
+  const nestedDiagnosticEvents = finalizedEvents.filter((event) => event.diagnosticKind === "nested-detail");
 
   return {
     generatedAt: new Date().toISOString(),
-    events,
-    totalsByCategory: Array.from(totals.entries())
-      .map(([category, total]) => ({ category, ...total }))
-      .sort((left, right) => right.durationMs - left.durationMs),
-    topEvents: [...events].sort((left, right) => right.durationMs - left.durationMs).slice(0, 40),
+    wallClock: summarizeEvents(wallClockEvents, "durationMs"),
+    nestedDiagnostics: summarizeEvents(nestedDiagnosticEvents, "durationMs"),
+    exclusiveSelf: summarizeEvents(finalizedEvents, "selfDurationMs"),
+    events: finalizedEvents,
+    totalsByCategory: summarizeEvents(nestedDiagnosticEvents, "durationMs").totalsByCategory,
+    topEvents: [...nestedDiagnosticEvents].sort((left, right) => right.durationMs - left.durationMs).slice(0, 40),
+    topSelfEvents: [...finalizedEvents].sort((left, right) => right.selfDurationMs - left.selfDurationMs).slice(0, 40),
   };
 }
 
 function printTimingSummary(report: TimingReport, outputPath: string): void {
   console.log(`Wrote prover stage timing report to ${path.relative(process.cwd(), outputPath)}`);
-  console.log("Totals by category:");
-  for (const total of report.totalsByCategory) {
-    console.log(`  ${total.category}: ${formatDuration(total.durationMs)} (${total.count} events)`);
-  }
-  console.log("Top events:");
-  for (const event of report.topEvents.slice(0, 20)) {
+  console.log("Wall-clock root spans:");
+  for (const event of report.wallClock.topEvents) {
     console.log(`  ${event.name}: ${formatDuration(event.durationMs)}`);
   }
+  console.log("Exclusive self totals by category:");
+  for (const total of report.exclusiveSelf.totalsByCategory) {
+    console.log(`  ${total.category}: ${formatDuration(total.durationMs)} (${total.count} events)`);
+  }
+  console.log("Nested diagnostic totals by category:");
+  for (const total of report.nestedDiagnostics.totalsByCategory) {
+    console.log(`  ${total.category}: ${formatDuration(total.durationMs)} (${total.count} events)`);
+  }
+  console.log("Top exclusive self events:");
+  for (const event of report.topSelfEvents.slice(0, 20)) {
+    console.log(`  ${event.name}: ${formatDuration(event.selfDurationMs)}`);
+  }
+  console.log("Top nested diagnostic events:");
+  for (const event of report.nestedDiagnostics.topEvents.slice(0, 20)) {
+    console.log(`  ${event.name}: ${formatDuration(event.durationMs)}`);
+  }
+}
+
+function withSelfDurations(events: readonly TimingEvent[]): readonly TimingEvent[] {
+  const childTotals = new Map<number, number>();
+  for (const event of events) {
+    if (event.parentId === undefined) {
+      continue;
+    }
+    childTotals.set(event.parentId, (childTotals.get(event.parentId) ?? 0) + event.durationMs);
+  }
+
+  return events.map((event) => ({
+    ...event,
+    selfDurationMs: Math.max(0, event.durationMs - (childTotals.get(event.id) ?? 0)),
+  }));
+}
+
+function summarizeEvents(
+  events: readonly TimingEvent[],
+  durationKey: "durationMs" | "selfDurationMs",
+): TimingSummary {
+  const totals = new Map<string, { durationMs: number; count: number }>();
+  for (const event of events) {
+    const total = totals.get(event.category) ?? { durationMs: 0, count: 0 };
+    total.durationMs += event[durationKey];
+    total.count += 1;
+    totals.set(event.category, total);
+  }
+
+  return {
+    totalsByCategory: Array.from(totals.entries())
+      .map(([category, total]) => ({ category, ...total }))
+      .sort((left, right) => right.durationMs - left.durationMs),
+    topEvents: [...events].sort((left, right) => right[durationKey] - left[durationKey]).slice(0, 40),
+  };
 }
 
 function shapeSize(label: string, xSize: number, ySize: number): SizeInfo {

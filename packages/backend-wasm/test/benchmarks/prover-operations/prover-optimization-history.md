@@ -2,13 +2,23 @@
 
 Audience: backend-wasm engineers tracking prover performance changes across production optimizations.
 
-This report is the durable timing ledger for prover hot-path work. `tmp/timing/prover-stage-timing.json` remains the latest overwritten diagnostics output. Each production optimization should add a new entry here with related commits, the applied optimization, and the relevant timing tables.
+This report is the durable timing ledger for prover hot-path work. `tmp/timing/prover-stage-timing.json` remains the latest overwritten diagnostics output. Each production prover optimization must update this report with related commits, the applied optimization, and timing tables.
 
-Timing notes:
+## Measurement Model
 
-- Historical `prove0`, `prove1`, `prove2`, `prove3`, and `prove4` names are diagnostics labels only. They are not production architecture boundaries.
-- Stage timing categories and `poly_detail` spans may overlap. Use them for hotspot ranking and before/after direction, not additive wall-time accounting.
-- Microbenchmarks and full prover diagnostics measure different scopes. Record both when both are available.
+Use three timing classes:
+
+- Wall-clock root spans: non-overlapping root operations from one prover diagnostics run. Use these to answer "how much did the prover get faster?"
+- Exclusive self time: parent-child timing with child spans subtracted from their direct parent. Use this to identify where wall-clock time is currently spent.
+- Nested diagnostics: low-level method spans that may be nested inside other low-level spans. Use these only to rank internal hot operations. Do not compare nested diagnostic totals directly against wall-clock totals.
+
+The corrected stage-timing reporter writes all three classes:
+
+- `wallClock`
+- `exclusiveSelf`
+- `nestedDiagnostics`
+
+Historical `prove0`, `prove1`, `prove2`, `prove3`, and `prove4` names are diagnostics labels only. They are not production architecture boundaries.
 
 ## Initial Stage Timing Baseline
 
@@ -16,12 +26,12 @@ Related commit:
 
 - `486cdcc2` Add prover stage timing diagnostics
 
-Optimization state:
+Measurement type:
 
-- Baseline diagnostics before the later prover hot-path rewrites.
-- The first table is the initial full stage timing table, as required by the optimization tracking policy.
+- Legacy stage timing. The stage rows are wall-clock style diagnostic labels.
+- The operation totals are legacy nested diagnostic totals and are not exclusive time.
 
-Stage totals:
+Stage timing:
 
 | diagnostic label | duration |
 | --- | ---: |
@@ -31,7 +41,7 @@ Stage totals:
 | prove1 | 58.41 s |
 | prove3 | 12.50 s |
 
-Operation totals:
+Legacy nested operation totals:
 
 | operation group | duration |
 | --- | ---: |
@@ -40,8 +50,8 @@ Operation totals:
 | poly_detail.mul | 303.08 s |
 | poly_detail.toRouEvals | 186.45 s |
 | poly_detail.addScaledPrefixAssign | 130.24 s |
-| encode.prep | 18.84 s |
 | pure div_by_ruffini | 19.70 s |
+| encode.prep | 18.84 s |
 | pure div_by_vanishing_opt | 7.16 s |
 
 Top measured events:
@@ -60,6 +70,19 @@ Conclusion:
 
 - Pure division was not the first optimization target.
 - Initial priority moved to commitment/MSM encoding, then polynomial multiplication and combination paths.
+
+## Timeline Summary
+
+| order | optimization | related commits | status | timing interpretation |
+| ---: | --- | --- | --- | --- |
+| 1 | Non-coset 2D NTT clone removal | `f583dd91` | promoted | Low-risk materialization cleanup. Operation benchmark showed parity and no major arithmetic speedup claim. |
+| 2 | Prover buffer cache and dense roundtrip reduction | `379eae9b`, `8260b5ea`, `eb28aadd`, `4f187526`, `6079f4a6` | promoted | Removed expensive `toDense/fromDense` roundtrips from production hot paths. |
+| 3 | Axis-specific polynomial multiplication | `4bd3d333`, `b5596ebd` | promoted | Avoided full 2D NTT for X-only and Y-only factors. |
+| 4 | Scaled-add fast path | `2fdea5f9` | promoted | Unit and negative-unit factors avoid unnecessary field multiplication. |
+| 5 | Transpose-scheduled row/column NTT | `b5596ebd` | rejected | Operation benchmark looked mildly positive, but integrated timing regressed. |
+| 6 | Shared-right local multiplication kernel | `660ac9c0`, `b42e3784` | promoted locally | Accepted only for the measured copy-quotient expression. No global ROU-eval cache. |
+| 7 | Snarkjs-style large-MSM delivery and chunk size | `eb75a1ea`, `b42e3784`, `a444cd2d`, `4ad07307`, `0156fecf`, `e5b344d8`, `52cf1861` | promoted | Fixed browser large-MSM `DataCloneError`; `262144` chunk size selected. |
+| 8 | Shape-aware linear operation rewrite | `1c05593d`, `3c7da223`, `cddceefe` | promoted | Reduced linear/add microbenchmarks and stage wall-clock, but old operation-type totals are legacy nested diagnostics. |
 
 ## Non-Coset 2D NTT Clone Removal
 
@@ -81,7 +104,7 @@ Operation benchmark:
 
 Conclusion:
 
-- The accepted change was a low-risk materialization cleanup. It avoided an unnecessary clone without claiming a major arithmetic speedup.
+- Accepted as a materialization cleanup, not as a major timing win.
 
 ## Prover Buffer Cache And Dense Roundtrip Reduction
 
@@ -95,10 +118,8 @@ Related commits:
 
 Applied optimization:
 
-- Prover state now builds and reuses `BivariatePolynomialBuffer` values for witness and instance data.
-- Large production hot paths no longer repeatedly construct `DensePolynomialExt` values and immediately wrap them with `BivariatePolynomialBuffer.fromDense(...)`.
-- Binding construction receives the cached `A_free` buffer directly.
-- Unused migration-era prover state placeholders were removed.
+- Prover state builds and reuses `BivariatePolynomialBuffer` values for witness and instance data.
+- Production hot paths no longer repeatedly construct large `DensePolynomialExt` values and immediately wrap them with `BivariatePolynomialBuffer.fromDense(...)`.
 
 Materialization benchmark:
 
@@ -110,7 +131,7 @@ Materialization benchmark:
 
 Full prover check after the buffer cache:
 
-| step | duration |
+| root span | duration |
 | --- | ---: |
 | build prover binding | 2.14 s |
 | prove0 diagnostic label | 76.23 s |
@@ -134,20 +155,19 @@ Related commits:
 Applied optimization:
 
 - `BivariatePolynomialBuffer.mul()` uses axis-specific 1D NTT multiplication when one operand is X-only or Y-only.
-- Generic full 2D NTT multiplication remains the fallback for genuinely bivariate products.
 
 Operation benchmark:
 
-| group | candidate | shape | ms/op |
-| --- | --- | ---: | ---: |
-| polynomial-mul | current-x-axis-factor | 4096x256 | 5536.177 |
-| polynomial-mul | generic-2d-ntt-x-axis-factor | 4096x256 | 13155.656 |
-| polynomial-mul | current-y-axis-factor | 4096x256 | 4005.074 |
-| polynomial-mul | generic-2d-ntt-y-axis-factor | 4096x256 | 13009.296 |
+| candidate | shape | ms/op |
+| --- | ---: | ---: |
+| current-x-axis-factor | 4096x256 | 5536.177 |
+| generic-2d-ntt-x-axis-factor | 4096x256 | 13155.656 |
+| current-y-axis-factor | 4096x256 | 4005.074 |
+| generic-2d-ntt-y-axis-factor | 4096x256 | 13009.296 |
 
 Post-change diagnostics:
 
-| step | duration |
+| root span | duration |
 | --- | ---: |
 | prove2 diagnostic label | 182.32 s |
 | prove4 diagnostic label | 120.59 s |
@@ -155,7 +175,7 @@ Post-change diagnostics:
 
 Conclusion:
 
-- Axis-specific multiplication was promoted because it avoids full 2D NTT work for structured hot-path operands and passed full prover diagnostics.
+- Promoted because it avoids full 2D NTT work for structured hot-path operands and passed full prover diagnostics.
 
 ## Scaled-Add Fast Path
 
@@ -170,20 +190,12 @@ Applied optimization:
 
 Operation benchmark:
 
-| group | candidate | shape | ms/op |
-| --- | --- | ---: | ---: |
-| linear-combination | current-linearCombinationBuffer | 4096x256 | 1232.803 |
-| linear-combination | preallocated-addScaledPrefixAssign | 4096x256 | 1149.804 |
+| candidate | shape | ms/op |
+| --- | ---: | ---: |
+| current-linearCombinationBuffer | 4096x256 | 1232.803 |
+| preallocated-addScaledPrefixAssign | 4096x256 | 1149.804 |
 
-Post-change diagnostics:
-
-| step | duration |
-| --- | ---: |
-| prove2 diagnostic label | 166.27 s |
-| prove4 diagnostic label | 106.44 s |
-| verify generated proof | 17 ms |
-
-Post-change stage timing:
+Legacy post-change timing:
 
 | category | duration |
 | --- | ---: |
@@ -198,12 +210,12 @@ Post-change stage timing:
 
 Conclusion:
 
-- The synthetic benchmark mainly proved that the fast-path checks did not materially regress the generic non-unit case.
+- The synthetic benchmark mainly proved that fast-path checks did not materially regress the generic non-unit case.
 - Integrated diagnostics justified the production change because many real prover terms use unit or negative-unit factors.
 
 ## Rejected Transpose-Scheduled Row/Column NTT Trial
 
-Related commits:
+Related commit:
 
 - `b5596ebd` Benchmark generic polynomial multiplication scheduling
 
@@ -214,14 +226,14 @@ Applied optimization attempt:
 
 Operation benchmark before production trial:
 
-| group | candidate | shape | ms/op |
-| --- | --- | ---: | ---: |
-| 2d-ntt | current-toRouEvals | 4096x256 | 2017.446 |
-| 2d-ntt | transpose-scheduled-biNttBuffer | 4096x256 | 1954.511 |
-| polynomial-mul | current-bivariate | 4096x256 | 28059.481 |
-| polynomial-mul | transpose-scheduled-bivariate | 4096x256 | 26910.071 |
+| candidate | shape | ms/op |
+| --- | ---: | ---: |
+| current-toRouEvals | 4096x256 | 2017.446 |
+| transpose-scheduled-biNttBuffer | 4096x256 | 1954.511 |
+| current-bivariate | 4096x256 | 28059.481 |
+| transpose-scheduled-bivariate | 4096x256 | 26910.071 |
 
-Full integrated timing:
+Integrated timing:
 
 | category | before | after trial |
 | --- | ---: | ---: |
@@ -232,7 +244,7 @@ Full integrated timing:
 
 Conclusion:
 
-- The transpose-scheduled path remains benchmark-only. Do not promote it without new representative evidence that also improves full integrated prover timing.
+- Rejected. Operation-level improvement did not translate to integrated prover timing.
 
 ## Shared-Right Local Multiplication Kernel
 
@@ -245,16 +257,15 @@ Applied optimization:
 
 - `computeCopyQuotientCommitments(...)` uses a local shared-right kernel for the two products that share `fXY`.
 - The shared right operand's ROU evals are reused only inside that expression.
-- No global ROU-eval cache was introduced.
 
 Operation benchmark:
 
-| group | candidate | shape | ms/op |
-| --- | --- | ---: | ---: |
-| polynomial-mul | current-two-bivariate-shared-right | 1024x256 | 12241.948 |
-| polynomial-mul | shared-right-rou-two-bivariate | 1024x256 | 10345.247 |
-| polynomial-mul | current-two-bivariate-shared-right | 4096x256 | 52897.629 |
-| polynomial-mul | shared-right-rou-two-bivariate | 4096x256 | 44619.771 |
+| candidate | shape | ms/op |
+| --- | ---: | ---: |
+| current-two-bivariate-shared-right | 1024x256 | 12241.948 |
+| shared-right-rou-two-bivariate | 1024x256 | 10345.247 |
+| current-two-bivariate-shared-right | 4096x256 | 52897.629 |
+| shared-right-rou-two-bivariate | 4096x256 | 44619.771 |
 
 Before/after diagnostics:
 
@@ -264,22 +275,9 @@ Before/after diagnostics:
 | stage-timing stage total | 355.31 s | 349.14 s |
 | stage-timing poly total | 213.36 s | 207.43 s |
 
-Post-change stage timing:
-
-| category | duration |
-| --- | ---: |
-| stage | 349.14 s |
-| poly_detail | 276.41 s |
-| poly | 207.43 s |
-| encode | 111.32 s |
-| init | 15.40 s |
-| io | 866 ms |
-| verify | 16 ms |
-| output | 3 ms |
-
 Conclusion:
 
-- The local shared-right kernel was accepted only for the measured expression.
+- Accepted only for the measured expression.
 - Do not generalize this into global expression rewriting or global ROU-eval caching without another local benchmark and full diagnostics.
 
 ## Snarkjs-Style Large-MSM Delivery And Chunk Size
@@ -308,20 +306,7 @@ Browser acceptance after chunked delivery:
 | browser proveBinary | 414.59 s |
 | browser verify generated proof | 19 ms |
 
-Post-priority-1 stage timing:
-
-| category | duration |
-| --- | ---: |
-| stage | 374.10 s |
-| poly_detail | 281.05 s |
-| poly | 211.65 s |
-| encode | 130.88 s |
-| init | 15.47 s |
-| io | 938 ms |
-| verify | 17 ms |
-| output | 2 ms |
-
-Post-`262144` chunk timing:
+Post-`262144` timing:
 
 | category | duration |
 | --- | ---: |
@@ -334,7 +319,7 @@ Post-`262144` chunk timing:
 | verify | 17 ms |
 | output | 3 ms |
 
-Post-`262144` operation-type totals:
+Legacy operation-type totals:
 
 | operation group | duration |
 | --- | ---: |
@@ -345,8 +330,6 @@ Post-`262144` operation-type totals:
 | poly.toRouEvals | 52.87 s |
 | poly.fromRouEvals | 30.58 s |
 | poly.div | 17.47 s |
-| init.witness | 10.95 s |
-| init.state | 4.86 s |
 
 Chunk-size browser/RSS benchmark:
 
@@ -404,7 +387,7 @@ Operation benchmark, representative `4096x256` before/after:
 | current-linearCombinationBuffer | 1322.379 ms | 918.179 ms | 1.44x | 30.6% |
 | current-mixed-prefix-linearCombination | 993.944 ms | 656.714 ms | 1.51x | 33.9% |
 
-Integrated stage timing:
+Legacy integrated timing:
 
 | category or event group | before | after |
 | --- | ---: | ---: |
@@ -414,19 +397,110 @@ Integrated stage timing:
 | poly.combine | 196.46 s | 182.45 s |
 | poly.linear/add | 118.04 s | 74.55 s |
 
+Interpretation:
+
+- The `stage total` and `poly total` rows are the useful before/after wall-clock style comparison.
+- `poly_detail`, `poly.combine`, and `poly.linear/add` rows are legacy nested diagnostic totals. They show hot-operation direction but are not exclusive wall-clock savings.
+- Direct snarkjs inspection found no additional add/sub/scaling technique to import beyond the buffer, in-place, scalar-fused, and accumulator-reuse patterns already applied here.
+
+## Current Corrected Timing Baseline
+
+Related change:
+
+- Corrected stage timing reporter design to split wall-clock root spans, exclusive self time, and nested diagnostics.
+
+Generated output:
+
+- `tmp/timing/prover-stage-timing.json`
+- `generatedAt`: `2026-07-22T17:43:37.838Z`
+
+Wall-clock root spans:
+
+| root span | duration |
+| --- | ---: |
+| prove2 | 156.35 s |
+| prove4 | 95.13 s |
+| prove0 | 66.62 s |
+| prove1 | 23.03 s |
+| build witness polynomials | 11.40 s |
+| prove3 | 8.21 s |
+| create prover state | 5.17 s |
+| build prover binding | 2.04 s |
+| load prover runtime bundles | 980 ms |
+| verify generated proof | 18 ms |
+| create verifier proof artifact | 3 ms |
+| load generated proof artifact | 0 ms |
+
+Wall-clock category totals:
+
+| category | duration | count |
+| --- | ---: | ---: |
+| stage | 349.34 s | 5 |
+| init | 16.57 s | 2 |
+| encode | 2.04 s | 1 |
+| io | 980 ms | 2 |
+| verify | 18 ms | 1 |
+| output | 3 ms | 1 |
+
+Exclusive self totals:
+
+| category | duration | count |
+| --- | ---: | ---: |
+| poly_detail | 177.02 s | 397 |
+| encode | 113.46 s | 18 |
+| stage | 33.57 s | 5 |
+| poly | 27.33 s | 53 |
+| init | 16.57 s | 2 |
+| io | 980 ms | 2 |
+| verify | 18 ms | 1 |
+| output | 3 ms | 1 |
+
+Top exclusive self events:
+
+| event | self time |
+| --- | ---: |
+| prove1 | 23.03 s |
+| encode.commit.prove2.Q_CX | 20.49 s |
+| encode.commit.prove4.Pi_CX | 19.94 s |
+| build witness polynomials | 11.40 s |
+| encode.commit.prove0.Q_AX | 10.34 s |
+| encode.commit.prove2.Q_CY | 10.30 s |
+| encode.commit.prove4.Pi_AX | 10.01 s |
+| prove3 | 8.21 s |
+| poly_detail.mul.prove2.p3 | 7.80 s |
+| poly_detail.static_fromRouEvals.prove2.p1 | 6.86 s |
+
+Nested diagnostic totals:
+
+| category | duration | count |
+| --- | ---: | ---: |
+| poly_detail | 265.11 s | 397 |
+
+Top nested diagnostic events:
+
+| event | nested duration |
+| --- | ---: |
+| poly_detail.mul.prove2.p1 | 20.87 s |
+| poly_detail.mul.prove0.p0XY | 20.34 s |
+| poly_detail.mul.prove2.rG | 20.22 s |
+| poly_detail.mul.prove2.p3 | 7.82 s |
+| poly_detail.static_fromRouEvals.prove2.p1 | 6.86 s |
+
 Conclusion:
 
-- The accepted linear rewrite reduced the measured linear/add component materially.
-- Direct snarkjs inspection found no additional add/sub/scaling technique to import beyond the buffer, in-place, scalar-fused, and accumulator-reuse patterns already applied here.
+- Future before/after comparisons must use wall-clock root spans and exclusive self totals.
+- Nested diagnostic totals remain useful for ranking internal methods, but they must not be reported as direct wall-clock savings.
 
 ## Future Reporting Rule
 
-For every future production optimization:
+For every future production prover optimization:
 
 1. Keep `tmp/timing/prover-stage-timing.json` as the latest overwritten diagnostics output.
 2. Add a new section to this report.
 3. Put related commits at the top of that section.
 4. Describe the optimization and any rejected candidates.
-5. Add operation-level timing tables and full stage timing tables when available.
-6. State whether the change was promoted, rejected, or kept benchmark-only.
-7. Link the relevant ignored `tmp/timing/*.json` filename when a named benchmark output exists.
+5. Include wall-clock root-span before/after tables when full stage timing exists.
+6. Include exclusive self before/after tables when full stage timing exists.
+7. Put nested diagnostic totals in a separate table and label them as nested diagnostics.
+8. State whether the change was promoted, rejected, or kept benchmark-only.
+9. Link the relevant ignored `tmp/timing/*.json` filename when a named benchmark output exists.
