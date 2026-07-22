@@ -1,572 +1,175 @@
-# Prover Optimization Timing History
+# Prover Timing Report
 
-Audience: backend-wasm engineers tracking prover performance changes across production optimizations.
+Audience: backend-wasm engineers measuring and optimizing prover performance.
 
-This report is the durable timing ledger for prover hot-path work. `tmp/timing/prover-stage-timing.json` remains the latest overwritten diagnostics output. Each production prover optimization must update this report with related commits, the applied optimization, and timing tables.
+This report replaces the previous nested-span timing report. The previous `wallClock`, `exclusiveSelf`, and `nestedDiagnostics` model is discarded because it made nested diagnostic totals easy to compare against parent wall-clock totals incorrectly.
 
 ## Measurement Model
 
-Use three timing classes:
+The backend-wasm prover timing runner now follows the native prover timing-report model:
 
-- Wall-clock root spans: non-overlapping root operations from one prover diagnostics run. Use these to answer "how much did the prover get faster?"
-- Exclusive self time: parent-child timing with child spans subtracted from their direct parent. Use this to identify where wall-clock time is currently spent.
-- Nested diagnostics: low-level method spans that may be nested inside other low-level spans. Use these only to rank internal hot operations. Do not compare nested diagnostic totals directly against wall-clock totals.
+- Timing is recorded as flat accumulated events.
+- Each event has only `name`, `category`, `durationMs`, and `sizes`.
+- Module totals are measured by the outer `prove0` through `prove4` stage events.
+- `poly` totals are accumulated from explicit high-level polynomial events such as `poly.combine.*`, `poly.div_by_ruffini.*`, and `poly.div_by_vanishing_opt.*`.
+- `encode` totals are accumulated from polynomial commitment MSM events.
+- `poly_detail` records only direct low-level calls inside `poly.combine.*` spans.
+- Nested low-level calls are not recorded, so detail totals do not double-count their parent operation.
+- `poly_detail` is reported separately from `poly` totals and must not be added to module totals.
 
-The corrected stage-timing reporter writes all three classes:
+The timing runner enforces these invariants:
 
-- `wallClock`
-- `exclusiveSelf`
-- `nestedDiagnostics`
+- For every `prove*` stage, `poly + encode <= total`.
+- For every `poly.combine.*` target, the sum of its `poly_detail.*` rows is less than or equal to the parent `poly.combine.*` time.
+- If an invariant fails, `npm run prover:stage-timing:check` fails.
 
-Historical `prove0`, `prove1`, `prove2`, `prove3`, and `prove4` names are diagnostics labels only. They are not production architecture boundaries.
+Diagnostics remain outside the published package:
 
-## Initial Stage Timing Baseline
+- Runner: `scripts/check/prover/check-prover-stage-timing.ts`
+- JSON output: `tmp/timing/prover-stage-timing.json`
+- Markdown output: `tmp/timing/prover-stage-timing.md`
+- `tmp/`, `scripts/`, and `test/` are not included in the package `files` whitelist.
 
-Related commit:
+## Current Timing
 
-- `486cdcc2` Add prover stage timing diagnostics
+Command:
 
-Measurement type:
+```bash
+npm run prover:stage-timing:check
+```
 
-- Legacy stage timing. The stage rows are wall-clock style diagnostic labels.
-- The operation totals are legacy nested diagnostic totals and are not exclusive time.
-
-Stage timing:
-
-| diagnostic label | duration |
-| --- | ---: |
-| prove2 | 502.00 s |
-| prove4 | 395.97 s |
-| prove0 | 299.54 s |
-| prove1 | 58.41 s |
-| prove3 | 12.50 s |
-
-Legacy nested operation totals:
-
-| operation group | duration |
-| --- | ---: |
-| encode.msm | 699.60 s |
-| poly.combine | 449.12 s |
-| poly_detail.mul | 303.08 s |
-| poly_detail.toRouEvals | 186.45 s |
-| poly_detail.addScaledPrefixAssign | 130.24 s |
-| pure div_by_ruffini | 19.70 s |
-| encode.prep | 18.84 s |
-| pure div_by_vanishing_opt | 7.16 s |
-
-Top measured events:
-
-| event | duration |
-| --- | ---: |
-| encode.msm.prove2.Q_CX | 128.42 s |
-| encode.msm.prove4.Pi_CX | 128.13 s |
-| poly.combine.prove2.p3 | 97.53 s |
-| encode.msm.prove4.Pi_AX | 65.89 s |
-| encode.msm.prove2.Q_CY | 65.57 s |
-| encode.msm.prove0.Q_AX | 65.12 s |
-| poly_detail.mul.prove2.p3 | 62.35 s |
-
-Conclusion:
-
-- Pure division was not the first optimization target.
-- Initial priority moved to commitment/MSM encoding, then polynomial multiplication and combination paths.
-
-## Timeline Summary
-
-| order | optimization | related commits | status | timing interpretation |
-| ---: | --- | --- | --- | --- |
-| 1 | Non-coset 2D NTT clone removal | `f583dd91` | promoted | Low-risk materialization cleanup. Operation benchmark showed parity and no major arithmetic speedup claim. |
-| 2 | Prover buffer cache and dense roundtrip reduction | `379eae9b`, `8260b5ea`, `eb28aadd`, `4f187526`, `6079f4a6` | promoted | Removed expensive `toDense/fromDense` roundtrips from production hot paths. |
-| 3 | Axis-specific polynomial multiplication | `4bd3d333`, `b5596ebd` | promoted | Avoided full 2D NTT for X-only and Y-only factors. |
-| 4 | Scaled-add fast path | `2fdea5f9` | promoted | Unit and negative-unit factors avoid unnecessary field multiplication. |
-| 5 | Transpose-scheduled row/column NTT | `b5596ebd` | rejected | Operation benchmark looked mildly positive, but integrated timing regressed. |
-| 6 | Shared-right local multiplication kernel | `660ac9c0`, `b42e3784` | promoted locally | Accepted only for the measured copy-quotient expression. No global ROU-eval cache. |
-| 7 | Snarkjs-style large-MSM delivery and chunk size | `eb75a1ea`, `b42e3784`, `a444cd2d`, `4ad07307`, `0156fecf`, `e5b344d8`, `52cf1861` | promoted | Fixed browser large-MSM `DataCloneError`; `262144` chunk size selected. |
-| 8 | Shape-aware linear operation rewrite | `1c05593d`, `3c7da223`, `cddceefe` | promoted | Reduced linear/add microbenchmarks and stage wall-clock, but old operation-type totals are legacy nested diagnostics. |
-
-## Non-Coset 2D NTT Clone Removal
-
-Related commit:
-
-- `f583dd91` Avoid non-coset 2D NTT buffer clone
-
-Applied optimization:
-
-- `BivariatePolynomialBuffer.toRouEvals()` skips the coefficient-buffer clone for non-coset true 2D transforms and delegates directly to `biNttBuffer(...)`.
-
-Operation benchmark:
-
-| group | candidate | shape | ms/op |
-| --- | --- | ---: | ---: |
-| 2d-ntt | current-toRouEvals | 512x256 | 213.667 |
-| 2d-ntt | direct-biNttBuffer | 512x256 | 215.078 |
-| 2d-ntt | transpose-only-cost | 512x256 | 6.578 |
-
-Conclusion:
-
-- Accepted as a materialization cleanup, not as a major timing win.
-
-## Prover Buffer Cache And Dense Roundtrip Reduction
-
-Related commits:
-
-- `379eae9b` Cache prover polynomial buffers
-- `8260b5ea` Reduce prover dense buffer roundtrips
-- `eb28aadd` Use cached buffer for prover binding
-- `4f187526` Remove unused prover state placeholders
-- `6079f4a6` Optimize backend wasm prover buffers
-
-Applied optimization:
-
-- Prover state builds and reuses `BivariatePolynomialBuffer` values for witness and instance data.
-- Production hot paths no longer repeatedly construct large `DensePolynomialExt` values and immediately wrap them with `BivariatePolynomialBuffer.fromDense(...)`.
-
-Materialization benchmark:
-
-| group | candidate | shape | ms/op |
-| --- | --- | ---: | ---: |
-| materialization | buffer-clone | 4096x256 | 0.777 |
-| materialization | toDense-fromDense-roundtrip | 4096x256 | 169.243 |
-| materialization | fromBuffer-copy | 4096x256 | 1.021 |
-
-Full prover check after the buffer cache:
-
-| root span | duration |
-| --- | ---: |
-| build prover binding | 2.14 s |
-| prove0 diagnostic label | 76.23 s |
-| prove1 diagnostic label | 24.43 s |
-| prove2 diagnostic label | 261.47 s |
-| prove3 diagnostic label | 9.68 s |
-| prove4 diagnostic label | 147.41 s |
-| verify generated proof | 19 ms |
-
-Conclusion:
-
-- Avoiding dense roundtrips was a clear production cleanup because the roundtrip cost was large at prover-representative shape.
-
-## Axis-Specific Polynomial Multiplication
-
-Related commits:
-
-- `4bd3d333` Optimize axis-specific polynomial multiplication
-- `b5596ebd` Benchmark generic polynomial multiplication scheduling
-
-Applied optimization:
-
-- `BivariatePolynomialBuffer.mul()` uses axis-specific 1D NTT multiplication when one operand is X-only or Y-only.
-
-Operation benchmark:
-
-| candidate | shape | ms/op |
-| --- | ---: | ---: |
-| current-x-axis-factor | 4096x256 | 5536.177 |
-| generic-2d-ntt-x-axis-factor | 4096x256 | 13155.656 |
-| current-y-axis-factor | 4096x256 | 4005.074 |
-| generic-2d-ntt-y-axis-factor | 4096x256 | 13009.296 |
-
-Post-change diagnostics:
-
-| root span | duration |
-| --- | ---: |
-| prove2 diagnostic label | 182.32 s |
-| prove4 diagnostic label | 120.59 s |
-| verify generated proof | 14 ms |
-
-Conclusion:
-
-- Promoted because it avoids full 2D NTT work for structured hot-path operands and passed full prover diagnostics.
-
-## Scaled-Add Fast Path
-
-Related commit:
-
-- `2fdea5f9` Optimize scaled polynomial accumulation
-
-Applied optimization:
-
-- `BivariatePolynomialBuffer.addScaledAssign(...)` and `addScaledPrefixAssign(...)` skip zero factors.
-- Factors equal to `1` or `-1` avoid unnecessary field multiplication.
-
-Operation benchmark:
-
-| candidate | shape | ms/op |
-| --- | ---: | ---: |
-| current-linearCombinationBuffer | 4096x256 | 1232.803 |
-| preallocated-addScaledPrefixAssign | 4096x256 | 1149.804 |
-
-Legacy post-change timing:
-
-| category | duration |
-| --- | ---: |
-| stage | 375.46 s |
-| poly_detail | 339.43 s |
-| poly | 228.27 s |
-| encode | 115.06 s |
-| init | 17.34 s |
-| io | 1.02 s |
-| verify | 17 ms |
-| output | 2 ms |
-
-Conclusion:
-
-- The synthetic benchmark mainly proved that fast-path checks did not materially regress the generic non-unit case.
-- Integrated diagnostics justified the production change because many real prover terms use unit or negative-unit factors.
-
-## Rejected Transpose-Scheduled Row/Column NTT Trial
-
-Related commit:
-
-- `b5596ebd` Benchmark generic polynomial multiplication scheduling
-
-Applied optimization attempt:
-
-- A temporary production trial made `BivariatePolynomialBuffer.biNttBuffer(...)` use the transpose-scheduled row/column path.
-- Correctness checks passed, but integrated timing worsened, so the production change was reverted.
-
-Operation benchmark before production trial:
-
-| candidate | shape | ms/op |
-| --- | ---: | ---: |
-| current-toRouEvals | 4096x256 | 2017.446 |
-| transpose-scheduled-biNttBuffer | 4096x256 | 1954.511 |
-| current-bivariate | 4096x256 | 28059.481 |
-| transpose-scheduled-bivariate | 4096x256 | 26910.071 |
-
-Integrated timing:
-
-| category | before | after trial |
-| --- | ---: | ---: |
-| stage | 375.46 s | 397.60 s |
-| poly_detail | 339.43 s | 359.02 s |
-| poly | 228.27 s | 244.10 s |
-| encode | 115.06 s | 119.43 s |
-
-Conclusion:
-
-- Rejected. Operation-level improvement did not translate to integrated prover timing.
-
-## Shared-Right Local Multiplication Kernel
-
-Related commits:
-
-- `660ac9c0` Add fused polynomial expression evaluator
-- `b42e3784` Sync prover timing with production encoder
-
-Applied optimization:
-
-- `computeCopyQuotientCommitments(...)` uses a local shared-right kernel for the two products that share `fXY`.
-- The shared right operand's ROU evals are reused only inside that expression.
-
-Operation benchmark:
-
-| candidate | shape | ms/op |
-| --- | ---: | ---: |
-| current-two-bivariate-shared-right | 1024x256 | 12241.948 |
-| shared-right-rou-two-bivariate | 1024x256 | 10345.247 |
-| current-two-bivariate-shared-right | 4096x256 | 52897.629 |
-| shared-right-rou-two-bivariate | 4096x256 | 44619.771 |
-
-Before/after diagnostics:
-
-| signal | before | after |
-| --- | ---: | ---: |
-| testing-mode prove2 diagnostic label | 167.13 s | 152.58 s |
-| stage-timing stage total | 355.31 s | 349.14 s |
-| stage-timing poly total | 213.36 s | 207.43 s |
-
-Conclusion:
-
-- Accepted only for the measured expression.
-- Do not generalize this into global expression rewriting or global ROU-eval caching without another local benchmark and full diagnostics.
-
-## Snarkjs-Style Large-MSM Delivery And Chunk Size
-
-Related commits:
-
-- `eb75a1ea` Use chunked dense prover commitments
-- `b42e3784` Sync prover timing with production encoder
-- `a444cd2d` Record prover chunk size benchmark
-- `4ad07307` Record local prover chunk limit
-- `0156fecf` Add peak memory to prover chunk benchmark
-- `e5b344d8` Record reboot prover memory benchmark
-- `52cf1861` Set prover dense MSM chunk size
-
-Applied optimization:
-
-- Large dense `sigma1.xy-powers` commitments use bounded dense MSM chunks.
-- The dense path uses the raw CRS section and `Fr.batchFromMontgomeryBuffer(...)`, matching snarkjs's raw scalar buffer delivery pattern at the `multiExpAffine(...)` boundary.
-- The production dense MSM chunk size is fixed at `262144` points by project-owner decision.
-
-Browser acceptance after chunked delivery:
-
-| signal | result |
-| --- | ---: |
-| browser proof size | 2408 bytes |
-| browser proveBinary | 414.59 s |
-| browser verify generated proof | 19 ms |
-
-Post-`262144` timing:
-
-| category | duration |
-| --- | ---: |
-| stage | 355.70 s |
-| poly_detail | 284.37 s |
-| poly | 213.94 s |
-| encode | 110.44 s |
-| init | 15.80 s |
-| io | 797 ms |
-| verify | 17 ms |
-| output | 3 ms |
-
-Legacy operation-type totals:
-
-| operation group | duration |
-| --- | ---: |
-| poly.combine | 196.46 s |
-| poly.linear/add | 118.04 s |
-| encode.commit.total | 108.51 s |
-| poly.mul | 77.02 s |
-| poly.toRouEvals | 52.87 s |
-| poly.fromRouEvals | 30.58 s |
-| poly.div | 17.47 s |
-
-Chunk-size browser/RSS benchmark:
-
-| chunk points | browser prove time | peak total RSS |
-| ---: | ---: | ---: |
-| 16384 | 408.01 s | 17.29 GiB |
-| 32768 | 396.12 s | 17.75 GiB |
-| 65536 | 393.56 s | 17.90 GiB |
-| 131072 | 387.96 s | 18.01 GiB |
-| 262144 | 384.92 s | 18.51 GiB |
-| 524288 | 387.97 s | 22.10 GiB |
-
-Reboot peak-RSS rerun:
-
-| chunk points | peak total RSS |
-| ---: | ---: |
-| 16384 | 17.68 GiB |
-| 32768 | 17.89 GiB |
-| 65536 | 18.14 GiB |
-| 131072 | 18.28 GiB |
-| 262144 | 18.06 GiB |
-| 524288 | 20.29 GiB |
-
-Conclusion:
-
-- Chunked dense MSM delivery fixed the browser `DataCloneError` and established browser proof generation plus in-browser verification.
-- `262144` is the current production default.
-- Future chunk-size tuning is lowest priority until the rest of prover optimization is complete.
-
-## Shape-Aware Linear Operation Rewrite
-
-Related commits:
-
-- `1c05593d` Add linear operation flat-kernel benchmark
-- `3c7da223` Benchmark linear operation optimization candidates
-- `cddceefe` Optimize polynomial linear accumulation
-
-Applied optimization:
-
-- Same-shape flat accumulation for add/sub/addScaled paths.
-- Prefix row-offset accumulation for prefix-contained terms.
-- Direct subtraction for `-1` factors.
-- First nonzero term accumulator construction in `linearCombinationBuffer(...)`.
-- Shape-aware dispatch through optimized accumulation kernels.
-- Candidate 4, the two-pass temporary scaled-source buffer, was rejected.
-
-Operation benchmark, representative `4096x256` before/after:
-
-| path | before | after | speedup | reduction |
-| --- | ---: | ---: | ---: | ---: |
-| current-add | 432.404 ms | 349.267 ms | 1.24x | 19.2% |
-| current-sub | 544.954 ms | 346.478 ms | 1.57x | 36.4% |
-| current-addScaledAssign | 369.712 ms | 353.012 ms | 1.05x | 4.5% |
-| current-prefix-addScaledAssign | 113.229 ms | 90.786 ms | 1.25x | 19.8% |
-| current-linearCombinationBuffer | 1322.379 ms | 918.179 ms | 1.44x | 30.6% |
-| current-mixed-prefix-linearCombination | 993.944 ms | 656.714 ms | 1.51x | 33.9% |
-
-Historical integrated timing from the old reporter:
-
-| category or event group | before | after |
-| --- | ---: | ---: |
-| stage total | 355.70 s | 344.27 s |
-| poly total | 213.94 s | 200.66 s |
-| poly_detail total | 284.37 s | 258.09 s |
-| poly.combine | 196.46 s | 182.45 s |
-| poly.linear/add | 118.04 s | 74.55 s |
-
-Interpretation:
-
-- This table is retained only as historical context from the old reporter.
-- It is not a corrected before/after table. The old reporter did not store parent-child event relationships, exclusive self time, or a strict separation between wall-clock root spans and nested diagnostics.
-- `stage total` and `poly total` remain directionally useful because they came from outer stage spans, but they cannot be mixed with the corrected reporter output below.
-- `poly_detail`, `poly.combine`, and `poly.linear/add` are legacy nested diagnostic totals. They show hot-operation direction only and are not exclusive wall-clock savings.
-- Direct snarkjs inspection found no additional add/sub/scaling technique to import beyond the buffer, in-place, scalar-fused, and accumulator-reuse patterns already applied here.
-
-Corrected integrated timing rerun:
-
-- Before source state: production files from `cddceefe^`, with the corrected timing reporter kept from `eefecf20`.
-- After source state: current `package/backend-wasm` source after `cddceefe`, measured with the same corrected timing reporter.
-- Before output: `tmp/timing/prover-stage-timing-before-linear-optimization-corrected.json`, generated at `2026-07-22T18:05:25.330Z`.
-- After output: `tmp/timing/prover-stage-timing-after-corrected.json`, generated at `2026-07-22T17:43:37.838Z`.
-
-Corrected wall-clock root spans:
-
-| root span | before | after | delta | change |
-| --- | ---: | ---: | ---: | ---: |
-| total root wall-clock | 380.47 s | 368.95 s | -11.52 s | -3.0% |
-| prove2 | 155.37 s | 156.35 s | +984 ms | +0.6% |
-| prove4 | 106.18 s | 95.13 s | -11.05 s | -10.4% |
-| prove0 | 68.10 s | 66.62 s | -1.48 s | -2.2% |
-| prove1 | 22.85 s | 23.03 s | +184 ms | +0.8% |
-| build witness polynomials | 11.34 s | 11.40 s | +58 ms | +0.5% |
-| prove3 | 8.43 s | 8.21 s | -227 ms | -2.7% |
-| create prover state | 5.11 s | 5.17 s | +57 ms | +1.1% |
-| build prover binding | 1.97 s | 2.04 s | +64 ms | +3.3% |
-| load prover runtime bundles | 1.09 s | 980 ms | -108 ms | -9.9% |
-
-Corrected exclusive self totals:
-
-| category | before | after | delta | change |
-| --- | ---: | ---: | ---: | ---: |
-| poly_detail | 196.88 s | 177.02 s | -19.85 s | -10.1% |
-| encode | 112.53 s | 113.46 s | +923 ms | +0.8% |
-| stage | 33.55 s | 33.57 s | +15 ms | +0.0% |
-| poly | 19.94 s | 27.33 s | +7.39 s | +37.1% |
-| init | 16.45 s | 16.57 s | +115 ms | +0.7% |
-| io | 1.09 s | 980 ms | -108 ms | -9.9% |
-
-Corrected nested diagnostic totals:
-
-| category | before | after | delta | change |
-| --- | ---: | ---: | ---: | ---: |
-| poly_detail | 288.18 s | 265.11 s | -23.07 s | -8.0% |
-
-Corrected interpretation:
-
-- The corrected end-to-end improvement for this optimization is `-11.52 s` in total root wall-clock time.
-- Most of the root-span improvement appears in `prove4`, which changed by `-11.05 s`.
-- The main exclusive self improvement is `poly_detail`, which changed by `-19.85 s`.
-- The `poly` exclusive category increased by `+7.39 s`, so the optimization did not uniformly reduce every polynomial-labelled span. The net wall-clock result is still positive because the reduced nested detail work outweighed those increases.
-
-Corrected delta accounting:
-
-| exclusive category | delta |
-| --- | ---: |
-| poly_detail | -19.85 s |
-| poly | +7.39 s |
-| encode | +923 ms |
-| init | +115 ms |
-| stage | +15 ms |
-| io | -108 ms |
-| verify | -1 ms |
-| output | 0 ms |
-| total exclusive delta | -11.52 s |
-| total root wall-clock delta | -11.52 s |
-
-The `poly_detail` row is a category-level exclusive subtotal. It is not the final end-to-end improvement by itself. Inside that category, `addScaledPrefixAssign` changed by `-23.60 s`, while other low-level operations increased by about `+3.75 s`, so the net `poly_detail` change is `-19.85 s`. Other exclusive categories then add another net `+8.33 s`, producing the final end-to-end delta of `-11.52 s`.
-
-## Current Corrected Timing Baseline
-
-Related change:
-
-- Corrected stage timing reporter design to split wall-clock root spans, exclusive self time, and nested diagnostics.
-
-Generated output:
+Generated outputs:
 
 - `tmp/timing/prover-stage-timing.json`
-- `generatedAt`: `2026-07-22T17:43:37.838Z`
+- `tmp/timing/prover-stage-timing.md`
 
-Wall-clock root spans:
+Result:
 
-| root span | duration |
+- Proof generation completed.
+- Generated proof verification completed.
+- Timing invariant failures: `0`.
+
+## Total Time
+
+| item | value |
 | --- | ---: |
-| prove2 | 156.35 s |
-| prove4 | 95.13 s |
-| prove0 | 66.62 s |
-| prove1 | 23.03 s |
-| build witness polynomials | 11.40 s |
-| prove3 | 8.21 s |
-| create prover state | 5.17 s |
-| build prover binding | 2.04 s |
-| load prover runtime bundles | 980 ms |
-| verify generated proof | 18 ms |
-| create verifier proof artifact | 3 ms |
-| load generated proof artifact | 0 ms |
+| total_wall | 368.34 s |
 
-Wall-clock category totals:
+## Module Times
 
-| category | duration | count |
+| module | total | poly | encode | unclassified |
+| --- | ---: | ---: | ---: | ---: |
+| prove0 | 65.15 s | 26.77 s | 38.37 s | 1 ms |
+| prove1 | 22.48 s | 0 ms | 0 ms | 22.48 s |
+| prove2 | 154.86 s | 122.22 s | 32.64 s | 1 ms |
+| prove3 | 8.68 s | 0 ms | 0 ms | 8.68 s |
+| prove4 | 97.80 s | 53.64 s | 41.78 s | 2.38 s |
+
+## Category Totals
+
+| category | total | count |
 | --- | ---: | ---: |
-| stage | 349.34 s | 5 |
-| init | 16.57 s | 2 |
-| encode | 2.04 s | 1 |
-| io | 980 ms | 2 |
+| stage | 348.96 s | 5 |
+| poly | 202.63 s | 53 |
+| poly_detail | 174.75 s | 166 |
+| encode | 114.89 s | 18 |
+| init | 16.13 s | 2 |
+| io | 1.12 s | 2 |
 | verify | 18 ms | 1 |
 | output | 3 ms | 1 |
 
-Exclusive self totals:
+`stage`, `poly`, `encode`, and `poly_detail` are not all additive categories. `stage` contains the high-level stage wall time. `poly` and `encode` are classified work inside those stages. `poly_detail` is a drill-down of direct low-level calls inside `poly.combine.*` targets and is reported separately.
 
-| category | duration | count |
+## Poly Operation Totals
+
+| operation | total | count |
 | --- | ---: | ---: |
-| poly_detail | 177.02 s | 397 |
-| encode | 113.46 s | 18 |
-| stage | 33.57 s | 5 |
-| poly | 27.33 s | 53 |
-| init | 16.57 s | 2 |
-| io | 980 ms | 2 |
-| verify | 18 ms | 1 |
-| output | 3 ms | 1 |
+| combine | 184.57 s | 46 |
+| div_by_ruffini | 12.18 s | 5 |
+| div_by_vanishing_opt | 5.88 s | 2 |
 
-Top exclusive self events:
+## Poly Combine Detail Totals
 
-| event | self time |
-| --- | ---: |
-| prove1 | 23.03 s |
-| encode.commit.prove2.Q_CX | 20.49 s |
-| encode.commit.prove4.Pi_CX | 19.94 s |
-| build witness polynomials | 11.40 s |
-| encode.commit.prove0.Q_AX | 10.34 s |
-| encode.commit.prove2.Q_CY | 10.30 s |
-| encode.commit.prove4.Pi_AX | 10.01 s |
-| prove3 | 8.21 s |
-| poly_detail.mul.prove2.p3 | 7.80 s |
-| poly_detail.static_fromRouEvals.prove2.p1 | 6.86 s |
-
-Nested diagnostic totals:
-
-| category | duration | count |
+| detail operation | total | count |
 | --- | ---: | ---: |
-| poly_detail | 265.11 s | 397 |
+| mul | 79.42 s | 8 |
+| addScaledPrefixAssign | 32.44 s | 65 |
+| toRouEvals | 17.49 s | 3 |
+| sub | 12.36 s | 15 |
+| static_fromRouEvals | 12.12 s | 6 |
+| add | 9.66 s | 14 |
+| scale | 6.72 s | 19 |
+| mulMonomial | 2.35 s | 12 |
+| subAssign | 724 ms | 1 |
+| scaleCoeffsY | 564 ms | 2 |
+| scaleCoeffsX | 545 ms | 2 |
+| resize | 374 ms | 8 |
+| static_fromCoeffs | 0 ms | 3 |
+| static_zero | 0 ms | 4 |
+| findDegree | 0 ms | 4 |
 
-Top nested diagnostic events:
+## Poly Combine Detail By Target
 
-| event | nested duration |
-| --- | ---: |
-| poly_detail.mul.prove2.p1 | 20.87 s |
-| poly_detail.mul.prove0.p0XY | 20.34 s |
-| poly_detail.mul.prove2.rG | 20.22 s |
-| poly_detail.mul.prove2.p3 | 7.82 s |
-| poly_detail.static_fromRouEvals.prove2.p1 | 6.86 s |
+| module | variable | parent poly | detail total | remaining |
+| --- | --- | ---: | ---: | ---: |
+| prove2 | shared_f_products | 32.10 s | 29.86 s | 2.24 s |
+| prove0 | p0XY | 20.96 s | 20.96 s | 0 ms |
+| prove2 | p1 | 19.88 s | 19.88 s | 0 ms |
+| prove2 | rG | 19.26 s | 19.26 s | 0 ms |
+| prove2 | Q_CY | 14.34 s | 14.23 s | 110 ms |
+| prove2 | Q_CX | 10.57 s | 10.07 s | 494 ms |
+| prove4 | LHS_zk2 | 11.10 s | 9.98 s | 1.12 s |
+| prove2 | p3 | 9.37 s | 9.37 s | 0 ms |
+| prove4 | LHS_zk1 | 8.03 s | 7.05 s | 976 ms |
+| prove2 | p_comb | 5.61 s | 5.40 s | 208 ms |
+| prove4 | Pi_A | 5.75 s | 4.79 s | 964 ms |
+| prove4 | pC | 4.96 s | 4.64 s | 319 ms |
+| prove4 | LHS_for_copy | 6.44 s | 4.59 s | 1.86 s |
+| prove2 | p2 | 2.04 s | 2.04 s | 0 ms |
+| prove2 | p2_input | 1.49 s | 1.49 s | 0 ms |
+| prove2 | lagrange_KL | 1.01 s | 1.01 s | 0 ms |
+| prove0 | Q_AY | 1.06 s | 948 ms | 108 ms |
+| prove4 | fXY | 877 ms | 834 ms | 43 ms |
+| prove2 | fXY | 860 ms | 820 ms | 40 ms |
+| prove4 | R_minus_eval | 790 ms | 790 ms | 0 ms |
+| prove0 | Q_AX | 973 ms | 782 ms | 191 ms |
+| prove0 | W | 819 ms | 737 ms | 83 ms |
+| prove0 | B | 791 ms | 717 ms | 74 ms |
+| prove4 | term6 | 655 ms | 409 ms | 246 ms |
+| prove4 | gMinusF | 400 ms | 400 ms | 0 ms |
+| prove2 | gD | 394 ms | 394 ms | 0 ms |
+| prove2 | rD2 | 394 ms | 394 ms | 0 ms |
+| prove4 | term5 | 632 ms | 389 ms | 243 ms |
+| prove4 | rD2 | 386 ms | 386 ms | 0 ms |
+| prove4 | rD1 | 386 ms | 386 ms | 0 ms |
+| prove2 | rD1 | 369 ms | 369 ms | 0 ms |
+| prove4 | r_omega_x | 289 ms | 289 ms | 0 ms |
+| prove4 | r_omega_x_omega_y | 283 ms | 283 ms | 0 ms |
+| prove2 | r_omega_x_omega_y | 282 ms | 282 ms | 0 ms |
+| prove2 | r_omega_x | 256 ms | 256 ms | 0 ms |
+| prove4 | term10 | 241 ms | 241 ms | 0 ms |
+| prove4 | R | 104 ms | 8 ms | 95 ms |
+| prove0 | V | 76 ms | 5 ms | 71 ms |
+| prove0 | U | 101 ms | 5 ms | 96 ms |
+| prove4 | V | 76 ms | 4 ms | 72 ms |
+| prove4 | lagrange_K0 | 3 ms | 3 ms | 0 ms |
+| prove2 | lagrange_K0 | 2 ms | 2 ms | 0 ms |
+| prove0 | W_zk | 36 ms | 0 ms | 35 ms |
+| prove0 | term_B_zk | 40 ms | 0 ms | 40 ms |
+| prove4 | gXY | 44 ms | 0 ms | 44 ms |
+| prove2 | gXY | 42 ms | 0 ms | 42 ms |
 
-Conclusion:
+## Optimization Reporting Rule
 
-- This is the current corrected after-state baseline, not a before/after comparison for the shape-aware linear rewrite.
-- Future before/after comparisons must use wall-clock root spans and exclusive self totals.
-- Nested diagnostic totals remain useful for ranking internal methods, but they must not be reported as direct wall-clock savings.
+Future prover optimization entries must use this flat accumulated timing model only.
 
-## Future Reporting Rule
+Each optimization report must include:
 
-For every future production prover optimization:
+- related commits.
+- the exact command used for timing.
+- module timing before and after, if a before run is required.
+- poly operation totals before and after, if affected.
+- poly combine detail totals before and after, if affected.
+- invariant check status.
 
-1. Keep `tmp/timing/prover-stage-timing.json` as the latest overwritten diagnostics output.
-2. Add a new section to this report.
-3. Put related commits at the top of that section.
-4. Describe the optimization and any rejected candidates.
-5. Include wall-clock root-span before/after tables when full stage timing exists.
-6. Include exclusive self before/after tables when full stage timing exists.
-7. Put nested diagnostic totals in a separate table and label them as nested diagnostics.
-8. State whether the change was promoted, rejected, or kept benchmark-only.
-9. Link the relevant ignored `tmp/timing/*.json` filename when a named benchmark output exists.
+Do not report nested spans, exclusive-self reconstructions, or any table where child rows can sum to more than the parent row.

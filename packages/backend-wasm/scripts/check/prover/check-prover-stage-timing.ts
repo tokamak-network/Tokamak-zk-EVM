@@ -57,32 +57,23 @@ interface SizeInfo {
 }
 
 interface TimingEvent {
-  readonly id: number;
-  readonly parentId?: number;
   readonly name: string;
   readonly category: string;
-  readonly startMs: number;
-  readonly endMs: number;
   readonly durationMs: number;
-  readonly selfDurationMs: number;
   readonly sizes: readonly SizeInfo[];
-  readonly diagnosticKind: "wall-clock" | "nested-detail";
 }
 
 interface TimingReport {
   readonly generatedAt: string;
-  readonly wallClock: TimingSummary;
-  readonly nestedDiagnostics: TimingSummary;
-  readonly exclusiveSelf: TimingSummary;
+  readonly totalWallMs: number;
+  readonly summary: Record<string, ModuleTimingSummary>;
   readonly events: readonly TimingEvent[];
-  readonly totalsByCategory: readonly TimingTotal[];
-  readonly topEvents: readonly TimingEvent[];
-  readonly topSelfEvents: readonly TimingEvent[];
-}
-
-interface TimingSummary {
-  readonly totalsByCategory: readonly TimingTotal[];
-  readonly topEvents: readonly TimingEvent[];
+  readonly categoryTotals: readonly TimingTotal[];
+  readonly polyOperationTotals: readonly OperationTimingTotal[];
+  readonly polyDetailOperationTotals: readonly OperationTimingTotal[];
+  readonly encodeTotals: readonly OperationTimingTotal[];
+  readonly polyDetailByTarget: readonly PolyDetailTargetTiming[];
+  readonly invariantChecks: readonly TimingInvariantCheck[];
 }
 
 interface TimingTotal {
@@ -91,21 +82,45 @@ interface TimingTotal {
   readonly count: number;
 }
 
+interface OperationTimingTotal {
+  readonly operation: string;
+  readonly durationMs: number;
+  readonly count: number;
+}
+
+interface ModuleTimingSummary {
+  readonly totalMs: number;
+  readonly polyMs: number;
+  readonly encodeMs: number;
+}
+
+interface PolyDetailTargetTiming {
+  readonly module: string;
+  readonly variable: string;
+  readonly parentMs: number;
+  readonly detailMs: number;
+  readonly remainingMs: number;
+  readonly operations: readonly OperationTimingTotal[];
+}
+
+interface TimingInvariantCheck {
+  readonly name: string;
+  readonly parentMs: number;
+  readonly childMs: number;
+  readonly ok: boolean;
+}
+
 interface ActiveTimingSpan {
-  readonly id: number;
-  readonly parentId?: number;
   readonly name: string;
   readonly category: string;
   readonly startMs: number;
   readonly sizes: readonly SizeInfo[];
-  readonly diagnosticKind: "wall-clock" | "nested-detail";
 }
 
 class TimingCollector {
   readonly events: TimingEvent[] = [];
-  private nextId = 1;
-  private readonly spanStack: number[] = [];
   private readonly detailStack: string[] = [];
+  private detailDepth = 0;
 
   async span<T>(
     name: string,
@@ -118,14 +133,14 @@ class TimingCollector {
       this.detailStack.push(name);
     }
 
-    const active = this.startRecord(name, category, sizes, "wall-clock");
+    const active = this.startRecord(name, category, sizes);
     try {
       return await callback();
     } finally {
+      this.endRecord(active);
       if (activeDetail) {
         this.detailStack.pop();
       }
-      this.endRecord(active);
     }
   }
 
@@ -140,30 +155,32 @@ class TimingCollector {
       this.detailStack.push(name);
     }
 
-    const active = this.startRecord(name, category, sizes, "wall-clock");
+    const active = this.startRecord(name, category, sizes);
     try {
       return callback();
     } finally {
+      this.endRecord(active);
       if (activeDetail) {
         this.detailStack.pop();
       }
-      this.endRecord(active);
     }
   }
 
   startDetail(operation: string, sizes: readonly SizeInfo[]): ActiveTimingSpan | undefined {
     const context = this.detailStack[this.detailStack.length - 1];
-    if (context === undefined) {
+    if (context === undefined || this.detailDepth > 0) {
       return undefined;
     }
 
     const suffix = context.startsWith("poly.combine.") ? context.slice("poly.combine.".length) : context;
-    return this.startRecord(`poly_detail.${operation}.${suffix}`, "poly_detail", sizes, "nested-detail");
+    this.detailDepth += 1;
+    return this.startRecord(`poly_detail.${operation}.${suffix}`, "poly_detail", sizes);
   }
 
   endDetail(active: ActiveTimingSpan | undefined): void {
     if (active !== undefined) {
       this.endRecord(active);
+      this.detailDepth -= 1;
     }
   }
 
@@ -171,36 +188,27 @@ class TimingCollector {
     name: string,
     category: string,
     sizes: readonly SizeInfo[],
-    diagnosticKind: "wall-clock" | "nested-detail",
   ): ActiveTimingSpan {
-    const active = {
-      id: this.nextId++,
-      parentId: this.spanStack[this.spanStack.length - 1],
+    return {
       name,
       category,
       startMs: performance.now(),
       sizes,
-      diagnosticKind,
     };
-    this.spanStack.push(active.id);
-    return active;
   }
 
   private endRecord(active: ActiveTimingSpan): void {
     const end = performance.now();
-    const popped = this.spanStack.pop();
-    if (popped !== active.id) {
-      throw new Error(`Timing stack mismatch while closing ${active.name}.`);
-    }
     this.record({
-      ...active,
-      endMs: end,
+      name: active.name,
+      category: active.category,
       durationMs: end - active.startMs,
+      sizes: active.sizes,
     });
   }
 
-  private record(event: Omit<TimingEvent, "selfDurationMs">): void {
-    this.events.push({ ...event, selfDurationMs: event.durationMs });
+  private record(event: TimingEvent): void {
+    this.events.push(event);
   }
 }
 
@@ -261,8 +269,10 @@ async function main(): Promise<void> {
 
     const report = buildTimingReport(timing.events);
     const outputPath = path.resolve("tmp/timing/prover-stage-timing.json");
+    const markdownOutputPath = path.resolve("tmp/timing/prover-stage-timing.md");
     await mkdir(path.dirname(outputPath), { recursive: true });
     await writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`);
+    await writeFile(markdownOutputPath, buildMarkdownTimingReport(report));
     printTimingSummary(report, outputPath);
   } finally {
     await runtime.terminate();
@@ -1095,79 +1105,346 @@ function resolvePreparedRuntimePath(runtimeDir: string, artifactPath: string): s
 }
 
 function buildTimingReport(events: readonly TimingEvent[]): TimingReport {
-  const finalizedEvents = withSelfDurations(events);
-  const wallClockEvents = finalizedEvents.filter((event) => event.parentId === undefined);
-  const nestedDiagnosticEvents = finalizedEvents.filter((event) => event.diagnosticKind === "nested-detail");
+  const summary = buildModuleTimingSummary(events);
+  const polyDetailByTarget = buildPolyDetailByTarget(events);
+  const invariantChecks = buildTimingInvariantChecks(summary, polyDetailByTarget);
 
   return {
     generatedAt: new Date().toISOString(),
-    wallClock: summarizeEvents(wallClockEvents, "durationMs"),
-    nestedDiagnostics: summarizeEvents(nestedDiagnosticEvents, "durationMs"),
-    exclusiveSelf: summarizeEvents(finalizedEvents, "selfDurationMs"),
-    events: finalizedEvents,
-    totalsByCategory: summarizeEvents(nestedDiagnosticEvents, "durationMs").totalsByCategory,
-    topEvents: [...nestedDiagnosticEvents].sort((left, right) => right.durationMs - left.durationMs).slice(0, 40),
-    topSelfEvents: [...finalizedEvents].sort((left, right) => right.selfDurationMs - left.selfDurationMs).slice(0, 40),
+    totalWallMs: sumRootWallTime(events),
+    summary,
+    events,
+    categoryTotals: summarizeByCategory(events),
+    polyOperationTotals: summarizeByOperation(
+      events.filter((event) => event.category === "poly"),
+      parsePolyOperation,
+    ),
+    polyDetailOperationTotals: summarizeByOperation(
+      events.filter((event) => event.category === "poly_detail"),
+      parsePolyDetailOperation,
+    ),
+    encodeTotals: summarizeByOperation(
+      events.filter((event) => event.category === "encode"),
+      parseEncodeOperation,
+    ),
+    polyDetailByTarget,
+    invariantChecks,
   };
 }
 
 function printTimingSummary(report: TimingReport, outputPath: string): void {
   console.log(`Wrote prover stage timing report to ${path.relative(process.cwd(), outputPath)}`);
-  console.log("Wall-clock root spans:");
-  for (const event of report.wallClock.topEvents) {
-    console.log(`  ${event.name}: ${formatDuration(event.durationMs)}`);
-  }
-  console.log("Exclusive self totals by category:");
-  for (const total of report.exclusiveSelf.totalsByCategory) {
-    console.log(`  ${total.category}: ${formatDuration(total.durationMs)} (${total.count} events)`);
-  }
-  console.log("Nested diagnostic totals by category:");
-  for (const total of report.nestedDiagnostics.totalsByCategory) {
-    console.log(`  ${total.category}: ${formatDuration(total.durationMs)} (${total.count} events)`);
-  }
-  console.log("Top exclusive self events:");
-  for (const event of report.topSelfEvents.slice(0, 20)) {
-    console.log(`  ${event.name}: ${formatDuration(event.selfDurationMs)}`);
-  }
-  console.log("Top nested diagnostic events:");
-  for (const event of report.nestedDiagnostics.topEvents.slice(0, 20)) {
-    console.log(`  ${event.name}: ${formatDuration(event.durationMs)}`);
-  }
-}
-
-function withSelfDurations(events: readonly TimingEvent[]): readonly TimingEvent[] {
-  const childTotals = new Map<number, number>();
-  for (const event of events) {
-    if (event.parentId === undefined) {
+  console.log(`Total wall time: ${formatDuration(report.totalWallMs)}`);
+  console.log("Module times:");
+  for (const moduleName of ["prove0", "prove1", "prove2", "prove3", "prove4"]) {
+    const item = report.summary[moduleName];
+    if (item === undefined) {
       continue;
     }
-    childTotals.set(event.parentId, (childTotals.get(event.parentId) ?? 0) + event.durationMs);
+
+    console.log(
+      `  ${moduleName}: total=${formatDuration(item.totalMs)}, poly=${formatDuration(item.polyMs)}, encode=${formatDuration(item.encodeMs)}`,
+    );
+  }
+  console.log("Category totals:");
+  for (const total of report.categoryTotals) {
+    console.log(`  ${total.category}: ${formatDuration(total.durationMs)} (${total.count} events)`);
+  }
+  console.log("Poly operation totals:");
+  for (const total of report.polyOperationTotals) {
+    console.log(`  ${total.operation}: ${formatDuration(total.durationMs)} (${total.count} events)`);
+  }
+  console.log("Poly combine detail totals:");
+  for (const total of report.polyDetailOperationTotals) {
+    console.log(`  ${total.operation}: ${formatDuration(total.durationMs)} (${total.count} events)`);
   }
 
-  return events.map((event) => ({
-    ...event,
-    selfDurationMs: Math.max(0, event.durationMs - (childTotals.get(event.id) ?? 0)),
-  }));
+  const failedChecks = report.invariantChecks.filter((check) => !check.ok);
+  if (failedChecks.length > 0) {
+    throw new Error(`Timing invariant failed: ${failedChecks.map((check) => check.name).join(", ")}`);
+  }
 }
 
-function summarizeEvents(
-  events: readonly TimingEvent[],
-  durationKey: "durationMs" | "selfDurationMs",
-): TimingSummary {
+function sumRootWallTime(events: readonly TimingEvent[]): number {
+  return events
+    .filter((event) => isRootWallEvent(event))
+    .reduce((total, event) => total + event.durationMs, 0);
+}
+
+function isRootWallEvent(event: TimingEvent): boolean {
+  return (
+    event.name === "load prover runtime bundles" ||
+    event.name === "build witness polynomials" ||
+    event.name === "create prover state" ||
+    event.name === "build prover binding" ||
+    event.name === "load generated proof artifact" ||
+    event.name === "verify generated proof" ||
+    event.name === "create verifier proof artifact" ||
+    event.name === "prove0" ||
+    event.name === "prove1" ||
+    event.name === "prove2" ||
+    event.name === "prove3" ||
+    event.name === "prove4"
+  );
+}
+
+function buildModuleTimingSummary(events: readonly TimingEvent[]): Record<string, ModuleTimingSummary> {
+  const modules: Record<string, ModuleTimingSummary> = {};
+  for (const moduleName of ["prove0", "prove1", "prove2", "prove3", "prove4"]) {
+    modules[moduleName] = {
+      totalMs: events
+        .filter((event) => event.name === moduleName && event.category === "stage")
+        .reduce((total, event) => total + event.durationMs, 0),
+      polyMs: events
+        .filter((event) => event.category === "poly" && event.name.includes(`.${moduleName}.`))
+        .reduce((total, event) => total + event.durationMs, 0),
+      encodeMs: events
+        .filter((event) => event.category === "encode" && event.name.includes(`${moduleName}.`))
+        .reduce((total, event) => total + event.durationMs, 0),
+    };
+  }
+
+  return modules;
+}
+
+function summarizeByCategory(events: readonly TimingEvent[]): readonly TimingTotal[] {
   const totals = new Map<string, { durationMs: number; count: number }>();
   for (const event of events) {
     const total = totals.get(event.category) ?? { durationMs: 0, count: 0 };
-    total.durationMs += event[durationKey];
+    total.durationMs += event.durationMs;
     total.count += 1;
     totals.set(event.category, total);
   }
 
+  return Array.from(totals.entries())
+    .map(([category, total]) => ({ category, ...total }))
+    .sort((left, right) => right.durationMs - left.durationMs);
+}
+
+function summarizeByOperation(
+  events: readonly TimingEvent[],
+  parseOperation: (name: string) => string | undefined,
+): readonly OperationTimingTotal[] {
+  const totals = new Map<string, { durationMs: number; count: number }>();
+  for (const event of events) {
+    const operation = parseOperation(event.name);
+    if (operation === undefined) {
+      continue;
+    }
+
+    const total = totals.get(operation) ?? { durationMs: 0, count: 0 };
+    total.durationMs += event.durationMs;
+    total.count += 1;
+    totals.set(operation, total);
+  }
+
+  return Array.from(totals.entries())
+    .map(([operation, total]) => ({ operation, ...total }))
+    .sort((left, right) => right.durationMs - left.durationMs);
+}
+
+function buildPolyDetailByTarget(events: readonly TimingEvent[]): readonly PolyDetailTargetTiming[] {
+  const polyParents = new Map<string, TimingEvent>();
+  for (const event of events) {
+    const parsed = parsePolyTarget(event.name);
+    if (event.category === "poly" && parsed?.operation === "combine") {
+      polyParents.set(targetKey(parsed.module, parsed.variable), event);
+    }
+  }
+
+  const detailGroups = new Map<string, Map<string, { durationMs: number; count: number }>>();
+  for (const event of events) {
+    const parsed = parsePolyDetailTarget(event.name);
+    if (event.category !== "poly_detail" || parsed === undefined) {
+      continue;
+    }
+
+    const key = targetKey(parsed.module, parsed.variable);
+    const operations = detailGroups.get(key) ?? new Map<string, { durationMs: number; count: number }>();
+    const total = operations.get(parsed.operation) ?? { durationMs: 0, count: 0 };
+    total.durationMs += event.durationMs;
+    total.count += 1;
+    operations.set(parsed.operation, total);
+    detailGroups.set(key, operations);
+  }
+
+  return Array.from(detailGroups.entries())
+    .map(([key, operations]) => {
+      const [module, variable] = key.split(":", 2);
+      const parentMs = polyParents.get(key)?.durationMs ?? 0;
+      const operationTotals = Array.from(operations.entries())
+        .map(([operation, total]) => ({ operation, ...total }))
+        .sort((left, right) => right.durationMs - left.durationMs);
+      const detailMs = operationTotals.reduce((total, operation) => total + operation.durationMs, 0);
+
+      return {
+        module,
+        variable,
+        parentMs,
+        detailMs,
+        remainingMs: Math.max(0, parentMs - detailMs),
+        operations: operationTotals,
+      };
+    })
+    .sort((left, right) => right.detailMs - left.detailMs);
+}
+
+function buildTimingInvariantChecks(
+  summary: Record<string, ModuleTimingSummary>,
+  polyDetailByTarget: readonly PolyDetailTargetTiming[],
+): readonly TimingInvariantCheck[] {
+  const checks: TimingInvariantCheck[] = [];
+  for (const [moduleName, item] of Object.entries(summary)) {
+    checks.push({
+      name: `${moduleName}.poly_plus_encode_lte_total`,
+      parentMs: item.totalMs,
+      childMs: item.polyMs + item.encodeMs,
+      ok: item.polyMs + item.encodeMs <= item.totalMs + 1,
+    });
+  }
+
+  for (const target of polyDetailByTarget) {
+    checks.push({
+      name: `poly_detail.${target.module}.${target.variable}_lte_parent_poly`,
+      parentMs: target.parentMs,
+      childMs: target.detailMs,
+      ok: target.detailMs <= target.parentMs + 1,
+    });
+  }
+
+  return checks;
+}
+
+function parsePolyOperation(name: string): string | undefined {
+  return parsePolyTarget(name)?.operation;
+}
+
+function parsePolyDetailOperation(name: string): string | undefined {
+  return parsePolyDetailTarget(name)?.operation;
+}
+
+function parseEncodeOperation(name: string): string | undefined {
+  const parts = name.split(".");
+  if (parts.length < 3 || parts[1] !== "commit") {
+    return undefined;
+  }
+
+  return parts[2];
+}
+
+function parsePolyTarget(
+  name: string,
+): { readonly operation: string; readonly module: string; readonly variable: string } | undefined {
+  const parts = name.split(".");
+  if (parts.length < 4 || parts[0] !== "poly") {
+    return undefined;
+  }
+
   return {
-    totalsByCategory: Array.from(totals.entries())
-      .map(([category, total]) => ({ category, ...total }))
-      .sort((left, right) => right.durationMs - left.durationMs),
-    topEvents: [...events].sort((left, right) => right[durationKey] - left[durationKey]).slice(0, 40),
+    operation: parts[1],
+    module: parts[2],
+    variable: parts.slice(3).join("."),
   };
+}
+
+function parsePolyDetailTarget(
+  name: string,
+): { readonly operation: string; readonly module: string; readonly variable: string } | undefined {
+  const parts = name.split(".");
+  if (parts.length < 4 || parts[0] !== "poly_detail") {
+    return undefined;
+  }
+
+  return {
+    operation: parts[1],
+    module: parts[2],
+    variable: parts.slice(3).join("."),
+  };
+}
+
+function targetKey(module: string, variable: string): string {
+  return `${module}:${variable}`;
+}
+
+function buildMarkdownTimingReport(report: TimingReport): string {
+  const lines: string[] = [];
+  lines.push("# Backend-Wasm Prover Timing Report");
+  lines.push("");
+  lines.push("## Timing Boundaries");
+  lines.push("");
+  lines.push("- Timing is recorded as flat accumulated events, matching the native prover timing report model.");
+  lines.push("- `poly_detail` is recorded only for direct low-level calls inside `poly.combine.*` spans.");
+  lines.push("- Nested low-level calls are not recorded, so detail totals do not double-count their parent operation.");
+  lines.push("- `poly_detail` is reported separately from `poly` totals and is not added to module totals.");
+  lines.push("- For each target, `poly_detail` total must be less than or equal to the parent `poly.combine.*` time.");
+  lines.push("");
+  lines.push("## Total Time");
+  lines.push("");
+  lines.push("| item | value |");
+  lines.push("| --- | ---: |");
+  lines.push(`| total_wall | ${formatDuration(report.totalWallMs)} |`);
+  lines.push("");
+  lines.push("## Module Times");
+  lines.push("");
+  lines.push("| module | total | poly | encode | unclassified |");
+  lines.push("| --- | ---: | ---: | ---: | ---: |");
+  for (const moduleName of ["prove0", "prove1", "prove2", "prove3", "prove4"]) {
+    const item = report.summary[moduleName];
+    if (item === undefined) {
+      continue;
+    }
+
+    lines.push(
+      `| ${moduleName} | ${formatDuration(item.totalMs)} | ${formatDuration(item.polyMs)} | ${formatDuration(item.encodeMs)} | ${formatDuration(item.totalMs - item.polyMs - item.encodeMs)} |`,
+    );
+  }
+  lines.push("");
+  lines.push("## Category Totals");
+  lines.push("");
+  lines.push("| category | total | count |");
+  lines.push("| --- | ---: | ---: |");
+  for (const total of report.categoryTotals) {
+    lines.push(`| ${total.category} | ${formatDuration(total.durationMs)} | ${total.count} |`);
+  }
+  lines.push("");
+  lines.push("## Poly Operation Totals");
+  lines.push("");
+  lines.push("| operation | total | count |");
+  lines.push("| --- | ---: | ---: |");
+  for (const total of report.polyOperationTotals) {
+    lines.push(`| ${total.operation} | ${formatDuration(total.durationMs)} | ${total.count} |`);
+  }
+  lines.push("");
+  lines.push("## Poly Combine Detail Totals");
+  lines.push("");
+  lines.push("| detail operation | total | count |");
+  lines.push("| --- | ---: | ---: |");
+  for (const total of report.polyDetailOperationTotals) {
+    lines.push(`| ${total.operation} | ${formatDuration(total.durationMs)} | ${total.count} |`);
+  }
+  lines.push("");
+  lines.push("## Poly Combine Detail By Target");
+  lines.push("");
+  lines.push("| module | variable | parent poly | detail total | remaining |");
+  lines.push("| --- | --- | ---: | ---: | ---: |");
+  for (const target of report.polyDetailByTarget) {
+    lines.push(
+      `| ${target.module} | ${target.variable} | ${formatDuration(target.parentMs)} | ${formatDuration(target.detailMs)} | ${formatDuration(target.remainingMs)} |`,
+    );
+  }
+  lines.push("");
+  lines.push("## Invariant Checks");
+  lines.push("");
+  lines.push("| check | parent | children | status |");
+  lines.push("| --- | ---: | ---: | --- |");
+  for (const check of report.invariantChecks) {
+    lines.push(
+      `| ${check.name} | ${formatDuration(check.parentMs)} | ${formatDuration(check.childMs)} | ${check.ok ? "ok" : "failed"} |`,
+    );
+  }
+  lines.push("");
+
+  return `${lines.join("\n")}\n`;
 }
 
 function shapeSize(label: string, xSize: number, ySize: number): SizeInfo {
