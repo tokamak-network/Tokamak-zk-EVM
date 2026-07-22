@@ -347,6 +347,8 @@ async function benchmarkLinearCombination(
   const shape = formatShape(testCase.shape);
   const one = field.one;
   const minusOne = field.neg(field.one);
+  const prefixShape = prefixShapeFor(testCase.shape);
+  const prefix = randomPolynomial(field, prefixShape, options.seed + 0x66n);
   const current = linearCombinationBuffer(field, [
     [testCase.scaleA, testCase.left],
     [testCase.scaleB, testCase.right],
@@ -362,12 +364,41 @@ async function benchmarkLinearCombination(
   const flatScale = scaleSameShapeFlat(field, testCase.left.coefficients, testCase.scaleA);
   const currentAddScaled = testCase.left.clone().addScaledAssign(testCase.right, testCase.scaleA);
   const flatAddScaled = addScaledSameShapeFlat(field, testCase.left.coefficients, testCase.right.coefficients, testCase.scaleA);
+  const currentPrefixAddScaled = testCase.left.clone().addScaledPrefixAssign(prefix, testCase.scaleA);
+  const flatPrefixAddScaled = addScaledPrefixOffsetFlat(
+    field,
+    testCase.left.coefficients,
+    testCase.shape,
+    prefix.coefficients,
+    prefixShape,
+    testCase.scaleA,
+  );
+  const unitAdd = addSameShapeFlat(field, testCase.left.coefficients, testCase.right.coefficients);
+  const unitSub = subSameShapeFlat(field, testCase.left.coefficients, testCase.right.coefficients);
+  const twoPassAddScaled = addScaledNonUnitTwoPass(field, testCase.left.coefficients, testCase.right.coefficients, testCase.scaleA);
+  const firstTermLinearCombination = linearCombinationFirstTermFlat(field, testCase);
+  const mixedCurrent = linearCombinationBuffer(field, [
+    [testCase.scaleA, testCase.left],
+    [testCase.scaleB, prefix],
+    [testCase.scaleC, testCase.right],
+  ]);
+  const mixedShapeAware = linearCombinationShapeAwareFlat(field, [
+    [testCase.scaleA, testCase.left],
+    [testCase.scaleB, prefix],
+    [testCase.scaleC, testCase.right],
+  ]);
   assertBytesEqual(current.coefficients, preallocated.coefficients, `linear combination mismatch at ${shape}`);
   assertBytesEqual(current.coefficients, flatLinearCombination, `flat same-shape linear combination mismatch at ${shape}`);
   assertBytesEqual(currentAdd.coefficients, flatAdd, `flat same-shape add mismatch at ${shape}`);
   assertBytesEqual(currentSub.coefficients, flatSub, `flat same-shape sub mismatch at ${shape}`);
   assertBytesEqual(currentScale.coefficients, flatScale, `flat same-shape scale mismatch at ${shape}`);
   assertBytesEqual(currentAddScaled.coefficients, flatAddScaled, `flat same-shape addScaled mismatch at ${shape}`);
+  assertBytesEqual(currentPrefixAddScaled.coefficients, flatPrefixAddScaled, `flat prefix-shape addScaled mismatch at ${shape}`);
+  assertBytesEqual(currentAdd.coefficients, unitAdd, `unit specialized add mismatch at ${shape}`);
+  assertBytesEqual(currentSub.coefficients, unitSub, `unit specialized sub mismatch at ${shape}`);
+  assertBytesEqual(currentAddScaled.coefficients, twoPassAddScaled, `two-pass non-unit addScaled mismatch at ${shape}`);
+  assertBytesEqual(current.coefficients, firstTermLinearCombination, `first-term linear combination mismatch at ${shape}`);
+  assertBytesEqual(mixedCurrent.coefficients, mixedShapeAware, `shape-aware mixed linear combination mismatch at ${shape}`);
   checkLinearOperationCandidateParity(field, testCase);
 
   return [
@@ -387,6 +418,13 @@ async function benchmarkLinearCombination(
     },
     {
       group: "linear-combination",
+      candidate: "candidate3-unit-specialized-add",
+      shape,
+      ms: await measure(options, () => Promise.resolve(addSameShapeFlat(field, testCase.left.coefficients, testCase.right.coefficients))),
+      notes: "Diagnostic-only unit-factor add path with no factor dispatch.",
+    },
+    {
+      group: "linear-combination",
       candidate: "current-sub",
       shape,
       ms: await measure(options, () => Promise.resolve(testCase.left.sub(testCase.right))),
@@ -398,6 +436,13 @@ async function benchmarkLinearCombination(
       shape,
       ms: await measure(options, () => Promise.resolve(addScaledSameShapeFlat(field, testCase.left.coefficients, testCase.right.coefficients, minusOne))),
       notes: "Diagnostic-only flat indexed subtraction using same-shape raw coefficient buffers.",
+    },
+    {
+      group: "linear-combination",
+      candidate: "candidate3-unit-specialized-sub",
+      shape,
+      ms: await measure(options, () => Promise.resolve(subSameShapeFlat(field, testCase.left.coefficients, testCase.right.coefficients))),
+      notes: "Diagnostic-only unit-factor subtraction path using field.sub directly.",
     },
     {
       group: "linear-combination",
@@ -432,6 +477,32 @@ async function benchmarkLinearCombination(
     },
     {
       group: "linear-combination",
+      candidate: "candidate4-non-unit-two-pass-addScaled",
+      shape,
+      ms: await measure(options, () => Promise.resolve(addScaledNonUnitTwoPass(field, testCase.left.coefficients, testCase.right.coefficients, testCase.scaleA))),
+      notes: "Diagnostic-only non-unit scalar candidate that scales the source into a temporary buffer before adding.",
+    },
+    {
+      group: "linear-combination",
+      candidate: "current-prefix-addScaledAssign",
+      shape,
+      ms: await measure(options, () => {
+        const target = testCase.left.clone();
+        return Promise.resolve(target.addScaledPrefixAssign(prefix, testCase.scaleA));
+      }),
+      notes: `Current prefix-shape scaled addition path using prefix ${formatShape(prefixShape)}.`,
+    },
+    {
+      group: "linear-combination",
+      candidate: "candidate2-prefix-offset-addScaled",
+      shape,
+      ms: await measure(options, () =>
+        Promise.resolve(addScaledPrefixOffsetFlat(field, testCase.left.coefficients, testCase.shape, prefix.coefficients, prefixShape, testCase.scaleA)),
+      ),
+      notes: `Diagnostic-only prefix-shape row-offset kernel using prefix ${formatShape(prefixShape)}.`,
+    },
+    {
+      group: "linear-combination",
       candidate: "current-linearCombinationBuffer",
       shape,
       ms: await measure(options, () =>
@@ -456,6 +527,39 @@ async function benchmarkLinearCombination(
       shape,
       ms: await measure(options, () => Promise.resolve(linearCombinationSameShapeFlat(field, testCase))),
       notes: "Diagnostic-only flat indexed linear combination for same-shape inputs.",
+    },
+    {
+      group: "linear-combination",
+      candidate: "candidate5-first-term-linearCombination",
+      shape,
+      ms: await measure(options, () => Promise.resolve(linearCombinationFirstTermFlat(field, testCase))),
+      notes: "Diagnostic-only same-shape linear combination that initializes the accumulator from the first term.",
+    },
+    {
+      group: "linear-combination",
+      candidate: "current-mixed-prefix-linearCombination",
+      shape,
+      ms: await measure(options, () =>
+        Promise.resolve(linearCombinationBuffer(field, [
+          [testCase.scaleA, testCase.left],
+          [testCase.scaleB, prefix],
+          [testCase.scaleC, testCase.right],
+        ])),
+      ),
+      notes: `Current linearCombinationBuffer with two full-shape terms and one prefix ${formatShape(prefixShape)} term.`,
+    },
+    {
+      group: "linear-combination",
+      candidate: "candidate6-shape-aware-linearCombination",
+      shape,
+      ms: await measure(options, () =>
+        Promise.resolve(linearCombinationShapeAwareFlat(field, [
+          [testCase.scaleA, testCase.left],
+          [testCase.scaleB, prefix],
+          [testCase.scaleC, testCase.right],
+        ])),
+      ),
+      notes: "Diagnostic-only shape-aware dispatch: same-shape flat kernel plus prefix row-offset kernel.",
     },
   ];
 }
@@ -809,6 +913,46 @@ function linearCombinationSameShapeFlat(
   return output;
 }
 
+function linearCombinationFirstTermFlat(
+  field: FieldRuntime,
+  testCase: BenchmarkCase,
+): Uint8Array {
+  const output = scaleSameShapeFlat(field, testCase.left.coefficients, testCase.scaleA);
+  addScaledSameShapeFlatInPlace(field, output, testCase.right.coefficients, testCase.scaleB);
+  addScaledSameShapeFlatInPlace(field, output, testCase.third.coefficients, testCase.scaleC);
+  return output;
+}
+
+function linearCombinationShapeAwareFlat(
+  field: FieldRuntime,
+  terms: readonly (readonly [FieldElement, BivariatePolynomialBuffer])[],
+): Uint8Array {
+  if (terms.length === 0) {
+    return field.createZeroBuffer(1);
+  }
+
+  let xSize = 1;
+  let ySize = 1;
+  for (const [, polynomial] of terms) {
+    xSize = Math.max(xSize, polynomial.xSize);
+    ySize = Math.max(ySize, polynomial.ySize);
+  }
+
+  const shape = { xSize, ySize };
+  const output = field.createZeroBuffer(xSize * ySize);
+  for (const [factor, polynomial] of terms) {
+    addScaledPrefixOffsetFlatInPlace(
+      field,
+      output,
+      shape,
+      polynomial.coefficients,
+      { xSize: polynomial.xSize, ySize: polynomial.ySize },
+      factor,
+    );
+  }
+  return output;
+}
+
 function scaleSameShapeFlat(
   field: FieldRuntime,
   source: Uint8Array,
@@ -826,6 +970,34 @@ function scaleSameShapeFlat(
   return output;
 }
 
+function addSameShapeFlat(
+  field: FieldRuntime,
+  left: Uint8Array,
+  right: Uint8Array,
+): Uint8Array {
+  assertSameByteLength(left, right, "Candidate 3 add");
+  const output = field.createZeroBuffer(field.bufferElementCount(left));
+  const elementBytes = field.byteLength;
+  for (let offset = 0; offset < left.byteLength; offset += elementBytes) {
+    output.set(field.add(left.subarray(offset, offset + elementBytes), right.subarray(offset, offset + elementBytes)), offset);
+  }
+  return output;
+}
+
+function subSameShapeFlat(
+  field: FieldRuntime,
+  left: Uint8Array,
+  right: Uint8Array,
+): Uint8Array {
+  assertSameByteLength(left, right, "Candidate 3 sub");
+  const output = field.createZeroBuffer(field.bufferElementCount(left));
+  const elementBytes = field.byteLength;
+  for (let offset = 0; offset < left.byteLength; offset += elementBytes) {
+    output.set(field.sub(left.subarray(offset, offset + elementBytes), right.subarray(offset, offset + elementBytes)), offset);
+  }
+  return output;
+}
+
 function addScaledSameShapeFlat(
   field: FieldRuntime,
   target: Uint8Array,
@@ -837,15 +1009,23 @@ function addScaledSameShapeFlat(
   return output;
 }
 
+function addScaledNonUnitTwoPass(
+  field: FieldRuntime,
+  target: Uint8Array,
+  source: Uint8Array,
+  factor: FieldElement,
+): Uint8Array {
+  const scaled = scaleSameShapeFlat(field, source, factor);
+  return addSameShapeFlat(field, target, scaled);
+}
+
 function addScaledSameShapeFlatInPlace(
   field: FieldRuntime,
   target: Uint8Array,
   source: Uint8Array,
   factor: FieldElement,
 ): void {
-  if (target.byteLength !== source.byteLength) {
-    throw new Error("Candidate 1 only supports same-shape coefficient buffers.");
-  }
+  assertSameByteLength(target, source, "Candidate 1");
   if (field.isZero(factor)) {
     return;
   }
@@ -858,6 +1038,71 @@ function addScaledSameShapeFlatInPlace(
     const right = source.subarray(offset, offset + elementBytes);
     const scaled = isOne ? right : isMinusOne ? field.neg(right) : field.mul(right, factor);
     target.set(field.add(left, scaled), offset);
+  }
+}
+
+function addScaledPrefixOffsetFlat(
+  field: FieldRuntime,
+  target: Uint8Array,
+  targetShape: Shape,
+  source: Uint8Array,
+  sourceShape: Shape,
+  factor: FieldElement,
+): Uint8Array {
+  const output = target.slice();
+  addScaledPrefixOffsetFlatInPlace(field, output, targetShape, source, sourceShape, factor);
+  return output;
+}
+
+function addScaledPrefixOffsetFlatInPlace(
+  field: FieldRuntime,
+  target: Uint8Array,
+  targetShape: Shape,
+  source: Uint8Array,
+  sourceShape: Shape,
+  factor: FieldElement,
+): void {
+  if (sourceShape.xSize > targetShape.xSize || sourceShape.ySize > targetShape.ySize) {
+    throw new Error("Candidate 2 prefix source shape must fit inside the target shape.");
+  }
+  const targetElementCount = targetShape.xSize * targetShape.ySize;
+  const sourceElementCount = sourceShape.xSize * sourceShape.ySize;
+  if (field.bufferElementCount(target) !== targetElementCount || field.bufferElementCount(source) !== sourceElementCount) {
+    throw new Error("Candidate 2 buffer length does not match its shape.");
+  }
+  if (field.isZero(factor)) {
+    return;
+  }
+
+  const elementBytes = field.byteLength;
+  const targetRowBytes = targetShape.ySize * elementBytes;
+  const sourceRowBytes = sourceShape.ySize * elementBytes;
+  const isOne = field.eq(factor, field.one);
+  const isMinusOne = field.eq(factor, field.neg(field.one));
+  for (let x = 0; x < sourceShape.xSize; x += 1) {
+    const targetRowOffset = x * targetRowBytes;
+    const sourceRowOffset = x * sourceRowBytes;
+    for (let yOffset = 0; yOffset < sourceRowBytes; yOffset += elementBytes) {
+      const targetOffset = targetRowOffset + yOffset;
+      const sourceOffset = sourceRowOffset + yOffset;
+      const left = target.subarray(targetOffset, targetOffset + elementBytes);
+      const right = source.subarray(sourceOffset, sourceOffset + elementBytes);
+      const scaled = isOne ? right : isMinusOne ? field.neg(right) : field.mul(right, factor);
+      target.set(field.add(left, scaled), targetOffset);
+    }
+  }
+}
+
+function prefixShapeFor(shape: Shape): Shape {
+  return {
+    xSize: Math.max(1, Math.floor(shape.xSize / 2)),
+    ySize: Math.max(1, Math.floor(shape.ySize / 2)),
+  };
+}
+
+function assertSameByteLength(left: Uint8Array, right: Uint8Array, label: string): void {
+  if (left.byteLength !== right.byteLength) {
+    throw new Error(`${label} only supports same-length coefficient buffers.`);
   }
 }
 

@@ -187,6 +187,64 @@ Initial conclusion:
 - Generic non-unit `scale` and `addScaledAssign` improve little on their own, so they should not be promoted in isolation.
 - Production promotion should wait until the next prefix-shape candidate is tested, because integrated prover calls still include both same-shape and prefix-shape paths.
 
+## Linear Operation Candidate Matrix
+
+The remaining linear-operation candidates were added to the same diagnostics-only benchmark. All candidates are checked byte-for-byte against the current implementation before timing.
+
+Candidate meanings:
+
+- Candidate 1: flat same-shape loops over raw coefficient buffers.
+- Candidate 2: prefix-shape row-offset kernel for `addScaledPrefixAssign(...)`.
+- Candidate 3: unit-factor add/sub kernels that avoid factor dispatch and use `field.add(...)` or `field.sub(...)` directly.
+- Candidate 4: non-unit two-pass scalar multiply-add that scales the source into a temporary buffer before adding.
+- Candidate 5: same-shape linear combination initialized from the first term instead of a zero accumulator.
+- Candidate 6: shape-aware linear combination dispatch using same-shape flat kernels and prefix row-offset kernels.
+- Candidate 7: ffjavascript public primitive check. The current `FieldRuntime` exposes `batchApplyKeyBuffer` and `batchFromMontgomeryBuffer`, but no public batch add/sub/scale/multiply-add primitive suitable for these polynomial linear kernels.
+- Candidate 8: worker/WASM batch kernels. This is not a direct production candidate from the current codebase because it requires new custom worker or WASM kernel design; it remains lower priority unless JavaScript flat kernels are insufficient after integrated prover timing.
+
+Command:
+
+```bash
+npm run bench:prover-ops -- --groups=linear-combination --shapes=4x4,32x32,512x256,1024x256,4096x256 --iterations=1 --warmup=0 --json=tmp/timing/linear-combination-all-candidates.json
+```
+
+Representative result:
+
+| candidate | 4x4 | 32x32 | 512x256 | 1024x256 | 4096x256 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| current-add | 0.031 | 0.433 | 52.832 | 106.861 | 432.404 |
+| candidate1-flat-same-shape-add | 0.015 | 0.200 | 21.516 | 43.392 | 174.726 |
+| candidate3-unit-specialized-add | 0.009 | 0.194 | 21.712 | 45.091 | 179.062 |
+| current-sub | 0.034 | 0.544 | 66.456 | 136.894 | 544.954 |
+| candidate1-flat-same-shape-sub | 0.014 | 0.331 | 32.142 | 66.367 | 273.600 |
+| candidate3-unit-specialized-sub | 0.010 | 0.221 | 25.423 | 42.905 | 184.398 |
+| current-scale | 0.010 | 0.224 | 27.426 | 53.208 | 228.481 |
+| candidate1-flat-same-shape-scale | 0.010 | 0.231 | 25.631 | 53.315 | 220.420 |
+| current-addScaledAssign | 0.027 | 0.430 | 44.652 | 88.842 | 369.712 |
+| candidate1-flat-same-shape-addScaled | 0.022 | 0.402 | 42.375 | 87.557 | 355.155 |
+| candidate4-non-unit-two-pass-addScaled | 0.016 | 0.425 | 47.396 | 99.015 | 400.489 |
+| current-prefix-addScaledAssign | 0.009 | 0.112 | 13.162 | 29.414 | 113.229 |
+| candidate2-prefix-offset-addScaled | 0.009 | 0.099 | 10.489 | 22.430 | 89.190 |
+| current-linearCombinationBuffer | 0.053 | 1.331 | 158.208 | 320.907 | 1322.379 |
+| candidate1-flat-same-shape-linearCombination | 0.038 | 1.206 | 129.570 | 260.689 | 1064.524 |
+| candidate5-first-term-linearCombination | 0.026 | 1.024 | 110.451 | 221.727 | 930.752 |
+| current-mixed-prefix-linearCombination | 0.035 | 0.956 | 119.600 | 238.404 | 993.944 |
+| candidate6-shape-aware-linearCombination | 0.164 | 0.903 | 94.431 | 191.382 | 797.680 |
+
+Interpretation:
+
+- Candidate 2 is positive: prefix row-offset accumulation is about 1.27x faster than current prefix accumulation at `4096x256`.
+- Candidate 3 is positive for subtraction: direct `field.sub(...)` avoids the `neg + add` path and is about 2.95x faster than current subtraction at `4096x256`. Direct add is similar to Candidate 1 and does not materially improve over it.
+- Candidate 4 is rejected: the temporary scaled-source buffer is slower than the current path at prover-scale shapes.
+- Candidate 5 is positive: first-term accumulator construction is about 1.42x faster than current same-shape `linearCombinationBuffer` at `4096x256`.
+- Candidate 6 is positive for mixed full-shape plus prefix terms: shape-aware dispatch is about 1.25x faster than the current mixed-prefix linear combination at `4096x256`.
+
+Production direction:
+
+- Prefer a single production rewrite that combines Candidate 2, Candidate 3 subtraction, Candidate 5, and Candidate 6 under one shape-aware linear-combination implementation.
+- Do not promote Candidate 4.
+- Do not add a custom worker/WASM kernel for this path unless integrated prover timing shows the JavaScript flat-buffer rewrite is insufficient.
+
 ## Accepted Axis-Specific Multiplication
 
 Strict prover timing showed the dominant non-MSM cost had moved to polynomial multiplication and combination, especially copy-quotient and opening numerator construction. Several hot multiplications have one operand that is X-only or Y-only, but the previous buffer multiplication path still forced a full 2D NTT product.
