@@ -75,3 +75,26 @@ browser worker message size and peak memory pressure. The measured local machine
 can complete 524,288-point chunks, but 262,144 points is the best local
 time/memory point in this RSS-instrumented rerun. This does not prove either
 setting is safe across target browsers and user hardware.
+
+## Reboot Peak RSS Rerun
+
+After a system reboot, peak process RSS was measured again for the active
+benchmark target range. Runtime duration was not used as a decision signal in
+this rerun; each row only required browser proof generation and browser verifier
+acceptance.
+
+| chunk points | value | peak total RSS | peak single RSS | verifier result |
+| ---: | ---: | ---: | ---: | --- |
+| 16,384 | `1 << 14` | 17.68 GiB | 17.48 GiB | passed |
+| 32,768 | `1 << 15` | 17.89 GiB | 17.69 GiB | passed |
+| 65,536 | `1 << 16` | 18.14 GiB | 17.94 GiB | passed |
+| 131,072 | `1 << 17` | 18.28 GiB | 18.09 GiB | passed |
+| 262,144 | `1 << 18` | 18.06 GiB | 17.86 GiB | passed |
+| 524,288 | `1 << 19` | 20.29 GiB | 20.10 GiB | passed |
+
+The reboot rerun confirms that the prover has a large baseline browser-process
+RSS footprint even at 16,384 points, and that 524,288 points still has a clear
+memory jump over the smaller active candidates. The 262,144-point row did not
+increase peak RSS over the 131,072-point row in this rerun, which should be
+treated as normal process-level RSS noise rather than proof that larger chunks
+always reduce memory.
