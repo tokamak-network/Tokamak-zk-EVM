@@ -118,6 +118,30 @@ async function checkCommitmentOps(runtime: CurveRuntime): Promise<void> {
       ),
     "insufficient CRS bounds",
   );
+
+  await checkLargeDenseChunkedCommitment(runtime);
+}
+
+async function checkLargeDenseChunkedCommitment(runtime: CurveRuntime): Promise<void> {
+  const setup = {
+    n: 128,
+    s_max: 64,
+    l: 0,
+    l_D: 128,
+  } as ProverSetupParams;
+  const referenceStringYSize = setup.s_max * 2;
+  const referenceStringXSize = Math.max(setup.n * 2, (setup.l_D - setup.l) * 2);
+  const xSize = 256;
+  const ySize = referenceStringYSize;
+  const crs = buildSyntheticCrs(runtime, referenceStringXSize * referenceStringYSize);
+  const coefficients = Array.from({ length: xSize * ySize }, (_, index) =>
+    runtime.Fr.fromBigInt(BigInt((index % 251) + 1)),
+  );
+  const polynomial = BivariatePolynomialBuffer.fromCoeffs(runtime.Fr, coefficients, xSize, ySize);
+
+  const actual = await encodePolynomialBufferWithSigma1(runtime, crs, setup, polynomial);
+  const compact = await encodeCompactRectangleWithSigma1(runtime, crs, setup, polynomial);
+  assertG1Equal(runtime, actual, compact, "large dense chunked commitment");
 }
 
 async function encodeCompactRectangleWithSigma1(
@@ -154,9 +178,12 @@ async function encodeCompactRectangleWithSigma1(
 }
 
 function buildSyntheticCrs(runtime: CurveRuntime, count: number): ProverCrsRuntime {
-  const xyPowers = Array.from({ length: count }, (_, index) =>
-    runtime.G1.toAffine(runtime.G1.mulAffineScalar(runtime.G1.generator, runtime.Fr.fromBigInt(BigInt(index + 1)))),
-  );
+  const xyPowers: Uint8Array[] = [];
+  let point = runtime.G1.generator;
+  for (let index = 0; index < count; index += 1) {
+    xyPowers.push(runtime.G1.toAffine(point));
+    point = runtime.G1.add(point, runtime.G1.generator);
+  }
 
   return {
     sigma1: {

@@ -20,6 +20,10 @@ import {
 import type { ProverMixer } from "./state.js";
 import type { ProverState } from "./state.js";
 
+const G1_AFFINE_BYTES = 96;
+const SIGMA1_DENSE_MSM_CHUNK_POINTS = 1 << 14;
+const SIGMA1_DENSE_MSM_MIN_DENSITY = 0.75;
+
 export interface InitialRelationCommitments {
   readonly U: Uint8Array;
   readonly V: Uint8Array;
@@ -210,22 +214,56 @@ export async function encodePolynomialBufferWithSigma1(
     throw new Error("Insufficient prover CRS sigma1.xy-powers length for polynomial encoding.");
   }
 
-  let nonzeroCount = 0;
+  const nonzeroCount = countNonzeroCoefficients(runtime, polynomial, xSize, ySize);
+  if (nonzeroCount === 0) {
+    return runtime.G1.zero;
+  }
+
+  const densePointCount = xSize * ySize;
+  if (shouldUseChunkedDenseSigma1Msm(densePointCount, nonzeroCount)) {
+    return encodeSigma1DenseChunks(runtime, crs, referenceStringYSize, polynomial, xSize, ySize);
+  }
+
+  return encodeSigma1Sparse(runtime, crs, referenceStringYSize, polynomial, xSize, ySize, nonzeroCount);
+}
+
+function countNonzeroCoefficients(
+  runtime: CurveRuntime,
+  polynomial: BivariatePolynomialBuffer,
+  xSize: number,
+  ySize: number,
+): number {
+  let count = 0;
   for (let x = 0; x < xSize; x += 1) {
     for (let y = 0; y < ySize; y += 1) {
       const scalar = polynomial.getCoeff(x, y);
       if (runtime.Fr.isZero(scalar)) {
         continue;
       }
-      nonzeroCount += 1;
+      count += 1;
     }
   }
 
-  if (nonzeroCount === 0) {
-    return runtime.G1.zero;
-  }
+  return count;
+}
 
-  const bases = new Uint8Array(nonzeroCount * 96);
+function shouldUseChunkedDenseSigma1Msm(densePointCount: number, nonzeroCount: number): boolean {
+  return (
+    densePointCount > SIGMA1_DENSE_MSM_CHUNK_POINTS &&
+    nonzeroCount / densePointCount >= SIGMA1_DENSE_MSM_MIN_DENSITY
+  );
+}
+
+async function encodeSigma1Sparse(
+  runtime: CurveRuntime,
+  crs: ProverCrsRuntime,
+  referenceStringYSize: number,
+  polynomial: BivariatePolynomialBuffer,
+  xSize: number,
+  ySize: number,
+  nonzeroCount: number,
+): Promise<Uint8Array> {
+  const bases = new Uint8Array(nonzeroCount * G1_AFFINE_BYTES);
   const scalars = new Uint8Array(nonzeroCount * runtime.Fr.byteLength);
   let outputIndex = 0;
   for (let x = 0; x < xSize; x += 1) {
@@ -239,13 +277,86 @@ export async function encodePolynomialBufferWithSigma1(
         throw new Error("Prover CRS sigma1.xy-powers section is shorter than the declared setup shape.");
       }
 
-      bases.set(base, outputIndex * 96);
+      bases.set(base, outputIndex * G1_AFFINE_BYTES);
       scalars.set(runtime.Fr.toRawLittleEndian(scalar), outputIndex * runtime.Fr.byteLength);
       outputIndex += 1;
     }
   }
 
   return runtime.G1.msmAffineRaw(bases, scalars);
+}
+
+async function encodeSigma1DenseChunks(
+  runtime: CurveRuntime,
+  crs: ProverCrsRuntime,
+  referenceStringYSize: number,
+  polynomial: BivariatePolynomialBuffer,
+  xSize: number,
+  ySize: number,
+): Promise<Uint8Array> {
+  let result = runtime.G1.zero;
+  const rowsPerChunk = Math.max(1, Math.floor(SIGMA1_DENSE_MSM_CHUNK_POINTS / ySize));
+
+  for (let xStart = 0; xStart < xSize; xStart += rowsPerChunk) {
+    const rowCount = Math.min(rowsPerChunk, xSize - xStart);
+    const bases = prepareSigma1BaseChunk(crs, referenceStringYSize, xStart, rowCount, ySize);
+    const montgomeryScalars = prepareSigma1ScalarChunk(runtime, polynomial, xStart, rowCount, ySize);
+    const rawScalars = await runtime.Fr.batchFromMontgomeryBuffer(montgomeryScalars);
+    const partial = await runtime.G1.msmAffineRaw(bases, rawScalars);
+    result = runtime.G1.add(result, partial);
+  }
+
+  return result;
+}
+
+function prepareSigma1BaseChunk(
+  crs: ProverCrsRuntime,
+  referenceStringYSize: number,
+  xStart: number,
+  rowCount: number,
+  ySize: number,
+): Uint8Array {
+  if (ySize === referenceStringYSize) {
+    const start = xStart * referenceStringYSize * G1_AFFINE_BYTES;
+    const end = (xStart + rowCount) * referenceStringYSize * G1_AFFINE_BYTES;
+    if (end > crs.sigma1.xyPowersRaw.byteLength) {
+      throw new Error("Prover CRS raw sigma1.xy-powers section is shorter than the declared setup shape.");
+    }
+    return crs.sigma1.xyPowersRaw.subarray(start, end);
+  }
+
+  const output = new Uint8Array(rowCount * ySize * G1_AFFINE_BYTES);
+  for (let row = 0; row < rowCount; row += 1) {
+    const sourceStart = (xStart + row) * referenceStringYSize * G1_AFFINE_BYTES;
+    const sourceEnd = sourceStart + ySize * G1_AFFINE_BYTES;
+    if (sourceEnd > crs.sigma1.xyPowersRaw.byteLength) {
+      throw new Error("Prover CRS raw sigma1.xy-powers section is shorter than the declared setup shape.");
+    }
+    output.set(crs.sigma1.xyPowersRaw.subarray(sourceStart, sourceEnd), row * ySize * G1_AFFINE_BYTES);
+  }
+  return output;
+}
+
+function prepareSigma1ScalarChunk(
+  runtime: CurveRuntime,
+  polynomial: BivariatePolynomialBuffer,
+  xStart: number,
+  rowCount: number,
+  ySize: number,
+): Uint8Array {
+  if (ySize === polynomial.ySize) {
+    const start = xStart * polynomial.ySize * runtime.Fr.byteLength;
+    const end = (xStart + rowCount) * polynomial.ySize * runtime.Fr.byteLength;
+    return polynomial.coefficients.subarray(start, end);
+  }
+
+  const output = new Uint8Array(rowCount * ySize * runtime.Fr.byteLength);
+  for (let row = 0; row < rowCount; row += 1) {
+    const sourceStart = ((xStart + row) * polynomial.ySize) * runtime.Fr.byteLength;
+    const sourceEnd = sourceStart + ySize * runtime.Fr.byteLength;
+    output.set(polynomial.coefficients.subarray(sourceStart, sourceEnd), row * ySize * runtime.Fr.byteLength);
+  }
+  return output;
 }
 
 export async function encodeOPubFree(
