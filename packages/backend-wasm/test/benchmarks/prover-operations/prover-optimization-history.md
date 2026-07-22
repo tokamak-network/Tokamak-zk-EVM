@@ -44,6 +44,7 @@ Result:
 - Proof generation completed.
 - Generated proof verification completed.
 - Timing invariant failures: `0`.
+- Current measurement commit range: before `3c7da223`, after current branch with the linear accumulation optimization and fixed timing taxonomy.
 
 ## Lowest Operation Layer
 
@@ -51,35 +52,60 @@ These are the only lowest-level operation buckets in the current report.
 
 | operation | total | count |
 | --- | ---: | ---: |
-| polynomial.add | 42.10 s | 79 |
-| polynomial.sub | 13.08 s | 16 |
-| polynomial.mul | 111.37 s | 29 |
-| polynomial.div_ruffini | 12.18 s | 5 |
-| polynomial.div_vanishing | 5.88 s | 2 |
-| polynomial.scale | 7.83 s | 23 |
-| polynomial.encode | 112.80 s | 17 |
+| polynomial.add | 6.28 s | 17 |
+| polynomial.sub | 11.25 s | 20 |
+| polynomial.mul | 130.55 s | 23 |
+| polynomial.div_ruffini | 10.08 s | 5 |
+| polynomial.div_vanishing | 5.64 s | 2 |
+| polynomial.scale | 38.33 s | 79 |
+| polynomial.encode | 114.74 s | 18 |
 
 ## Middle Operation Layer
 
 | operation | definition | total | count |
 | --- | --- | ---: | ---: |
-| polynomial.combine | polynomial.add + polynomial.sub + polynomial.mul + polynomial.scale | 174.38 s | 147 |
-| polynomial.division | polynomial.div_ruffini + polynomial.div_vanishing | 18.07 s | 7 |
-| polynomial.encode | polynomial.encode | 112.80 s | 17 |
+| polynomial.combine | polynomial.add + polynomial.sub + polynomial.mul + polynomial.scale | 186.41 s | 139 |
+| polynomial.division | polynomial.div_ruffini + polynomial.div_vanishing | 15.72 s | 7 |
+| polynomial.encode | polynomial.encode | 114.74 s | 18 |
 
 ## Top Operation Layer
 
 | operation | definition | total | count |
 | --- | --- | ---: | ---: |
-| field.operations | polynomial.combine + polynomial.division | 192.44 s | 154 |
-| polynomial.encode | polynomial.encode | 112.80 s | 17 |
+| field.operations | polynomial.combine + polynomial.division | 202.13 s | 146 |
+| polynomial.encode | polynomial.encode | 114.74 s | 18 |
+
+## Linear Accumulation Optimization Delta
+
+Both sides were measured with the same fixed operation taxonomy runner. The pre-optimization run used commit `3c7da223`; the post-optimization run used the current branch.
+
+| lowest operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| polynomial.add | 7.63 s | 6.28 s | -1.35 s |
+| polynomial.sub | 15.99 s | 11.25 s | -4.74 s |
+| polynomial.mul | 134.86 s | 130.55 s | -4.31 s |
+| polynomial.div_ruffini | 10.81 s | 10.08 s | -0.73 s |
+| polynomial.div_vanishing | 5.92 s | 5.64 s | -0.27 s |
+| polynomial.scale | 41.44 s | 38.33 s | -3.11 s |
+| polynomial.encode | 119.50 s | 114.74 s | -4.76 s |
+
+| middle operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| polynomial.combine | 199.92 s | 186.41 s | -13.51 s |
+| polynomial.division | 16.72 s | 15.72 s | -1.00 s |
+| polynomial.encode | 119.50 s | 114.74 s | -4.76 s |
+
+| top operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| field.operations | 216.64 s | 202.13 s | -14.51 s |
+| polynomial.encode | 119.50 s | 114.74 s | -4.76 s |
 
 ## Execution Boundary Summary
 
 | row | total |
 | --- | ---: |
-| prover stage total | 348.96 s |
-| total wall | 368.34 s |
+| prover stage total | 343.17 s |
+| total wall | 361.86 s |
 
 ## Optimization Reporting Rule
 
