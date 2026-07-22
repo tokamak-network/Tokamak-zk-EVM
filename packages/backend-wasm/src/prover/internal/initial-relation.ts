@@ -21,7 +21,7 @@ import type { ProverMixer } from "./state.js";
 import type { ProverState } from "./state.js";
 
 const G1_AFFINE_BYTES = 96;
-const SIGMA1_DENSE_MSM_CHUNK_POINTS = 1 << 14;
+const SIGMA1_DENSE_MSM_CHUNK_POINTS = 1 << 18;
 const SIGMA1_DENSE_MSM_MIN_DENSITY = 0.75;
 
 export interface InitialRelationCommitments {
