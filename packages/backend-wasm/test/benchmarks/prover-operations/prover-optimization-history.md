@@ -403,8 +403,53 @@ Interpretation:
 - It is not a corrected before/after table. The old reporter did not store parent-child event relationships, exclusive self time, or a strict separation between wall-clock root spans and nested diagnostics.
 - `stage total` and `poly total` remain directionally useful because they came from outer stage spans, but they cannot be mixed with the corrected reporter output below.
 - `poly_detail`, `poly.combine`, and `poly.linear/add` are legacy nested diagnostic totals. They show hot-operation direction only and are not exclusive wall-clock savings.
-- A corrected before/after table for this optimization does not exist in the recorded artifacts. Producing one would require rerunning the pre-optimization commit with the corrected reporter and the same fixture/runtime environment.
 - Direct snarkjs inspection found no additional add/sub/scaling technique to import beyond the buffer, in-place, scalar-fused, and accumulator-reuse patterns already applied here.
+
+Corrected integrated timing rerun:
+
+- Before source state: production files from `cddceefe^`, with the corrected timing reporter kept from `eefecf20`.
+- After source state: current `package/backend-wasm` source after `cddceefe`, measured with the same corrected timing reporter.
+- Before output: `tmp/timing/prover-stage-timing-before-linear-optimization-corrected.json`, generated at `2026-07-22T18:05:25.330Z`.
+- After output: `tmp/timing/prover-stage-timing-after-corrected.json`, generated at `2026-07-22T17:43:37.838Z`.
+
+Corrected wall-clock root spans:
+
+| root span | before | after | delta | change |
+| --- | ---: | ---: | ---: | ---: |
+| total root wall-clock | 380.47 s | 368.95 s | -11.52 s | -3.0% |
+| prove2 | 155.37 s | 156.35 s | +984 ms | +0.6% |
+| prove4 | 106.18 s | 95.13 s | -11.05 s | -10.4% |
+| prove0 | 68.10 s | 66.62 s | -1.48 s | -2.2% |
+| prove1 | 22.85 s | 23.03 s | +184 ms | +0.8% |
+| build witness polynomials | 11.34 s | 11.40 s | +58 ms | +0.5% |
+| prove3 | 8.43 s | 8.21 s | -227 ms | -2.7% |
+| create prover state | 5.11 s | 5.17 s | +57 ms | +1.1% |
+| build prover binding | 1.97 s | 2.04 s | +64 ms | +3.3% |
+| load prover runtime bundles | 1.09 s | 980 ms | -108 ms | -9.9% |
+
+Corrected exclusive self totals:
+
+| category | before | after | delta | change |
+| --- | ---: | ---: | ---: | ---: |
+| poly_detail | 196.88 s | 177.02 s | -19.85 s | -10.1% |
+| encode | 112.53 s | 113.46 s | +923 ms | +0.8% |
+| stage | 33.55 s | 33.57 s | +15 ms | +0.0% |
+| poly | 19.94 s | 27.33 s | +7.39 s | +37.1% |
+| init | 16.45 s | 16.57 s | +115 ms | +0.7% |
+| io | 1.09 s | 980 ms | -108 ms | -9.9% |
+
+Corrected nested diagnostic totals:
+
+| category | before | after | delta | change |
+| --- | ---: | ---: | ---: | ---: |
+| poly_detail | 288.18 s | 265.11 s | -23.07 s | -8.0% |
+
+Corrected interpretation:
+
+- The corrected end-to-end improvement for this optimization is `-11.52 s` in total root wall-clock time.
+- Most of the root-span improvement appears in `prove4`, which changed by `-11.05 s`.
+- The main exclusive self improvement is `poly_detail`, which changed by `-19.85 s`.
+- The `poly` exclusive category increased by `+7.39 s`, so the optimization did not uniformly reduce every polynomial-labelled span. The net wall-clock result is still positive because the reduced nested detail work outweighed those increases.
 
 ## Current Corrected Timing Baseline
 
