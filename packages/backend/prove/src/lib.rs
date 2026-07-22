@@ -3,7 +3,7 @@ use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
 use icicle_core::ntt;
 use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
 use icicle_runtime::memory::HostSlice;
-use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
+use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt, PolyExpr};
 use libs::field_structures::FieldSerde;
 use libs::group_structures::G1serde;
 use libs::iotools::*;
@@ -1735,20 +1735,32 @@ impl Prover {
                 dims: vec![m_i, s_max]
             },],
             {
-                // Original expression computed `self.witness.rXY * gXY` separately in p2XY and p3XY.
-                let r_gXY = &self.witness.rXY * &gXY;
-                let p1XY = &(&self.witness.rXY - &ScalarField::one()) * &(lagrange_KL_XY);
-                // Original expression:
-                // p2XY = (X - 1) * (r_gXY - r_omegaX * fXY).
-                let p2_input = &r_gXY - &(&r_omegaX * &fXY);
-                let p2XY = mul_by_x_minus_one(&p2_input);
-                let p3XY = &lagrange_K0_XY * &(&r_gXY - &(&r_omegaX_omegaY * &fXY));
+                let r_gXY = PolyExpr::mul(PolyExpr::poly(&self.witness.rXY), PolyExpr::poly(&gXY));
+                let p1XY = PolyExpr::mul(
+                    PolyExpr::sub(
+                        PolyExpr::poly(&self.witness.rXY),
+                        PolyExpr::scalar(ScalarField::one()),
+                    ),
+                    PolyExpr::poly(&lagrange_KL_XY),
+                );
+                let p2XY = PolyExpr::mul_x_minus_one(PolyExpr::sub(
+                    r_gXY.clone(),
+                    PolyExpr::mul(PolyExpr::poly(&r_omegaX), PolyExpr::poly(&fXY)),
+                ));
+                let p3XY = PolyExpr::mul(
+                    PolyExpr::poly(&lagrange_K0_XY),
+                    PolyExpr::sub(
+                        r_gXY,
+                        PolyExpr::mul(PolyExpr::poly(&r_omegaX_omegaY), PolyExpr::poly(&fXY)),
+                    ),
+                );
 
-                poly_comb!(
+                PolyExpr::weighted_sum(vec![
                     (ScalarField::one(), p1XY),
                     (kappa0, p2XY),
-                    (kappa0_sq, p3XY)
-                )
+                    (kappa0_sq, p3XY),
+                ])
+                .evaluate_fused_with_domain(4 * m_i, 2 * s_max)
             }
         );
         (self.quotients.q2XY, self.quotients.q3XY) = crate::time_block!(

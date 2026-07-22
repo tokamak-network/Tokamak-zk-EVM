@@ -56,6 +56,7 @@ mod tests {
     use super::*;
     use crate::bivariate_polynomial::{
         init_ntt_domain_for_size, BivariatePolynomial, DensePolynomialExt, DivByVanishingCache,
+        PolyExpr,
     };
     use crate::utils::check_device;
     // Helper function: Create a simple 2D polynomial
@@ -1228,6 +1229,45 @@ mod tests {
         let a = ScalarCfg::generate_random(1)[0];
         let b = ScalarCfg::generate_random(1)[0];
         assert!(p.eval(&a, &b).eq(&p_reconstruct.eval(&a, &b)));
+    }
+
+    #[test]
+    fn test_poly_expr_fused_matches_coefficients() {
+        init_bi_ntt_domain(4, 4);
+        let make_poly = || {
+            let coeffs = ScalarCfg::generate_random(4);
+            DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs), 2, 2)
+        };
+        let a = make_poly();
+        let b = make_poly();
+        let c = make_poly();
+        let d = make_poly();
+        let e = make_poly();
+
+        let expr = PolyExpr::weighted_sum(vec![
+            (
+                ScalarField::from_u32(7),
+                PolyExpr::mul_x_minus_one(PolyExpr::sub(
+                    PolyExpr::mul(PolyExpr::poly(&a), PolyExpr::poly(&b)),
+                    PolyExpr::mul(PolyExpr::poly(&c), PolyExpr::poly(&d)),
+                )),
+            ),
+            (
+                ScalarField::from_u32(11),
+                PolyExpr::mul(
+                    PolyExpr::sub(PolyExpr::poly(&a), PolyExpr::scalar(ScalarField::one())),
+                    PolyExpr::poly(&e),
+                ),
+            ),
+        ]);
+
+        let coeff_result = expr.evaluate_coeffs();
+        let fused_result = expr.evaluate_fused();
+        for _ in 0..8 {
+            let x = ScalarCfg::generate_random(1)[0];
+            let y = ScalarCfg::generate_random(1)[0];
+            assert_eq!(coeff_result.eval(&x, &y), fused_result.eval(&x, &y));
+        }
     }
 
     #[test]

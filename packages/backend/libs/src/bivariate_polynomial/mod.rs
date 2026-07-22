@@ -11,6 +11,7 @@ use rayon::prelude::*;
 use std::time::Instant;
 use std::{
     cmp,
+    collections::HashMap,
     ops::{Add, AddAssign, Mul, Neg, Sub},
     sync::{Mutex, OnceLock},
 };
@@ -122,6 +123,288 @@ impl DensePolynomialExt {
         let (x_degree, y_degree) = self.find_degree();
         x_degree == -1 && y_degree == -1
     }
+}
+
+#[derive(Clone)]
+pub enum PolyExpr<'a> {
+    Poly(&'a DensePolynomialExt),
+    Scalar(ScalarField),
+    Add(Box<PolyExpr<'a>>, Box<PolyExpr<'a>>),
+    Sub(Box<PolyExpr<'a>>, Box<PolyExpr<'a>>),
+    Mul(Box<PolyExpr<'a>>, Box<PolyExpr<'a>>),
+    Scale(ScalarField, Box<PolyExpr<'a>>),
+    MulXMinusOne(Box<PolyExpr<'a>>),
+    Sum(Vec<PolyExpr<'a>>),
+}
+
+impl<'a> PolyExpr<'a> {
+    pub fn poly(poly: &'a DensePolynomialExt) -> Self {
+        Self::Poly(poly)
+    }
+
+    pub fn scalar(scalar: ScalarField) -> Self {
+        Self::Scalar(scalar)
+    }
+
+    pub fn add(lhs: Self, rhs: Self) -> Self {
+        Self::Add(Box::new(lhs), Box::new(rhs))
+    }
+
+    pub fn sub(lhs: Self, rhs: Self) -> Self {
+        Self::Sub(Box::new(lhs), Box::new(rhs))
+    }
+
+    pub fn mul(lhs: Self, rhs: Self) -> Self {
+        Self::Mul(Box::new(lhs), Box::new(rhs))
+    }
+
+    pub fn scale(scalar: ScalarField, expr: Self) -> Self {
+        Self::Scale(scalar, Box::new(expr))
+    }
+
+    pub fn mul_x_minus_one(expr: Self) -> Self {
+        Self::MulXMinusOne(Box::new(expr))
+    }
+
+    pub fn weighted_sum(terms: Vec<(ScalarField, Self)>) -> Self {
+        Self::Sum(
+            terms
+                .into_iter()
+                .map(|(scalar, expr)| Self::scale(scalar, expr))
+                .collect(),
+        )
+    }
+
+    pub fn evaluate_coeffs(&self) -> DensePolynomialExt {
+        match self {
+            Self::Poly(poly) => (*poly).clone(),
+            Self::Scalar(scalar) => {
+                let coeffs = [*scalar];
+                DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs), 1, 1)
+            }
+            Self::Add(lhs, rhs) => &lhs.evaluate_coeffs() + &rhs.evaluate_coeffs(),
+            Self::Sub(lhs, rhs) => &lhs.evaluate_coeffs() - &rhs.evaluate_coeffs(),
+            Self::Mul(lhs, rhs) => &lhs.evaluate_coeffs() * &rhs.evaluate_coeffs(),
+            Self::Scale(scalar, expr) => &expr.evaluate_coeffs() * scalar,
+            Self::MulXMinusOne(expr) => {
+                let poly = expr.evaluate_coeffs();
+                let shifted = poly.mul_monomial(1, 0);
+                &shifted - &poly
+            }
+            Self::Sum(terms) => {
+                let mut iter = terms.iter();
+                let Some(first) = iter.next() else {
+                    return DensePolynomialExt::zero();
+                };
+                let mut acc = first.evaluate_coeffs();
+                for term in iter {
+                    acc += &term.evaluate_coeffs();
+                }
+                acc
+            }
+        }
+    }
+
+    pub fn evaluate_fused(&self) -> DensePolynomialExt {
+        let (x_degree, y_degree) = self.degree_bound();
+        let x_size = domain_size_for_degree(x_degree);
+        let y_size = domain_size_for_degree(y_degree);
+        self.evaluate_fused_with_domain(x_size, y_size)
+    }
+
+    pub fn evaluate_fused_with_domain(
+        &self,
+        target_x_size: usize,
+        target_y_size: usize,
+    ) -> DensePolynomialExt {
+        if !target_x_size.is_power_of_two() || !target_y_size.is_power_of_two() {
+            panic!("Fused polynomial expression domains must be powers of two.");
+        }
+        let (x_degree, y_degree) = self.degree_bound();
+        if domain_size_for_degree(x_degree) > target_x_size
+            || domain_size_for_degree(y_degree) > target_y_size
+        {
+            panic!("Fused polynomial expression domain is too small for the expression degree.");
+        }
+        let mut leaf_cache = HashMap::new();
+        let evals = self.evaluate_on_domain(target_x_size, target_y_size, &mut leaf_cache);
+        DensePolynomialExt::from_rou_evals(&evals, target_x_size, target_y_size, None, None)
+    }
+
+    fn degree_bound(&self) -> (i64, i64) {
+        match self {
+            Self::Poly(poly) => poly.find_degree(),
+            Self::Scalar(scalar) => {
+                if *scalar == ScalarField::zero() {
+                    (-1, -1)
+                } else {
+                    (0, 0)
+                }
+            }
+            Self::Add(lhs, rhs) | Self::Sub(lhs, rhs) => {
+                let lhs_degree = lhs.degree_bound();
+                let rhs_degree = rhs.degree_bound();
+                (
+                    cmp::max(lhs_degree.0, rhs_degree.0),
+                    cmp::max(lhs_degree.1, rhs_degree.1),
+                )
+            }
+            Self::Mul(lhs, rhs) => {
+                let lhs_degree = lhs.degree_bound();
+                let rhs_degree = rhs.degree_bound();
+                if lhs_degree.0 < 0 || lhs_degree.1 < 0 || rhs_degree.0 < 0 || rhs_degree.1 < 0 {
+                    (-1, -1)
+                } else {
+                    (lhs_degree.0 + rhs_degree.0, lhs_degree.1 + rhs_degree.1)
+                }
+            }
+            Self::Scale(scalar, expr) => {
+                if *scalar == ScalarField::zero() {
+                    (-1, -1)
+                } else {
+                    expr.degree_bound()
+                }
+            }
+            Self::MulXMinusOne(expr) => {
+                let degree = expr.degree_bound();
+                if degree.0 < 0 || degree.1 < 0 {
+                    (-1, -1)
+                } else {
+                    (degree.0 + 1, degree.1)
+                }
+            }
+            Self::Sum(terms) => terms.iter().fold((-1, -1), |acc, term| {
+                let degree = term.degree_bound();
+                (cmp::max(acc.0, degree.0), cmp::max(acc.1, degree.1))
+            }),
+        }
+    }
+
+    fn evaluate_on_domain(
+        &self,
+        x_size: usize,
+        y_size: usize,
+        leaf_cache: &mut HashMap<(usize, usize, usize), DeviceVec<ScalarField>>,
+    ) -> DeviceVec<ScalarField> {
+        let size = x_size * y_size;
+        let vec_ops_cfg = VecOpsConfig::default();
+        match self {
+            Self::Poly(poly) => eval_poly_leaf(poly, x_size, y_size, leaf_cache),
+            Self::Scalar(scalar) => device_vec_from_scalar(*scalar, size),
+            Self::Add(lhs, rhs) => {
+                let lhs_evals = lhs.evaluate_on_domain(x_size, y_size, leaf_cache);
+                let rhs_evals = rhs.evaluate_on_domain(x_size, y_size, leaf_cache);
+                let mut out = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+                ScalarCfg::add(&lhs_evals, &rhs_evals, &mut out, &vec_ops_cfg).unwrap();
+                out
+            }
+            Self::Sub(lhs, rhs) => {
+                let lhs_evals = lhs.evaluate_on_domain(x_size, y_size, leaf_cache);
+                let rhs_evals = rhs.evaluate_on_domain(x_size, y_size, leaf_cache);
+                let mut out = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+                ScalarCfg::sub(&lhs_evals, &rhs_evals, &mut out, &vec_ops_cfg).unwrap();
+                out
+            }
+            Self::Mul(lhs, rhs) => {
+                let lhs_evals = lhs.evaluate_on_domain(x_size, y_size, leaf_cache);
+                let rhs_evals = rhs.evaluate_on_domain(x_size, y_size, leaf_cache);
+                let mut out = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+                ScalarCfg::mul(&lhs_evals, &rhs_evals, &mut out, &vec_ops_cfg).unwrap();
+                out
+            }
+            Self::Scale(scalar, expr) => {
+                let expr_evals = expr.evaluate_on_domain(x_size, y_size, leaf_cache);
+                if *scalar == ScalarField::one() {
+                    return expr_evals;
+                }
+                let mut out = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+                let scaler = [*scalar];
+                ScalarCfg::scalar_mul(
+                    HostSlice::from_slice(&scaler),
+                    &expr_evals,
+                    &mut out,
+                    &vec_ops_cfg,
+                )
+                .unwrap();
+                out
+            }
+            Self::MulXMinusOne(expr) => {
+                let expr_evals = expr.evaluate_on_domain(x_size, y_size, leaf_cache);
+                let x_minus_one = x_minus_one_evals(x_size, y_size);
+                let mut out = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+                ScalarCfg::mul(&expr_evals, &x_minus_one, &mut out, &vec_ops_cfg).unwrap();
+                out
+            }
+            Self::Sum(terms) => {
+                let mut out = device_vec_from_scalar(ScalarField::zero(), size);
+                for term in terms {
+                    let term_evals = term.evaluate_on_domain(x_size, y_size, leaf_cache);
+                    let mut next = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+                    ScalarCfg::add(&out, &term_evals, &mut next, &vec_ops_cfg).unwrap();
+                    out = next;
+                }
+                out
+            }
+        }
+    }
+}
+
+fn domain_size_for_degree(degree: i64) -> usize {
+    if degree < 0 {
+        1
+    } else {
+        (degree as usize + 1).next_power_of_two()
+    }
+}
+
+fn copy_device_vec(src: &DeviceVec<ScalarField>, len: usize) -> DeviceVec<ScalarField> {
+    let mut out = DeviceVec::<ScalarField>::device_malloc(len).unwrap();
+    out.copy(src).unwrap();
+    out
+}
+
+fn device_vec_from_scalar(scalar: ScalarField, len: usize) -> DeviceVec<ScalarField> {
+    let values = vec![scalar; len];
+    let mut out = DeviceVec::<ScalarField>::device_malloc(len).unwrap();
+    out.copy_from_host(HostSlice::from_slice(&values)).unwrap();
+    out
+}
+
+fn eval_poly_leaf(
+    poly: &DensePolynomialExt,
+    x_size: usize,
+    y_size: usize,
+    leaf_cache: &mut HashMap<(usize, usize, usize), DeviceVec<ScalarField>>,
+) -> DeviceVec<ScalarField> {
+    let len = x_size * y_size;
+    let key = (poly as *const DensePolynomialExt as usize, x_size, y_size);
+    if let Some(cached) = leaf_cache.get(&key) {
+        return copy_device_vec(cached, len);
+    }
+
+    let mut resized = poly.clone();
+    resized.resize(x_size, y_size);
+    let mut evals = DeviceVec::<ScalarField>::device_malloc(len).unwrap();
+    resized.to_rou_evals(None, None, &mut evals);
+    let out = copy_device_vec(&evals, len);
+    leaf_cache.insert(key, evals);
+    out
+}
+
+fn x_minus_one_evals(x_size: usize, y_size: usize) -> DeviceVec<ScalarField> {
+    let omega_x = ntt::get_root_of_unity::<ScalarField>(x_size as u64);
+    let mut values = vec![ScalarField::zero(); x_size * y_size];
+    let mut x = ScalarField::one();
+    for x_idx in 0..x_size {
+        let factor = x - ScalarField::one();
+        for y_idx in 0..y_size {
+            values[x_idx * y_size + y_idx] = factor;
+        }
+        x = x * omega_x;
+    }
+    let mut out = DeviceVec::<ScalarField>::device_malloc(values.len()).unwrap();
+    out.copy_from_host(HostSlice::from_slice(&values)).unwrap();
+    out
 }
 
 impl Clone for DensePolynomialExt {
