@@ -4,6 +4,8 @@ Audience: backend-wasm developers selecting measured prover hot-path optimizatio
 
 This benchmark is diagnostics-only. It is not imported by `src/`, is not part of package distribution, and writes structured reports under ignored `tmp/timing/`.
 
+For chronological full-prover optimization history, related commits, and before/after timing tables, see `prover-optimization-history.md`.
+
 The matrix covers the optimization candidate groups currently required by `tmp/planning.md`:
 
 - `2d-ntt`: current 2D ROU conversion, direct `biNttBuffer`, transpose-scheduled row/column NTT, and transpose overhead for future contiguous row/column candidates.
