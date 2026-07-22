@@ -66,6 +66,8 @@ interface TimingEvent {
 interface TimingReport {
   readonly generatedAt: string;
   readonly totalWallMs: number;
+  readonly classifiedOperationMs: number;
+  readonly unclassifiedProverMs: number;
   readonly summary: Record<string, ModuleTimingSummary>;
   readonly events: readonly TimingEvent[];
   readonly categoryTotals: readonly TimingTotal[];
@@ -113,6 +115,8 @@ const lowestOperationOrder = [
 const middleOperationOrder = ["polynomial.combine", "polynomial.division", "polynomial.encode"] as const;
 const topOperationOrder = ["field.operations", "polynomial.encode"] as const;
 type LowestOperation = (typeof lowestOperationOrder)[number];
+const unclassifiedProverCategory = "unclassified.prover";
+const timingToleranceMs = 1;
 
 interface ActiveTimingSpan {
   readonly name: string;
@@ -237,7 +241,7 @@ function polynomialScaleX(
   polynomial: BivariatePolynomialBuffer,
   scalar: FieldElement,
 ): BivariatePolynomialBuffer {
-  return polynomialOperationSync("polynomial.scale", label, () => polynomial.scaleCoeffsX(scalar), [
+  return unclassifiedProverOperationSync(label, () => polynomial.scaleCoeffsX(scalar), [
     shapeSize("polynomial", polynomial.xSize, polynomial.ySize),
   ]);
 }
@@ -247,7 +251,7 @@ function polynomialScaleY(
   polynomial: BivariatePolynomialBuffer,
   scalar: FieldElement,
 ): BivariatePolynomialBuffer {
-  return polynomialOperationSync("polynomial.scale", label, () => polynomial.scaleCoeffsY(scalar), [
+  return unclassifiedProverOperationSync(label, () => polynomial.scaleCoeffsY(scalar), [
     shapeSize("polynomial", polynomial.xSize, polynomial.ySize),
   ]);
 }
@@ -310,6 +314,14 @@ function polynomialDivRuffiniSync(
   ]);
 }
 
+function unclassifiedProverOperationSync<T>(
+  label: string,
+  callback: () => T,
+  sizes: readonly SizeInfo[] = [],
+): T {
+  return timing.spanSync(label, unclassifiedProverCategory, callback, sizes);
+}
+
 function polynomialLinearCombination(
   label: string,
   field: CurveRuntime["Fr"],
@@ -342,15 +354,39 @@ function polynomialLinearCombination(
       continue;
     }
 
-    const operation = field.eq(scalar, field.one)
-      ? "polynomial.add"
-      : field.eq(scalar, field.neg(field.one))
-        ? "polynomial.sub"
-        : "polynomial.scale";
-    polynomialOperationSync(operation, `${label}.term${index}`, () => accumulator.addScaledPrefixAssign(polynomial, scalar), [
-      shapeSize("accumulator", accumulator.xSize, accumulator.ySize),
-      shapeSize("term", polynomial.xSize, polynomial.ySize),
-    ]);
+    if (field.eq(scalar, field.one)) {
+      polynomialOperationSync("polynomial.add", `${label}.term${index}.add`, () =>
+        accumulator.addScaledPrefixAssign(polynomial, scalar),
+        [
+          shapeSize("accumulator", accumulator.xSize, accumulator.ySize),
+          shapeSize("term", polynomial.xSize, polynomial.ySize),
+        ],
+      );
+    } else if (field.eq(scalar, field.neg(field.one))) {
+      polynomialOperationSync("polynomial.sub", `${label}.term${index}.sub`, () =>
+        accumulator.addScaledPrefixAssign(polynomial, scalar),
+        [
+          shapeSize("accumulator", accumulator.xSize, accumulator.ySize),
+          shapeSize("term", polynomial.xSize, polynomial.ySize),
+        ],
+      );
+    } else {
+      const scaledTerm = scaleTermIntoShapeForTiming(
+        `${label}.term${index}.scale`,
+        field,
+        polynomial,
+        scalar,
+        accumulator.xSize,
+        accumulator.ySize,
+      );
+      polynomialOperationSync("polynomial.add", `${label}.term${index}.add_scaled`, () =>
+        accumulator.addScaledPrefixAssign(scaledTerm, field.one),
+        [
+          shapeSize("accumulator", accumulator.xSize, accumulator.ySize),
+          shapeSize("term", scaledTerm.xSize, scaledTerm.ySize),
+        ],
+      );
+    }
   }
 
   return accumulator;
@@ -572,8 +608,16 @@ async function prove0Timed(
 ): Promise<InitialRelationComputation> {
   const field = runtime.Fr;
   const p0Product = await polynomialMul("prove0.p0XY.mul", state.witness.uXY, state.witness.vXY);
+  const p0W = unclassifiedProverOperationSync(
+    "prove0.p0XY.resize_w",
+    () => state.witness.wXY.resize(p0Product.xSize, p0Product.ySize),
+    [
+      shapeSize("source", state.witness.wXY.xSize, state.witness.wXY.ySize),
+      shapeSize("output", p0Product.xSize, p0Product.ySize),
+    ],
+  );
   const p0XY = polynomialOperationSync("polynomial.sub", "prove0.p0XY.sub_w", () => {
-    p0Product.subAssign(state.witness.wXY.resize(p0Product.xSize, p0Product.ySize));
+    p0Product.subAssign(p0W);
     return p0Product;
   }, [shapeSize("product", p0Product.xSize, p0Product.ySize)]);
   const { quotientX: q0XY, quotientY: q1XY } = await polynomialDivVanishing(
@@ -1349,11 +1393,26 @@ function buildTimingReport(events: readonly TimingEvent[]): TimingReport {
   const lowestOperationTotals = buildLowestOperationTotals(events);
   const middleOperationTotals = buildMiddleOperationTotals(lowestOperationTotals);
   const topOperationTotals = buildTopOperationTotals(middleOperationTotals);
-  const invariantChecks = buildTimingInvariantChecks(summary);
+  const totalWallMs = sumRootWallTime(events);
+  const classifiedOperationMs =
+    operationDuration(topOperationTotals, "field.operations") + operationDuration(topOperationTotals, "polynomial.encode");
+  const unclassifiedProverMs = totalWallMs - classifiedOperationMs;
+  const invariantChecks = buildTimingInvariantChecks({
+    events,
+    summary,
+    lowestOperationTotals,
+    middleOperationTotals,
+    topOperationTotals,
+    totalWallMs,
+    classifiedOperationMs,
+    unclassifiedProverMs,
+  });
 
   return {
     generatedAt: new Date().toISOString(),
-    totalWallMs: sumRootWallTime(events),
+    totalWallMs,
+    classifiedOperationMs,
+    unclassifiedProverMs,
     summary,
     events,
     categoryTotals: summarizeByCategory(events),
@@ -1383,6 +1442,8 @@ function printTimingSummary(report: TimingReport, outputPath: string): void {
   }
   console.log(`  stage total: ${formatDuration(stageMs)}`);
   console.log(`  total wall time: ${formatDuration(report.totalWallMs)}`);
+  console.log(`  classified operation time: ${formatDuration(report.classifiedOperationMs)}`);
+  console.log(`  unclassified prover time: ${formatDuration(report.unclassifiedProverMs)}`);
   console.log("Module times:");
   for (const moduleName of ["prove0", "prove1", "prove2", "prove3", "prove4"]) {
     const item = report.summary[moduleName];
@@ -1581,20 +1642,153 @@ function fixedOperationTotalsToRows<T extends string>(
   });
 }
 
-function buildTimingInvariantChecks(
-  summary: Record<string, ModuleTimingSummary>,
-): readonly TimingInvariantCheck[] {
+function buildTimingInvariantChecks(input: {
+  readonly events: readonly TimingEvent[];
+  readonly summary: Record<string, ModuleTimingSummary>;
+  readonly lowestOperationTotals: readonly OperationTimingTotal[];
+  readonly middleOperationTotals: readonly OperationTimingTotal[];
+  readonly topOperationTotals: readonly OperationTimingTotal[];
+  readonly totalWallMs: number;
+  readonly classifiedOperationMs: number;
+  readonly unclassifiedProverMs: number;
+}): readonly TimingInvariantCheck[] {
+  const {
+    events,
+    summary,
+    lowestOperationTotals,
+    middleOperationTotals,
+    topOperationTotals,
+    totalWallMs,
+    classifiedOperationMs,
+    unclassifiedProverMs,
+  } = input;
   const checks: TimingInvariantCheck[] = [];
   for (const [moduleName, item] of Object.entries(summary)) {
     checks.push({
       name: `${moduleName}.poly_plus_encode_lte_total`,
       parentMs: item.totalMs,
       childMs: item.polyMs + item.encodeMs,
-      ok: item.polyMs + item.encodeMs <= item.totalMs + 1,
+      ok: item.polyMs + item.encodeMs <= item.totalMs + timingToleranceMs,
     });
   }
 
+  const forbiddenOfficialEvents = events.filter(
+    (event) =>
+      isLowestOperation(event.category) &&
+      (event.name.includes("addScaledPrefixAssign") ||
+        event.name.includes("scaleCoeffsX") ||
+        event.name.includes("scaleCoeffsY")),
+  );
+  checks.push({
+    name: "official_events_have_no_forbidden_helper_folding",
+    parentMs: 0,
+    childMs: forbiddenOfficialEvents.length,
+    ok: forbiddenOfficialEvents.length === 0,
+  });
+
+  const directDerivedLayerEvents = events.filter(
+    (event) =>
+      !isLowestOperation(event.category) &&
+      (middleOperationOrder.includes(event.category as (typeof middleOperationOrder)[number]) ||
+        topOperationOrder.includes(event.category as (typeof topOperationOrder)[number])),
+  );
+  checks.push({
+    name: "derived_layers_are_not_direct_spans",
+    parentMs: 0,
+    childMs: directDerivedLayerEvents.length,
+    ok: directDerivedLayerEvents.length === 0,
+  });
+
+  const unexpectedOfficialEvents = events.filter(
+    (event) =>
+      event.category.startsWith("polynomial.") &&
+      !isLowestOperation(event.category) &&
+      !middleOperationOrder.includes(event.category as (typeof middleOperationOrder)[number]) &&
+      !topOperationOrder.includes(event.category as (typeof topOperationOrder)[number]),
+  );
+  checks.push({
+    name: "official_event_categories_are_fixed_lowest_layer",
+    parentMs: 0,
+    childMs: unexpectedOfficialEvents.length,
+    ok: unexpectedOfficialEvents.length === 0,
+  });
+
+  checks.push({
+    name: "middle_combine_equals_lowest_sum",
+    parentMs: operationDuration(middleOperationTotals, "polynomial.combine"),
+    childMs:
+      operationDuration(lowestOperationTotals, "polynomial.add") +
+      operationDuration(lowestOperationTotals, "polynomial.sub") +
+      operationDuration(lowestOperationTotals, "polynomial.mul") +
+      operationDuration(lowestOperationTotals, "polynomial.scale"),
+    ok: durationsEqual(
+      operationDuration(middleOperationTotals, "polynomial.combine"),
+      operationDuration(lowestOperationTotals, "polynomial.add") +
+        operationDuration(lowestOperationTotals, "polynomial.sub") +
+        operationDuration(lowestOperationTotals, "polynomial.mul") +
+        operationDuration(lowestOperationTotals, "polynomial.scale"),
+    ),
+  });
+  checks.push({
+    name: "middle_division_equals_lowest_sum",
+    parentMs: operationDuration(middleOperationTotals, "polynomial.division"),
+    childMs:
+      operationDuration(lowestOperationTotals, "polynomial.div_ruffini") +
+      operationDuration(lowestOperationTotals, "polynomial.div_vanishing"),
+    ok: durationsEqual(
+      operationDuration(middleOperationTotals, "polynomial.division"),
+      operationDuration(lowestOperationTotals, "polynomial.div_ruffini") +
+        operationDuration(lowestOperationTotals, "polynomial.div_vanishing"),
+    ),
+  });
+  checks.push({
+    name: "middle_encode_equals_lowest_encode",
+    parentMs: operationDuration(middleOperationTotals, "polynomial.encode"),
+    childMs: operationDuration(lowestOperationTotals, "polynomial.encode"),
+    ok: durationsEqual(
+      operationDuration(middleOperationTotals, "polynomial.encode"),
+      operationDuration(lowestOperationTotals, "polynomial.encode"),
+    ),
+  });
+  checks.push({
+    name: "top_field_operations_equals_middle_sum",
+    parentMs: operationDuration(topOperationTotals, "field.operations"),
+    childMs:
+      operationDuration(middleOperationTotals, "polynomial.combine") +
+      operationDuration(middleOperationTotals, "polynomial.division"),
+    ok: durationsEqual(
+      operationDuration(topOperationTotals, "field.operations"),
+      operationDuration(middleOperationTotals, "polynomial.combine") +
+        operationDuration(middleOperationTotals, "polynomial.division"),
+    ),
+  });
+  checks.push({
+    name: "top_encode_equals_middle_encode",
+    parentMs: operationDuration(topOperationTotals, "polynomial.encode"),
+    childMs: operationDuration(middleOperationTotals, "polynomial.encode"),
+    ok: durationsEqual(
+      operationDuration(topOperationTotals, "polynomial.encode"),
+      operationDuration(middleOperationTotals, "polynomial.encode"),
+    ),
+  });
+  checks.push({
+    name: "classified_operation_lte_total_wall",
+    parentMs: totalWallMs,
+    childMs: classifiedOperationMs,
+    ok: classifiedOperationMs <= totalWallMs + timingToleranceMs,
+  });
+  checks.push({
+    name: "unclassified_prover_time_non_negative",
+    parentMs: 0,
+    childMs: unclassifiedProverMs,
+    ok: unclassifiedProverMs >= -timingToleranceMs,
+  });
+
   return checks;
+}
+
+function durationsEqual(left: number, right: number): boolean {
+  return Math.abs(left - right) <= timingToleranceMs;
 }
 
 function buildMarkdownTimingReport(report: TimingReport): string {
@@ -1607,7 +1801,11 @@ function buildMarkdownTimingReport(report: TimingReport): string {
   lines.push("");
   lines.push("- Timing is recorded as flat accumulated events, matching the native prover timing report model.");
   lines.push("- The reported operation taxonomy is fixed. Implementation method names are raw diagnostic event names only and are not reported as operation buckets.");
+  lines.push("- Rows inside each reported layer are mutually exclusive.");
   lines.push("- The lowest layer is limited to seven polynomial operations: add, subtract, multiply, Ruffini division, vanishing division, scale, and encode.");
+  lines.push("- `polynomial.scale` means polynomial scalar multiplication only.");
+  lines.push("- Fused scaled-add work is decomposed for diagnostics or excluded from official operation rows.");
+  lines.push("- `scaleCoeffsX` and `scaleCoeffsY` are excluded from official operation rows and remain unclassified unless a new row is approved.");
   lines.push("- The middle layer is limited to polynomial combine, polynomial division, and polynomial encode.");
   lines.push("- The top layer is limited to field operations and polynomial encode.");
   lines.push("- `polynomial.combine = add + subtract + multiply + scale`.");
@@ -1647,11 +1845,13 @@ function buildMarkdownTimingReport(report: TimingReport): string {
   lines.push("| row | total |");
   lines.push("| --- | ---: |");
   lines.push(`| prover stage total | ${formatDuration(stageMs)} |`);
+  lines.push(`| classified operation time | ${formatDuration(report.classifiedOperationMs)} |`);
+  lines.push(`| unclassified prover time | ${formatDuration(report.unclassifiedProverMs)} |`);
   lines.push(`| total wall | ${formatDuration(report.totalWallMs)} |`);
   lines.push("");
   lines.push("## Invariant Checks");
   lines.push("");
-  lines.push("| check | parent | children | status |");
+  lines.push("| check | reference | observed | status |");
   lines.push("| --- | ---: | ---: | --- |");
   for (const check of report.invariantChecks) {
     lines.push(
