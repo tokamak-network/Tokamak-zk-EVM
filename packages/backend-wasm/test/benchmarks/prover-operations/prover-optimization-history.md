@@ -387,7 +387,7 @@ Operation benchmark, representative `4096x256` before/after:
 | current-linearCombinationBuffer | 1322.379 ms | 918.179 ms | 1.44x | 30.6% |
 | current-mixed-prefix-linearCombination | 993.944 ms | 656.714 ms | 1.51x | 33.9% |
 
-Legacy integrated timing:
+Historical integrated timing from the old reporter:
 
 | category or event group | before | after |
 | --- | ---: | ---: |
@@ -399,8 +399,11 @@ Legacy integrated timing:
 
 Interpretation:
 
-- The `stage total` and `poly total` rows are the useful before/after wall-clock style comparison.
-- `poly_detail`, `poly.combine`, and `poly.linear/add` rows are legacy nested diagnostic totals. They show hot-operation direction but are not exclusive wall-clock savings.
+- This table is retained only as historical context from the old reporter.
+- It is not a corrected before/after table. The old reporter did not store parent-child event relationships, exclusive self time, or a strict separation between wall-clock root spans and nested diagnostics.
+- `stage total` and `poly total` remain directionally useful because they came from outer stage spans, but they cannot be mixed with the corrected reporter output below.
+- `poly_detail`, `poly.combine`, and `poly.linear/add` are legacy nested diagnostic totals. They show hot-operation direction only and are not exclusive wall-clock savings.
+- A corrected before/after table for this optimization does not exist in the recorded artifacts. Producing one would require rerunning the pre-optimization commit with the corrected reporter and the same fixture/runtime environment.
 - Direct snarkjs inspection found no additional add/sub/scaling technique to import beyond the buffer, in-place, scalar-fused, and accumulator-reuse patterns already applied here.
 
 ## Current Corrected Timing Baseline
@@ -488,6 +491,7 @@ Top nested diagnostic events:
 
 Conclusion:
 
+- This is the current corrected after-state baseline, not a before/after comparison for the shape-aware linear rewrite.
 - Future before/after comparisons must use wall-clock root spans and exclusive self totals.
 - Nested diagnostic totals remain useful for ranking internal methods, but they must not be reported as direct wall-clock savings.
 
