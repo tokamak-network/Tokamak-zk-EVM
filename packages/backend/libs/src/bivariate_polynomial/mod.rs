@@ -31,26 +31,38 @@ fn ntt_domain_size_cell() -> &'static Mutex<Option<usize>> {
 }
 
 pub fn init_ntt_domain_for_size(size: usize) -> Result<(), icicle_runtime::errors::eIcicleError> {
-    if size == 0 {
+    let domain_size = requested_ntt_domain_size(size);
+    if domain_size == 0 {
         panic!("NTT domain size must be non-zero.");
     }
-    if !size.is_power_of_two() {
+    if !domain_size.is_power_of_two() {
         panic!("NTT domain size must be a power of two.");
     }
 
     let mut guard = ntt_domain_size_cell().lock().unwrap();
     if let Some(current) = *guard {
-        if current == size {
+        if current >= domain_size {
             return Ok(());
         }
         ntt::release_domain::<ScalarField>()?;
     }
     ntt::initialize_domain::<ScalarField>(
-        ntt::get_root_of_unity::<ScalarField>(size as u64),
+        ntt::get_root_of_unity::<ScalarField>(domain_size as u64),
         &ntt::NTTInitDomainConfig::default(),
     )?;
-    *guard = Some(size);
+    *guard = Some(domain_size);
     Ok(())
+}
+
+fn requested_ntt_domain_size(size: usize) -> usize {
+    #[cfg(test)]
+    {
+        cmp::max(size, 1 << 22)
+    }
+    #[cfg(not(test))]
+    {
+        size
+    }
 }
 
 fn get_ntt_domain_size() -> Option<usize> {

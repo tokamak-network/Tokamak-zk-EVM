@@ -1,2 +1,5 @@
 [build]
 rustflags = ["-C", "link-args=-Wl,-rpath,/app/target/debug/deps"]
+
+[env]
+RUST_TEST_THREADS = "1"
