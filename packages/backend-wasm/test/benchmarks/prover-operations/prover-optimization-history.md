@@ -40,11 +40,26 @@ Top operation layer:
 | `field.operations` | `polynomial.combination + polynomial.division` |
 | `polynomial.encode` | `polynomial.encode` |
 
+Execution boundary layer:
+
+| row | definition |
+| --- | --- |
+| `init` | Witness polynomial construction and prover state construction. |
+| `field.operations` | Top-layer field operation total. |
+| `polynomial.encode` | Top-layer polynomial commitment encoding total. |
+| `stage.unclassified` | Prover stage wall time not assigned to `field.operations` or `polynomial.encode`. |
+| `binding.encode` | `buildProverBinding(...)`; this is separate from `polynomial.encode`. |
+| `io` | Runtime bundle and generated artifact file loading. |
+| `verify` | Generated proof verification check. |
+| `output` | Verifier proof artifact creation. |
+| `external.unclassified` | Root wall time not assigned to another execution-boundary row. |
+
 The runner enforces:
 
 - Every `prove*` diagnostic stage satisfies `poly + encode <= total`.
 - Old lowest-layer categories such as `polynomial.add`, `polynomial.sub`, `polynomial.mul`, `polynomial.scale`, and `polynomial.combine` are absent.
 - Middle and top rows are derived from lower-layer totals.
+- Execution boundary rows sum to total wall time.
 - `classified operation time <= total wall time + tolerance`.
 - `unclassified prover time >= -tolerance`.
 
@@ -78,42 +93,57 @@ Lowest operation layer:
 
 | operation | before | after | delta |
 | --- | ---: | ---: | ---: |
-| `polynomial.combination_without_multiplication` | 66.78 s | 58.32 s | -8.46 s |
-| `polynomial.combination_with_multiplication` | 135.62 s | 127.97 s | -7.65 s |
-| `polynomial.div_ruffini` | 10.51 s | 10.26 s | -0.25 s |
-| `polynomial.div_vanishing` | 5.98 s | 5.61 s | -0.37 s |
-| `polynomial.encode` | 118.02 s | 114.17 s | -3.85 s |
+| `polynomial.combination_without_multiplication` | 66.78 s | 59.88 s | -6.90 s |
+| `polynomial.combination_with_multiplication` | 135.62 s | 131.93 s | -3.69 s |
+| `polynomial.div_ruffini` | 10.51 s | 10.42 s | -0.09 s |
+| `polynomial.div_vanishing` | 5.98 s | 6.12 s | +0.14 s |
+| `polynomial.encode` | 118.02 s | 115.76 s | -2.26 s |
 
 Middle operation layer:
 
 | operation | before | after | delta |
 | --- | ---: | ---: | ---: |
-| `polynomial.combination` | 202.41 s | 186.29 s | -16.12 s |
-| `polynomial.division` | 16.49 s | 15.87 s | -0.62 s |
-| `polynomial.encode` | 118.02 s | 114.17 s | -3.85 s |
+| `polynomial.combination` | 202.41 s | 191.81 s | -10.60 s |
+| `polynomial.division` | 16.49 s | 16.54 s | +0.05 s |
+| `polynomial.encode` | 118.02 s | 115.76 s | -2.26 s |
 
 Top operation layer:
 
 | operation | before | after | delta |
 | --- | ---: | ---: | ---: |
-| `field.operations` | 218.89 s | 202.16 s | -16.73 s |
-| `polynomial.encode` | 118.02 s | 114.17 s | -3.85 s |
+| `field.operations` | 218.89 s | 208.35 s | -10.54 s |
+| `polynomial.encode` | 118.02 s | 115.76 s | -2.26 s |
+
+Execution boundary layer:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `init` | 16.43 s | 16.18 s | -0.25 s |
+| `field.operations` | 218.89 s | 208.35 s | -10.54 s |
+| `polynomial.encode` | 118.02 s | 115.76 s | -2.26 s |
+| `stage.unclassified` | 24.74 s | 24.04 s | -0.70 s |
+| `binding.encode` | 1.99 s | 1.93 s | -0.06 s |
+| `io` | 0.98 s | 1.06 s | +0.08 s |
+| `verify` | 0.02 s | 0.02 s | 0.00 s |
+| `output` | 0.00 s | 0.00 s | 0.00 s |
+| `external.unclassified` | 0.00 s | 0.00 s | 0.00 s |
 
 Execution boundary:
 
 | row | before | after | delta |
 | --- | ---: | ---: | ---: |
-| prover stage total | 361.65 s | 340.42 s | -21.23 s |
-| classified operation time | 336.91 s | 316.33 s | -20.58 s |
-| unclassified prover time | 44.16 s | 43.16 s | -1.00 s |
-| total wall | 381.08 s | 359.49 s | -21.59 s |
+| prover stage total | 361.65 s | 348.15 s | -13.50 s |
+| classified operation time | 336.91 s | 324.11 s | -12.80 s |
+| unclassified prover time | 44.16 s | 43.23 s | -0.93 s |
+| total wall | 381.08 s | 367.34 s | -13.74 s |
 
 Interpretation:
 
-- The production linear accumulation rewrite reduced total wall time by 21.59 s under the active taxonomy.
-- The main measured improvement is in `polynomial.combination`, down 16.12 s.
-- `polynomial.combination_with_multiplication` also decreased by 7.65 s, but that bucket still contains multiplication-heavy call sites and remains the largest active optimization target at 127.97 s.
-- `polynomial.encode` remains the second largest active bucket at 114.17 s.
+- The production linear accumulation rewrite reduced total wall time by 13.74 s under the active taxonomy in the latest run.
+- The main measured improvement is in `polynomial.combination`, down 10.60 s.
+- `polynomial.combination_with_multiplication` also decreased by 3.69 s, but that bucket still contains multiplication-heavy call sites and remains the largest active optimization target at 131.93 s.
+- `polynomial.encode` remains the second largest active bucket at 115.76 s.
+- `binding.encode` means `buildProverBinding(...)`; it is not polynomial commitment encoding.
 
 ## Superseded Old-Taxonomy Comparison
 

@@ -74,6 +74,7 @@ interface TimingReport {
   readonly lowestOperationTotals: readonly OperationTimingTotal[];
   readonly middleOperationTotals: readonly OperationTimingTotal[];
   readonly topOperationTotals: readonly OperationTimingTotal[];
+  readonly executionBoundaryTotals: readonly OperationTimingTotal[];
   readonly invariantChecks: readonly TimingInvariantCheck[];
 }
 
@@ -112,6 +113,17 @@ const lowestOperationOrder = [
 
 const middleOperationOrder = ["polynomial.combination", "polynomial.division", "polynomial.encode"] as const;
 const topOperationOrder = ["field.operations", "polynomial.encode"] as const;
+const executionBoundaryOrder = [
+  "init",
+  "field.operations",
+  "polynomial.encode",
+  "stage.unclassified",
+  "binding.encode",
+  "io",
+  "verify",
+  "output",
+  "external.unclassified",
+] as const;
 type LowestOperation = (typeof lowestOperationOrder)[number];
 const timingToleranceMs = 1;
 
@@ -470,7 +482,7 @@ async function provePreparedInputWithStrictTimings(runtime: CurveRuntime, input:
       witness,
     }),
   );
-  const binding = await timing.span("build prover binding", "encode", () =>
+  const binding = await timing.span("build prover binding", "binding.encode", () =>
     buildProverBinding(
       runtime,
       input.crs,
@@ -1319,6 +1331,7 @@ function resolvePreparedRuntimePath(runtimeDir: string, artifactPath: string): s
 
 function buildTimingReport(events: readonly TimingEvent[]): TimingReport {
   const summary = buildModuleTimingSummary(events);
+  const categoryTotals = summarizeByCategory(events);
   const lowestOperationTotals = buildLowestOperationTotals(events);
   const middleOperationTotals = buildMiddleOperationTotals(lowestOperationTotals);
   const topOperationTotals = buildTopOperationTotals(middleOperationTotals);
@@ -1326,12 +1339,18 @@ function buildTimingReport(events: readonly TimingEvent[]): TimingReport {
   const classifiedOperationMs =
     operationDuration(topOperationTotals, "field.operations") + operationDuration(topOperationTotals, "polynomial.encode");
   const unclassifiedProverMs = totalWallMs - classifiedOperationMs;
+  const executionBoundaryTotals = buildExecutionBoundaryTotals({
+    categoryTotals,
+    topOperationTotals,
+    totalWallMs,
+  });
   const invariantChecks = buildTimingInvariantChecks({
     events,
     summary,
     lowestOperationTotals,
     middleOperationTotals,
     topOperationTotals,
+    executionBoundaryTotals,
     totalWallMs,
     classifiedOperationMs,
     unclassifiedProverMs,
@@ -1344,10 +1363,11 @@ function buildTimingReport(events: readonly TimingEvent[]): TimingReport {
     unclassifiedProverMs,
     summary,
     events,
-    categoryTotals: summarizeByCategory(events),
+    categoryTotals,
     lowestOperationTotals,
     middleOperationTotals,
     topOperationTotals,
+    executionBoundaryTotals,
     invariantChecks,
   };
 }
@@ -1367,6 +1387,10 @@ function printTimingSummary(report: TimingReport, outputPath: string): void {
   }
   console.log("  top:");
   for (const total of report.topOperationTotals) {
+    console.log(`    ${total.operation}: ${formatDuration(total.durationMs)} (${total.count} events)`);
+  }
+  console.log("  execution boundary:");
+  for (const total of report.executionBoundaryTotals) {
     console.log(`    ${total.operation}: ${formatDuration(total.durationMs)} (${total.count} events)`);
   }
   console.log(`  stage total: ${formatDuration(stageMs)}`);
@@ -1509,6 +1533,48 @@ function buildTopOperationTotals(middleOperationTotals: readonly OperationTiming
   return fixedOperationTotalsToRows(totals, topOperationOrder);
 }
 
+function buildExecutionBoundaryTotals(input: {
+  readonly categoryTotals: readonly TimingTotal[];
+  readonly topOperationTotals: readonly OperationTimingTotal[];
+  readonly totalWallMs: number;
+}): readonly OperationTimingTotal[] {
+  const { categoryTotals, topOperationTotals, totalWallMs } = input;
+  const totals = createFixedOperationTotals(executionBoundaryOrder);
+  const stageMs = categoryDuration(categoryTotals, "stage");
+  const fieldOperationsMs = operationDuration(topOperationTotals, "field.operations");
+  const polynomialEncodeMs = operationDuration(topOperationTotals, "polynomial.encode");
+  const initMs = categoryDuration(categoryTotals, "init");
+  const bindingEncodeMs = categoryDuration(categoryTotals, "binding.encode");
+  const ioMs = categoryDuration(categoryTotals, "io");
+  const verifyMs = categoryDuration(categoryTotals, "verify");
+  const outputMs = categoryDuration(categoryTotals, "output");
+  const stageUnclassifiedMs = stageMs - fieldOperationsMs - polynomialEncodeMs;
+  const externalUnclassifiedMs =
+    totalWallMs - stageMs - initMs - bindingEncodeMs - ioMs - verifyMs - outputMs;
+
+  addOperationTotal(totals, "init", initMs, categoryCount(categoryTotals, "init"));
+  addOperationTotal(
+    totals,
+    "field.operations",
+    fieldOperationsMs,
+    operationCount(topOperationTotals, "field.operations"),
+  );
+  addOperationTotal(
+    totals,
+    "polynomial.encode",
+    polynomialEncodeMs,
+    operationCount(topOperationTotals, "polynomial.encode"),
+  );
+  addOperationTotal(totals, "stage.unclassified", stageUnclassifiedMs);
+  addOperationTotal(totals, "binding.encode", bindingEncodeMs, categoryCount(categoryTotals, "binding.encode"));
+  addOperationTotal(totals, "io", ioMs, categoryCount(categoryTotals, "io"));
+  addOperationTotal(totals, "verify", verifyMs, categoryCount(categoryTotals, "verify"));
+  addOperationTotal(totals, "output", outputMs, categoryCount(categoryTotals, "output"));
+  addOperationTotal(totals, "external.unclassified", externalUnclassifiedMs);
+
+  return fixedOperationTotalsToRows(totals, executionBoundaryOrder);
+}
+
 function lowestOperationForEvent(event: TimingEvent): (typeof lowestOperationOrder)[number] | undefined {
   if (isLowestOperation(event.category)) {
     return event.category;
@@ -1571,6 +1637,7 @@ function buildTimingInvariantChecks(input: {
   readonly lowestOperationTotals: readonly OperationTimingTotal[];
   readonly middleOperationTotals: readonly OperationTimingTotal[];
   readonly topOperationTotals: readonly OperationTimingTotal[];
+  readonly executionBoundaryTotals: readonly OperationTimingTotal[];
   readonly totalWallMs: number;
   readonly classifiedOperationMs: number;
   readonly unclassifiedProverMs: number;
@@ -1581,6 +1648,7 @@ function buildTimingInvariantChecks(input: {
     lowestOperationTotals,
     middleOperationTotals,
     topOperationTotals,
+    executionBoundaryTotals,
     totalWallMs,
     classifiedOperationMs,
     unclassifiedProverMs,
@@ -1691,6 +1759,13 @@ function buildTimingInvariantChecks(input: {
       operationDuration(middleOperationTotals, "polynomial.encode"),
     ),
   });
+  const executionBoundaryMs = executionBoundaryTotals.reduce((total, item) => total + item.durationMs, 0);
+  checks.push({
+    name: "execution_boundary_equals_total_wall",
+    parentMs: totalWallMs,
+    childMs: executionBoundaryMs,
+    ok: durationsEqual(totalWallMs, executionBoundaryMs),
+  });
   checks.push({
     name: "classified_operation_lte_total_wall",
     parentMs: totalWallMs,
@@ -1732,6 +1807,8 @@ function buildMarkdownTimingReport(report: TimingReport): string {
   lines.push("- `polynomial.combination = polynomial.combination_without_multiplication + polynomial.combination_with_multiplication`.");
   lines.push("- `polynomial.division = Ruffini division + vanishing division`.");
   lines.push("- `field.operations = polynomial.combination + polynomial.division`.");
+  lines.push("- `binding.encode` means `buildProverBinding(...)`; it is separate from `polynomial.encode`.");
+  lines.push("- The execution boundary layer partitions total wall time and includes initialization, top-layer operation rows, stage gaps, binding encoding, I/O, verification, output, and external gaps.");
   lines.push("");
   lines.push("## Lowest Operation Layer");
   lines.push("");
@@ -1763,6 +1840,16 @@ function buildMarkdownTimingReport(report: TimingReport): string {
   lines.push("");
   lines.push("## Execution Boundary Summary");
   lines.push("");
+  lines.push("| row | definition | total | count |");
+  lines.push("| --- | --- | ---: | ---: |");
+  for (const total of report.executionBoundaryTotals) {
+    lines.push(
+      `| ${total.operation} | ${executionBoundaryDefinition(total.operation)} | ${formatDuration(total.durationMs)} | ${total.count} |`,
+    );
+  }
+  lines.push("");
+  lines.push("## Execution Totals");
+  lines.push("");
   lines.push("| row | total |");
   lines.push("| --- | ---: |");
   lines.push(`| prover stage total | ${formatDuration(stageMs)} |`);
@@ -1790,6 +1877,14 @@ function operationDuration(totals: readonly OperationTimingTotal[], operation: s
 
 function operationCount(totals: readonly OperationTimingTotal[], operation: string): number {
   return totals.find((total) => total.operation === operation)?.count ?? 0;
+}
+
+function categoryDuration(totals: readonly TimingTotal[], category: string): number {
+  return totals.find((total) => total.category === category)?.durationMs ?? 0;
+}
+
+function categoryCount(totals: readonly TimingTotal[], category: string): number {
+  return totals.find((total) => total.category === category)?.count ?? 0;
 }
 
 function shapeSize(label: string, xSize: number, ySize: number): SizeInfo {
@@ -1827,6 +1922,31 @@ function topOperationDefinition(operation: string): string {
       return "polynomial.combination + polynomial.division";
     case "polynomial.encode":
       return "polynomial.encode";
+    default:
+      return "";
+  }
+}
+
+function executionBoundaryDefinition(operation: string): string {
+  switch (operation) {
+    case "init":
+      return "witness polynomial construction and prover state construction";
+    case "field.operations":
+      return "top-layer field operation total";
+    case "polynomial.encode":
+      return "top-layer polynomial commitment encoding total";
+    case "stage.unclassified":
+      return "prover stage wall time not assigned to field.operations or polynomial.encode";
+    case "binding.encode":
+      return "buildProverBinding(...)";
+    case "io":
+      return "runtime bundle and generated artifact file loading";
+    case "verify":
+      return "generated proof verification check";
+    case "output":
+      return "verifier proof artifact creation";
+    case "external.unclassified":
+      return "root wall time not assigned to another execution-boundary row";
     default:
       return "";
   }
