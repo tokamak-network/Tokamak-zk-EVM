@@ -22,7 +22,12 @@ import {
   type ProverState,
   type RuntimeArtifactBundleManifest,
 } from "../../../src/index.js";
-import { buildProverBinding, type InitialRelationComputation, type InitialRelationCommitments } from "../../../src/prover/internal/initial-relation.js";
+import {
+  buildProverBinding,
+  encodePolynomialBufferWithSigma1,
+  type InitialRelationComputation,
+  type InitialRelationCommitments,
+} from "../../../src/prover/internal/initial-relation.js";
 import { computeRecursionCommitment } from "../../../src/prover/internal/recursion-commitment.js";
 import { type CopyQuotientComputation, type CopyQuotientCommitments } from "../../../src/prover/internal/copy-quotient.js";
 import { evaluateChallengePoints, type ChallengeEvaluations } from "../../../src/prover/internal/challenge-evaluations.js";
@@ -802,65 +807,9 @@ async function encodePolynomialBufferWithSigma1Timed(
   polynomial: BivariatePolynomialBuffer,
   label: string,
 ): Promise<Uint8Array> {
-  const prepared = timing.spanSync(`encode.prep.${label}`, "encode", () => {
-    const { xDegree, yDegree } = polynomial.findDegree();
-    if (xDegree < 0 || yDegree < 0) {
-      return { isZero: true as const };
-    }
-
-    const xSize = xDegree + 1;
-    const ySize = yDegree + 1;
-    const referenceStringYSize = setup.s_max * 2;
-    const referenceStringXSize = Math.max(setup.n * 2, (setup.l_D - setup.l) * 2);
-    if (xSize > referenceStringXSize || ySize > referenceStringYSize) {
-      throw new Error("Insufficient prover CRS sigma1.xy-powers length for polynomial encoding.");
-    }
-
-    let nonzeroCount = 0;
-    for (let x = 0; x < xSize; x += 1) {
-      for (let y = 0; y < ySize; y += 1) {
-        const scalar = polynomial.getCoeff(x, y);
-        if (runtime.Fr.isZero(scalar)) {
-          continue;
-        }
-        nonzeroCount += 1;
-      }
-    }
-
-    if (nonzeroCount === 0) {
-      return { isZero: true as const };
-    }
-
-    const bases = new Uint8Array(nonzeroCount * 96);
-    const scalars = new Uint8Array(nonzeroCount * runtime.Fr.byteLength);
-    let outputIndex = 0;
-    for (let x = 0; x < xSize; x += 1) {
-      for (let y = 0; y < ySize; y += 1) {
-        const scalar = polynomial.getCoeff(x, y);
-        if (runtime.Fr.isZero(scalar)) {
-          continue;
-        }
-        const base = crs.sigma1.xyPowers[referenceStringYSize * x + y];
-        if (base === undefined) {
-          throw new Error("Prover CRS sigma1.xy-powers section is shorter than the declared setup shape.");
-        }
-
-        bases.set(base, outputIndex * 96);
-        scalars.set(runtime.Fr.toRawLittleEndian(scalar), outputIndex * runtime.Fr.byteLength);
-        outputIndex += 1;
-      }
-    }
-
-    return { isZero: false as const, bases, scalars, nonzeroCount };
-  }, [shapeSize("polynomial", polynomial.xSize, polynomial.ySize)]);
-
-  if (prepared.isZero) {
-    return runtime.G1.zero;
-  }
-
-  return timing.span(`encode.msm.${label}`, "encode", () =>
-    Promise.resolve(runtime.G1.msmAffineRaw(prepared.bases, prepared.scalars)),
-    [flatSize("nonzero", prepared.nonzeroCount)],
+  return timing.span(`encode.commit.${label}`, "encode", () =>
+    encodePolynomialBufferWithSigma1(runtime, crs, setup, polynomial),
+    [shapeSize("polynomial", polynomial.xSize, polynomial.ySize)],
   );
 }
 
