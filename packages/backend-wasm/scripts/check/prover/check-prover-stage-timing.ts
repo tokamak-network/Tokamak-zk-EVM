@@ -1133,8 +1133,25 @@ function buildTimingReport(events: readonly TimingEvent[]): TimingReport {
 }
 
 function printTimingSummary(report: TimingReport, outputPath: string): void {
+  const combinePrimitiveMs = sumOperationTotals(report.polyDetailOperationTotals);
+  const combineMs = operationDuration(report.polyOperationTotals, "combine");
+  const divisionMs =
+    operationDuration(report.polyOperationTotals, "div_by_ruffini") +
+    operationDuration(report.polyOperationTotals, "div_by_vanishing_opt");
+  const polyMs = sumOperationTotals(report.polyOperationTotals);
+  const encodeCommitMs = sumOperationTotals(report.encodeTotals);
+  const stageMs = Object.values(report.summary).reduce((total, item) => total + item.totalMs, 0);
+
   console.log(`Wrote prover stage timing report to ${path.relative(process.cwd(), outputPath)}`);
-  console.log(`Total wall time: ${formatDuration(report.totalWallMs)}`);
+  console.log("Bottom-up timing reconstruction:");
+  console.log(`  poly.combine primitive calls: ${formatDuration(combinePrimitiveMs)}`);
+  console.log(`  poly.combine remaining: ${formatDuration(combineMs - combinePrimitiveMs)}`);
+  console.log(`  poly.combine total: ${formatDuration(combineMs)}`);
+  console.log(`  poly division total: ${formatDuration(divisionMs)}`);
+  console.log(`  poly total: ${formatDuration(polyMs)}`);
+  console.log(`  encode commit total: ${formatDuration(encodeCommitMs)}`);
+  console.log(`  stage total: ${formatDuration(stageMs)}`);
+  console.log(`  total wall time: ${formatDuration(report.totalWallMs)}`);
   console.log("Module times:");
   for (const moduleName of ["prove0", "prove1", "prove2", "prove3", "prove4"]) {
     const item = report.summary[moduleName];
@@ -1146,15 +1163,7 @@ function printTimingSummary(report: TimingReport, outputPath: string): void {
       `  ${moduleName}: total=${formatDuration(item.totalMs)}, poly=${formatDuration(item.polyMs)}, encode=${formatDuration(item.encodeMs)}`,
     );
   }
-  console.log("Top-level category totals:");
-  for (const total of report.categoryTotals) {
-    console.log(`  ${total.category}: ${formatDuration(total.durationMs)} (${total.count} events)`);
-  }
-  console.log("Poly operation totals:");
-  for (const total of report.polyOperationTotals) {
-    console.log(`  ${total.operation}: ${formatDuration(total.durationMs)} (${total.count} events)`);
-  }
-  console.log("Poly combine detail totals:");
+  console.log("Poly combine primitive totals:");
   for (const total of report.polyDetailOperationTotals) {
     console.log(`  ${total.operation}: ${formatDuration(total.durationMs)} (${total.count} events)`);
   }
@@ -1367,26 +1376,65 @@ function targetKey(module: string, variable: string): string {
 }
 
 function buildMarkdownTimingReport(report: TimingReport): string {
+  const combinePrimitiveMs = sumOperationTotals(report.polyDetailOperationTotals);
+  const combineMs = operationDuration(report.polyOperationTotals, "combine");
+  const ruffiniMs = operationDuration(report.polyOperationTotals, "div_by_ruffini");
+  const vanishingMs = operationDuration(report.polyOperationTotals, "div_by_vanishing_opt");
+  const divisionMs = ruffiniMs + vanishingMs;
+  const polyMs = sumOperationTotals(report.polyOperationTotals);
+  const encodeCommitMs = sumOperationTotals(report.encodeTotals);
+  const stageMs = Object.values(report.summary).reduce((total, item) => total + item.totalMs, 0);
+
   const lines: string[] = [];
   lines.push("# Backend-Wasm Prover Timing Report");
   lines.push("");
   lines.push("## Timing Boundaries");
   lines.push("");
   lines.push("- Timing is recorded as flat accumulated events, matching the native prover timing report model.");
-  lines.push("- `poly_detail` is recorded only for direct low-level calls inside `poly.combine.*` spans.");
-  lines.push("- Nested low-level calls are not recorded, so detail totals do not double-count their parent operation.");
-  lines.push("- `poly_detail` is reported separately from `poly` totals and is not added to module totals.");
-  lines.push("- For each target, `poly_detail` total must be less than or equal to the parent `poly.combine.*` time.");
+  lines.push("- Tables are ordered bottom-up: primitive operation buckets, reconstructed polynomial work, module totals, then total wall time.");
+  lines.push("- `poly.combine` primitive rows are direct low-level calls inside `poly.combine.*` spans.");
+  lines.push("- Nested low-level calls are not recorded, so primitive rows do not double-count their parent operation.");
+  lines.push("- For each target, primitive detail total must be less than or equal to the parent `poly.combine.*` time.");
   lines.push("");
-  lines.push("## Total Time");
+  lines.push("## Primitive Operation Buckets");
   lines.push("");
-  lines.push("| item | value |");
+  lines.push("These are the lowest-level timing buckets in the current report. They are not listed beside `poly`; they are used to reconstruct it.");
+  lines.push("");
+  lines.push("| primitive bucket | total | count |");
+  lines.push("| --- | ---: | ---: |");
+  for (const total of report.polyDetailOperationTotals) {
+    lines.push(`| poly.combine.${total.operation} | ${formatDuration(total.durationMs)} | ${total.count} |`);
+  }
+  lines.push(`| poly.combine.remaining | ${formatDuration(combineMs - combinePrimitiveMs)} | - |`);
+  lines.push(`| poly.div_by_ruffini | ${formatDuration(ruffiniMs)} | ${operationCount(report.polyOperationTotals, "div_by_ruffini")} |`);
+  lines.push(
+    `| poly.div_by_vanishing_opt | ${formatDuration(vanishingMs)} | ${operationCount(report.polyOperationTotals, "div_by_vanishing_opt")} |`,
+  );
+  lines.push(`| encode.commit | ${formatDuration(encodeCommitMs)} | ${sumOperationCounts(report.encodeTotals)} |`);
+  lines.push("");
+  lines.push("## Polynomial Time Reconstruction");
+  lines.push("");
+  lines.push("| reconstruction row | total |");
   lines.push("| --- | ---: |");
-  lines.push(`| total_wall | ${formatDuration(report.totalWallMs)} |`);
+  lines.push(`| sum(poly.combine primitives) | ${formatDuration(combinePrimitiveMs)} |`);
+  lines.push(`| poly.combine remaining | ${formatDuration(combineMs - combinePrimitiveMs)} |`);
+  lines.push(`| poly.combine total | ${formatDuration(combineMs)} |`);
+  lines.push(`| poly division total | ${formatDuration(divisionMs)} |`);
+  lines.push(`| total poly | ${formatDuration(polyMs)} |`);
   lines.push("");
-  lines.push("## Module Times");
+  lines.push("## Poly Combine Coverage By Target");
   lines.push("");
-  lines.push("| module | total | poly | encode | unclassified |");
+  lines.push("| module | variable | primitive detail | remaining | parent combine | coverage |");
+  lines.push("| --- | --- | ---: | ---: | ---: | ---: |");
+  for (const target of report.polyDetailByTarget) {
+    lines.push(
+      `| ${target.module} | ${target.variable} | ${formatDuration(target.detailMs)} | ${formatDuration(target.remainingMs)} | ${formatDuration(target.parentMs)} | ${formatPercent(target.detailMs, target.parentMs)} |`,
+    );
+  }
+  lines.push("");
+  lines.push("## Module Time Reconstruction");
+  lines.push("");
+  lines.push("| module | poly | encode | unclassified | total |");
   lines.push("| --- | ---: | ---: | ---: | ---: |");
   for (const moduleName of ["prove0", "prove1", "prove2", "prove3", "prove4"]) {
     const item = report.summary[moduleName];
@@ -1395,43 +1443,19 @@ function buildMarkdownTimingReport(report: TimingReport): string {
     }
 
     lines.push(
-      `| ${moduleName} | ${formatDuration(item.totalMs)} | ${formatDuration(item.polyMs)} | ${formatDuration(item.encodeMs)} | ${formatDuration(item.totalMs - item.polyMs - item.encodeMs)} |`,
+      `| ${moduleName} | ${formatDuration(item.polyMs)} | ${formatDuration(item.encodeMs)} | ${formatDuration(item.totalMs - item.polyMs - item.encodeMs)} | ${formatDuration(item.totalMs)} |`,
     );
   }
   lines.push("");
-  lines.push("## Top-Level Category Totals");
+  lines.push("## Total Time Reconstruction");
   lines.push("");
-  lines.push("| category | total | count |");
-  lines.push("| --- | ---: | ---: |");
-  for (const total of report.categoryTotals) {
-    lines.push(`| ${total.category} | ${formatDuration(total.durationMs)} | ${total.count} |`);
-  }
-  lines.push("");
-  lines.push("## Poly Operation Totals");
-  lines.push("");
-  lines.push("| operation | total | count |");
-  lines.push("| --- | ---: | ---: |");
-  for (const total of report.polyOperationTotals) {
-    lines.push(`| ${total.operation} | ${formatDuration(total.durationMs)} | ${total.count} |`);
-  }
-  lines.push("");
-  lines.push("## Poly Combine Detail Totals");
-  lines.push("");
-  lines.push("| detail operation | total | count |");
-  lines.push("| --- | ---: | ---: |");
-  for (const total of report.polyDetailOperationTotals) {
-    lines.push(`| ${total.operation} | ${formatDuration(total.durationMs)} | ${total.count} |`);
-  }
-  lines.push("");
-  lines.push("## Poly Combine Detail By Target");
-  lines.push("");
-  lines.push("| module | variable | parent poly | detail total | remaining |");
-  lines.push("| --- | --- | ---: | ---: | ---: |");
-  for (const target of report.polyDetailByTarget) {
-    lines.push(
-      `| ${target.module} | ${target.variable} | ${formatDuration(target.parentMs)} | ${formatDuration(target.detailMs)} | ${formatDuration(target.remainingMs)} |`,
-    );
-  }
+  lines.push("| row | total |");
+  lines.push("| --- | ---: |");
+  lines.push(`| prover stage total | ${formatDuration(stageMs)} |`);
+  lines.push(
+    `| non-stage setup/io/verify/output | ${formatDuration(report.totalWallMs - stageMs)} |`,
+  );
+  lines.push(`| total wall | ${formatDuration(report.totalWallMs)} |`);
   lines.push("");
   lines.push("## Invariant Checks");
   lines.push("");
@@ -1445,6 +1469,22 @@ function buildMarkdownTimingReport(report: TimingReport): string {
   lines.push("");
 
   return `${lines.join("\n")}\n`;
+}
+
+function sumOperationTotals(totals: readonly OperationTimingTotal[]): number {
+  return totals.reduce((total, item) => total + item.durationMs, 0);
+}
+
+function sumOperationCounts(totals: readonly OperationTimingTotal[]): number {
+  return totals.reduce((total, item) => total + item.count, 0);
+}
+
+function operationDuration(totals: readonly OperationTimingTotal[], operation: string): number {
+  return totals.find((total) => total.operation === operation)?.durationMs ?? 0;
+}
+
+function operationCount(totals: readonly OperationTimingTotal[], operation: string): number {
+  return totals.find((total) => total.operation === operation)?.count ?? 0;
 }
 
 function shapeSize(label: string, xSize: number, ySize: number): SizeInfo {
@@ -1461,6 +1501,14 @@ function formatDuration(milliseconds: number): string {
   }
 
   return `${(milliseconds / 1000).toFixed(2)} s`;
+}
+
+function formatPercent(part: number, total: number): string {
+  if (total === 0) {
+    return "-";
+  }
+
+  return `${((part / total) * 100).toFixed(1)}%`;
 }
 
 main().catch((error: unknown) => {

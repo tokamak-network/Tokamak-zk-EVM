@@ -2,25 +2,25 @@
 
 Audience: backend-wasm engineers measuring and optimizing prover performance.
 
-This report replaces the previous nested-span timing report. The previous `wallClock`, `exclusiveSelf`, and `nestedDiagnostics` model is discarded because it made nested diagnostic totals easy to compare against parent wall-clock totals incorrectly.
+This report uses the native-style flat accumulated timing model and presents timing bottom-up. The lowest currently measured operation buckets appear first, then higher-level totals are reconstructed from them.
 
 ## Measurement Model
 
-The backend-wasm prover timing runner now follows the native prover timing-report model:
+The backend-wasm prover timing runner records flat accumulated events:
 
-- Timing is recorded as flat accumulated events.
-- Each event has only `name`, `category`, `durationMs`, and `sizes`.
-- Module totals are measured by the outer `prove0` through `prove4` stage events.
-- `poly` totals are accumulated from explicit high-level polynomial events such as `poly.combine.*`, `poly.div_by_ruffini.*`, and `poly.div_by_vanishing_opt.*`.
-- `encode` totals are accumulated from polynomial commitment MSM events.
-- `poly_detail` records only direct low-level calls inside `poly.combine.*` spans.
-- Nested low-level calls are not recorded, so detail totals do not double-count their parent operation.
-- `poly_detail` is reported separately from `poly` totals and must not be added to module totals.
+- Raw event fields: `name`, `category`, `durationMs`, `sizes`.
+- No nested span tree, exclusive-self reconstruction, or overlapping child totals are used.
+- `poly.combine` primitive rows are direct low-level calls inside `poly.combine.*` spans.
+- Nested low-level calls are intentionally not recorded.
+- Each `poly.combine.*` target is reconstructed as `primitive detail + remaining = parent combine`.
+- Polynomial work is reconstructed as `poly.combine + poly.division = poly`.
+- Module work is reconstructed as `poly + encode + unclassified = module total`.
+- Total runtime is reconstructed as `stage total + non-stage setup/io/verify/output = total wall`.
 
-The timing runner enforces these invariants:
+The timing runner enforces:
 
 - For every `prove*` stage, `poly + encode <= total`.
-- For every `poly.combine.*` target, the sum of its `poly_detail.*` rows is less than or equal to the parent `poly.combine.*` time.
+- For every `poly.combine.*` target, primitive detail total must be less than or equal to parent combine time.
 - If an invariant fails, `npm run prover:stage-timing:check` fails.
 
 Diagnostics remain outside the published package:
@@ -38,137 +38,103 @@ Command:
 npm run prover:stage-timing:check
 ```
 
-Generated outputs:
-
-- `tmp/timing/prover-stage-timing.json`
-- `tmp/timing/prover-stage-timing.md`
-
 Result:
 
 - Proof generation completed.
 - Generated proof verification completed.
 - Timing invariant failures: `0`.
 
-## Total Time
+## Primitive Operation Buckets
 
-| item | value |
+These are the lowest-level timing buckets in the current report. They are used to reconstruct higher layers.
+
+| primitive bucket | total | count |
+| --- | ---: | ---: |
+| poly.combine.mul | 79.42 s | 8 |
+| poly.combine.addScaledPrefixAssign | 32.44 s | 65 |
+| poly.combine.toRouEvals | 17.49 s | 3 |
+| poly.combine.sub | 12.36 s | 15 |
+| poly.combine.static_fromRouEvals | 12.12 s | 6 |
+| poly.combine.add | 9.66 s | 14 |
+| poly.combine.scale | 6.72 s | 19 |
+| poly.combine.mulMonomial | 2.35 s | 12 |
+| poly.combine.subAssign | 724 ms | 1 |
+| poly.combine.scaleCoeffsY | 564 ms | 2 |
+| poly.combine.scaleCoeffsX | 545 ms | 2 |
+| poly.combine.resize | 374 ms | 8 |
+| poly.combine.static_fromCoeffs | 0 ms | 3 |
+| poly.combine.static_zero | 0 ms | 4 |
+| poly.combine.findDegree | 0 ms | 4 |
+| poly.combine.remaining | 9.82 s | - |
+| poly.div_by_ruffini | 12.18 s | 5 |
+| poly.div_by_vanishing_opt | 5.88 s | 2 |
+| encode.commit | 112.80 s | 18 |
+
+## Polynomial Time Reconstruction
+
+| reconstruction row | total |
 | --- | ---: |
-| total_wall | 368.34 s |
+| sum(poly.combine primitives) | 174.75 s |
+| poly.combine remaining | 9.82 s |
+| poly.combine total | 184.57 s |
+| poly division total | 18.07 s |
+| total poly | 202.63 s |
 
-## Module Times
+## Poly Combine Coverage By Target
 
-| module | total | poly | encode | unclassified |
+| module | variable | primitive detail | remaining | parent combine | coverage |
+| --- | --- | ---: | ---: | ---: | ---: |
+| prove2 | shared_f_products | 29.86 s | 2.24 s | 32.10 s | 93.0% |
+| prove0 | p0XY | 20.96 s | 0 ms | 20.96 s | 100.0% |
+| prove2 | p1 | 19.88 s | 0 ms | 19.88 s | 100.0% |
+| prove2 | rG | 19.26 s | 0 ms | 19.26 s | 100.0% |
+| prove2 | Q_CY | 14.23 s | 110 ms | 14.34 s | 99.2% |
+| prove2 | Q_CX | 10.07 s | 494 ms | 10.57 s | 95.3% |
+| prove4 | LHS_zk2 | 9.98 s | 1.12 s | 11.10 s | 89.9% |
+| prove2 | p3 | 9.37 s | 0 ms | 9.37 s | 100.0% |
+| prove4 | LHS_zk1 | 7.05 s | 976 ms | 8.03 s | 87.8% |
+| prove2 | p_comb | 5.40 s | 208 ms | 5.61 s | 96.3% |
+| prove4 | Pi_A | 4.79 s | 964 ms | 5.75 s | 83.2% |
+| prove4 | pC | 4.64 s | 319 ms | 4.96 s | 93.6% |
+| prove4 | LHS_for_copy | 4.59 s | 1.86 s | 6.44 s | 71.2% |
+| prove2 | p2 | 2.04 s | 0 ms | 2.04 s | 100.0% |
+| prove2 | p2_input | 1.49 s | 0 ms | 1.49 s | 100.0% |
+| prove2 | lagrange_KL | 1.01 s | 0 ms | 1.01 s | 100.0% |
+| prove0 | Q_AY | 948 ms | 108 ms | 1.06 s | 89.8% |
+| prove4 | fXY | 834 ms | 43 ms | 877 ms | 95.1% |
+| prove2 | fXY | 820 ms | 40 ms | 860 ms | 95.4% |
+| prove4 | R_minus_eval | 790 ms | 0 ms | 790 ms | 100.0% |
+| prove0 | Q_AX | 782 ms | 191 ms | 973 ms | 80.3% |
+| prove0 | W | 737 ms | 83 ms | 819 ms | 89.9% |
+| prove0 | B | 717 ms | 74 ms | 791 ms | 90.7% |
+
+## Module Time Reconstruction
+
+| module | poly | encode | unclassified | total |
 | --- | ---: | ---: | ---: | ---: |
-| prove0 | 65.15 s | 26.77 s | 38.37 s | 1 ms |
-| prove1 | 22.48 s | 0 ms | 0 ms | 22.48 s |
-| prove2 | 154.86 s | 122.22 s | 32.64 s | 1 ms |
-| prove3 | 8.68 s | 0 ms | 0 ms | 8.68 s |
-| prove4 | 97.80 s | 53.64 s | 41.78 s | 2.38 s |
+| prove0 | 26.77 s | 38.37 s | 1 ms | 65.15 s |
+| prove1 | 0 ms | 0 ms | 22.48 s | 22.48 s |
+| prove2 | 122.22 s | 32.64 s | 1 ms | 154.86 s |
+| prove3 | 0 ms | 0 ms | 8.68 s | 8.68 s |
+| prove4 | 53.64 s | 41.78 s | 2.38 s | 97.80 s |
 
-## Top-Level Category Totals
+## Total Time Reconstruction
 
-| category | total | count |
-| --- | ---: | ---: |
-| stage | 348.96 s | 5 |
-| poly | 202.63 s | 53 |
-| encode | 114.89 s | 18 |
-| init | 16.13 s | 2 |
-| io | 1.12 s | 2 |
-| verify | 18 ms | 1 |
-| output | 3 ms | 1 |
-
-`poly_detail` is intentionally excluded from this table because it is a drill-down of direct low-level calls inside `poly.combine.*` targets, not a top-level category. It is reported only in the detail tables below.
-
-## Poly Operation Totals
-
-| operation | total | count |
-| --- | ---: | ---: |
-| combine | 184.57 s | 46 |
-| div_by_ruffini | 12.18 s | 5 |
-| div_by_vanishing_opt | 5.88 s | 2 |
-
-## Poly Combine Detail Totals
-
-| detail operation | total | count |
-| --- | ---: | ---: |
-| mul | 79.42 s | 8 |
-| addScaledPrefixAssign | 32.44 s | 65 |
-| toRouEvals | 17.49 s | 3 |
-| sub | 12.36 s | 15 |
-| static_fromRouEvals | 12.12 s | 6 |
-| add | 9.66 s | 14 |
-| scale | 6.72 s | 19 |
-| mulMonomial | 2.35 s | 12 |
-| subAssign | 724 ms | 1 |
-| scaleCoeffsY | 564 ms | 2 |
-| scaleCoeffsX | 545 ms | 2 |
-| resize | 374 ms | 8 |
-| static_fromCoeffs | 0 ms | 3 |
-| static_zero | 0 ms | 4 |
-| findDegree | 0 ms | 4 |
-
-## Poly Combine Detail By Target
-
-| module | variable | parent poly | detail total | remaining |
-| --- | --- | ---: | ---: | ---: |
-| prove2 | shared_f_products | 32.10 s | 29.86 s | 2.24 s |
-| prove0 | p0XY | 20.96 s | 20.96 s | 0 ms |
-| prove2 | p1 | 19.88 s | 19.88 s | 0 ms |
-| prove2 | rG | 19.26 s | 19.26 s | 0 ms |
-| prove2 | Q_CY | 14.34 s | 14.23 s | 110 ms |
-| prove2 | Q_CX | 10.57 s | 10.07 s | 494 ms |
-| prove4 | LHS_zk2 | 11.10 s | 9.98 s | 1.12 s |
-| prove2 | p3 | 9.37 s | 9.37 s | 0 ms |
-| prove4 | LHS_zk1 | 8.03 s | 7.05 s | 976 ms |
-| prove2 | p_comb | 5.61 s | 5.40 s | 208 ms |
-| prove4 | Pi_A | 5.75 s | 4.79 s | 964 ms |
-| prove4 | pC | 4.96 s | 4.64 s | 319 ms |
-| prove4 | LHS_for_copy | 6.44 s | 4.59 s | 1.86 s |
-| prove2 | p2 | 2.04 s | 2.04 s | 0 ms |
-| prove2 | p2_input | 1.49 s | 1.49 s | 0 ms |
-| prove2 | lagrange_KL | 1.01 s | 1.01 s | 0 ms |
-| prove0 | Q_AY | 1.06 s | 948 ms | 108 ms |
-| prove4 | fXY | 877 ms | 834 ms | 43 ms |
-| prove2 | fXY | 860 ms | 820 ms | 40 ms |
-| prove4 | R_minus_eval | 790 ms | 790 ms | 0 ms |
-| prove0 | Q_AX | 973 ms | 782 ms | 191 ms |
-| prove0 | W | 819 ms | 737 ms | 83 ms |
-| prove0 | B | 791 ms | 717 ms | 74 ms |
-| prove4 | term6 | 655 ms | 409 ms | 246 ms |
-| prove4 | gMinusF | 400 ms | 400 ms | 0 ms |
-| prove2 | gD | 394 ms | 394 ms | 0 ms |
-| prove2 | rD2 | 394 ms | 394 ms | 0 ms |
-| prove4 | term5 | 632 ms | 389 ms | 243 ms |
-| prove4 | rD2 | 386 ms | 386 ms | 0 ms |
-| prove4 | rD1 | 386 ms | 386 ms | 0 ms |
-| prove2 | rD1 | 369 ms | 369 ms | 0 ms |
-| prove4 | r_omega_x | 289 ms | 289 ms | 0 ms |
-| prove4 | r_omega_x_omega_y | 283 ms | 283 ms | 0 ms |
-| prove2 | r_omega_x_omega_y | 282 ms | 282 ms | 0 ms |
-| prove2 | r_omega_x | 256 ms | 256 ms | 0 ms |
-| prove4 | term10 | 241 ms | 241 ms | 0 ms |
-| prove4 | R | 104 ms | 8 ms | 95 ms |
-| prove0 | V | 76 ms | 5 ms | 71 ms |
-| prove0 | U | 101 ms | 5 ms | 96 ms |
-| prove4 | V | 76 ms | 4 ms | 72 ms |
-| prove4 | lagrange_K0 | 3 ms | 3 ms | 0 ms |
-| prove2 | lagrange_K0 | 2 ms | 2 ms | 0 ms |
-| prove0 | W_zk | 36 ms | 0 ms | 35 ms |
-| prove0 | term_B_zk | 40 ms | 0 ms | 40 ms |
-| prove4 | gXY | 44 ms | 0 ms | 44 ms |
-| prove2 | gXY | 42 ms | 0 ms | 42 ms |
+| row | total |
+| --- | ---: |
+| prover stage total | 348.96 s |
+| non-stage setup/io/verify/output | 19.37 s |
+| total wall | 368.34 s |
 
 ## Optimization Reporting Rule
 
-Future prover optimization entries must use this flat accumulated timing model only.
+Future prover optimization entries must use this bottom-up timing layout:
 
-Each optimization report must include:
+1. Primitive operation buckets.
+2. Polynomial time reconstruction.
+3. Poly combine target coverage.
+4. Module time reconstruction.
+5. Total time reconstruction.
+6. Invariant status.
 
-- related commits.
-- the exact command used for timing.
-- module timing before and after, if a before run is required.
-- poly operation totals before and after, if affected.
-- poly combine detail totals before and after, if affected.
-- invariant check status.
-
-Do not report nested spans, exclusive-self reconstructions, or any table where child rows can sum to more than the parent row.
+Do not report `poly_detail` as a top-level category beside `poly`, `encode`, or `stage`. It is a primitive breakdown of `poly.combine.*`.
