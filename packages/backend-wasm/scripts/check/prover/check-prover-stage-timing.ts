@@ -69,10 +69,9 @@ interface TimingReport {
   readonly summary: Record<string, ModuleTimingSummary>;
   readonly events: readonly TimingEvent[];
   readonly categoryTotals: readonly TimingTotal[];
-  readonly polyOperationTotals: readonly OperationTimingTotal[];
-  readonly polyDetailOperationTotals: readonly OperationTimingTotal[];
-  readonly encodeTotals: readonly OperationTimingTotal[];
-  readonly polyDetailByTarget: readonly PolyDetailTargetTiming[];
+  readonly lowestOperationTotals: readonly OperationTimingTotal[];
+  readonly middleOperationTotals: readonly OperationTimingTotal[];
+  readonly topOperationTotals: readonly OperationTimingTotal[];
   readonly invariantChecks: readonly TimingInvariantCheck[];
 }
 
@@ -94,21 +93,44 @@ interface ModuleTimingSummary {
   readonly encodeMs: number;
 }
 
-interface PolyDetailTargetTiming {
-  readonly module: string;
-  readonly variable: string;
-  readonly parentMs: number;
-  readonly detailMs: number;
-  readonly remainingMs: number;
-  readonly operations: readonly OperationTimingTotal[];
-}
-
 interface TimingInvariantCheck {
   readonly name: string;
   readonly parentMs: number;
   readonly childMs: number;
   readonly ok: boolean;
 }
+
+const lowestOperationOrder = [
+  "polynomial.add",
+  "polynomial.sub",
+  "polynomial.mul",
+  "polynomial.div_ruffini",
+  "polynomial.div_vanishing",
+  "polynomial.scale",
+  "polynomial.encode",
+] as const;
+
+const middleOperationOrder = ["polynomial.combine", "polynomial.division", "polynomial.encode"] as const;
+const topOperationOrder = ["field.operations", "polynomial.encode"] as const;
+
+const polyDetailLowestOperationMap = new Map<string, (typeof lowestOperationOrder)[number]>([
+  ["add", "polynomial.add"],
+  ["addAssign", "polynomial.add"],
+  ["addScaledAssign", "polynomial.add"],
+  ["addScaledPrefixAssign", "polynomial.add"],
+  ["sub", "polynomial.sub"],
+  ["subAssign", "polynomial.sub"],
+  ["mul", "polynomial.mul"],
+  ["mulMonomial", "polynomial.mul"],
+  ["toRouEvals", "polynomial.mul"],
+  ["static_fromRouEvals", "polynomial.mul"],
+  ["scale", "polynomial.scale"],
+  ["scaleAssign", "polynomial.scale"],
+  ["scaleCoeffsX", "polynomial.scale"],
+  ["scaleCoeffsY", "polynomial.scale"],
+  ["scaleCoeffsXAssign", "polynomial.scale"],
+  ["scaleCoeffsYAssign", "polynomial.scale"],
+]);
 
 interface ActiveTimingSpan {
   readonly name: string;
@@ -1106,8 +1128,10 @@ function resolvePreparedRuntimePath(runtimeDir: string, artifactPath: string): s
 
 function buildTimingReport(events: readonly TimingEvent[]): TimingReport {
   const summary = buildModuleTimingSummary(events);
-  const polyDetailByTarget = buildPolyDetailByTarget(events);
-  const invariantChecks = buildTimingInvariantChecks(summary, polyDetailByTarget);
+  const lowestOperationTotals = buildLowestOperationTotals(events);
+  const middleOperationTotals = buildMiddleOperationTotals(lowestOperationTotals);
+  const topOperationTotals = buildTopOperationTotals(middleOperationTotals);
+  const invariantChecks = buildTimingInvariantChecks(summary);
 
   return {
     generatedAt: new Date().toISOString(),
@@ -1115,41 +1139,30 @@ function buildTimingReport(events: readonly TimingEvent[]): TimingReport {
     summary,
     events,
     categoryTotals: summarizeByCategory(events.filter((event) => event.category !== "poly_detail")),
-    polyOperationTotals: summarizeByOperation(
-      events.filter((event) => event.category === "poly"),
-      parsePolyOperation,
-    ),
-    polyDetailOperationTotals: summarizeByOperation(
-      events.filter((event) => event.category === "poly_detail"),
-      parsePolyDetailOperation,
-    ),
-    encodeTotals: summarizeByOperation(
-      events.filter((event) => event.category === "encode"),
-      parseEncodeOperation,
-    ),
-    polyDetailByTarget,
+    lowestOperationTotals,
+    middleOperationTotals,
+    topOperationTotals,
     invariantChecks,
   };
 }
 
 function printTimingSummary(report: TimingReport, outputPath: string): void {
-  const combinePrimitiveMs = sumOperationTotals(report.polyDetailOperationTotals);
-  const combineMs = operationDuration(report.polyOperationTotals, "combine");
-  const divisionMs =
-    operationDuration(report.polyOperationTotals, "div_by_ruffini") +
-    operationDuration(report.polyOperationTotals, "div_by_vanishing_opt");
-  const polyMs = sumOperationTotals(report.polyOperationTotals);
-  const encodeCommitMs = sumOperationTotals(report.encodeTotals);
   const stageMs = Object.values(report.summary).reduce((total, item) => total + item.totalMs, 0);
 
   console.log(`Wrote prover stage timing report to ${path.relative(process.cwd(), outputPath)}`);
-  console.log("Bottom-up timing reconstruction:");
-  console.log(`  poly.combine primitive calls: ${formatDuration(combinePrimitiveMs)}`);
-  console.log(`  poly.combine remaining: ${formatDuration(combineMs - combinePrimitiveMs)}`);
-  console.log(`  poly.combine total: ${formatDuration(combineMs)}`);
-  console.log(`  poly division total: ${formatDuration(divisionMs)}`);
-  console.log(`  poly total: ${formatDuration(polyMs)}`);
-  console.log(`  encode commit total: ${formatDuration(encodeCommitMs)}`);
+  console.log("Fixed operation timing:");
+  console.log("  lowest:");
+  for (const total of report.lowestOperationTotals) {
+    console.log(`    ${total.operation}: ${formatDuration(total.durationMs)} (${total.count} events)`);
+  }
+  console.log("  middle:");
+  for (const total of report.middleOperationTotals) {
+    console.log(`    ${total.operation}: ${formatDuration(total.durationMs)} (${total.count} events)`);
+  }
+  console.log("  top:");
+  for (const total of report.topOperationTotals) {
+    console.log(`    ${total.operation}: ${formatDuration(total.durationMs)} (${total.count} events)`);
+  }
   console.log(`  stage total: ${formatDuration(stageMs)}`);
   console.log(`  total wall time: ${formatDuration(report.totalWallMs)}`);
   console.log("Module times:");
@@ -1162,10 +1175,6 @@ function printTimingSummary(report: TimingReport, outputPath: string): void {
     console.log(
       `  ${moduleName}: total=${formatDuration(item.totalMs)}, poly=${formatDuration(item.polyMs)}, encode=${formatDuration(item.encodeMs)}`,
     );
-  }
-  console.log("Poly combine primitive totals:");
-  for (const total of report.polyDetailOperationTotals) {
-    console.log(`  ${total.operation}: ${formatDuration(total.durationMs)} (${total.count} events)`);
   }
 
   const failedChecks = report.invariantChecks.filter((check) => !check.ok);
@@ -1230,77 +1239,130 @@ function summarizeByCategory(events: readonly TimingEvent[]): readonly TimingTot
     .sort((left, right) => right.durationMs - left.durationMs);
 }
 
-function summarizeByOperation(
-  events: readonly TimingEvent[],
-  parseOperation: (name: string) => string | undefined,
-): readonly OperationTimingTotal[] {
-  const totals = new Map<string, { durationMs: number; count: number }>();
+function buildLowestOperationTotals(events: readonly TimingEvent[]): readonly OperationTimingTotal[] {
+  const totals = createFixedOperationTotals(lowestOperationOrder);
   for (const event of events) {
-    const operation = parseOperation(event.name);
-    if (operation === undefined) {
-      continue;
+    const operation = lowestOperationForEvent(event);
+    if (operation !== undefined) {
+      addOperationTotal(totals, operation, event.durationMs);
     }
-
-    const total = totals.get(operation) ?? { durationMs: 0, count: 0 };
-    total.durationMs += event.durationMs;
-    total.count += 1;
-    totals.set(operation, total);
   }
 
-  return Array.from(totals.entries())
-    .map(([operation, total]) => ({ operation, ...total }))
-    .sort((left, right) => right.durationMs - left.durationMs);
+  return fixedOperationTotalsToRows(totals, lowestOperationOrder);
 }
 
-function buildPolyDetailByTarget(events: readonly TimingEvent[]): readonly PolyDetailTargetTiming[] {
-  const polyParents = new Map<string, TimingEvent>();
-  for (const event of events) {
-    const parsed = parsePolyTarget(event.name);
-    if (event.category === "poly" && parsed?.operation === "combine") {
-      polyParents.set(targetKey(parsed.module, parsed.variable), event);
+function buildMiddleOperationTotals(
+  lowestOperationTotals: readonly OperationTimingTotal[],
+): readonly OperationTimingTotal[] {
+  const totals = createFixedOperationTotals(middleOperationOrder);
+  addOperationTotal(
+    totals,
+    "polynomial.combine",
+    operationDuration(lowestOperationTotals, "polynomial.add") +
+      operationDuration(lowestOperationTotals, "polynomial.sub") +
+      operationDuration(lowestOperationTotals, "polynomial.mul") +
+      operationDuration(lowestOperationTotals, "polynomial.scale"),
+    operationCount(lowestOperationTotals, "polynomial.add") +
+      operationCount(lowestOperationTotals, "polynomial.sub") +
+      operationCount(lowestOperationTotals, "polynomial.mul") +
+      operationCount(lowestOperationTotals, "polynomial.scale"),
+  );
+  addOperationTotal(
+    totals,
+    "polynomial.division",
+    operationDuration(lowestOperationTotals, "polynomial.div_ruffini") +
+      operationDuration(lowestOperationTotals, "polynomial.div_vanishing"),
+    operationCount(lowestOperationTotals, "polynomial.div_ruffini") +
+      operationCount(lowestOperationTotals, "polynomial.div_vanishing"),
+  );
+  addOperationTotal(
+    totals,
+    "polynomial.encode",
+    operationDuration(lowestOperationTotals, "polynomial.encode"),
+    operationCount(lowestOperationTotals, "polynomial.encode"),
+  );
+
+  return fixedOperationTotalsToRows(totals, middleOperationOrder);
+}
+
+function buildTopOperationTotals(middleOperationTotals: readonly OperationTimingTotal[]): readonly OperationTimingTotal[] {
+  const totals = createFixedOperationTotals(topOperationOrder);
+  addOperationTotal(
+    totals,
+    "field.operations",
+    operationDuration(middleOperationTotals, "polynomial.combine") +
+      operationDuration(middleOperationTotals, "polynomial.division"),
+    operationCount(middleOperationTotals, "polynomial.combine") +
+      operationCount(middleOperationTotals, "polynomial.division"),
+  );
+  addOperationTotal(
+    totals,
+    "polynomial.encode",
+    operationDuration(middleOperationTotals, "polynomial.encode"),
+    operationCount(middleOperationTotals, "polynomial.encode"),
+  );
+
+  return fixedOperationTotalsToRows(totals, topOperationOrder);
+}
+
+function lowestOperationForEvent(event: TimingEvent): (typeof lowestOperationOrder)[number] | undefined {
+  if (event.category === "poly_detail") {
+    const operation = parsePolyDetailOperation(event.name);
+    return operation === undefined ? undefined : polyDetailLowestOperationMap.get(operation);
+  }
+  if (event.category === "poly") {
+    const operation = parsePolyOperation(event.name);
+    if (operation === "div_by_ruffini") {
+      return "polynomial.div_ruffini";
+    }
+    if (operation === "div_by_vanishing_opt") {
+      return "polynomial.div_vanishing";
     }
   }
-
-  const detailGroups = new Map<string, Map<string, { durationMs: number; count: number }>>();
-  for (const event of events) {
-    const parsed = parsePolyDetailTarget(event.name);
-    if (event.category !== "poly_detail" || parsed === undefined) {
-      continue;
-    }
-
-    const key = targetKey(parsed.module, parsed.variable);
-    const operations = detailGroups.get(key) ?? new Map<string, { durationMs: number; count: number }>();
-    const total = operations.get(parsed.operation) ?? { durationMs: 0, count: 0 };
-    total.durationMs += event.durationMs;
-    total.count += 1;
-    operations.set(parsed.operation, total);
-    detailGroups.set(key, operations);
+  if (event.category === "encode" && parseEncodeOperation(event.name) !== undefined) {
+    return "polynomial.encode";
   }
 
-  return Array.from(detailGroups.entries())
-    .map(([key, operations]) => {
-      const [module, variable] = key.split(":", 2);
-      const parentMs = polyParents.get(key)?.durationMs ?? 0;
-      const operationTotals = Array.from(operations.entries())
-        .map(([operation, total]) => ({ operation, ...total }))
-        .sort((left, right) => right.durationMs - left.durationMs);
-      const detailMs = operationTotals.reduce((total, operation) => total + operation.durationMs, 0);
+  return undefined;
+}
 
-      return {
-        module,
-        variable,
-        parentMs,
-        detailMs,
-        remainingMs: Math.max(0, parentMs - detailMs),
-        operations: operationTotals,
-      };
-    })
-    .sort((left, right) => right.detailMs - left.detailMs);
+function createFixedOperationTotals<T extends string>(
+  operations: readonly T[],
+): Map<T, { durationMs: number; count: number }> {
+  return new Map(operations.map((operation) => [operation, { durationMs: 0, count: 0 }]));
+}
+
+function addOperationTotal<T extends string>(
+  totals: Map<T, { durationMs: number; count: number }>,
+  operation: T,
+  durationMs: number,
+  count = 1,
+): void {
+  const total = totals.get(operation);
+  if (total === undefined) {
+    throw new Error(`Unknown fixed timing operation: ${operation}`);
+  }
+
+  total.durationMs += durationMs;
+  total.count += count;
+}
+
+function fixedOperationTotalsToRows<T extends string>(
+  totals: Map<T, { durationMs: number; count: number }>,
+  operations: readonly T[],
+): readonly OperationTimingTotal[] {
+  return operations.map((operation) => {
+    const total = totals.get(operation);
+    if (total === undefined) {
+      throw new Error(`Missing fixed timing operation: ${operation}`);
+    }
+
+    return { operation, durationMs: total.durationMs, count: total.count };
+  });
 }
 
 function buildTimingInvariantChecks(
   summary: Record<string, ModuleTimingSummary>,
-  polyDetailByTarget: readonly PolyDetailTargetTiming[],
 ): readonly TimingInvariantCheck[] {
   const checks: TimingInvariantCheck[] = [];
   for (const [moduleName, item] of Object.entries(summary)) {
@@ -1309,15 +1371,6 @@ function buildTimingInvariantChecks(
       parentMs: item.totalMs,
       childMs: item.polyMs + item.encodeMs,
       ok: item.polyMs + item.encodeMs <= item.totalMs + 1,
-    });
-  }
-
-  for (const target of polyDetailByTarget) {
-    checks.push({
-      name: `poly_detail.${target.module}.${target.variable}_lte_parent_poly`,
-      parentMs: target.parentMs,
-      childMs: target.detailMs,
-      ok: target.detailMs <= target.parentMs + 1,
     });
   }
 
@@ -1371,18 +1424,7 @@ function parsePolyDetailTarget(
   };
 }
 
-function targetKey(module: string, variable: string): string {
-  return `${module}:${variable}`;
-}
-
 function buildMarkdownTimingReport(report: TimingReport): string {
-  const combinePrimitiveMs = sumOperationTotals(report.polyDetailOperationTotals);
-  const combineMs = operationDuration(report.polyOperationTotals, "combine");
-  const ruffiniMs = operationDuration(report.polyOperationTotals, "div_by_ruffini");
-  const vanishingMs = operationDuration(report.polyOperationTotals, "div_by_vanishing_opt");
-  const divisionMs = ruffiniMs + vanishingMs;
-  const polyMs = sumOperationTotals(report.polyOperationTotals);
-  const encodeCommitMs = sumOperationTotals(report.encodeTotals);
   const stageMs = Object.values(report.summary).reduce((total, item) => total + item.totalMs, 0);
 
   const lines: string[] = [];
@@ -1391,70 +1433,47 @@ function buildMarkdownTimingReport(report: TimingReport): string {
   lines.push("## Timing Boundaries");
   lines.push("");
   lines.push("- Timing is recorded as flat accumulated events, matching the native prover timing report model.");
-  lines.push("- Tables are ordered bottom-up: primitive operation buckets, reconstructed polynomial work, module totals, then total wall time.");
-  lines.push("- `poly.combine` primitive rows are direct low-level calls inside `poly.combine.*` spans.");
-  lines.push("- Nested low-level calls are not recorded, so primitive rows do not double-count their parent operation.");
-  lines.push("- For each target, primitive detail total must be less than or equal to the parent `poly.combine.*` time.");
+  lines.push("- The reported operation taxonomy is fixed. Implementation method names are raw diagnostic event names only and are not reported as operation buckets.");
+  lines.push("- The lowest layer is limited to seven polynomial operations: add, subtract, multiply, Ruffini division, vanishing division, scale, and encode.");
+  lines.push("- The middle layer is limited to polynomial combine, polynomial division, and polynomial encode.");
+  lines.push("- The top layer is limited to field operations and polynomial encode.");
+  lines.push("- `polynomial.combine = add + subtract + multiply + scale`.");
+  lines.push("- `polynomial.division = Ruffini division + vanishing division`.");
+  lines.push("- `field.operations = polynomial.combine + polynomial.division`.");
   lines.push("");
-  lines.push("## Primitive Operation Buckets");
+  lines.push("## Lowest Operation Layer");
   lines.push("");
-  lines.push("These are the lowest-level timing buckets in the current report. They are not listed beside `poly`; they are used to reconstruct it.");
-  lines.push("");
-  lines.push("| primitive bucket | total | count |");
+  lines.push("| operation | total | count |");
   lines.push("| --- | ---: | ---: |");
-  for (const total of report.polyDetailOperationTotals) {
-    lines.push(`| poly.combine.${total.operation} | ${formatDuration(total.durationMs)} | ${total.count} |`);
+  for (const total of report.lowestOperationTotals) {
+    lines.push(`| ${total.operation} | ${formatDuration(total.durationMs)} | ${total.count} |`);
   }
-  lines.push(`| poly.combine.remaining | ${formatDuration(combineMs - combinePrimitiveMs)} | - |`);
-  lines.push(`| poly.div_by_ruffini | ${formatDuration(ruffiniMs)} | ${operationCount(report.polyOperationTotals, "div_by_ruffini")} |`);
-  lines.push(
-    `| poly.div_by_vanishing_opt | ${formatDuration(vanishingMs)} | ${operationCount(report.polyOperationTotals, "div_by_vanishing_opt")} |`,
-  );
-  lines.push(`| encode.commit | ${formatDuration(encodeCommitMs)} | ${sumOperationCounts(report.encodeTotals)} |`);
   lines.push("");
-  lines.push("## Polynomial Time Reconstruction");
+  lines.push("## Middle Operation Layer");
   lines.push("");
-  lines.push("| reconstruction row | total |");
-  lines.push("| --- | ---: |");
-  lines.push(`| sum(poly.combine primitives) | ${formatDuration(combinePrimitiveMs)} |`);
-  lines.push(`| poly.combine remaining | ${formatDuration(combineMs - combinePrimitiveMs)} |`);
-  lines.push(`| poly.combine total | ${formatDuration(combineMs)} |`);
-  lines.push(`| poly division total | ${formatDuration(divisionMs)} |`);
-  lines.push(`| total poly | ${formatDuration(polyMs)} |`);
-  lines.push("");
-  lines.push("## Poly Combine Coverage By Target");
-  lines.push("");
-  lines.push("| module | variable | primitive detail | remaining | parent combine | coverage |");
-  lines.push("| --- | --- | ---: | ---: | ---: | ---: |");
-  for (const target of report.polyDetailByTarget) {
+  lines.push("| operation | definition | total | count |");
+  lines.push("| --- | --- | ---: | ---: |");
+  for (const total of report.middleOperationTotals) {
     lines.push(
-      `| ${target.module} | ${target.variable} | ${formatDuration(target.detailMs)} | ${formatDuration(target.remainingMs)} | ${formatDuration(target.parentMs)} | ${formatPercent(target.detailMs, target.parentMs)} |`,
+      `| ${total.operation} | ${middleOperationDefinition(total.operation)} | ${formatDuration(total.durationMs)} | ${total.count} |`,
     );
   }
   lines.push("");
-  lines.push("## Module Time Reconstruction");
+  lines.push("## Top Operation Layer");
   lines.push("");
-  lines.push("| module | poly | encode | unclassified | total |");
-  lines.push("| --- | ---: | ---: | ---: | ---: |");
-  for (const moduleName of ["prove0", "prove1", "prove2", "prove3", "prove4"]) {
-    const item = report.summary[moduleName];
-    if (item === undefined) {
-      continue;
-    }
-
+  lines.push("| operation | definition | total | count |");
+  lines.push("| --- | --- | ---: | ---: |");
+  for (const total of report.topOperationTotals) {
     lines.push(
-      `| ${moduleName} | ${formatDuration(item.polyMs)} | ${formatDuration(item.encodeMs)} | ${formatDuration(item.totalMs - item.polyMs - item.encodeMs)} | ${formatDuration(item.totalMs)} |`,
+      `| ${total.operation} | ${topOperationDefinition(total.operation)} | ${formatDuration(total.durationMs)} | ${total.count} |`,
     );
   }
   lines.push("");
-  lines.push("## Total Time Reconstruction");
+  lines.push("## Execution Boundary Summary");
   lines.push("");
   lines.push("| row | total |");
   lines.push("| --- | ---: |");
   lines.push(`| prover stage total | ${formatDuration(stageMs)} |`);
-  lines.push(
-    `| non-stage setup/io/verify/output | ${formatDuration(report.totalWallMs - stageMs)} |`,
-  );
   lines.push(`| total wall | ${formatDuration(report.totalWallMs)} |`);
   lines.push("");
   lines.push("## Invariant Checks");
@@ -1469,14 +1488,6 @@ function buildMarkdownTimingReport(report: TimingReport): string {
   lines.push("");
 
   return `${lines.join("\n")}\n`;
-}
-
-function sumOperationTotals(totals: readonly OperationTimingTotal[]): number {
-  return totals.reduce((total, item) => total + item.durationMs, 0);
-}
-
-function sumOperationCounts(totals: readonly OperationTimingTotal[]): number {
-  return totals.reduce((total, item) => total + item.count, 0);
 }
 
 function operationDuration(totals: readonly OperationTimingTotal[], operation: string): number {
@@ -1503,12 +1514,28 @@ function formatDuration(milliseconds: number): string {
   return `${(milliseconds / 1000).toFixed(2)} s`;
 }
 
-function formatPercent(part: number, total: number): string {
-  if (total === 0) {
-    return "-";
+function middleOperationDefinition(operation: string): string {
+  switch (operation) {
+    case "polynomial.combine":
+      return "polynomial.add + polynomial.sub + polynomial.mul + polynomial.scale";
+    case "polynomial.division":
+      return "polynomial.div_ruffini + polynomial.div_vanishing";
+    case "polynomial.encode":
+      return "polynomial.encode";
+    default:
+      return "";
   }
+}
 
-  return `${((part / total) * 100).toFixed(1)}%`;
+function topOperationDefinition(operation: string): string {
+  switch (operation) {
+    case "field.operations":
+      return "polynomial.combine + polynomial.division";
+    case "polynomial.encode":
+      return "polynomial.encode";
+    default:
+      return "";
+  }
 }
 
 main().catch((error: unknown) => {
