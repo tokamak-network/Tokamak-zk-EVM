@@ -65,20 +65,19 @@ Result:
 | prove3 | 8.68 s | 0 ms | 0 ms | 8.68 s |
 | prove4 | 97.80 s | 53.64 s | 41.78 s | 2.38 s |
 
-## Category Totals
+## Top-Level Category Totals
 
 | category | total | count |
 | --- | ---: | ---: |
 | stage | 348.96 s | 5 |
 | poly | 202.63 s | 53 |
-| poly_detail | 174.75 s | 166 |
 | encode | 114.89 s | 18 |
 | init | 16.13 s | 2 |
 | io | 1.12 s | 2 |
 | verify | 18 ms | 1 |
 | output | 3 ms | 1 |
 
-`stage`, `poly`, `encode`, and `poly_detail` are not all additive categories. `stage` contains the high-level stage wall time. `poly` and `encode` are classified work inside those stages. `poly_detail` is a drill-down of direct low-level calls inside `poly.combine.*` targets and is reported separately.
+`poly_detail` is intentionally excluded from this table because it is a drill-down of direct low-level calls inside `poly.combine.*` targets, not a top-level category. It is reported only in the detail tables below.
 
 ## Poly Operation Totals
 

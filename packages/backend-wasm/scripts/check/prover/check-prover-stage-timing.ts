@@ -1114,7 +1114,7 @@ function buildTimingReport(events: readonly TimingEvent[]): TimingReport {
     totalWallMs: sumRootWallTime(events),
     summary,
     events,
-    categoryTotals: summarizeByCategory(events),
+    categoryTotals: summarizeByCategory(events.filter((event) => event.category !== "poly_detail")),
     polyOperationTotals: summarizeByOperation(
       events.filter((event) => event.category === "poly"),
       parsePolyOperation,
@@ -1146,7 +1146,7 @@ function printTimingSummary(report: TimingReport, outputPath: string): void {
       `  ${moduleName}: total=${formatDuration(item.totalMs)}, poly=${formatDuration(item.polyMs)}, encode=${formatDuration(item.encodeMs)}`,
     );
   }
-  console.log("Category totals:");
+  console.log("Top-level category totals:");
   for (const total of report.categoryTotals) {
     console.log(`  ${total.category}: ${formatDuration(total.durationMs)} (${total.count} events)`);
   }
@@ -1399,7 +1399,7 @@ function buildMarkdownTimingReport(report: TimingReport): string {
     );
   }
   lines.push("");
-  lines.push("## Category Totals");
+  lines.push("## Top-Level Category Totals");
   lines.push("");
   lines.push("| category | total | count |");
   lines.push("| --- | ---: | ---: |");
