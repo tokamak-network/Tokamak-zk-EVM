@@ -11,6 +11,7 @@ The prover currently bounds large dense commitment MSM calls before passing them
 to ffjavascript. Smaller chunks reduce browser worker clone pressure, while
 larger chunks reduce the number of external MSM calls and partial G1 additions.
 This benchmark measures the full browser prover time at several chunk sizes.
+It also records observed peak RSS for the `chrome-headless-shell` process group.
 
 ## Method
 
@@ -25,57 +26,52 @@ This benchmark measures the full browser prover time at several chunk sizes.
   Chromium.
 - Temporary change: only `SIGMA1_DENSE_MSM_CHUNK_POINTS` was changed between
   runs. The production source was restored to `1 << 14` after measurement.
+- Memory sampling: during each run, `ps` sampled `chrome-headless-shell` RSS
+  every two seconds. The table reports both total RSS across matching headless
+  Chromium processes and the largest single matching process RSS. These are
+  process-level RSS observations, not JavaScript heap-only measurements.
+- Excluded candidate: 1,048,576 points is not part of this benchmark set by
+  project-owner decision.
 
 ## Results
 
-| chunk points | value | prove binary time | verifier result |
-| ---: | ---: | ---: | --- |
-| 16,384 | `1 << 14` | 407.62 s | passed |
-| 32,768 | `1 << 15` | 396.68 s | passed |
-| 65,536 | `1 << 16` | 392.64 s | passed |
-| 131,072 | `1 << 17` | 390.84 s | passed |
-| 262,144 | `1 << 18` | 385.54 s | passed |
-| 524,288 | `1 << 19` | 383.45 s | passed |
-| 1,048,576 | `1 << 20` | did not complete within about 20 minutes | interrupted |
+| chunk points | value | prove binary time | peak total RSS | peak single RSS | verifier result |
+| ---: | ---: | ---: | ---: | ---: | --- |
+| 16,384 | `1 << 14` | 408.01 s | 17.29 GiB | 17.09 GiB | passed |
+| 32,768 | `1 << 15` | 396.12 s | 17.75 GiB | 17.55 GiB | passed |
+| 65,536 | `1 << 16` | 393.56 s | 17.90 GiB | 17.70 GiB | passed |
+| 131,072 | `1 << 17` | 387.96 s | 18.01 GiB | 17.81 GiB | passed |
+| 262,144 | `1 << 18` | 384.92 s | 18.51 GiB | 18.31 GiB | passed |
+| 524,288 | `1 << 19` | 387.97 s | 22.10 GiB | 21.90 GiB | passed |
 
 ## Interpretation
 
-For this local Chromium run, increasing the dense MSM chunk size from 16,384 to
-524,288 points reduced full prover time by 24.17 seconds, or about 5.9% relative
-to the 16,384-point baseline.
+For this local RSS-instrumented Chromium rerun, increasing the dense MSM chunk
+size from 16,384 to 262,144 points reduced full prover time by 23.09 seconds,
+or about 5.7% relative to the 16,384-point baseline.
 
-The improvement is monotonic across the tested range, but the marginal gain
-shrinks as the chunk size increases:
+The timing improvement is not monotonic across the full measured range.
+524,288 points completed and verified, but it was slower than 262,144 points in
+this rerun and increased peak total RSS sharply.
 
-| transition | time saved |
-| --- | ---: |
-| 16,384 -> 32,768 | 10.94 s |
-| 32,768 -> 65,536 | 4.04 s |
-| 65,536 -> 131,072 | 1.80 s |
-| 131,072 -> 262,144 | 5.30 s |
-| 262,144 -> 524,288 | 2.09 s |
+| transition | time saved | peak total RSS increase |
+| --- | ---: | ---: |
+| 16,384 -> 32,768 | 11.89 s | 0.46 GiB |
+| 32,768 -> 65,536 | 2.56 s | 0.15 GiB |
+| 65,536 -> 131,072 | 5.60 s | 0.11 GiB |
+| 131,072 -> 262,144 | 3.04 s | 0.50 GiB |
+| 262,144 -> 524,288 | -3.05 s | 3.59 GiB |
 
 The result shows that the chunk size affects full prover performance, but it is
-not the dominant prover bottleneck. Even the largest tested chunk saves only
-about 24 seconds out of roughly 408 seconds.
-
-The next larger candidate, 1,048,576 points, did not fail immediately, but it
-did not complete within about 20 minutes and was interrupted. During that run,
-the headless Chromium process RSS was observed around `14,066,016 KiB`
-(`13.4 GiB`). CPU usage was low while the process remained alive, which is
-consistent with heavy browser memory pressure, GC, or ffjavascript worker-copy
-overhead rather than useful prover progress.
-
-For this local system, the largest full-prover chunk size confirmed to complete
-and verify is therefore 524,288 points. The 1,048,576-point candidate is not
-accepted as a safe executable setting for this benchmark.
+not the dominant prover bottleneck. The best measured RSS-instrumented run saves
+about 23 seconds out of roughly 408 seconds. The memory cost becomes substantial
+at 524,288 points without producing a better time in this rerun.
 
 ## Production Consequence
 
 This benchmark does not by itself change the production default. A larger
 default chunk size should require an explicit owner decision because it increases
 browser worker message size and peak memory pressure. The measured local machine
-can complete 524,288-point chunks. The same local machine did not complete the
-1,048,576-point candidate within the practical benchmark window. This does not
-prove the same 524,288-point setting is safe across target browsers and user
-hardware.
+can complete 524,288-point chunks, but 262,144 points is the best local
+time/memory point in this RSS-instrumented rerun. This does not prove either
+setting is safe across target browsers and user hardware.
