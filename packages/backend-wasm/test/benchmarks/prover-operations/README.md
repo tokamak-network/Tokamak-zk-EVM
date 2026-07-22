@@ -245,6 +245,54 @@ Production direction:
 - Do not promote Candidate 4.
 - Do not add a custom worker/WASM kernel for this path unless integrated prover timing shows the JavaScript flat-buffer rewrite is insufficient.
 
+## Accepted Shape-Aware Linear Operation Rewrite
+
+The successful linear-operation candidates were promoted together:
+
+- Same-shape flat accumulation for full-size add/sub/addScaled paths.
+- Prefix row-offset accumulation for prefix-contained terms.
+- Direct subtraction for `-1` factors.
+- First nonzero term accumulator construction in `linearCombinationBuffer(...)`.
+- Shape-aware dispatch through the optimized accumulation kernels.
+
+Candidate 4 was not promoted. Candidate 8 remains a deferred research item only.
+
+Verification:
+
+```bash
+npm run typecheck
+npm run typecheck:scripts
+npm run polynomial:buffer:check
+npm run prover:ops:polynomial
+npm run prover:ops:check
+npm run prover:testing-mode:check
+npm run prover:stage-timing:check
+npm run bench:prover-ops -- --groups=linear-combination --shapes=4x4,32x32,512x256,1024x256,4096x256 --iterations=1 --warmup=0 --json=tmp/timing/linear-combination-after-production.json
+```
+
+Representative `4096x256` before/after comparison:
+
+| path | before | after | speedup | reduction |
+| --- | ---: | ---: | ---: | ---: |
+| current-add | 432.404 | 349.267 | 1.24x | 19.2% |
+| current-sub | 544.954 | 346.478 | 1.57x | 36.4% |
+| current-addScaledAssign | 369.712 | 353.012 | 1.05x | 4.5% |
+| current-prefix-addScaledAssign | 113.229 | 90.786 | 1.25x | 19.8% |
+| current-linearCombinationBuffer | 1322.379 | 918.179 | 1.44x | 30.6% |
+| current-mixed-prefix-linearCombination | 993.944 | 656.714 | 1.51x | 33.9% |
+
+Integrated stage timing after the rewrite:
+
+| category or event group | before | after |
+| --- | ---: | ---: |
+| stage total | 355.70 s | 344.27 s |
+| poly total | 213.94 s | 200.66 s |
+| poly_detail total | 284.37 s | 258.09 s |
+| poly.combine | 196.46 s | 182.45 s |
+| poly.linear/add | 118.04 s | 74.55 s |
+
+The stage-timing totals are diagnostic spans and may overlap. Use them for hotspot ranking and before/after direction, not additive wall-time accounting.
+
 ## Accepted Axis-Specific Multiplication
 
 Strict prover timing showed the dominant non-MSM cost had moved to polynomial multiplication and combination, especially copy-quotient and opening numerator construction. Several hot multiplications have one operand that is X-only or Y-only, but the previous buffer multiplication path still forced a full 2D NTT product.

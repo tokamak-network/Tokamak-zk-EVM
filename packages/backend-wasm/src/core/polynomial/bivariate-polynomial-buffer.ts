@@ -65,6 +65,15 @@ export class BivariatePolynomialBuffer {
     return new BivariatePolynomialBuffer(field, field.cloneBuffer(coefficients), { xSize, ySize });
   }
 
+  static fromOwnedBuffer(
+    field: FieldRuntime,
+    coefficients: Uint8Array,
+    xSize: number,
+    ySize: number,
+  ): BivariatePolynomialBuffer {
+    return new BivariatePolynomialBuffer(field, coefficients, { xSize, ySize });
+  }
+
   static fromDense(polynomial: DensePolynomialExt): BivariatePolynomialBuffer {
     return BivariatePolynomialBuffer.fromCoeffs(
       polynomial.field,
@@ -224,31 +233,13 @@ export class BivariatePolynomialBuffer {
 
   addAssign(other: BivariatePolynomialBuffer): this {
     this.assertSameShape(other);
-    for (let index = 0; index < this.xSize * this.ySize; index += 1) {
-      this.field.writeBufferElement(
-        this.coefficients,
-        index,
-        this.field.add(
-          this.field.readBufferElement(this.coefficients, index),
-          this.field.readBufferElement(other.coefficients, index),
-        ),
-      );
-    }
+    this.addSameShapeAssign(other);
     return this;
   }
 
   subAssign(other: BivariatePolynomialBuffer): this {
     this.assertSameShape(other);
-    for (let index = 0; index < this.xSize * this.ySize; index += 1) {
-      this.field.writeBufferElement(
-        this.coefficients,
-        index,
-        this.field.sub(
-          this.field.readBufferElement(this.coefficients, index),
-          this.field.readBufferElement(other.coefficients, index),
-        ),
-      );
-    }
+    this.subSameShapeAssign(other);
     return this;
   }
 
@@ -337,23 +328,7 @@ export class BivariatePolynomialBuffer {
 
   addScaledAssign(other: BivariatePolynomialBuffer, factor: FieldElement): this {
     this.assertSameShape(other);
-    if (this.field.isZero(factor)) {
-      return this;
-    }
-    const isOne = this.field.eq(factor, this.field.one);
-    const isMinusOne = this.field.eq(factor, this.field.neg(this.field.one));
-
-    for (let index = 0; index < this.xSize * this.ySize; index += 1) {
-      const left = this.field.readBufferElement(this.coefficients, index);
-      const right = this.field.readBufferElement(other.coefficients, index);
-      const scaled = isOne ? right : isMinusOne ? this.field.neg(right) : this.field.mul(right, factor);
-      this.field.writeBufferElement(
-        this.coefficients,
-        index,
-        this.field.add(left, scaled),
-      );
-    }
-    return this;
+    return this.addScaledPrefixAssign(other, factor);
   }
 
   addScaledPrefixAssign(other: BivariatePolynomialBuffer, factor: FieldElement): this {
@@ -368,18 +343,35 @@ export class BivariatePolynomialBuffer {
     }
     const isOne = this.field.eq(factor, this.field.one);
     const isMinusOne = this.field.eq(factor, this.field.neg(this.field.one));
+    if (this.xSize === other.xSize && this.ySize === other.ySize) {
+      if (isOne) {
+        this.addSameShapeAssign(other);
+      } else if (isMinusOne) {
+        this.subSameShapeAssign(other);
+      } else {
+        this.addScaledSameShapeAssign(other, factor);
+      }
+      return this;
+    }
 
+    const elementBytes = this.field.byteLength;
+    const targetRowBytes = this.ySize * elementBytes;
+    const sourceRowBytes = other.ySize * elementBytes;
     for (let x = 0; x < other.xSize; x += 1) {
-      for (let y = 0; y < other.ySize; y += 1) {
-        const targetIndex = this.coefficientIndex(x, y);
-        const target = this.field.readBufferElement(this.coefficients, targetIndex);
-        const source = other.getCoeff(x, y);
-        const scaled = isOne ? source : isMinusOne ? this.field.neg(source) : this.field.mul(source, factor);
-        this.field.writeBufferElement(
-          this.coefficients,
-          targetIndex,
-          this.field.add(target, scaled),
-        );
+      const targetRowOffset = x * targetRowBytes;
+      const sourceRowOffset = x * sourceRowBytes;
+      for (let yOffset = 0; yOffset < sourceRowBytes; yOffset += elementBytes) {
+        const targetOffset = targetRowOffset + yOffset;
+        const sourceOffset = sourceRowOffset + yOffset;
+        const target = this.coefficients.subarray(targetOffset, targetOffset + elementBytes);
+        const source = other.coefficients.subarray(sourceOffset, sourceOffset + elementBytes);
+        if (isOne) {
+          this.coefficients.set(this.field.add(target, source), targetOffset);
+        } else if (isMinusOne) {
+          this.coefficients.set(this.field.sub(target, source), targetOffset);
+        } else {
+          this.coefficients.set(this.field.add(target, this.field.mul(source, factor)), targetOffset);
+        }
       }
     }
     return this;
@@ -563,6 +555,41 @@ export class BivariatePolynomialBuffer {
   private assertSameShape(other: BivariatePolynomialBuffer): void {
     if (this.field !== other.field || this.xSize !== other.xSize || this.ySize !== other.ySize) {
       throw new Error("Bivariate polynomial buffers must have the same field and shape.");
+    }
+  }
+
+  private addSameShapeAssign(other: BivariatePolynomialBuffer): void {
+    const elementBytes = this.field.byteLength;
+    for (let offset = 0; offset < this.coefficients.byteLength; offset += elementBytes) {
+      this.coefficients.set(
+        this.field.add(
+          this.coefficients.subarray(offset, offset + elementBytes),
+          other.coefficients.subarray(offset, offset + elementBytes),
+        ),
+        offset,
+      );
+    }
+  }
+
+  private subSameShapeAssign(other: BivariatePolynomialBuffer): void {
+    const elementBytes = this.field.byteLength;
+    for (let offset = 0; offset < this.coefficients.byteLength; offset += elementBytes) {
+      this.coefficients.set(
+        this.field.sub(
+          this.coefficients.subarray(offset, offset + elementBytes),
+          other.coefficients.subarray(offset, offset + elementBytes),
+        ),
+        offset,
+      );
+    }
+  }
+
+  private addScaledSameShapeAssign(other: BivariatePolynomialBuffer, factor: FieldElement): void {
+    const elementBytes = this.field.byteLength;
+    for (let offset = 0; offset < this.coefficients.byteLength; offset += elementBytes) {
+      const target = this.coefficients.subarray(offset, offset + elementBytes);
+      const source = other.coefficients.subarray(offset, offset + elementBytes);
+      this.coefficients.set(this.field.add(target, this.field.mul(source, factor)), offset);
     }
   }
 
