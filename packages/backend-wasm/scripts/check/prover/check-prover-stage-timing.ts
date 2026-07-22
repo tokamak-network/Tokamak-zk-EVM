@@ -109,16 +109,16 @@ const lowestOperationOrder = [
   "polynomial.div_ruffini",
   "polynomial.div_vanishing",
   "polynomial.encode",
+  "binding.encode",
 ] as const;
 
-const middleOperationOrder = ["polynomial.combination", "polynomial.division", "polynomial.encode"] as const;
-const topOperationOrder = ["field.operations", "polynomial.encode"] as const;
+const middleOperationOrder = ["polynomial.combination", "polynomial.division", "encode"] as const;
+const topOperationOrder = ["field.operations", "encode"] as const;
 const executionBoundaryOrder = [
   "init",
   "field.operations",
-  "polynomial.encode",
+  "encode",
   "stage.unclassified",
-  "binding.encode",
   "io",
   "verify",
   "output",
@@ -1337,7 +1337,7 @@ function buildTimingReport(events: readonly TimingEvent[]): TimingReport {
   const topOperationTotals = buildTopOperationTotals(middleOperationTotals);
   const totalWallMs = sumRootWallTime(events);
   const classifiedOperationMs =
-    operationDuration(topOperationTotals, "field.operations") + operationDuration(topOperationTotals, "polynomial.encode");
+    operationDuration(topOperationTotals, "field.operations") + operationDuration(topOperationTotals, "encode");
   const unclassifiedProverMs = totalWallMs - classifiedOperationMs;
   const executionBoundaryTotals = buildExecutionBoundaryTotals({
     categoryTotals,
@@ -1505,9 +1505,11 @@ function buildMiddleOperationTotals(
   );
   addOperationTotal(
     totals,
-    "polynomial.encode",
-    operationDuration(lowestOperationTotals, "polynomial.encode"),
-    operationCount(lowestOperationTotals, "polynomial.encode"),
+    "encode",
+    operationDuration(lowestOperationTotals, "polynomial.encode") +
+      operationDuration(lowestOperationTotals, "binding.encode"),
+    operationCount(lowestOperationTotals, "polynomial.encode") +
+      operationCount(lowestOperationTotals, "binding.encode"),
   );
 
   return fixedOperationTotalsToRows(totals, middleOperationOrder);
@@ -1525,9 +1527,9 @@ function buildTopOperationTotals(middleOperationTotals: readonly OperationTiming
   );
   addOperationTotal(
     totals,
-    "polynomial.encode",
-    operationDuration(middleOperationTotals, "polynomial.encode"),
-    operationCount(middleOperationTotals, "polynomial.encode"),
+    "encode",
+    operationDuration(middleOperationTotals, "encode"),
+    operationCount(middleOperationTotals, "encode"),
   );
 
   return fixedOperationTotalsToRows(totals, topOperationOrder);
@@ -1542,7 +1544,8 @@ function buildExecutionBoundaryTotals(input: {
   const totals = createFixedOperationTotals(executionBoundaryOrder);
   const stageMs = categoryDuration(categoryTotals, "stage");
   const fieldOperationsMs = operationDuration(topOperationTotals, "field.operations");
-  const polynomialEncodeMs = operationDuration(topOperationTotals, "polynomial.encode");
+  const encodeMs = operationDuration(topOperationTotals, "encode");
+  const polynomialEncodeMs = categoryDuration(categoryTotals, "polynomial.encode");
   const initMs = categoryDuration(categoryTotals, "init");
   const bindingEncodeMs = categoryDuration(categoryTotals, "binding.encode");
   const ioMs = categoryDuration(categoryTotals, "io");
@@ -1561,12 +1564,11 @@ function buildExecutionBoundaryTotals(input: {
   );
   addOperationTotal(
     totals,
-    "polynomial.encode",
-    polynomialEncodeMs,
-    operationCount(topOperationTotals, "polynomial.encode"),
+    "encode",
+    encodeMs,
+    operationCount(topOperationTotals, "encode"),
   );
   addOperationTotal(totals, "stage.unclassified", stageUnclassifiedMs);
-  addOperationTotal(totals, "binding.encode", bindingEncodeMs, categoryCount(categoryTotals, "binding.encode"));
   addOperationTotal(totals, "io", ioMs, categoryCount(categoryTotals, "io"));
   addOperationTotal(totals, "verify", verifyMs, categoryCount(categoryTotals, "verify"));
   addOperationTotal(totals, "output", outputMs, categoryCount(categoryTotals, "output"));
@@ -1693,7 +1695,7 @@ function buildTimingInvariantChecks(input: {
 
   const unexpectedOfficialEvents = events.filter(
     (event) =>
-      event.category.startsWith("polynomial.") &&
+      (event.category.startsWith("polynomial.") || event.category.startsWith("binding.")) &&
       !isLowestOperation(event.category) &&
       !middleOperationOrder.includes(event.category as (typeof middleOperationOrder)[number]) &&
       !topOperationOrder.includes(event.category as (typeof topOperationOrder)[number]),
@@ -1730,12 +1732,15 @@ function buildTimingInvariantChecks(input: {
     ),
   });
   checks.push({
-    name: "middle_encode_equals_lowest_encode",
-    parentMs: operationDuration(middleOperationTotals, "polynomial.encode"),
-    childMs: operationDuration(lowestOperationTotals, "polynomial.encode"),
+    name: "middle_encode_equals_lowest_encode_sum",
+    parentMs: operationDuration(middleOperationTotals, "encode"),
+    childMs:
+      operationDuration(lowestOperationTotals, "polynomial.encode") +
+      operationDuration(lowestOperationTotals, "binding.encode"),
     ok: durationsEqual(
-      operationDuration(middleOperationTotals, "polynomial.encode"),
-      operationDuration(lowestOperationTotals, "polynomial.encode"),
+      operationDuration(middleOperationTotals, "encode"),
+      operationDuration(lowestOperationTotals, "polynomial.encode") +
+        operationDuration(lowestOperationTotals, "binding.encode"),
     ),
   });
   checks.push({
@@ -1752,11 +1757,11 @@ function buildTimingInvariantChecks(input: {
   });
   checks.push({
     name: "top_encode_equals_middle_encode",
-    parentMs: operationDuration(topOperationTotals, "polynomial.encode"),
-    childMs: operationDuration(middleOperationTotals, "polynomial.encode"),
+    parentMs: operationDuration(topOperationTotals, "encode"),
+    childMs: operationDuration(middleOperationTotals, "encode"),
     ok: durationsEqual(
-      operationDuration(topOperationTotals, "polynomial.encode"),
-      operationDuration(middleOperationTotals, "polynomial.encode"),
+      operationDuration(topOperationTotals, "encode"),
+      operationDuration(middleOperationTotals, "encode"),
     ),
   });
   const executionBoundaryMs = executionBoundaryTotals.reduce((total, item) => total + item.durationMs, 0);
@@ -1797,17 +1802,16 @@ function buildMarkdownTimingReport(report: TimingReport): string {
   lines.push("- Timing is recorded as flat accumulated events, matching the native prover timing report model.");
   lines.push("- The reported operation taxonomy is fixed. Implementation method names are raw diagnostic event names only and are not reported as operation buckets.");
   lines.push("- Rows inside each reported layer are mutually exclusive.");
-  lines.push(
-    "- The lowest layer is limited to five production-like polynomial operations: combination without multiplication, combination with multiplication, Ruffini division, vanishing division, and encode.",
-  );
+  lines.push("- The lowest layer is limited to the fixed production-like operation set listed in the lowest operation layer table.");
   lines.push("- Polynomial combination includes add, subtract, scale, fused scaled-add accumulation, coefficient rescale, and related shape/materialization work.");
   lines.push("- Fused polynomial combination work is measured at its production-like call-site boundary and is not decomposed into artificial helper rows.");
-  lines.push("- The middle layer is limited to polynomial combination, polynomial division, and polynomial encode.");
-  lines.push("- The top layer is limited to field operations and polynomial encode.");
+  lines.push("- The middle layer is limited to polynomial combination, polynomial division, and encode.");
+  lines.push("- The top layer is limited to field operations and encode.");
   lines.push("- `polynomial.combination = polynomial.combination_without_multiplication + polynomial.combination_with_multiplication`.");
   lines.push("- `polynomial.division = Ruffini division + vanishing division`.");
   lines.push("- `field.operations = polynomial.combination + polynomial.division`.");
-  lines.push("- `binding.encode` means `buildProverBinding(...)`; it is separate from `polynomial.encode`.");
+  lines.push("- `encode = polynomial.encode + binding.encode`.");
+  lines.push("- `binding.encode` means the `buildProverBinding(...)` commitment work for `A_free`, `O_pub_free`, `O_mid`, and `O_prv`.");
   lines.push("- The execution boundary layer partitions total wall time and includes initialization, top-layer operation rows, stage gaps, binding encoding, I/O, verification, output, and external gaps.");
   lines.push("");
   lines.push("## Lowest Operation Layer");
@@ -1896,11 +1900,12 @@ function flatSize(label: string, count: number): SizeInfo {
 }
 
 function formatDuration(milliseconds: number): string {
-  if (milliseconds < 1000) {
-    return `${milliseconds.toFixed(0)} ms`;
+  const normalized = Math.abs(milliseconds) < 0.5 ? 0 : milliseconds;
+  if (Math.abs(normalized) < 1000) {
+    return `${normalized.toFixed(0)} ms`;
   }
 
-  return `${(milliseconds / 1000).toFixed(2)} s`;
+  return `${(normalized / 1000).toFixed(2)} s`;
 }
 
 function middleOperationDefinition(operation: string): string {
@@ -1909,8 +1914,8 @@ function middleOperationDefinition(operation: string): string {
       return "polynomial.combination_without_multiplication + polynomial.combination_with_multiplication";
     case "polynomial.division":
       return "polynomial.div_ruffini + polynomial.div_vanishing";
-    case "polynomial.encode":
-      return "polynomial.encode";
+    case "encode":
+      return "polynomial.encode + binding.encode";
     default:
       return "";
   }
@@ -1920,8 +1925,8 @@ function topOperationDefinition(operation: string): string {
   switch (operation) {
     case "field.operations":
       return "polynomial.combination + polynomial.division";
-    case "polynomial.encode":
-      return "polynomial.encode";
+    case "encode":
+      return "polynomial.encode + binding.encode";
     default:
       return "";
   }
@@ -1933,12 +1938,10 @@ function executionBoundaryDefinition(operation: string): string {
       return "witness polynomial construction and prover state construction";
     case "field.operations":
       return "top-layer field operation total";
-    case "polynomial.encode":
-      return "top-layer polynomial commitment encoding total";
+    case "encode":
+      return "polynomial commitment encoding plus binding commitment encoding";
     case "stage.unclassified":
       return "prover stage wall time not assigned to field.operations or polynomial.encode";
-    case "binding.encode":
-      return "buildProverBinding(...)";
     case "io":
       return "runtime bundle and generated artifact file loading";
     case "verify":

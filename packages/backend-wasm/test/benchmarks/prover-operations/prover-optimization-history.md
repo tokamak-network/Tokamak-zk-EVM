@@ -24,6 +24,7 @@ Lowest operation layer:
 | `polynomial.div_ruffini` | Ruffini division. |
 | `polynomial.div_vanishing` | Vanishing-polynomial division. |
 | `polynomial.encode` | Polynomial commitment encoding, including MSM input preparation and the MSM call. |
+| `binding.encode` | Binding commitment encoding, meaning `buildProverBinding(...)` and its four G1 binding commitments: `A_free`, `O_pub_free`, `O_mid`, and `O_prv`. |
 
 Middle operation layer:
 
@@ -31,14 +32,14 @@ Middle operation layer:
 | --- | --- |
 | `polynomial.combination` | `polynomial.combination_without_multiplication + polynomial.combination_with_multiplication` |
 | `polynomial.division` | `polynomial.div_ruffini + polynomial.div_vanishing` |
-| `polynomial.encode` | `polynomial.encode` |
+| `encode` | `polynomial.encode + binding.encode` |
 
 Top operation layer:
 
 | operation | definition |
 | --- | --- |
 | `field.operations` | `polynomial.combination + polynomial.division` |
-| `polynomial.encode` | `polynomial.encode` |
+| `encode` | `polynomial.encode + binding.encode` |
 
 Execution boundary layer:
 
@@ -46,9 +47,8 @@ Execution boundary layer:
 | --- | --- |
 | `init` | Witness polynomial construction and prover state construction. |
 | `field.operations` | Top-layer field operation total. |
-| `polynomial.encode` | Top-layer polynomial commitment encoding total. |
+| `encode` | Top-layer encode total: `polynomial.encode + binding.encode`. |
 | `stage.unclassified` | Prover stage wall time not assigned to `field.operations` or `polynomial.encode`. |
-| `binding.encode` | `buildProverBinding(...)`; this is separate from `polynomial.encode`. |
 | `io` | Runtime bundle and generated artifact file loading. |
 | `verify` | Generated proof verification check. |
 | `output` | Verifier proof artifact creation. |
@@ -65,7 +65,7 @@ The runner enforces:
 
 ## Active Linear Accumulation Comparison
 
-This is the active before/after comparison. Both runs use the same production-like five-row timing taxonomy.
+This is the active before/after comparison. Both runs use the same production-like timing taxonomy.
 
 Commands:
 
@@ -81,7 +81,7 @@ Compared code points:
 
 - Before: `3c7da223` (`Benchmark linear operation optimization candidates`), before the production linear accumulation rewrite.
 - Optimization commit: `cddceefe` (`Optimize polynomial linear accumulation`).
-- After: current branch with the production-like five-row timing taxonomy.
+- After: current branch with the production-like timing taxonomy.
 
 Status:
 
@@ -93,36 +93,36 @@ Lowest operation layer:
 
 | operation | before | after | delta |
 | --- | ---: | ---: | ---: |
-| `polynomial.combination_without_multiplication` | 66.78 s | 59.88 s | -6.90 s |
-| `polynomial.combination_with_multiplication` | 135.62 s | 131.93 s | -3.69 s |
-| `polynomial.div_ruffini` | 10.51 s | 10.42 s | -0.09 s |
-| `polynomial.div_vanishing` | 5.98 s | 6.12 s | +0.14 s |
-| `polynomial.encode` | 118.02 s | 115.76 s | -2.26 s |
+| `polynomial.combination_without_multiplication` | 66.78 s | 60.37 s | -6.41 s |
+| `polynomial.combination_with_multiplication` | 135.62 s | 132.87 s | -2.75 s |
+| `polynomial.div_ruffini` | 10.51 s | 11.19 s | +0.69 s |
+| `polynomial.div_vanishing` | 5.98 s | 5.67 s | -0.31 s |
+| `polynomial.encode` | 118.02 s | 117.67 s | -0.35 s |
+| `binding.encode` | 1.99 s | 1.91 s | -0.08 s |
 
 Middle operation layer:
 
 | operation | before | after | delta |
 | --- | ---: | ---: | ---: |
-| `polynomial.combination` | 202.41 s | 191.81 s | -10.60 s |
-| `polynomial.division` | 16.49 s | 16.54 s | +0.05 s |
-| `polynomial.encode` | 118.02 s | 115.76 s | -2.26 s |
+| `polynomial.combination` | 202.41 s | 193.24 s | -9.16 s |
+| `polynomial.division` | 16.49 s | 16.87 s | +0.38 s |
+| `encode` | 120.01 s | 119.58 s | -0.43 s |
 
 Top operation layer:
 
 | operation | before | after | delta |
 | --- | ---: | ---: | ---: |
-| `field.operations` | 218.89 s | 208.35 s | -10.54 s |
-| `polynomial.encode` | 118.02 s | 115.76 s | -2.26 s |
+| `field.operations` | 218.89 s | 210.11 s | -8.78 s |
+| `encode` | 120.01 s | 119.58 s | -0.43 s |
 
 Execution boundary layer:
 
 | row | before | after | delta |
 | --- | ---: | ---: | ---: |
-| `init` | 16.43 s | 16.18 s | -0.25 s |
-| `field.operations` | 218.89 s | 208.35 s | -10.54 s |
-| `polynomial.encode` | 118.02 s | 115.76 s | -2.26 s |
-| `stage.unclassified` | 24.74 s | 24.04 s | -0.70 s |
-| `binding.encode` | 1.99 s | 1.93 s | -0.06 s |
+| `init` | 16.43 s | 15.80 s | -0.63 s |
+| `field.operations` | 218.89 s | 210.11 s | -8.78 s |
+| `encode` | 120.01 s | 119.58 s | -0.43 s |
+| `stage.unclassified` | 24.74 s | 24.13 s | -0.61 s |
 | `io` | 0.98 s | 1.06 s | +0.08 s |
 | `verify` | 0.02 s | 0.02 s | 0.00 s |
 | `output` | 0.00 s | 0.00 s | 0.00 s |
@@ -132,18 +132,18 @@ Execution boundary:
 
 | row | before | after | delta |
 | --- | ---: | ---: | ---: |
-| prover stage total | 361.65 s | 348.15 s | -13.50 s |
-| classified operation time | 336.91 s | 324.11 s | -12.80 s |
-| unclassified prover time | 44.16 s | 43.23 s | -0.93 s |
-| total wall | 381.08 s | 367.34 s | -13.74 s |
+| prover stage total | 361.65 s | 351.91 s | -9.74 s |
+| classified operation time | 338.90 s | 329.69 s | -9.21 s |
+| unclassified prover time | 42.17 s | 40.99 s | -1.18 s |
+| total wall | 381.08 s | 370.68 s | -10.39 s |
 
 Interpretation:
 
-- The production linear accumulation rewrite reduced total wall time by 13.74 s under the active taxonomy in the latest run.
-- The main measured improvement is in `polynomial.combination`, down 10.60 s.
-- `polynomial.combination_with_multiplication` also decreased by 3.69 s, but that bucket still contains multiplication-heavy call sites and remains the largest active optimization target at 131.93 s.
-- `polynomial.encode` remains the second largest active bucket at 115.76 s.
-- `binding.encode` means `buildProverBinding(...)`; it is not polynomial commitment encoding.
+- The production linear accumulation rewrite reduced total wall time by 10.39 s under the active taxonomy in the latest run.
+- The main measured improvement is in `polynomial.combination`, down 9.16 s.
+- `polynomial.combination_with_multiplication` also decreased by 2.75 s, but that bucket still contains multiplication-heavy call sites and remains the largest active optimization target at 132.87 s.
+- Upper-layer `encode` is now `polynomial.encode + binding.encode`, and it is the second largest active bucket at 119.58 s.
+- `binding.encode` means `buildProverBinding(...)`; it is binding commitment work, not binary serialization.
 
 ## Superseded Old-Taxonomy Comparison
 
