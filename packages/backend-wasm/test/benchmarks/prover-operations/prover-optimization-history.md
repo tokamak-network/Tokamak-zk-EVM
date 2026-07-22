@@ -451,6 +451,23 @@ Corrected interpretation:
 - The main exclusive self improvement is `poly_detail`, which changed by `-19.85 s`.
 - The `poly` exclusive category increased by `+7.39 s`, so the optimization did not uniformly reduce every polynomial-labelled span. The net wall-clock result is still positive because the reduced nested detail work outweighed those increases.
 
+Corrected delta accounting:
+
+| exclusive category | delta |
+| --- | ---: |
+| poly_detail | -19.85 s |
+| poly | +7.39 s |
+| encode | +923 ms |
+| init | +115 ms |
+| stage | +15 ms |
+| io | -108 ms |
+| verify | -1 ms |
+| output | 0 ms |
+| total exclusive delta | -11.52 s |
+| total root wall-clock delta | -11.52 s |
+
+The `poly_detail` row is a category-level exclusive subtotal. It is not the final end-to-end improvement by itself. Inside that category, `addScaledPrefixAssign` changed by `-23.60 s`, while other low-level operations increased by about `+3.75 s`, so the net `poly_detail` change is `-19.85 s`. Other exclusive categories then add another net `+8.33 s`, producing the final end-to-end delta of `-11.52 s`.
+
 ## Current Corrected Timing Baseline
 
 Related change:
