@@ -36,6 +36,7 @@ This benchmark measures the full browser prover time at several chunk sizes.
 | 131,072 | `1 << 17` | 390.84 s | passed |
 | 262,144 | `1 << 18` | 385.54 s | passed |
 | 524,288 | `1 << 19` | 383.45 s | passed |
+| 1,048,576 | `1 << 20` | did not complete within about 20 minutes | interrupted |
 
 ## Interpretation
 
@@ -58,11 +59,23 @@ The result shows that the chunk size affects full prover performance, but it is
 not the dominant prover bottleneck. Even the largest tested chunk saves only
 about 24 seconds out of roughly 408 seconds.
 
+The next larger candidate, 1,048,576 points, did not fail immediately, but it
+did not complete within about 20 minutes and was interrupted. During that run,
+the headless Chromium process RSS was observed around `14,066,016 KiB`
+(`13.4 GiB`). CPU usage was low while the process remained alive, which is
+consistent with heavy browser memory pressure, GC, or ffjavascript worker-copy
+overhead rather than useful prover progress.
+
+For this local system, the largest full-prover chunk size confirmed to complete
+and verify is therefore 524,288 points. The 1,048,576-point candidate is not
+accepted as a safe executable setting for this benchmark.
+
 ## Production Consequence
 
 This benchmark does not by itself change the production default. A larger
 default chunk size should require an explicit owner decision because it increases
 browser worker message size and peak memory pressure. The measured local machine
-can complete 524,288-point chunks, but that does not prove the same setting is
-safe across target browsers and user hardware.
-
+can complete 524,288-point chunks. The same local machine did not complete the
+1,048,576-point candidate within the practical benchmark window. This does not
+prove the same 524,288-point setting is safe across target browsers and user
+hardware.
