@@ -5,6 +5,8 @@ import type { ProverCrsRuntime } from "../api/binary-input.js";
 import {
   buildLagrangeK0,
   constantPolynomialBuffer,
+  evaluateAtScaledChallengeSet,
+  evaluateLagrangeK0At,
   linearCombinationBuffer,
   mulByOneMinusX,
   mulByTerm9,
@@ -257,10 +259,15 @@ async function buildCopyOpeningPolynomials(input: {
   const tMiEval = field.sub(field.pow(chi, mI), field.one);
   const tSMaxEval = field.sub(field.pow(zeta, sMax), field.one);
   const lagrangeK0XY = await buildLagrangeK0(field, mI);
-  const lagrangeK0Eval = lagrangeK0XY.eval(chi, zeta);
-  const smallREval = rXY.eval(chi, zeta);
-  const smallROmegaXEval = rOmegaX.eval(chi, zeta);
-  const smallROmegaXOmegaYEval = rOmegaXOmegaY.eval(chi, zeta);
+  const lagrangeK0Eval = evaluateLagrangeK0At(field, mI, chi, tMiEval);
+  const [smallREval, smallROmegaXEval, smallROmegaXOmegaYEval] = evaluateAtScaledChallengeSet(
+    field,
+    rXY,
+    chi,
+    field.mul(omegaMIInv, chi),
+    zeta,
+    field.mul(omegaSMaxInv, zeta),
+  );
   const term5 = linearCombinationBuffer(field, [
     [smallREval, gXY],
     [field.neg(smallROmegaXEval), fXY],
@@ -278,8 +285,8 @@ async function buildCopyOpeningPolynomials(input: {
   ]);
   const rD1 = rXY.sub(rOmegaX);
   const rD2 = rXY.sub(rOmegaXOmegaY);
-  const rD1Eval = rD1.eval(chi, zeta);
-  const rD2Eval = rD2.eval(chi, zeta);
+  const rD1Eval = field.sub(smallREval, smallROmegaXEval);
+  const rD2Eval = field.sub(smallREval, smallROmegaXOmegaYEval);
   const gMinusF = gXY.sub(fXY);
   const term10Scale = field.add(field.mul(state.mixer.rR_X, tMiEval), field.mul(state.mixer.rR_Y, tSMaxEval));
   const term10 = gMinusF.scale(term10Scale);

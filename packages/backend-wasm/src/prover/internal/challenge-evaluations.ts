@@ -1,7 +1,10 @@
 import { BivariatePolynomialBuffer } from "../../core/polynomial/bivariate-polynomial-buffer.js";
 import type { CurveRuntime } from "../../core/curve/curve.js";
 import type { FieldElement } from "../../core/field/field.js";
-import { linearCombinationBuffer } from "./polynomial-ops.js";
+import {
+  evaluateAtScaledChallengeSet,
+  linearCombinationBuffer,
+} from "./polynomial-ops.js";
 import type { ProverState } from "./state.js";
 
 export interface ChallengeEvaluations {
@@ -35,11 +38,19 @@ export function evaluateChallengePoints(input: {
   ]);
   const scaledChi = field.mul(field.inv(omegaMI), chi);
   const scaledZeta = field.mul(field.inv(omegaSMax), zeta);
+  const [R_eval, R_omegaX_eval, R_omegaX_omegaY_eval] = evaluateAtScaledChallengeSet(
+    field,
+    RXY,
+    chi,
+    scaledChi,
+    zeta,
+    scaledZeta,
+  );
 
   return {
     V_eval: VXY.eval(chi, zeta),
-    R_eval: RXY.eval(chi, zeta),
-    R_omegaX_eval: RXY.eval(scaledChi, zeta),
-    R_omegaX_omegaY_eval: RXY.eval(scaledChi, scaledZeta),
+    R_eval,
+    R_omegaX_eval,
+    R_omegaX_omegaY_eval,
   };
 }

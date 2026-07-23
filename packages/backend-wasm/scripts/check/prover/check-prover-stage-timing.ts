@@ -41,6 +41,8 @@ import {
   buildLagrangeKl,
   constantPolynomialBuffer,
   computeRecursionEvalsBuffer,
+  evaluateAtScaledChallengeSet,
+  evaluateLagrangeK0At,
   lowDegreeXTimesVanishingBuffer,
   lowDegreeYTimesVanishingBuffer,
   mulByLinearX,
@@ -1111,14 +1113,27 @@ async function buildCopyOpeningsTimed(input: {
   const tMiEval = field.sub(field.pow(chi, mI), field.one);
   const tSMaxEval = field.sub(field.pow(zeta, sMax), field.one);
   const lagrangeK0XY = await buildLagrangeK0(field, mI);
-  const lagrangeK0Eval = evaluatePolynomialAt("prove4.lagrange_K0_eval", lagrangeK0XY, chi, zeta);
-  const smallREval = evaluatePolynomialAt("prove4.r_eval", rXY, chi, zeta);
-  const smallROmegaXEval = evaluatePolynomialAt("prove4.r_omega_x_eval", rOmegaX, chi, zeta);
-  const smallROmegaXOmegaYEval = evaluatePolynomialAt(
-    "prove4.r_omega_x_omega_y_eval",
-    rOmegaXOmegaY,
-    chi,
-    zeta,
+  const lagrangeK0Eval = polynomialEvaluation(
+    "prove4.lagrange_K0_eval",
+    () => evaluateLagrangeK0At(field, mI, chi, tMiEval),
+    [shapeSize("lagrange_K0", mI, 1)],
+  );
+  const [smallREval, smallROmegaXEval, smallROmegaXOmegaYEval] = polynomialEvaluation(
+    "prove4.r_scaled_evaluation_set",
+    () =>
+      evaluateAtScaledChallengeSet(
+        field,
+        rXY,
+        chi,
+        field.mul(omegaMIInv, chi),
+        zeta,
+        field.mul(omegaSMaxInv, zeta),
+      ),
+    [
+      shapeSize("r", rXY.xSize, rXY.ySize),
+      shapeSize("r_omega_x", rXY.xSize, rXY.ySize),
+      shapeSize("r_omega_x_omega_y", rXY.xSize, rXY.ySize),
+    ],
   );
   const term5 = polynomialLinearCombination(
     "prove4.term5",
@@ -1149,8 +1164,17 @@ async function buildCopyOpeningsTimed(input: {
   );
   const rD1 = polynomialSub("prove4.rD1", rXY, rOmegaX);
   const rD2 = polynomialSub("prove4.rD2", rXY, rOmegaXOmegaY);
-  const rD1Eval = evaluatePolynomialAt("prove4.rD1_eval", rD1, chi, zeta);
-  const rD2Eval = evaluatePolynomialAt("prove4.rD2_eval", rD2, chi, zeta);
+  const [rD1Eval, rD2Eval] = polynomialEvaluation(
+    "prove4.rD_evaluation_set",
+    () => [
+      field.sub(smallREval, smallROmegaXEval),
+      field.sub(smallREval, smallROmegaXOmegaYEval),
+    ],
+    [
+      shapeSize("rD1", rD1.xSize, rD1.ySize),
+      shapeSize("rD2", rD2.xSize, rD2.ySize),
+    ],
+  );
   const gMinusF = polynomialSub("prove4.gMinusF", gXY, fXY);
   const term10Scale = field.add(field.mul(state.mixer.rR_X, tMiEval), field.mul(state.mixer.rR_Y, tSMaxEval));
   const term10 = polynomialScale("prove4.term10", gMinusF, term10Scale);
@@ -1227,12 +1251,22 @@ function evaluateChallengePointsTimed(input: {
 
   return polynomialEvaluation(
     "prove3.challenge_evaluations",
-    () => ({
-      V_eval: VXY.eval(chi, zeta),
-      R_eval: RXY.eval(chi, zeta),
-      R_omegaX_eval: RXY.eval(scaledChi, zeta),
-      R_omegaX_omegaY_eval: RXY.eval(scaledChi, scaledZeta),
-    }),
+    () => {
+      const [R_eval, R_omegaX_eval, R_omegaX_omegaY_eval] = evaluateAtScaledChallengeSet(
+        field,
+        RXY,
+        chi,
+        scaledChi,
+        zeta,
+        scaledZeta,
+      );
+      return {
+        V_eval: VXY.eval(chi, zeta),
+        R_eval,
+        R_omegaX_eval,
+        R_omegaX_omegaY_eval,
+      };
+    },
     [
       shapeSize("V", VXY.xSize, VXY.ySize),
       shapeSize("R", RXY.xSize, RXY.ySize),

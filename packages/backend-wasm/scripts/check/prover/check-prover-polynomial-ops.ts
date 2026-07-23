@@ -7,6 +7,8 @@ import {
   buildLagrangeKl,
   computeRecursionEvalsBuffer,
   constantPolynomialBuffer,
+  evaluateAtScaledChallengeSet,
+  evaluateLagrangeK0At,
   linearCombinationBuffer,
   lowDegreeXTimesVanishingBuffer,
   lowDegreeYTimesVanishingBuffer,
@@ -36,6 +38,7 @@ async function checkProverPolynomialOps(field: FieldRuntime): Promise<void> {
   checkTranspose(field);
   await checkRecursionEvals(field);
   await checkLagrangeBuilders(field);
+  await checkEvaluationHelpers(field);
   checkSpecialProducts(field);
   await checkSharedRightMultiplication(field);
 }
@@ -119,6 +122,59 @@ async function checkLagrangeBuilders(field: FieldRuntime): Promise<void> {
   const expectedK = await DensePolynomialExt.fromRouEvals(field, field.split(kEvals), mI, 1);
   const expectedL = await DensePolynomialExt.fromRouEvals(field, field.split(lEvals), 1, sMax);
   assertBufferDenseEqual(await buildLagrangeKl(field, mI, sMax), expectedK.mul(expectedL), "buildLagrangeKl");
+}
+
+async function checkEvaluationHelpers(field: FieldRuntime): Promise<void> {
+  const polynomial = BivariatePolynomialBuffer.fromCoeffs(
+    field,
+    [3n, 5n, 7n, 11n, 13n, 17n, 19n, 23n].map((value) => field.fromBigInt(value)),
+    2,
+    4,
+  );
+  const xPoint = field.fromBigInt(19n);
+  const scaledXPoint = field.fromBigInt(23n);
+  const yPoint = field.fromBigInt(29n);
+  const scaledYPoint = field.fromBigInt(31n);
+  const [baseEval, scaledXEval, scaledXYEval] = evaluateAtScaledChallengeSet(
+    field,
+    polynomial,
+    xPoint,
+    scaledXPoint,
+    yPoint,
+    scaledYPoint,
+  );
+
+  assertFields(
+    field,
+    [baseEval, scaledXEval, scaledXYEval],
+    [
+      polynomial.eval(xPoint, yPoint),
+      polynomial.eval(scaledXPoint, yPoint),
+      polynomial.eval(scaledXPoint, scaledYPoint),
+    ],
+    "evaluateAtScaledChallengeSet",
+  );
+
+  const mI = 8;
+  const lagrangeK0 = await buildLagrangeK0(field, mI);
+  const genericPoint = field.fromBigInt(37n);
+  const genericVanishingEval = field.sub(field.pow(genericPoint, mI), field.one);
+  assertFields(
+    field,
+    [evaluateLagrangeK0At(field, mI, genericPoint, genericVanishingEval)],
+    [lagrangeK0.eval(genericPoint, field.one)],
+    "evaluateLagrangeK0At generic point",
+  );
+  assertFields(
+    field,
+    [evaluateLagrangeK0At(field, mI, field.one, field.zero)],
+    [field.one],
+    "evaluateLagrangeK0At domain-one branch",
+  );
+  assertThrows(
+    () => evaluateLagrangeK0At(field, 0, genericPoint, genericVanishingEval),
+    "evaluateLagrangeK0At invalid domain",
+  );
 }
 
 function checkSpecialProducts(field: FieldRuntime): void {
