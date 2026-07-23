@@ -217,21 +217,22 @@ Interpretation:
 Command:
 
 ```bash
-npm run bench:commitment-density -- --multi-thread --lengths=262144 --densities=0.1,0.25,0.5,0.75,1 --iterations=1 --warmup=0 --json=tmp/timing/commitment-density-multi-thread-2pow18.json
+npm run bench:commitment-density -- --multi-thread --lengths=262144 --densities=0.1,0.25,0.5,0.75,1 --iterations=2 --warmup=0 --json=tmp/timing/commitment-density-sparse-batch-multi-thread-2pow18-iter2.json
 ```
 
 Environment: local Node.js run, backend-wasm multi-thread curve runtime. Length `262144` matches the current dense Sigma1 MSM chunk size.
 
-| density | nonzero | sparse prep ms | sparse MSM ms | sparse total ms | compact prep ms | compact MSM ms | compact total ms | compact speedup |
-| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 0.10 | 26604 | 23.978 | 142.069 | 165.595 | 2.640 | 217.746 | 221.962 | 0.75x |
-| 0.25 | 65630 | 29.936 | 327.394 | 365.223 | 1.879 | 398.279 | 386.997 | 0.94x |
-| 0.50 | 131007 | 42.435 | 614.922 | 662.560 | 2.903 | 688.104 | 677.195 | 0.98x |
-| 0.75 | 196809 | 53.967 | 914.066 | 955.049 | 1.781 | 959.525 | 963.581 | 0.99x |
-| 1.00 | 262144 | 64.235 | 1227.091 | 1327.364 | 1.813 | 1235.318 | 1221.161 | 1.09x |
+| density | nonzero | sparse total ms | sparse-batch total ms | sparse-batch speedup | compact total ms | compact speedup |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.10 | 26604 | 163.191 | 154.173 | 1.06x | 237.471 | 0.69x |
+| 0.25 | 65630 | 363.380 | 355.334 | 1.02x | 412.980 | 0.88x |
+| 0.50 | 131007 | 667.983 | 652.061 | 1.02x | 702.898 | 0.95x |
+| 0.75 | 196809 | 962.074 | 937.015 | 1.03x | 959.706 | 1.00x |
+| 1.00 | 262144 | 1305.060 | 1262.759 | 1.03x | 1240.205 | 1.05x |
 
 Interpretation:
 
 - Sparse prep is much more expensive than compact prep because it scans coefficients, skips zeros, copies selected bases, and converts nonzero scalars one by one with `Fr.toRawLittleEndian(...)`.
-- At low density, the shorter sparse MSM input still wins end-to-end despite the per-element scalar conversion cost.
-- Around `50%` density the two paths are close. At full density, compact wins because sparse prep does the same MSM work plus extra scan, copy, and scalar-conversion work.
+- `sparse-batch` keeps the same sparse scan and selected-base copy, but writes selected Montgomery scalars into one compact scalar buffer and converts that buffer with `Fr.batchFromMontgomeryBuffer(...)`.
+- In this run, `sparse-batch` beat the current sparse path by `1.02x` to `1.06x` end-to-end across the measured densities.
+- At low density, both sparse paths still beat compact because the shorter MSM input dominates. At full density, compact remains best because sparse paths do the same MSM work plus extra scan and copy work.

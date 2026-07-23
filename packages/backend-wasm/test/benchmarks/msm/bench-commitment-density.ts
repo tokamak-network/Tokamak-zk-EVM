@@ -35,6 +35,10 @@ interface TimingRow {
   readonly sparsePrepMs: number;
   readonly sparseMsmMs: number;
   readonly sparseTotalMs: number;
+  readonly sparseBatchPrepMs: number;
+  readonly sparseBatchMsmMs: number;
+  readonly sparseBatchTotalMs: number;
+  readonly sparseBatchSpeedup: number;
   readonly compactPrepMs: number;
   readonly compactMsmMs: number;
   readonly compactTotalMs: number;
@@ -209,7 +213,11 @@ function randomFieldElement(runtime: CurveRuntime, random: () => bigint): FieldE
 
 async function assertEqualResults(runtime: CurveRuntime, benchmarkCase: BenchmarkCase): Promise<void> {
   const sparse = await runSparse(runtime, benchmarkCase);
+  const sparseBatch = await runSparseBatch(runtime, benchmarkCase);
   const compact = await runCompact(runtime, benchmarkCase);
+  if (!runtime.G1.eq(sparse, sparseBatch)) {
+    throw new Error(`Sparse and sparse-batch commitments differ at length ${benchmarkCase.length}.`);
+  }
   if (!runtime.G1.eq(sparse, compact)) {
     throw new Error(`Sparse and compact commitments differ at length ${benchmarkCase.length}.`);
   }
@@ -231,6 +239,17 @@ async function measureCase(
     await runSparse(runtime, benchmarkCase);
   });
 
+  const sparseBatchPrepared = await prepareSparseBatch(runtime, benchmarkCase);
+  const sparseBatchPrepMs = await measure(options, async () => {
+    await prepareSparseBatch(runtime, benchmarkCase);
+  });
+  const sparseBatchMsmMs = await measure(options, async () => {
+    await runtime.G1.msmAffineRaw(sparseBatchPrepared.bases, sparseBatchPrepared.scalars);
+  });
+  const sparseBatchTotalMs = await measure(options, async () => {
+    await runSparseBatch(runtime, benchmarkCase);
+  });
+
   const compactPrepared = await prepareCompact(runtime, benchmarkCase);
   const compactPrepMs = await measure(options, async () => {
     await prepareCompact(runtime, benchmarkCase);
@@ -249,6 +268,10 @@ async function measureCase(
     sparsePrepMs,
     sparseMsmMs,
     sparseTotalMs,
+    sparseBatchPrepMs,
+    sparseBatchMsmMs,
+    sparseBatchTotalMs,
+    sparseBatchSpeedup: sparseTotalMs / sparseBatchTotalMs,
     compactPrepMs,
     compactMsmMs,
     compactTotalMs,
@@ -283,6 +306,36 @@ function prepareSparse(runtime: CurveRuntime, benchmarkCase: BenchmarkCase): Pre
   return { bases, scalars };
 }
 
+async function runSparseBatch(runtime: CurveRuntime, benchmarkCase: BenchmarkCase): Promise<Uint8Array> {
+  const prepared = await prepareSparseBatch(runtime, benchmarkCase);
+  if (prepared.scalars.byteLength === 0) {
+    return runtime.G1.zero;
+  }
+  return runtime.G1.msmAffineRaw(prepared.bases, prepared.scalars);
+}
+
+async function prepareSparseBatch(runtime: CurveRuntime, benchmarkCase: BenchmarkCase): Promise<PreparedMsmInput> {
+  const bases = new Uint8Array(benchmarkCase.nonzeroCount * G1_AFFINE_BYTES);
+  const montgomeryScalars = new Uint8Array(benchmarkCase.nonzeroCount * runtime.Fr.byteLength);
+  let outputIndex = 0;
+  for (let index = 0; index < benchmarkCase.length; index += 1) {
+    const scalar = benchmarkCase.polynomial.getCoeff(0, index);
+    if (runtime.Fr.isZero(scalar)) {
+      continue;
+    }
+    bases.set(
+      benchmarkCase.rawBases.subarray(index * G1_AFFINE_BYTES, (index + 1) * G1_AFFINE_BYTES),
+      outputIndex * G1_AFFINE_BYTES,
+    );
+    montgomeryScalars.set(scalar, outputIndex * runtime.Fr.byteLength);
+    outputIndex += 1;
+  }
+  return {
+    bases,
+    scalars: await runtime.Fr.batchFromMontgomeryBuffer(montgomeryScalars),
+  };
+}
+
 async function runCompact(runtime: CurveRuntime, benchmarkCase: BenchmarkCase): Promise<Uint8Array> {
   const prepared = await prepareCompact(runtime, benchmarkCase);
   return runtime.G1.msmAffineRaw(prepared.bases, prepared.scalars);
@@ -314,9 +367,9 @@ function printRows(rows: readonly TimingRow[], options: BenchmarkOptions): void 
     `Commitment density benchmark mode=${mode} seed=${formatSeed(options.seed)} iterations=${options.iterations} warmup=${options.warmup}`,
   );
   console.log(
-    "length | density | nonzero | sparse prep ms | sparse msm ms | sparse total ms | compact prep ms | compact msm ms | compact total ms | compact speedup",
+    "length | density | nonzero | sparse prep ms | sparse msm ms | sparse total ms | sparse-batch prep ms | sparse-batch msm ms | sparse-batch total ms | sparse-batch speedup | compact prep ms | compact msm ms | compact total ms | compact speedup",
   );
-  console.log("---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---:");
+  console.log("---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---:");
   for (const row of rows) {
     console.log(
       [
@@ -326,6 +379,10 @@ function printRows(rows: readonly TimingRow[], options: BenchmarkOptions): void 
         row.sparsePrepMs.toFixed(3),
         row.sparseMsmMs.toFixed(3),
         row.sparseTotalMs.toFixed(3),
+        row.sparseBatchPrepMs.toFixed(3),
+        row.sparseBatchMsmMs.toFixed(3),
+        row.sparseBatchTotalMs.toFixed(3),
+        `${row.sparseBatchSpeedup.toFixed(2)}x`,
         row.compactPrepMs.toFixed(3),
         row.compactMsmMs.toFixed(3),
         row.compactTotalMs.toFixed(3),
