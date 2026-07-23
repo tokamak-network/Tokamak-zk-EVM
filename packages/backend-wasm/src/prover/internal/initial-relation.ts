@@ -264,7 +264,7 @@ async function encodeSigma1Sparse(
   nonzeroCount: number,
 ): Promise<Uint8Array> {
   const bases = new Uint8Array(nonzeroCount * G1_AFFINE_BYTES);
-  const scalars = new Uint8Array(nonzeroCount * runtime.Fr.byteLength);
+  const montgomeryScalars = new Uint8Array(nonzeroCount * runtime.Fr.byteLength);
   let outputIndex = 0;
   for (let x = 0; x < xSize; x += 1) {
     for (let y = 0; y < ySize; y += 1) {
@@ -278,12 +278,13 @@ async function encodeSigma1Sparse(
       }
 
       bases.set(base, outputIndex * G1_AFFINE_BYTES);
-      scalars.set(runtime.Fr.toRawLittleEndian(scalar), outputIndex * runtime.Fr.byteLength);
+      montgomeryScalars.set(scalar, outputIndex * runtime.Fr.byteLength);
       outputIndex += 1;
     }
   }
 
-  return runtime.G1.msmAffineRaw(bases, scalars);
+  const rawScalars = await runtime.Fr.batchFromMontgomeryBuffer(montgomeryScalars);
+  return runtime.G1.msmAffineRaw(bases, rawScalars);
 }
 
 async function encodeSigma1DenseChunks(

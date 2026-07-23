@@ -63,6 +63,58 @@ The runner enforces:
 - `classified operation time <= total wall time + tolerance`.
 - `unclassified prover time >= -tolerance`.
 
+## Accepted Production Sparse Batch Scalar Conversion
+
+Related commit: this commit.
+
+Production `encodeSigma1Sparse(...)` now collects selected nonzero Montgomery scalars into one compact scalar buffer and converts that buffer with `Fr.batchFromMontgomeryBuffer(...)`. The previous production sparse path converted each selected scalar with `Fr.toRawLittleEndian(...)` while scanning coefficients.
+
+Correctness boundary:
+
+- sparse coefficient scan, zero skipping, CRS base selection, and row-major scalar/base ordering are unchanged;
+- dense Sigma1 chunk encoding is unchanged;
+- `G1.multiExpAffine(...)` still receives affine CRS bases and raw little-endian scalar bytes;
+- the change affects only the sparse polynomial commitment path.
+
+Benchmark evidence:
+
+```bash
+npm run bench:commitment-density -- --multi-thread --lengths=262144 --densities=0.1,0.25,0.5,0.75,1 --iterations=2 --warmup=0 --json=tmp/timing/commitment-density-sparse-batch-multi-thread-2pow18-iter2.json
+```
+
+At the current dense Sigma1 MSM chunk size, sparse-batch beat the previous sparse path end-to-end by `1.02x` to `1.06x` across the measured densities.
+
+| density | previous sparse total ms | sparse-batch total ms | speedup |
+| ---: | ---: | ---: | ---: |
+| 0.10 | 163.191 | 154.173 | 1.06x |
+| 0.25 | 363.380 | 355.334 | 1.02x |
+| 0.50 | 667.983 | 652.061 | 1.02x |
+| 0.75 | 962.074 | 937.015 | 1.03x |
+| 1.00 | 1305.060 | 1262.759 | 1.03x |
+
+Post-promotion timing:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.encode` | 117.48 s | 113.99 s | -3.49 s |
+| `binding.encode` | 1.99 s | 2.01 s | +0.02 s |
+| `encode` | 119.47 s | 116.01 s | -3.46 s |
+| `field.operations` | 143.50 s | 141.39 s | -2.11 s |
+| prover stage total | 279.63 s | 273.52 s | -6.11 s |
+| total wall time | 287.48 s | 281.43 s | -6.05 s |
+
+Verification commands:
+
+```bash
+npm run typecheck
+npm run typecheck:scripts
+npm run prover:ops:commitment
+npm run prover:check
+npm run prover:stage-timing:check
+npm run build
+npm pack --dry-run --json
+```
+
 ## Accepted Production Batched 2D NTT Segment Scheduler
 
 Related commit: this commit.
