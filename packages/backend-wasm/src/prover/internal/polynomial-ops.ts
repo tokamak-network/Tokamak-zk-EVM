@@ -260,6 +260,63 @@ export async function buildLagrangeK0(
   return BivariatePolynomialBuffer.fromRouEvals(field, k0Evals, mI, 1);
 }
 
+export async function multiplyByLagrangeK0(
+  polynomial: BivariatePolynomialBuffer,
+  mI: number,
+): Promise<BivariatePolynomialBuffer> {
+  if (!Number.isSafeInteger(mI) || mI <= 0) {
+    throw new Error("Lagrange K0 domain size must be a positive safe integer.");
+  }
+
+  const degree = polynomial.findDegree();
+  if (degree.xDegree < 0 || degree.yDegree < 0) {
+    return BivariatePolynomialBuffer.zero(polynomial.field);
+  }
+
+  const field = polynomial.field;
+  const xSize = nextPowerOfTwo(degree.xDegree + mI);
+  const ySize = nextPowerOfTwo(degree.yDegree + 1);
+  const elementBytes = field.byteLength;
+  const window = field.createZeroBuffer(ySize);
+  const unscaledOutput = field.createZeroBuffer(xSize * ySize);
+
+  // K0(X) = mI^-1 * sum(X^i), so each output row is a scaled sliding sum.
+  for (let x = 0; x < xSize; x += 1) {
+    const inputRowOffset = x * polynomial.ySize * elementBytes;
+    const removedX = x - mI;
+    const removedRowOffset = removedX * polynomial.ySize * elementBytes;
+    const outputRowOffset = x * ySize * elementBytes;
+    for (let y = 0; y < ySize; y += 1) {
+      const elementOffset = y * elementBytes;
+      let sum = window.subarray(elementOffset, elementOffset + elementBytes);
+      if (x < polynomial.xSize) {
+        sum = field.add(
+          sum,
+          polynomial.coefficients.subarray(
+            inputRowOffset + elementOffset,
+            inputRowOffset + elementOffset + elementBytes,
+          ),
+        );
+      }
+      if (removedX >= 0 && removedX < polynomial.xSize) {
+        sum = field.sub(
+          sum,
+          polynomial.coefficients.subarray(
+            removedRowOffset + elementOffset,
+            removedRowOffset + elementOffset + elementBytes,
+          ),
+        );
+      }
+      window.set(sum, elementOffset);
+      unscaledOutput.set(sum, outputRowOffset + elementOffset);
+    }
+  }
+
+  const inverseMI = field.inv(field.fromBigInt(BigInt(mI)));
+  const output = await field.batchApplyKeyBuffer(unscaledOutput, inverseMI, field.one);
+  return BivariatePolynomialBuffer.fromOwnedBuffer(field, output, xSize, ySize);
+}
+
 export async function buildLagrangeKl(
   field: CurveRuntime["Fr"],
   mI: number,

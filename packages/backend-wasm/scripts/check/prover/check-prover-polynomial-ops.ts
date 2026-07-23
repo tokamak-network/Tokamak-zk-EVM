@@ -17,6 +17,7 @@ import {
   mulByOneMinusX,
   mulByTerm9,
   mulByXMinusOne,
+  multiplyByLagrangeK0,
   multiplyPairWithSharedRight,
   transposeRowMajorBuffer,
 } from "../../../src/prover/internal/polynomial-ops.js";
@@ -113,7 +114,23 @@ async function checkLagrangeBuilders(field: FieldRuntime): Promise<void> {
   const k0Evals = field.createZeroBuffer(mI);
   field.writeBufferElement(k0Evals, 0, field.one);
   const expectedK0 = await DensePolynomialExt.fromRouEvals(field, field.split(k0Evals), mI, 1);
-  assertBufferDenseEqual(await buildLagrangeK0(field, mI), expectedK0, "buildLagrangeK0");
+  const lagrangeK0 = await buildLagrangeK0(field, mI);
+  assertBufferDenseEqual(lagrangeK0, expectedK0, "buildLagrangeK0");
+  const k0Input = BivariatePolynomialBuffer.fromCoeffs(
+    field,
+    [3n, 5n, 7n, 11n, 13n, 17n, 19n, 23n].map((value) => field.fromBigInt(value)),
+    4,
+    2,
+  );
+  assertBufferDenseEqual(
+    await multiplyByLagrangeK0(k0Input, mI),
+    expectedK0.mul(k0Input.toDense()),
+    "multiplyByLagrangeK0",
+  );
+  await assertRejects(
+    () => multiplyByLagrangeK0(k0Input, 0),
+    "multiplyByLagrangeK0 invalid domain",
+  );
 
   const kEvals = field.createZeroBuffer(mI);
   field.writeBufferElement(kEvals, mI - 1, field.one);

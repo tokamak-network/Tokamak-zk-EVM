@@ -37,7 +37,6 @@ import {
   type OpeningProofCommitments,
 } from "../../../src/prover/internal/opening-commitments.js";
 import {
-  buildLagrangeK0,
   buildLagrangeKl,
   constantPolynomialBuffer,
   computeRecursionEvalsBuffer,
@@ -50,6 +49,7 @@ import {
   mulByOneMinusX,
   mulByTerm9,
   mulByXMinusOne,
+  multiplyByLagrangeK0,
   multiplyPairWithSharedRight,
 } from "../../../src/prover/internal/polynomial-ops.js";
 
@@ -278,6 +278,22 @@ async function polynomialMul(
     shapeSize("left", left.xSize, left.ySize),
     shapeSize("right", right.xSize, right.ySize),
   ]);
+}
+
+async function polynomialMulLagrangeK0(
+  label: string,
+  polynomial: BivariatePolynomialBuffer,
+  mI: number,
+): Promise<BivariatePolynomialBuffer> {
+  return polynomialOperation(
+    "polynomial.combination_with_multiplication",
+    label,
+    () => multiplyByLagrangeK0(polynomial, mI),
+    [
+      shapeSize("lagrange-domain", mI, 1),
+      shapeSize("polynomial", polynomial.xSize, polynomial.ySize),
+    ],
+  );
 }
 
 function polynomialMulSpecial(
@@ -828,7 +844,6 @@ async function prove2Timed(input: {
   const lagrangeKlXY = await polynomialOperation("polynomial.combination_with_multiplication", "prove2.lagrange_KL", () =>
     buildLagrangeKl(field, mI, sMax),
   );
-  const lagrangeK0XY = await buildLagrangeK0(field, mI);
   const rGXY = await polynomialMul("prove2.rG", rXY, gXY);
   const [rOmegaXFXY, rOmegaXOmegaYFXY] = await polynomialOperation(
     "polynomial.combination_with_multiplication",
@@ -842,7 +857,7 @@ async function prove2Timed(input: {
     shapeSize("polynomial", p2Input.xSize, p2Input.ySize),
   ]);
   const p3Input = polynomialSub("prove2.p3.sub", rGXY, rOmegaXOmegaYFXY);
-  const p3XY = await polynomialMul("prove2.p3.mul_lagrange_K0", lagrangeK0XY, p3Input);
+  const p3XY = await polynomialMulLagrangeK0("prove2.p3.mul_lagrange_K0", p3Input, mI);
   const pCombined = polynomialLinearCombination(
     "prove2.p_comb",
     field,
@@ -867,7 +882,7 @@ async function prove2Timed(input: {
   const qCxTerm3Linear = polynomialMulSpecial("prove2.Q_CX.term3.linear_x", () => mulByLinearX(rD2, state.mixer.rB_X));
   const qCxTerm3Scale = polynomialScale("prove2.Q_CX.term3.scale_gD", gD, state.mixer.rR_X);
   const qCxTerm3Sum = polynomialAdd("prove2.Q_CX.term3.add", qCxTerm3Linear, qCxTerm3Scale);
-  const qCxTerm3 = await polynomialMul("prove2.Q_CX.term3.mul_lagrange_K0", lagrangeK0XY, qCxTerm3Sum);
+  const qCxTerm3 = await polynomialMulLagrangeK0("prove2.Q_CX.term3.mul_lagrange_K0", qCxTerm3Sum, mI);
   const qCxXY = polynomialLinearCombination(
     "prove2.Q_CX",
     field,
@@ -889,7 +904,7 @@ async function prove2Timed(input: {
   const qCyTerm3Linear = polynomialMulSpecial("prove2.Q_CY.term3.linear_y", () => mulByLinearY(rD2, state.mixer.rB_Y));
   const qCyTerm3Scale = polynomialScale("prove2.Q_CY.term3.scale_gD", gD, state.mixer.rR_Y);
   const qCyTerm3Sum = polynomialAdd("prove2.Q_CY.term3.add", qCyTerm3Linear, qCyTerm3Scale);
-  const qCyTerm3 = await polynomialMul("prove2.Q_CY.term3.mul_lagrange_K0", lagrangeK0XY, qCyTerm3Sum);
+  const qCyTerm3 = await polynomialMulLagrangeK0("prove2.Q_CY.term3.mul_lagrange_K0", qCyTerm3Sum, mI);
   const qCyXY = polynomialLinearCombination(
     "prove2.Q_CY",
     field,
@@ -1148,7 +1163,6 @@ async function buildCopyOpeningsTimed(input: {
   );
   const tMiEval = field.sub(field.pow(chi, mI), field.one);
   const tSMaxEval = field.sub(field.pow(zeta, sMax), field.one);
-  const lagrangeK0XY = await buildLagrangeK0(field, mI);
   const lagrangeK0Eval = polynomialEvaluation(
     "prove4.lagrange_K0_eval",
     () => evaluateLagrangeK0At(field, mI, chi, tMiEval),
@@ -1234,7 +1248,11 @@ async function buildCopyOpeningsTimed(input: {
       mulByTerm9(rD2, state.mixer.rB_X, state.mixer.rB_Y, tMiEval, tSMaxEval),
     );
     const rD2Term9PlusTerm10 = polynomialAdd("prove4.LHS_zk2.term9_plus_term10", rD2Term9, term10);
-    const lhsZk2Product = await polynomialMul("prove4.LHS_zk2.mul_lagrange_K0", lagrangeK0XY, rD2Term9PlusTerm10);
+    const lhsZk2Product = await polynomialMulLagrangeK0(
+      "prove4.LHS_zk2.mul_lagrange_K0",
+      rD2Term9PlusTerm10,
+      mI,
+    );
     return polynomialLinearCombination("prove4.LHS_zk2", field, [
       [field.mul(lagrangeK0Eval, rD2Eval), prove0.termBZk],
       [lagrangeK0Eval, term10],

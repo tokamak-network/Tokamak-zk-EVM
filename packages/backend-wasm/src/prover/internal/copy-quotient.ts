@@ -5,13 +5,13 @@ import type { ProverCrsRuntime } from "../api/binary-input.js";
 import { encodePolynomialBufferWithSigma1, type ProverOperationOptions } from "./initial-relation.js";
 import { encodeSigma1CommitmentBarrier, requireCommitment } from "./commitment-encoder.js";
 import {
-  buildLagrangeK0,
   buildLagrangeKl,
   constantPolynomialBuffer,
   linearCombinationBuffer,
   mulByLinearX,
   mulByLinearY,
   mulByXMinusOne,
+  multiplyByLagrangeK0,
   multiplyPairWithSharedRight,
 } from "./polynomial-ops.js";
 import type { ProverState } from "./state.js";
@@ -66,13 +66,12 @@ export async function computeCopyQuotientCommitments(input: {
     [field.one, theta2],
   ]);
   const lagrangeKlXY = await buildLagrangeKl(field, mI, sMax);
-  const lagrangeK0XY = await buildLagrangeK0(field, mI);
   const rGXY = await rXY.mul(gXY);
   const [rOmegaXFXY, rOmegaXOmegaYFXY] = await multiplyPairWithSharedRight(rOmegaX, rOmegaXOmegaY, fXY);
   const p1XY = await rXY.sub(constantPolynomialBuffer(field, field.one)).mul(lagrangeKlXY);
   const p2Input = rGXY.sub(rOmegaXFXY);
   const p2XY = mulByXMinusOne(p2Input);
-  const p3XY = await lagrangeK0XY.mul(rGXY.sub(rOmegaXOmegaYFXY));
+  const p3XY = await multiplyByLagrangeK0(rGXY.sub(rOmegaXOmegaYFXY), mI);
   const pCombined = linearCombinationBuffer(field, [
     [field.one, p1XY],
     [kappa0, p2XY],
@@ -85,8 +84,9 @@ export async function computeCopyQuotientCommitments(input: {
   const qCxTerm2 = mulByXMinusOne(
     mulByLinearX(rD1, state.mixer.rB_X).add(gD.scale(state.mixer.rR_X)),
   );
-  const qCxTerm3 = await lagrangeK0XY.mul(
+  const qCxTerm3 = await multiplyByLagrangeK0(
     mulByLinearX(rD2, state.mixer.rB_X).add(gD.scale(state.mixer.rR_X)),
+    mI,
   );
   const qCxXY = linearCombinationBuffer(field, [
     [field.one, q2XY],
@@ -97,8 +97,9 @@ export async function computeCopyQuotientCommitments(input: {
   const qCyTerm2 = mulByXMinusOne(
     mulByLinearY(rD1, state.mixer.rB_Y).add(gD.scale(state.mixer.rR_Y)),
   );
-  const qCyTerm3 = await lagrangeK0XY.mul(
+  const qCyTerm3 = await multiplyByLagrangeK0(
     mulByLinearY(rD2, state.mixer.rB_Y).add(gD.scale(state.mixer.rR_Y)),
+    mI,
   );
   const qCyXY = linearCombinationBuffer(field, [
     [field.one, q3XY],

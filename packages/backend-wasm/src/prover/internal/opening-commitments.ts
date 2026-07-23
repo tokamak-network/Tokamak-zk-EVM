@@ -3,13 +3,13 @@ import type { CurveRuntime } from "../../core/curve/curve.js";
 import type { FieldElement } from "../../core/field/field.js";
 import type { ProverCrsRuntime } from "../api/binary-input.js";
 import {
-  buildLagrangeK0,
   constantPolynomialBuffer,
   evaluateAtScaledChallengeSet,
   evaluateLagrangeK0At,
   linearCombinationBuffer,
   mulByOneMinusX,
   mulByTerm9,
+  multiplyByLagrangeK0,
 } from "./polynomial-ops.js";
 import { encodePolynomialBufferWithSigma1, type InitialRelationComputation, type ProverOperationOptions } from "./initial-relation.js";
 import { encodeSigma1CommitmentBarrier, requireCommitment } from "./commitment-encoder.js";
@@ -267,7 +267,6 @@ async function buildCopyOpeningPolynomials(input: {
   ]);
   const tMiEval = field.sub(field.pow(chi, mI), field.one);
   const tSMaxEval = field.sub(field.pow(zeta, sMax), field.one);
-  const lagrangeK0XY = await buildLagrangeK0(field, mI);
   const lagrangeK0Eval = evaluateLagrangeK0At(field, mI, chi, tMiEval);
   const [smallREval, smallROmegaXEval, smallROmegaXOmegaYEval] = evaluateAtScaledChallengeSet(
     field,
@@ -308,7 +307,7 @@ async function buildCopyOpeningPolynomials(input: {
   ]);
   const rD2Term9 = mulByTerm9(rD2, state.mixer.rB_X, state.mixer.rB_Y, tMiEval, tSMaxEval);
   const rD2Term9PlusTerm10 = rD2Term9.add(term10);
-  const lhsZk2Product = await lagrangeK0XY.mul(rD2Term9PlusTerm10);
+  const lhsZk2Product = await multiplyByLagrangeK0(rD2Term9PlusTerm10, mI);
   const lhsZk2 = linearCombinationBuffer(field, [
     [field.mul(lagrangeK0Eval, rD2Eval), initialRelation.termBZk],
     [lagrangeK0Eval, term10],
