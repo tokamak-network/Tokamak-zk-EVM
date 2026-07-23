@@ -120,33 +120,67 @@ function scaleTermIntoShape(
   return BivariatePolynomialBuffer.fromOwnedBuffer(field, output, xSize, ySize);
 }
 
-export async function multiplyPairWithSharedRight(
-  firstLeft: BivariatePolynomialBuffer,
-  secondLeft: BivariatePolynomialBuffer,
-  sharedRight: BivariatePolynomialBuffer,
-): Promise<readonly [BivariatePolynomialBuffer, BivariatePolynomialBuffer]> {
-  if (firstLeft.field !== secondLeft.field || firstLeft.field !== sharedRight.field) {
-    throw new Error("Shared-right multiplication inputs must use the same field.");
+export async function multiplyOmegaShiftedProducts(
+  baseLeft: BivariatePolynomialBuffer,
+  unshiftedRight: BivariatePolynomialBuffer,
+  shiftedSharedRight: BivariatePolynomialBuffer,
+  xDomainSize: number,
+  yDomainSize: number,
+): Promise<readonly [BivariatePolynomialBuffer, BivariatePolynomialBuffer, BivariatePolynomialBuffer]> {
+  if (baseLeft.field !== unshiftedRight.field || baseLeft.field !== shiftedSharedRight.field) {
+    throw new Error("Omega-shifted multiplication inputs must use the same field.");
+  }
+  checkedDomainProduct(xDomainSize, yDomainSize, "Omega-shifted multiplication");
+
+  const unshiftedShape = multiplicationShape(baseLeft, unshiftedRight);
+  const shiftedShape = multiplicationShape(baseLeft, shiftedSharedRight);
+  if (unshiftedShape === undefined || shiftedShape === undefined) {
+    throw new Error("Omega-shifted multiplication inputs must be non-zero.");
+  }
+  if (unshiftedShape.xSize !== shiftedShape.xSize || unshiftedShape.ySize !== shiftedShape.ySize) {
+    throw new Error("Omega-shifted multiplication products must have matching output shapes.");
   }
 
-  const firstShape = multiplicationShape(firstLeft, sharedRight);
-  const secondShape = multiplicationShape(secondLeft, sharedRight);
-  if (firstShape === undefined && secondShape === undefined) {
-    return [BivariatePolynomialBuffer.zero(firstLeft.field), BivariatePolynomialBuffer.zero(firstLeft.field)];
-  }
-  if (firstShape === undefined || secondShape === undefined) {
-    throw new Error("Shared-right multiplication requires both products to be non-zero.");
-  }
-  if (firstShape.xSize !== secondShape.xSize || firstShape.ySize !== secondShape.ySize) {
-    throw new Error("Shared-right multiplication requires matching output shapes.");
+  const { xSize, ySize } = unshiftedShape;
+  if (xSize % xDomainSize !== 0 || ySize % yDomainSize !== 0) {
+    throw new Error("Omega-shifted multiplication output shape must be divisible by the source domains.");
   }
 
-  const { xSize, ySize } = firstShape;
-  const sharedRightEvals = await sharedRight.resize(xSize, ySize).toRouEvals();
-  return [
-    await multiplyWithSharedRightEvals(firstLeft, sharedRightEvals, xSize, ySize),
-    await multiplyWithSharedRightEvals(secondLeft, sharedRightEvals, xSize, ySize),
-  ];
+  const field = baseLeft.field;
+  const baseEvals = await baseLeft.resize(xSize, ySize).toRouEvals();
+  const unshiftedRightEvals = await unshiftedRight.resize(xSize, ySize).toRouEvals();
+  const unshiftedProduct = await multiplyShiftedEvals(
+    field,
+    baseEvals,
+    unshiftedRightEvals,
+    xSize,
+    ySize,
+    0,
+    0,
+  );
+  const sharedRightEvals = await shiftedSharedRight.resize(xSize, ySize).toRouEvals();
+  const xShift = -(xSize / xDomainSize);
+  const yShift = -(ySize / yDomainSize);
+  const xShiftedProduct = await multiplyShiftedEvals(
+    field,
+    baseEvals,
+    sharedRightEvals,
+    xSize,
+    ySize,
+    xShift,
+    0,
+  );
+  const xyShiftedProduct = await multiplyShiftedEvals(
+    field,
+    baseEvals,
+    sharedRightEvals,
+    xSize,
+    ySize,
+    xShift,
+    yShift,
+  );
+
+  return [unshiftedProduct, xShiftedProduct, xyShiftedProduct];
 }
 
 export function lowDegreeXTimesVanishingBuffer(
@@ -716,28 +750,45 @@ function multiplicationShape(
   };
 }
 
-async function multiplyWithSharedRightEvals(
-  left: BivariatePolynomialBuffer,
-  sharedRightEvals: Uint8Array,
+async function multiplyShiftedEvals(
+  field: CurveRuntime["Fr"],
+  leftEvals: Uint8Array,
+  rightEvals: Uint8Array,
   xSize: number,
   ySize: number,
+  xShift: number,
+  yShift: number,
 ): Promise<BivariatePolynomialBuffer> {
-  const field = left.field;
-  if (field.bufferElementCount(sharedRightEvals) !== xSize * ySize) {
-    throw new Error("Shared-right ROU eval buffer length does not match the multiplication shape.");
+  if (
+    field.bufferElementCount(leftEvals) !== xSize * ySize
+    || field.bufferElementCount(rightEvals) !== xSize * ySize
+  ) {
+    throw new Error("Omega-shifted ROU eval buffer length does not match the multiplication shape.");
   }
 
-  const leftEvals = await left.resize(xSize, ySize).toRouEvals();
-  const outputEvals = field.createZeroBuffer(xSize * ySize);
-  for (let index = 0; index < xSize * ySize; index += 1) {
-    field.writeBufferElement(
-      outputEvals,
-      index,
-      field.mul(field.readBufferElement(leftEvals, index), field.readBufferElement(sharedRightEvals, index)),
-    );
+  const outputEvals = new Uint8Array(leftEvals.byteLength);
+  const elementBytes = field.byteLength;
+  for (let x = 0; x < xSize; x += 1) {
+    const sourceX = modulo(x + xShift, xSize);
+    for (let y = 0; y < ySize; y += 1) {
+      const sourceY = modulo(y + yShift, ySize);
+      const sourceOffset = (sourceX * ySize + sourceY) * elementBytes;
+      const rightOffset = (x * ySize + y) * elementBytes;
+      outputEvals.set(
+        field.mul(
+          leftEvals.subarray(sourceOffset, sourceOffset + elementBytes),
+          rightEvals.subarray(rightOffset, rightOffset + elementBytes),
+        ),
+        rightOffset,
+      );
+    }
   }
 
   return BivariatePolynomialBuffer.fromRouEvals(field, outputEvals, xSize, ySize);
+}
+
+function modulo(value: number, modulus: number): number {
+  return ((value % modulus) + modulus) % modulus;
 }
 
 function nextPowerOfTwo(value: number): number {

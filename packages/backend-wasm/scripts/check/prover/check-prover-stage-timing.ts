@@ -51,7 +51,7 @@ import {
   mulByXMinusOne,
   multiplyByLagrangeK0,
   multiplyByLagrangeKl,
-  multiplyPairWithSharedRight,
+  multiplyOmegaShiftedProducts,
 } from "../../../src/prover/internal/polynomial-ops.js";
 
 interface SizeInfo {
@@ -862,11 +862,10 @@ async function prove2Timed(input: {
   const lagrangeKlXY = await polynomialOperation("polynomial.combination_with_multiplication", "prove2.lagrange_KL", () =>
     buildLagrangeKl(field, mI, sMax),
   );
-  const rGXY = await polynomialMul("prove2.rG", rXY, gXY);
-  const [rOmegaXFXY, rOmegaXOmegaYFXY] = await polynomialOperation(
+  const [rGXY, rOmegaXFXY, rOmegaXOmegaYFXY] = await polynomialOperation(
     "polynomial.combination_with_multiplication",
-    "prove2.shared_f_products",
-    () => multiplyPairWithSharedRight(rOmegaX, rOmegaXOmegaY, fXY),
+    "prove2.omega_shifted_products",
+    () => multiplyOmegaShiftedProducts(rXY, gXY, fXY, mI, sMax),
   );
   const p1Numerator = polynomialSub("prove2.p1.sub_one", rXY, constantPolynomialBuffer(field, field.one));
   const p1XY = await polynomialMulLagrangeKl("prove2.p1.mul_lagrange_KL", p1Numerator, mI, sMax);

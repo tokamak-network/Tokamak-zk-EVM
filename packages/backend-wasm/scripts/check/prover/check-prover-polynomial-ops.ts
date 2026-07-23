@@ -19,7 +19,7 @@ import {
   mulByXMinusOne,
   multiplyByLagrangeK0,
   multiplyByLagrangeKl,
-  multiplyPairWithSharedRight,
+  multiplyOmegaShiftedProducts,
   transposeRowMajorBuffer,
 } from "../../../src/prover/internal/polynomial-ops.js";
 
@@ -42,7 +42,7 @@ async function checkProverPolynomialOps(field: FieldRuntime): Promise<void> {
   await checkLagrangeBuilders(field);
   await checkEvaluationHelpers(field);
   checkSpecialProducts(field);
-  await checkSharedRightMultiplication(field);
+  await checkOmegaShiftedMultiplication(field);
 }
 
 function checkLinearCombination(field: FieldRuntime): void {
@@ -249,29 +249,54 @@ function checkSpecialProducts(field: FieldRuntime): void {
   assertThrows(() => mulByTerm9(buffer, [field.one], yCoefficients, tMiEval, tSMaxEval), "mulByTerm9 invalid rB_X count");
 }
 
-async function checkSharedRightMultiplication(field: FieldRuntime): Promise<void> {
-  const firstLeft = BivariatePolynomialBuffer.fromCoeffs(
+async function checkOmegaShiftedMultiplication(field: FieldRuntime): Promise<void> {
+  const mI = 2;
+  const sMax = 2;
+  const baseLeft = BivariatePolynomialBuffer.fromCoeffs(
     field,
     [3n, 5n, 7n, 11n].map((value) => field.fromBigInt(value)),
     2,
     2,
   );
-  const secondLeft = BivariatePolynomialBuffer.fromCoeffs(
+  const unshiftedRight = BivariatePolynomialBuffer.fromCoeffs(
     field,
     [13n, 17n, 19n, 23n].map((value) => field.fromBigInt(value)),
     2,
     2,
   );
-  const sharedRight = BivariatePolynomialBuffer.fromCoeffs(
+  const shiftedSharedRight = BivariatePolynomialBuffer.fromCoeffs(
     field,
     [29n, 31n, 37n, 41n].map((value) => field.fromBigInt(value)),
     2,
     2,
   );
+  const omegaXInv = field.inv(field.rootOfUnity(mI));
+  const omegaYInv = field.inv(field.rootOfUnity(sMax));
+  const xShifted = baseLeft.scaleCoeffsX(omegaXInv);
+  const xyShifted = xShifted.scaleCoeffsY(omegaYInv);
 
-  const [actualFirst, actualSecond] = await multiplyPairWithSharedRight(firstLeft, secondLeft, sharedRight);
-  assertBufferDenseEqual(actualFirst, (await firstLeft.mul(sharedRight)).toDense(), "multiplyPairWithSharedRight first");
-  assertBufferDenseEqual(actualSecond, (await secondLeft.mul(sharedRight)).toDense(), "multiplyPairWithSharedRight second");
+  const [actualBase, actualXShifted, actualXyShifted] = await multiplyOmegaShiftedProducts(
+    baseLeft,
+    unshiftedRight,
+    shiftedSharedRight,
+    mI,
+    sMax,
+  );
+  assertBufferDenseEqual(
+    actualBase,
+    (await baseLeft.mul(unshiftedRight)).toDense(),
+    "multiplyOmegaShiftedProducts base",
+  );
+  assertBufferDenseEqual(
+    actualXShifted,
+    (await xShifted.mul(shiftedSharedRight)).toDense(),
+    "multiplyOmegaShiftedProducts X shift",
+  );
+  assertBufferDenseEqual(
+    actualXyShifted,
+    (await xyShifted.mul(shiftedSharedRight)).toDense(),
+    "multiplyOmegaShiftedProducts XY shift",
+  );
 }
 
 function lowDegreeXTimesVanishingDense(
