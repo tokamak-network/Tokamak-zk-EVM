@@ -41,6 +41,9 @@ The benchmark currently compares:
 
 - `current-production`: the current fixed-Y, reverse-X traversal.
 - `candidate-a-row-major-x`: the same recurrence with reverse X steps processing complete contiguous Y rows.
+- `candidate-b-raw-buffer`: the current traversal order with one-time boundary validation and direct raw-buffer offsets.
+
+Use `--candidates=current-production,candidate-b-raw-buffer` to isolate one candidate against production. `current-production` is mandatory in every candidate selection.
 
 Before timing, it checks exact quotient and remainder bytes against production and independently reconstructs the input polynomial. Edge-case parity covers zero, constant, X-only, Y-only, and general bivariate polynomials.
 
@@ -76,6 +79,23 @@ Environment: local Node.js run with the backend-wasm single-thread curve runtime
 | five-call weighted estimate | 9387.557 ms | 7937.845 ms | 15.4% |
 
 Candidate A passes exact quotient/remainder parity and independent reconstruction for all smoke and representative shapes. The large prover shapes show a repeatable gain, while the negligible `128x1` case regresses by about four microseconds. Keep Candidate A for the cumulative benchmark with Candidate B; do not promote it to production before the remaining candidates and their end-to-end combinations are measured.
+
+### Candidate B Result
+
+Command:
+
+```bash
+npm run bench:ruffini -- --shapes=8192x512,16384x512,128x1 --candidates=current-production,candidate-b-raw-buffer --iterations=5 --warmup=1 --json=tmp/timing/ruffini-division-b-representative.json
+```
+
+| shape | current median | Candidate B median | median reduction |
+| --- | ---: | ---: | ---: |
+| `8192x512` | 1926.458 ms | 1755.448 ms | 8.9% |
+| `16384x512` | 3753.662 ms | 3512.297 ms | 6.4% |
+| `128x1` | 0.051 ms | 0.055 ms | -7.8% |
+| five-call weighted estimate | 9533.085 ms | 8778.695 ms | 7.9% |
+
+Candidate B retains the production fixed-Y traversal and changes only coefficient access: field width and points are checked once, then the recurrence uses direct byte offsets and `subarray` views. It passes exact parity and reconstruction independently of Candidate A. Keep it eligible until the independent Candidate C result and later combination benchmarks are complete.
 
 ## Promotion Rule
 

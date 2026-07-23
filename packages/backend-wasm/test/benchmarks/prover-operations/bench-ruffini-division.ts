@@ -18,6 +18,7 @@ interface Shape {
 interface BenchmarkOptions {
   readonly seed: bigint;
   readonly shapes: readonly Shape[];
+  readonly candidateNames: ReadonlySet<string>;
   readonly iterations: number;
   readonly warmup: number;
   readonly jsonPath: string;
@@ -44,6 +45,7 @@ interface BenchmarkReport {
   readonly options: {
     readonly seed: string;
     readonly shapes: readonly string[];
+    readonly candidates: readonly string[];
     readonly iterations: number;
     readonly warmup: number;
   };
@@ -71,6 +73,11 @@ const CANDIDATES: readonly BenchmarkCandidate[] = [
     run: divideRuffiniRowMajorX,
     notes: "Benchmark-only Candidate A: reverse X recurrence with contiguous Y-row processing.",
   },
+  {
+    name: "candidate-b-raw-buffer",
+    run: divideRuffiniRawBufferCurrentOrder,
+    notes: "Benchmark-only Candidate B: current traversal with validation once and direct raw-buffer offsets.",
+  },
 ];
 
 let resultSink = 0;
@@ -80,13 +87,14 @@ async function main(): Promise<void> {
   const runtime = await createCurveRuntime({ singleThread: true });
 
   try {
-    runEdgeCaseParity(runtime.Fr);
+    const candidates = CANDIDATES.filter((candidate) => options.candidateNames.has(candidate.name));
+    runEdgeCaseParity(runtime.Fr, candidates);
 
     const records: BenchmarkRecord[] = [];
     for (const shape of options.shapes) {
-      records.push(...await benchmarkShape(runtime.Fr, shape, options));
+      records.push(...await benchmarkShape(runtime.Fr, shape, options, candidates));
     }
-    records.push(...buildWeightedWorkloadRecords(records, runtime.Fr.byteLength));
+    records.push(...buildWeightedWorkloadRecords(records, runtime.Fr.byteLength, candidates));
 
     printRecords(records);
     await writeReport(options, records);
@@ -99,6 +107,7 @@ async function benchmarkShape(
   field: FieldRuntime,
   shape: Shape,
   options: BenchmarkOptions,
+  candidates: readonly BenchmarkCandidate[],
 ): Promise<BenchmarkRecord[]> {
   const polynomial = deterministicPolynomial(field, shape, options.seed);
   const xPoint = field.fromBigInt(11n);
@@ -106,17 +115,17 @@ async function benchmarkShape(
   const baseline = CANDIDATES[0].run(polynomial, xPoint, yPoint);
 
   assertReconstruction(field, polynomial, baseline, xPoint, yPoint, `${formatShape(shape)} baseline`);
-  for (const candidate of CANDIDATES.slice(1)) {
+  for (const candidate of candidates.filter((candidate) => candidate.name !== "current-production")) {
     const actual = candidate.run(polynomial, xPoint, yPoint);
     assertDivisionEqual(actual, baseline, `${formatShape(shape)} ${candidate.name}`);
   }
 
-  const timings = await measureCandidates(CANDIDATES, polynomial, xPoint, yPoint, options);
+  const timings = await measureCandidates(candidates, polynomial, xPoint, yPoint, options);
   const inputBytes = shape.xSize * shape.ySize * field.byteLength;
   const outputBytes = (shape.xSize * shape.ySize + shape.ySize + 1) * field.byteLength;
   const temporaryBytes = shape.ySize * field.byteLength;
 
-  return CANDIDATES.map((candidate) => ({
+  return candidates.map((candidate) => ({
     candidate: candidate.name,
     shape: formatShape(shape),
     inputBytes,
@@ -238,7 +247,97 @@ function divideRuffiniRowMajorX(
   return { quotientX, quotientY, remainder };
 }
 
-function runEdgeCaseParity(field: FieldRuntime): void {
+function divideRuffiniRawBufferCurrentOrder(
+  polynomial: BivariatePolynomialBuffer,
+  xPoint: FieldElement,
+  yPoint: FieldElement,
+): BivariateBufferRuffiniDivisionResult {
+  const field = polynomial.field;
+  const elementBytes = field.byteLength;
+  if (xPoint.byteLength !== elementBytes || yPoint.byteLength !== elementBytes) {
+    throw new Error("Ruffini division points must be field elements.");
+  }
+
+  const quotientXBuffer = field.createZeroBuffer(polynomial.xSize * polynomial.ySize);
+  const xRemainderBuffer = field.createZeroBuffer(polynomial.ySize);
+
+  for (let y = 0; y < polynomial.ySize; y += 1) {
+    if (polynomial.xSize === 1) {
+      xRemainderBuffer.set(readElement(polynomial.coefficients, y), y * elementBytes);
+      continue;
+    }
+
+    const highestInputIndex = (polynomial.xSize - 1) * polynomial.ySize + y;
+    const highestQuotientIndex = (polynomial.xSize - 2) * polynomial.ySize + y;
+    quotientXBuffer.set(
+      readElement(polynomial.coefficients, highestInputIndex),
+      highestQuotientIndex * elementBytes,
+    );
+
+    for (let x = polynomial.xSize - 3; x >= 0; x -= 1) {
+      const inputIndex = (x + 1) * polynomial.ySize + y;
+      const nextQuotientIndex = (x + 1) * polynomial.ySize + y;
+      const quotientIndex = x * polynomial.ySize + y;
+      quotientXBuffer.set(
+        field.add(
+          readElement(polynomial.coefficients, inputIndex),
+          field.mul(xPoint, readElement(quotientXBuffer, nextQuotientIndex)),
+        ),
+        quotientIndex * elementBytes,
+      );
+    }
+
+    xRemainderBuffer.set(
+      field.add(
+        readElement(polynomial.coefficients, y),
+        field.mul(xPoint, readElement(quotientXBuffer, y)),
+      ),
+      y * elementBytes,
+    );
+  }
+
+  const quotientYBuffer = field.createZeroBuffer(polynomial.ySize);
+  let remainder: FieldElement;
+  if (polynomial.ySize === 1) {
+    remainder = readElement(xRemainderBuffer, 0).slice();
+  } else {
+    quotientYBuffer.set(
+      readElement(xRemainderBuffer, polynomial.ySize - 1),
+      (polynomial.ySize - 2) * elementBytes,
+    );
+    for (let y = polynomial.ySize - 3; y >= 0; y -= 1) {
+      quotientYBuffer.set(
+        field.add(
+          readElement(xRemainderBuffer, y + 1),
+          field.mul(yPoint, readElement(quotientYBuffer, y + 1)),
+        ),
+        y * elementBytes,
+      );
+    }
+    remainder = field.add(
+      readElement(xRemainderBuffer, 0),
+      field.mul(yPoint, readElement(quotientYBuffer, 0)),
+    );
+  }
+
+  return {
+    quotientX: BivariatePolynomialBuffer.fromOwnedBuffer(
+      field,
+      quotientXBuffer,
+      polynomial.xSize,
+      polynomial.ySize,
+    ),
+    quotientY: BivariatePolynomialBuffer.fromOwnedBuffer(field, quotientYBuffer, 1, polynomial.ySize),
+    remainder,
+  };
+
+  function readElement(buffer: Uint8Array, index: number): FieldElement {
+    const offset = index * elementBytes;
+    return buffer.subarray(offset, offset + elementBytes);
+  }
+}
+
+function runEdgeCaseParity(field: FieldRuntime, candidates: readonly BenchmarkCandidate[]): void {
   const xPoint = field.fromBigInt(11n);
   const yPoint = field.fromBigInt(13n);
   const cases: readonly { readonly label: string; readonly polynomial: BivariatePolynomialBuffer }[] = [
@@ -271,9 +370,11 @@ function runEdgeCaseParity(field: FieldRuntime): void {
 
   for (const testCase of cases) {
     const baseline = testCase.polynomial.divByRuffini(xPoint, yPoint);
-    const candidate = divideRuffiniRowMajorX(testCase.polynomial, xPoint, yPoint);
-    assertDivisionEqual(candidate, baseline, `${testCase.label} Candidate A`);
-    assertReconstruction(field, testCase.polynomial, candidate, xPoint, yPoint, testCase.label);
+    for (const candidate of candidates.filter((candidate) => candidate.name !== "current-production")) {
+      const actual = candidate.run(testCase.polynomial, xPoint, yPoint);
+      assertDivisionEqual(actual, baseline, `${testCase.label} ${candidate.name}`);
+      assertReconstruction(field, testCase.polynomial, actual, xPoint, yPoint, `${testCase.label} ${candidate.name}`);
+    }
   }
 }
 
@@ -336,6 +437,7 @@ function deterministicPolynomial(field: FieldRuntime, shape: Shape, seed: bigint
 function buildWeightedWorkloadRecords(
   records: readonly BenchmarkRecord[],
   elementBytes: number,
+  candidates: readonly BenchmarkCandidate[],
 ): BenchmarkRecord[] {
   const requiredShapes = new Map([
     ["8192x512", 3],
@@ -346,7 +448,7 @@ function buildWeightedWorkloadRecords(
     return [];
   }
 
-  return CANDIDATES.map((candidate) => {
+  return candidates.map((candidate) => {
     const selected = [...requiredShapes].map(([shape, count]) => ({
       record: records.find((record) => record.candidate === candidate.name && record.shape === shape)!,
       count,
@@ -392,10 +494,25 @@ function parseOptions(args: readonly string[]): BenchmarkOptions {
   return {
     seed: parseSeed(values.get("seed") ?? "0x52554646494e49"),
     shapes: parseShapes(values.get("shapes") ?? "4x2,8x4"),
+    candidateNames: parseCandidates(values.get("candidates") ?? CANDIDATES.map((candidate) => candidate.name).join(",")),
     iterations: parsePositiveInteger(values.get("iterations") ?? "3", "iterations"),
     warmup: parseNonNegativeInteger(values.get("warmup") ?? "1", "warmup"),
     jsonPath: values.get("json") ?? "tmp/timing/ruffini-division.json",
   };
+}
+
+function parseCandidates(value: string): ReadonlySet<string> {
+  const names = new Set(value.split(",").map((entry) => entry.trim()));
+  const knownNames = new Set(CANDIDATES.map((candidate) => candidate.name));
+  if (!names.has("current-production")) {
+    throw new Error("Ruffini benchmarks must include 'current-production' as the baseline.");
+  }
+  for (const name of names) {
+    if (!knownNames.has(name)) {
+      throw new Error(`Unknown Ruffini candidate '${name}'.`);
+    }
+  }
+  return names;
 }
 
 function parseSeed(value: string): bigint {
@@ -475,6 +592,7 @@ async function writeReport(options: BenchmarkOptions, records: readonly Benchmar
     options: {
       seed: `0x${options.seed.toString(16)}`,
       shapes: options.shapes.map(formatShape),
+      candidates: [...options.candidateNames],
       iterations: options.iterations,
       warmup: options.warmup,
     },
