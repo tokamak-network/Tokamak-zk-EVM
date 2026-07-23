@@ -107,6 +107,47 @@ npm run typecheck:scripts
 npm run prover:stage-timing:check
 ```
 
+## Adjusted-Point Evaluation Benchmark
+
+Related commit: this commit.
+
+This is benchmark evidence only. It does not change production prover code.
+
+The benchmark tests the identity `scaleCoeffsX(a)(P)(x,y) = P(a*x,y)` and `scaleCoeffsY(b)(P)(x,y) = P(x,b*y)` for the current bivariate buffer representation. The goal is to determine whether evaluation-only scaled-polynomial paths should avoid materializing scaled coefficient buffers.
+
+Command:
+
+```bash
+npm run bench:prover-ops -- --groups=evaluation --shapes=4096x256,8192x512 --iterations=1 --warmup=0 --json=tmp/timing/evaluation-adjusted-point-representative.json
+```
+
+Representative result:
+
+| candidate | 4096x256 | 8192x512 |
+| --- | ---: | ---: |
+| `current-scale-x-then-eval` | 587.169 ms | 2328.985 ms |
+| `adjusted-point-x-eval` | 336.211 ms | 1396.252 ms |
+| `current-scale-y-then-eval` | 598.810 ms | 2315.450 ms |
+| `adjusted-point-y-eval` | 342.664 ms | 1390.405 ms |
+| `current-scale-xy-then-eval` | 837.558 ms | 3261.847 ms |
+| `adjusted-point-xy-eval` | 349.626 ms | 1399.149 ms |
+| `current-prove3-like-scaled-set` | 1524.671 ms | 6111.938 ms |
+| `adjusted-point-prove3-like-set` | 1081.993 ms | 4220.614 ms |
+
+Interpretation:
+
+- Adjusted-point direct evaluation is consistently faster for the measured shapes.
+- The prove3-like set improves by `1.41x` at `4096x256` and `1.45x` at `8192x512`.
+- This candidate is applicable only where the scaled polynomial is needed solely for evaluation. It must not remove scaled-polynomial materialization from paths that later use the scaled polynomial in arithmetic.
+
+Verification:
+
+```bash
+npm run typecheck:scripts
+npm run bench:prover-ops -- --groups=evaluation --shapes=16x16 --iterations=1 --warmup=0 --json=tmp/timing/evaluation-adjusted-point-smoke.json
+npm run bench:prover-ops -- --groups=evaluation --shapes=4096x256,8192x512 --iterations=1 --warmup=0 --json=tmp/timing/evaluation-adjusted-point-representative.json
+```
+
 ## Accepted Production Sparse Batch Scalar Conversion
 
 Related commit: this commit.

@@ -11,6 +11,7 @@ The matrix covers the optimization candidate groups currently required by `tmp/p
 - `2d-ntt`: current 2D ROU conversion, direct `biNttBuffer`, transpose-scheduled row/column NTT, and transpose overhead for future contiguous row/column candidates.
 - `field-vector-mul`: allocation-heavy split/map/concat multiplication versus a tight indexed buffer loop.
 - `polynomial-mul`: current `BivariatePolynomialBuffer.mul` versus generic full 2D NTT references, including benchmark-only concurrent-input ROU and transpose-scheduled candidates.
+- `evaluation`: current scaled-polynomial materialization plus evaluation versus adjusted-point direct evaluation.
 - `linear-combination`: current add/sub/scale/addScaled/linear-combination paths versus diagnostics-only same-shape flat-buffer candidates.
 - `division`: current Ruffini opening division and native-style vanishing quotient recurrence with reconstruction checks.
 - `materialization`: buffer clone, dense roundtrip, and public `fromBuffer` copy boundary costs.
@@ -26,7 +27,7 @@ npm run bench:prover-ops -- --shapes=16x16,32x16 --iterations=2 --warmup=1
 Useful options:
 
 - `--shapes=16x16,32x16`: comma-separated bivariate polynomial shapes.
-- `--groups=2d-ntt,field-vector-mul`: comma-separated benchmark groups. Valid groups are `2d-ntt`, `field-vector-mul`, `polynomial-mul`, `linear-combination`, `division`, and `materialization`.
+- `--groups=2d-ntt,field-vector-mul`: comma-separated benchmark groups. Valid groups are `2d-ntt`, `field-vector-mul`, `polynomial-mul`, `evaluation`, `linear-combination`, `division`, and `materialization`.
 - `--iterations=2`: measured iterations per candidate.
 - `--warmup=1`: warmup iterations per candidate.
 - `--seed=0x544f4b414d414b`: deterministic pseudo-random seed.
@@ -574,6 +575,45 @@ Observed diagnostics after this change:
 | stage-timing poly total | 213.36 s | 207.43 s |
 
 The stage-timing script mirrors the production shared-right path and reports `poly.combine.prove2.shared_f_products` as a single local expression span. Do not generalize this into broad expression rewriting without a local benchmark and full diagnostics for the specific expression.
+
+### Adjusted-Point Evaluation Candidate
+
+For a bivariate polynomial `P(X,Y)`, coefficient scaling by `a^i` in the X coefficient direction satisfies `scaleCoeffsX(a)(P)(x,y) = P(a*x,y)`. Similarly, coefficient scaling by `b^j` in the Y coefficient direction satisfies `scaleCoeffsY(b)(P)(x,y) = P(x,b*y)`. Therefore, scaled-polynomial materialization can be avoided when the scaled polynomial is needed only for evaluation.
+
+This benchmark compares current-style scaled-polynomial materialization plus evaluation against direct evaluation at adjusted points. It is diagnostics-only and does not change production prover code.
+
+Command:
+
+```bash
+npm run bench:prover-ops -- --groups=evaluation --shapes=4096x256,8192x512 --iterations=1 --warmup=0 --json=tmp/timing/evaluation-adjusted-point-representative.json
+```
+
+Representative result:
+
+| group | candidate | shape | ms/op | speedup versus current |
+| --- | --- | ---: | ---: | ---: |
+| evaluation | current-scale-x-then-eval | 4096x256 | 587.169 | - |
+| evaluation | adjusted-point-x-eval | 4096x256 | 336.211 | 1.75x |
+| evaluation | current-scale-y-then-eval | 4096x256 | 598.810 | - |
+| evaluation | adjusted-point-y-eval | 4096x256 | 342.664 | 1.75x |
+| evaluation | current-scale-xy-then-eval | 4096x256 | 837.558 | - |
+| evaluation | adjusted-point-xy-eval | 4096x256 | 349.626 | 2.40x |
+| evaluation | current-prove3-like-scaled-set | 4096x256 | 1524.671 | - |
+| evaluation | adjusted-point-prove3-like-set | 4096x256 | 1081.993 | 1.41x |
+| evaluation | current-scale-x-then-eval | 8192x512 | 2328.985 | - |
+| evaluation | adjusted-point-x-eval | 8192x512 | 1396.252 | 1.67x |
+| evaluation | current-scale-y-then-eval | 8192x512 | 2315.450 | - |
+| evaluation | adjusted-point-y-eval | 8192x512 | 1390.405 | 1.67x |
+| evaluation | current-scale-xy-then-eval | 8192x512 | 3261.847 | - |
+| evaluation | adjusted-point-xy-eval | 8192x512 | 1399.149 | 2.33x |
+| evaluation | current-prove3-like-scaled-set | 8192x512 | 6111.938 | - |
+| evaluation | adjusted-point-prove3-like-set | 8192x512 | 4220.614 | 1.45x |
+
+Interpretation:
+
+- The candidate is directly applicable to evaluation-only scaled-polynomial paths such as the challenge-evaluation responsibility where `R_omegaX` and `R_omegaX_omegaY` are only evaluated.
+- The candidate should not be blindly applied to paths that also need the scaled polynomial object for later polynomial arithmetic. In those cases the materialized scaled polynomial may still be required.
+- Production promotion requires a targeted prover rewrite, native testing-mode-style diagnostics, full prover timing, and package-boundary checks.
 
 ## Accepted Scaled-Add Fast Path
 

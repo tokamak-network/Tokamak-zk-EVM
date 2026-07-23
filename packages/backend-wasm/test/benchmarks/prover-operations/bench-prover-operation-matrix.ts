@@ -27,6 +27,7 @@ type BenchmarkGroup =
   | "2d-ntt"
   | "field-vector-mul"
   | "polynomial-mul"
+  | "evaluation"
   | "linear-combination"
   | "division"
   | "materialization";
@@ -35,6 +36,7 @@ const ALL_GROUPS: readonly BenchmarkGroup[] = [
   "2d-ntt",
   "field-vector-mul",
   "polynomial-mul",
+  "evaluation",
   "linear-combination",
   "division",
   "materialization",
@@ -81,6 +83,9 @@ async function main(): Promise<void> {
       }
       if (options.groups.has("polynomial-mul")) {
         records.push(...await benchmarkPolynomialMul(runtime.Fr, context, options));
+      }
+      if (options.groups.has("evaluation")) {
+        records.push(...await benchmarkEvaluation(runtime.Fr, context, options));
       }
       if (options.groups.has("linear-combination")) {
         records.push(...await benchmarkLinearCombination(runtime.Fr, context, options));
@@ -336,6 +341,128 @@ async function currentTwoBivariateMulSharedRight(
   return [
     await firstLeft.mul(sharedRight),
     await secondLeft.mul(sharedRight),
+  ];
+}
+
+async function benchmarkEvaluation(
+  field: FieldRuntime,
+  testCase: BenchmarkCase,
+  options: BenchmarkOptions,
+): Promise<BenchmarkRecord[]> {
+  const shape = formatShape(testCase.shape);
+  const xScale = testCase.scaleA;
+  const yScale = testCase.scaleB;
+  const scaledXEval = testCase.left.scaleCoeffsX(xScale).eval(testCase.xPoint, testCase.yPoint);
+  const adjustedXEval = testCase.left.eval(field.mul(xScale, testCase.xPoint), testCase.yPoint);
+  const scaledYEval = testCase.left.scaleCoeffsY(yScale).eval(testCase.xPoint, testCase.yPoint);
+  const adjustedYEval = testCase.left.eval(testCase.xPoint, field.mul(yScale, testCase.yPoint));
+  const scaledXYEval = testCase.left.scaleCoeffsX(xScale).scaleCoeffsY(yScale).eval(testCase.xPoint, testCase.yPoint);
+  const adjustedXYEval = testCase.left.eval(field.mul(xScale, testCase.xPoint), field.mul(yScale, testCase.yPoint));
+  const currentProve3Like = currentScaledEvaluationSet(testCase.left, xScale, yScale, testCase.xPoint, testCase.yPoint);
+  const adjustedProve3Like = adjustedEvaluationSet(field, testCase.left, xScale, yScale, testCase.xPoint, testCase.yPoint);
+
+  assertFieldEqual(field, scaledXEval, adjustedXEval, `X-scaled evaluation mismatch at ${shape}`);
+  assertFieldEqual(field, scaledYEval, adjustedYEval, `Y-scaled evaluation mismatch at ${shape}`);
+  assertFieldEqual(field, scaledXYEval, adjustedXYEval, `XY-scaled evaluation mismatch at ${shape}`);
+  assertFieldArrayEqual(field, currentProve3Like, adjustedProve3Like, `prove3-like evaluation set mismatch at ${shape}`);
+
+  return [
+    {
+      group: "evaluation",
+      candidate: "current-scale-x-then-eval",
+      shape,
+      ms: await measure(options, () => Promise.resolve(testCase.left.scaleCoeffsX(xScale).eval(testCase.xPoint, testCase.yPoint))),
+      notes: "Current-style X coefficient scaling materializes a scaled polynomial before evaluating it.",
+    },
+    {
+      group: "evaluation",
+      candidate: "adjusted-point-x-eval",
+      shape,
+      ms: await measure(options, () => Promise.resolve(testCase.left.eval(field.mul(xScale, testCase.xPoint), testCase.yPoint))),
+      notes: "Candidate: avoid X-scaled polynomial materialization by evaluating at scale * x.",
+    },
+    {
+      group: "evaluation",
+      candidate: "current-scale-y-then-eval",
+      shape,
+      ms: await measure(options, () => Promise.resolve(testCase.left.scaleCoeffsY(yScale).eval(testCase.xPoint, testCase.yPoint))),
+      notes: "Current-style Y coefficient scaling materializes a scaled polynomial before evaluating it.",
+    },
+    {
+      group: "evaluation",
+      candidate: "adjusted-point-y-eval",
+      shape,
+      ms: await measure(options, () => Promise.resolve(testCase.left.eval(testCase.xPoint, field.mul(yScale, testCase.yPoint)))),
+      notes: "Candidate: avoid Y-scaled polynomial materialization by evaluating at scale * y.",
+    },
+    {
+      group: "evaluation",
+      candidate: "current-scale-xy-then-eval",
+      shape,
+      ms: await measure(options, () =>
+        Promise.resolve(testCase.left.scaleCoeffsX(xScale).scaleCoeffsY(yScale).eval(testCase.xPoint, testCase.yPoint)),
+      ),
+      notes: "Current-style X and Y coefficient scaling materializes a scaled polynomial before evaluating it.",
+    },
+    {
+      group: "evaluation",
+      candidate: "adjusted-point-xy-eval",
+      shape,
+      ms: await measure(options, () =>
+        Promise.resolve(testCase.left.eval(field.mul(xScale, testCase.xPoint), field.mul(yScale, testCase.yPoint))),
+      ),
+      notes: "Candidate: avoid XY-scaled polynomial materialization by evaluating at scale * x and scale * y.",
+    },
+    {
+      group: "evaluation",
+      candidate: "current-prove3-like-scaled-set",
+      shape,
+      ms: await measure(options, () =>
+        Promise.resolve(currentScaledEvaluationSet(testCase.left, xScale, yScale, testCase.xPoint, testCase.yPoint)),
+      ),
+      notes: "Current prove3-style set: base eval plus X-scaled and XY-scaled materialized polynomial evaluations.",
+    },
+    {
+      group: "evaluation",
+      candidate: "adjusted-point-prove3-like-set",
+      shape,
+      ms: await measure(options, () =>
+        Promise.resolve(adjustedEvaluationSet(field, testCase.left, xScale, yScale, testCase.xPoint, testCase.yPoint)),
+      ),
+      notes: "Candidate prove3-style set: base eval plus adjusted-point X and XY evaluations with no scaled polynomial materialization.",
+    },
+  ];
+}
+
+function currentScaledEvaluationSet(
+  polynomial: BivariatePolynomialBuffer,
+  xScale: FieldElement,
+  yScale: FieldElement,
+  xPoint: FieldElement,
+  yPoint: FieldElement,
+): readonly FieldElement[] {
+  const scaledX = polynomial.scaleCoeffsX(xScale);
+  const scaledXY = scaledX.scaleCoeffsY(yScale);
+  return [
+    polynomial.eval(xPoint, yPoint),
+    scaledX.eval(xPoint, yPoint),
+    scaledXY.eval(xPoint, yPoint),
+  ];
+}
+
+function adjustedEvaluationSet(
+  field: FieldRuntime,
+  polynomial: BivariatePolynomialBuffer,
+  xScale: FieldElement,
+  yScale: FieldElement,
+  xPoint: FieldElement,
+  yPoint: FieldElement,
+): readonly FieldElement[] {
+  const scaledXPoint = field.mul(xScale, xPoint);
+  return [
+    polynomial.eval(xPoint, yPoint),
+    polynomial.eval(scaledXPoint, yPoint),
+    polynomial.eval(scaledXPoint, field.mul(yScale, yPoint)),
   ];
 }
 
@@ -1106,6 +1233,26 @@ function assertSameByteLength(left: Uint8Array, right: Uint8Array, label: string
   }
 }
 
+function assertFieldEqual(field: FieldRuntime, left: FieldElement, right: FieldElement, message: string): void {
+  if (!field.eq(left, right)) {
+    throw new Error(message);
+  }
+}
+
+function assertFieldArrayEqual(
+  field: FieldRuntime,
+  left: readonly FieldElement[],
+  right: readonly FieldElement[],
+  message: string,
+): void {
+  if (left.length !== right.length) {
+    throw new Error(`${message}: length mismatch ${left.length} !== ${right.length}.`);
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    assertFieldEqual(field, left[index], right[index], `${message}: mismatch at index ${index}.`);
+  }
+}
+
 function buildVanishingDivisibleNumerator(field: FieldRuntime, testCase: BenchmarkCase): BivariatePolynomialBuffer {
   const base = testCase.left;
   const output = BivariatePolynomialBuffer.fromBuffer(
@@ -1153,8 +1300,11 @@ function reconstructVanishing(
 
 function randomPolynomial(field: FieldRuntime, shape: Shape, seed: bigint): BivariatePolynomialBuffer {
   const random = createSplitMix64(seed + BigInt(shape.xSize) * 0x9e3779b97f4a7c15n + BigInt(shape.ySize));
-  const coefficients = Array.from({ length: shape.xSize * shape.ySize }, () => randomFieldElement(field, random));
-  return BivariatePolynomialBuffer.fromCoeffs(field, coefficients, shape.xSize, shape.ySize);
+  const coefficients = field.createZeroBuffer(shape.xSize * shape.ySize);
+  for (let index = 0; index < shape.xSize * shape.ySize; index += 1) {
+    field.writeBufferElement(coefficients, index, randomFieldElement(field, random));
+  }
+  return BivariatePolynomialBuffer.fromBuffer(field, coefficients, shape.xSize, shape.ySize);
 }
 
 function randomFieldElement(field: FieldRuntime, random: () => bigint): FieldElement {
