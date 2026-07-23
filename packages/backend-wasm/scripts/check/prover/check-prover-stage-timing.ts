@@ -343,6 +343,25 @@ async function polynomialDivRuffini(
   );
 }
 
+async function polynomialDivRuffiniAfterSubtractingConstant(
+  label: string,
+  polynomial: BivariatePolynomialBuffer,
+  xPoint: FieldElement,
+  yPoint: FieldElement,
+  constant: FieldElement,
+): Promise<{ readonly quotientX: BivariatePolynomialBuffer; readonly quotientY: BivariatePolynomialBuffer }> {
+  return polynomialOperation(
+    "polynomial.div_ruffini",
+    label,
+    async () => {
+      const division = polynomial.divByRuffini(xPoint, yPoint);
+      polynomial.field.sub(division.remainder, constant);
+      return division;
+    },
+    [shapeSize("polynomial", polynomial.xSize, polynomial.ySize)],
+  );
+}
+
 function polynomialDivRuffiniSync(
   label: string,
   polynomial: BivariatePolynomialBuffer,
@@ -352,6 +371,20 @@ function polynomialDivRuffiniSync(
   return polynomialOperationSync("polynomial.div_ruffini", label, () => polynomial.divByRuffini(xPoint, yPoint), [
     shapeSize("polynomial", polynomial.xSize, polynomial.ySize),
   ]);
+}
+
+function polynomialDivRuffiniAfterSubtractingConstantSync(
+  label: string,
+  polynomial: BivariatePolynomialBuffer,
+  xPoint: FieldElement,
+  yPoint: FieldElement,
+  constant: FieldElement,
+): { readonly quotientX: BivariatePolynomialBuffer; readonly quotientY: BivariatePolynomialBuffer } {
+  return polynomialOperationSync("polynomial.div_ruffini", label, () => {
+    const division = polynomial.divByRuffini(xPoint, yPoint);
+    polynomial.field.sub(division.remainder, constant);
+    return division;
+  }, [shapeSize("polynomial", polynomial.xSize, polynomial.ySize)]);
 }
 
 function polynomialLinearCombination(
@@ -934,12 +967,11 @@ async function prove4Timed(input: {
       [state.mixer.rV_Y, state.instance.tSMax],
     ],
   );
-  const vMinusEval = polynomialSub("prove4.Pi_A.V_minus_eval", VXY, constantPolynomialBuffer(field, evaluations.V_eval));
   const pAXY = polynomialLinearCombination(
     "prove4.Pi_A",
     field,
     [
-      [kappa1, vMinusEval],
+      [kappa1, VXY],
       [smallVEval, state.witness.uXY],
       [field.neg(field.one), state.witness.wXY],
       [field.neg(tNEval), prove0.q0XY],
@@ -955,7 +987,13 @@ async function prove4Timed(input: {
       [field.neg(field.one), prove0.wZk],
     ],
   );
-  const piADivision = await polynomialDivRuffini("prove4.Pi_A", pAXY, chi, zeta);
+  const piADivision = await polynomialDivRuffiniAfterSubtractingConstant(
+    "prove4.Pi_A",
+    pAXY,
+    chi,
+    zeta,
+    field.mul(kappa1, evaluations.V_eval),
+  );
   const Pi_AX = await encodePolynomialBufferWithSigma1Timed(runtime, crs, state.setup, piADivision.quotientX, "prove4.Pi_AX");
   const Pi_AY = await encodePolynomialBufferWithSigma1Timed(runtime, crs, state.setup, piADivision.quotientY, "prove4.Pi_AY");
   const RXY = polynomialLinearCombination(
@@ -967,24 +1005,21 @@ async function prove4Timed(input: {
       [state.mixer.rR_Y, state.instance.tSMax],
     ],
   );
-  const mNumerator = polynomialSub(
-    "prove4.M.R_minus_eval",
+  const mDivision = await polynomialDivRuffiniAfterSubtractingConstant(
+    "prove4.M",
     RXY,
-    constantPolynomialBuffer(field, evaluations.R_omegaX_eval),
+    field.mul(omegaMIInv, chi),
+    zeta,
+    evaluations.R_omegaX_eval,
   );
-  const mDivision = await polynomialDivRuffini("prove4.M", mNumerator, field.mul(omegaMIInv, chi), zeta);
   const M_X = await encodePolynomialBufferWithSigma1Timed(runtime, crs, state.setup, mDivision.quotientX, "prove4.M_X");
   const M_Y = await encodePolynomialBufferWithSigma1Timed(runtime, crs, state.setup, mDivision.quotientY, "prove4.M_Y");
-  const nNumerator = polynomialSub(
-    "prove4.N.R_minus_eval",
-    RXY,
-    constantPolynomialBuffer(field, evaluations.R_omegaX_omegaY_eval),
-  );
-  const nDivision = await polynomialDivRuffini(
+  const nDivision = await polynomialDivRuffiniAfterSubtractingConstant(
     "prove4.N",
-    nNumerator,
+    RXY,
     field.mul(omegaMIInv, chi),
     field.mul(omegaSMaxInv, zeta),
+    evaluations.R_omegaX_omegaY_eval,
   );
   const N_X = await encodePolynomialBufferWithSigma1Timed(runtime, crs, state.setup, nDivision.quotientX, "prove4.N_X");
   const N_Y = await encodePolynomialBufferWithSigma1Timed(runtime, crs, state.setup, nDivision.quotientY, "prove4.N_Y");
@@ -1008,12 +1043,13 @@ async function prove4Timed(input: {
     omegaSMaxInv,
   });
   const aEval = evaluatePolynomialAt("prove4.A_free_eval", state.instance.aFreeX, chi, zeta);
-  const piBNumerator = polynomialSub(
-    "prove4.Pi_B.A_free_minus_eval",
+  const piBDivision = polynomialDivRuffiniAfterSubtractingConstantSync(
+    "prove4.Pi_B",
     state.instance.aFreeX,
-    constantPolynomial(field, aEval),
+    chi,
+    zeta,
+    aEval,
   );
-  const piBDivision = polynomialDivRuffiniSync("prove4.Pi_B", piBNumerator, chi, zeta);
   const Pi_B = runtime.G1.mulScalar(
     await encodePolynomialBufferWithSigma1Timed(runtime, crs, state.setup, piBDivision.quotientX, "prove4.Pi_B"),
     kappa1Fourth,
@@ -1205,7 +1241,6 @@ async function buildCopyOpeningsTimed(input: {
       [field.neg(field.one), lhsZk2Product],
     ]);
   })();
-  const rMinusEval = polynomialSub("prove4.R_minus_eval", RXY, constantPolynomialBuffer(field, evaluations.R_eval));
   const lhsForCopy = polynomialLinearCombination(
     "prove4.LHS_for_copy",
     field,
@@ -1213,10 +1248,16 @@ async function buildCopyOpeningsTimed(input: {
       [kappa1Sq, pCXY],
       [field.mul(kappa1Sq, kappa0), lhsZk1],
       [field.mul(field.mul(kappa1Sq, kappa0Sq), field.one), lhsZk2],
-      [kappa1Cube, rMinusEval],
+      [kappa1Cube, RXY],
     ],
   );
-  const division = await polynomialDivRuffini("prove4.Pi_C", lhsForCopy, chi, zeta);
+  const division = await polynomialDivRuffiniAfterSubtractingConstant(
+    "prove4.Pi_C",
+    lhsForCopy,
+    chi,
+    zeta,
+    field.mul(kappa1Cube, evaluations.R_eval),
+  );
 
   return {
     Pi_CX: await encodePolynomialBufferWithSigma1Timed(runtime, crs, state.setup, division.quotientX, "prove4.Pi_CX"),

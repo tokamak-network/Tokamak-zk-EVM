@@ -97,7 +97,7 @@ export async function computeOpeningCommitments(input: {
     [state.mixer.rV_Y, state.instanceBuffers.tSMax],
   ]);
   const pAXY = linearCombinationBuffer(field, [
-    [kappa1, VXY.sub(constantPolynomialBuffer(field, evaluations.V_eval))],
+    [kappa1, VXY],
     [smallVEval, state.witnessBuffers.uXY],
     [field.neg(field.one), state.witnessBuffers.wXY],
     [field.neg(tNEval), initialRelation.q0XY],
@@ -112,18 +112,29 @@ export async function computeOpeningCommitments(input: {
     [tSMaxEval, rW_Y],
     [field.neg(field.one), initialRelation.wZk],
   ]);
-  const piADivision = pAXY.divByRuffini(chi, zeta);
+  const piADivision = divideAfterSubtractingConstant(
+    pAXY,
+    chi,
+    zeta,
+    field.mul(kappa1, evaluations.V_eval),
+  );
   const RXY = linearCombinationBuffer(field, [
     [field.one, rXY],
     [state.mixer.rR_X, state.instanceBuffers.tMi],
     [state.mixer.rR_Y, state.instanceBuffers.tSMax],
   ]);
-  const mDivision = RXY
-    .sub(constantPolynomialBuffer(field, evaluations.R_omegaX_eval))
-    .divByRuffini(field.mul(omegaMIInv, chi), zeta);
-  const nDivision = RXY
-    .sub(constantPolynomialBuffer(field, evaluations.R_omegaX_omegaY_eval))
-    .divByRuffini(field.mul(omegaMIInv, chi), field.mul(omegaSMaxInv, zeta));
+  const mDivision = divideAfterSubtractingConstant(
+    RXY,
+    field.mul(omegaMIInv, chi),
+    zeta,
+    evaluations.R_omegaX_eval,
+  );
+  const nDivision = divideAfterSubtractingConstant(
+    RXY,
+    field.mul(omegaMIInv, chi),
+    field.mul(omegaSMaxInv, zeta),
+    evaluations.R_omegaX_omegaY_eval,
+  );
   const copyDivision = await buildCopyOpeningPolynomials({
     runtime,
     state,
@@ -143,9 +154,7 @@ export async function computeOpeningCommitments(input: {
     omegaSMaxInv,
   });
   const aEval = state.instance.aFreeX.eval(chi, zeta);
-  const piBDivision = state.instanceBuffers.aFreeX
-    .sub(constantPolynomialBuffer(field, aEval))
-    .divByRuffini(chi, zeta);
+  const piBDivision = divideAfterSubtractingConstant(state.instanceBuffers.aFreeX, chi, zeta, aEval);
   const commitments = await encodeSigma1CommitmentBarrier(
     options.commitmentEncoder ?? {
       parallelSafe: false,
@@ -305,17 +314,35 @@ async function buildCopyOpeningPolynomials(input: {
     [lagrangeK0Eval, term10],
     [field.neg(field.one), lhsZk2Product],
   ]);
-  const rMinusEval = RXY.sub(constantPolynomialBuffer(field, evaluations.R_eval));
   const lhsForCopy = linearCombinationBuffer(field, [
     [kappa1Sq, pCXY],
     [field.mul(kappa1Sq, kappa0), lhsZk1],
     [field.mul(field.mul(kappa1Sq, kappa0Sq), field.one), lhsZk2],
-    [kappa1Cube, rMinusEval],
+    [kappa1Cube, RXY],
   ]);
-  const division = lhsForCopy.divByRuffini(chi, zeta);
+  const division = divideAfterSubtractingConstant(
+    lhsForCopy,
+    chi,
+    zeta,
+    field.mul(kappa1Cube, evaluations.R_eval),
+  );
 
   return {
     quotientX: division.quotientX,
     quotientY: division.quotientY,
+  };
+}
+
+function divideAfterSubtractingConstant(
+  polynomial: BivariatePolynomialBuffer,
+  xPoint: FieldElement,
+  yPoint: FieldElement,
+  constant: FieldElement,
+): ReturnType<BivariatePolynomialBuffer["divByRuffini"]> {
+  const division = polynomial.divByRuffini(xPoint, yPoint);
+  return {
+    quotientX: division.quotientX,
+    quotientY: division.quotientY,
+    remainder: polynomial.field.sub(division.remainder, constant),
   };
 }

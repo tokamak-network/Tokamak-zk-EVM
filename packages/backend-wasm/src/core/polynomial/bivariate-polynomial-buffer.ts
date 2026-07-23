@@ -431,13 +431,90 @@ export class BivariatePolynomialBuffer {
   }
 
   divByRuffini(xPoint: FieldElement, yPoint: FieldElement): BivariateBufferRuffiniDivisionResult {
-    const xDivision = this.divideLinearX(xPoint);
-    const yDivision = xDivision.remainder.divideLinearY(yPoint);
+    const elementBytes = this.field.byteLength;
+    if (xPoint.byteLength !== elementBytes || yPoint.byteLength !== elementBytes) {
+      throw new Error("Ruffini division points must be field elements.");
+    }
+
+    const quotientXBuffer = this.field.createZeroBuffer(this.xSize * this.ySize);
+    const xRemainderBuffer = this.field.createZeroBuffer(this.ySize);
+
+    if (this.xSize === 1) {
+      xRemainderBuffer.set(this.coefficients);
+    } else {
+      const highestInputOffset = (this.xSize - 1) * this.ySize * elementBytes;
+      const highestQuotientOffset = (this.xSize - 2) * this.ySize * elementBytes;
+      quotientXBuffer.set(
+        this.coefficients.subarray(highestInputOffset, highestInputOffset + this.ySize * elementBytes),
+        highestQuotientOffset,
+      );
+
+      for (let x = this.xSize - 3; x >= 0; x -= 1) {
+        const inputRowOffset = (x + 1) * this.ySize * elementBytes;
+        const nextQuotientRowOffset = (x + 1) * this.ySize * elementBytes;
+        const quotientRowOffset = x * this.ySize * elementBytes;
+        for (let y = 0; y < this.ySize; y += 1) {
+          const elementOffset = y * elementBytes;
+          quotientXBuffer.set(
+            this.field.add(
+              this.coefficients.subarray(
+                inputRowOffset + elementOffset,
+                inputRowOffset + elementOffset + elementBytes,
+              ),
+              this.field.mul(
+                xPoint,
+                quotientXBuffer.subarray(
+                  nextQuotientRowOffset + elementOffset,
+                  nextQuotientRowOffset + elementOffset + elementBytes,
+                ),
+              ),
+            ),
+            quotientRowOffset + elementOffset,
+          );
+        }
+      }
+
+      for (let y = 0; y < this.ySize; y += 1) {
+        const elementOffset = y * elementBytes;
+        xRemainderBuffer.set(
+          this.field.add(
+            this.coefficients.subarray(elementOffset, elementOffset + elementBytes),
+            this.field.mul(xPoint, quotientXBuffer.subarray(elementOffset, elementOffset + elementBytes)),
+          ),
+          elementOffset,
+        );
+      }
+    }
+
+    const quotientYBuffer = this.field.createZeroBuffer(this.ySize);
+    let remainder: FieldElement;
+    if (this.ySize === 1) {
+      remainder = xRemainderBuffer.slice(0, elementBytes);
+    } else {
+      quotientYBuffer.set(
+        xRemainderBuffer.subarray((this.ySize - 1) * elementBytes, this.ySize * elementBytes),
+        (this.ySize - 2) * elementBytes,
+      );
+      for (let y = this.ySize - 3; y >= 0; y -= 1) {
+        const sourceOffset = (y + 1) * elementBytes;
+        quotientYBuffer.set(
+          this.field.add(
+            xRemainderBuffer.subarray(sourceOffset, sourceOffset + elementBytes),
+            this.field.mul(yPoint, quotientYBuffer.subarray(sourceOffset, sourceOffset + elementBytes)),
+          ),
+          y * elementBytes,
+        );
+      }
+      remainder = this.field.add(
+        xRemainderBuffer.subarray(0, elementBytes),
+        this.field.mul(yPoint, quotientYBuffer.subarray(0, elementBytes)),
+      );
+    }
 
     return {
-      quotientX: xDivision.quotient,
-      quotientY: yDivision.quotient,
-      remainder: yDivision.remainder.getCoeff(0, 0),
+      quotientX: BivariatePolynomialBuffer.fromOwnedBuffer(this.field, quotientXBuffer, this.xSize, this.ySize),
+      quotientY: BivariatePolynomialBuffer.fromOwnedBuffer(this.field, quotientYBuffer, 1, this.ySize),
+      remainder,
     };
   }
 
@@ -593,71 +670,6 @@ export class BivariatePolynomialBuffer {
     }
   }
 
-  private divideLinearX(point: FieldElement): {
-    readonly quotient: BivariatePolynomialBuffer;
-    readonly remainder: BivariatePolynomialBuffer;
-  } {
-    const quotient = new BivariatePolynomialBuffer(this.field, this.field.createZeroBuffer(this.xSize * this.ySize), {
-      xSize: this.xSize,
-      ySize: this.ySize,
-    });
-    const remainder = new BivariatePolynomialBuffer(this.field, this.field.createZeroBuffer(this.ySize), {
-      xSize: 1,
-      ySize: this.ySize,
-    });
-
-    for (let y = 0; y < this.ySize; y += 1) {
-      if (this.xSize === 1) {
-        remainder.setCoeff(0, y, this.getCoeff(0, y));
-        continue;
-      }
-
-      quotient.setCoeff(this.xSize - 2, y, this.getCoeff(this.xSize - 1, y));
-      for (let x = this.xSize - 3; x >= 0; x -= 1) {
-        quotient.setCoeff(
-          x,
-          y,
-          this.field.add(this.getCoeff(x + 1, y), this.field.mul(point, quotient.getCoeff(x + 1, y))),
-        );
-      }
-      remainder.setCoeff(0, y, this.field.add(this.getCoeff(0, y), this.field.mul(point, quotient.getCoeff(0, y))));
-    }
-
-    return { quotient, remainder };
-  }
-
-  private divideLinearY(point: FieldElement): {
-    readonly quotient: BivariatePolynomialBuffer;
-    readonly remainder: BivariatePolynomialBuffer;
-  } {
-    const quotient = new BivariatePolynomialBuffer(this.field, this.field.createZeroBuffer(this.xSize * this.ySize), {
-      xSize: this.xSize,
-      ySize: this.ySize,
-    });
-    const remainder = new BivariatePolynomialBuffer(this.field, this.field.createZeroBuffer(this.xSize), {
-      xSize: this.xSize,
-      ySize: 1,
-    });
-
-    for (let x = 0; x < this.xSize; x += 1) {
-      if (this.ySize === 1) {
-        remainder.setCoeff(x, 0, this.getCoeff(x, 0));
-        continue;
-      }
-
-      quotient.setCoeff(x, this.ySize - 2, this.getCoeff(x, this.ySize - 1));
-      for (let y = this.ySize - 3; y >= 0; y -= 1) {
-        quotient.setCoeff(
-          x,
-          y,
-          this.field.add(this.getCoeff(x, y + 1), this.field.mul(point, quotient.getCoeff(x, y + 1))),
-        );
-      }
-      remainder.setCoeff(x, 0, this.field.add(this.getCoeff(x, 0), this.field.mul(point, quotient.getCoeff(x, 0))));
-    }
-
-    return { quotient, remainder };
-  }
 }
 
 async function multiplyByXUnivariateFactor(
