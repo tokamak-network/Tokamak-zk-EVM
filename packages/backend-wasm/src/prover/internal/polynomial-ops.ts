@@ -322,13 +322,123 @@ export async function buildLagrangeKl(
   mI: number,
   sMax: number,
 ): Promise<BivariatePolynomialBuffer> {
-  const kEvals = field.createZeroBuffer(mI);
-  field.writeBufferElement(kEvals, mI - 1, field.one);
-  const lagrangeKXY = await BivariatePolynomialBuffer.fromRouEvals(field, kEvals, mI, 1);
-  const lEvals = field.createZeroBuffer(sMax);
-  field.writeBufferElement(lEvals, sMax - 1, field.one);
-  const lagrangeLXY = await BivariatePolynomialBuffer.fromRouEvals(field, lEvals, 1, sMax);
-  return await lagrangeKXY.mul(lagrangeLXY);
+  const domainSize = checkedDomainProduct(mI, sMax, "Lagrange KL");
+  const inverseDomain = field.inv(field.fromBigInt(BigInt(domainSize)));
+  const rootX = field.rootOfUnity(mI);
+  const rootY = field.rootOfUnity(sMax);
+  const output = new Uint8Array(domainSize * field.byteLength);
+  let rowStart = inverseDomain;
+
+  for (let x = 0; x < mI; x += 1) {
+    let value = rowStart;
+    const rowOffset = x * sMax * field.byteLength;
+    for (let y = 0; y < sMax; y += 1) {
+      output.set(value, rowOffset + y * field.byteLength);
+      value = field.mul(value, rootY);
+    }
+    rowStart = field.mul(rowStart, rootX);
+  }
+
+  return BivariatePolynomialBuffer.fromOwnedBuffer(field, output, mI, sMax);
+}
+
+export async function multiplyByLagrangeKl(
+  polynomial: BivariatePolynomialBuffer,
+  mI: number,
+  sMax: number,
+): Promise<BivariatePolynomialBuffer> {
+  const domainSize = checkedDomainProduct(mI, sMax, "Lagrange KL multiplication");
+  const degree = polynomial.findDegree();
+  if (degree.xDegree < 0 || degree.yDegree < 0) {
+    return BivariatePolynomialBuffer.zero(polynomial.field);
+  }
+
+  const field = polynomial.field;
+  const xSize = nextPowerOfTwo(degree.xDegree + mI);
+  const ySize = nextPowerOfTwo(degree.yDegree + sMax);
+  const elementBytes = field.byteLength;
+  const intermediate = new Uint8Array(xSize * polynomial.ySize * elementBytes);
+  const intermediateRowBytes = polynomial.ySize * elementBytes;
+  const inputRowBytes = polynomial.ySize * elementBytes;
+  const rootX = field.rootOfUnity(mI);
+
+  for (let x = 0; x < xSize; x += 1) {
+    const outputRowOffset = x * intermediateRowBytes;
+    const previousRowOffset = (x - 1) * intermediateRowBytes;
+    const inputRowOffset = x * inputRowBytes;
+    const removedRowOffset = (x - mI) * inputRowBytes;
+    for (let y = 0; y < polynomial.ySize; y += 1) {
+      const elementOffset = y * elementBytes;
+      let value = x > 0
+        ? field.mul(
+          intermediate.subarray(
+            previousRowOffset + elementOffset,
+            previousRowOffset + elementOffset + elementBytes,
+          ),
+          rootX,
+        )
+        : field.zero;
+      if (x < polynomial.xSize) {
+        value = field.add(
+          value,
+          polynomial.coefficients.subarray(
+            inputRowOffset + elementOffset,
+            inputRowOffset + elementOffset + elementBytes,
+          ),
+        );
+      }
+      if (x >= mI && x - mI < polynomial.xSize) {
+        value = field.sub(
+          value,
+          polynomial.coefficients.subarray(
+            removedRowOffset + elementOffset,
+            removedRowOffset + elementOffset + elementBytes,
+          ),
+        );
+      }
+      intermediate.set(value, outputRowOffset + elementOffset);
+    }
+  }
+
+  const unscaledOutput = new Uint8Array(xSize * ySize * elementBytes);
+  const outputRowBytes = ySize * elementBytes;
+  const rootY = field.rootOfUnity(sMax);
+  for (let x = 0; x < xSize; x += 1) {
+    const intermediateRowOffset = x * intermediateRowBytes;
+    const outputRowOffset = x * outputRowBytes;
+    for (let y = 0; y < ySize; y += 1) {
+      const outputOffset = outputRowOffset + y * elementBytes;
+      let value = y > 0
+        ? field.mul(
+          unscaledOutput.subarray(outputOffset - elementBytes, outputOffset),
+          rootY,
+        )
+        : field.zero;
+      if (y < polynomial.ySize) {
+        value = field.add(
+          value,
+          intermediate.subarray(
+            intermediateRowOffset + y * elementBytes,
+            intermediateRowOffset + (y + 1) * elementBytes,
+          ),
+        );
+      }
+      if (y >= sMax && y - sMax < polynomial.ySize) {
+        value = field.sub(
+          value,
+          intermediate.subarray(
+            intermediateRowOffset + (y - sMax) * elementBytes,
+            intermediateRowOffset + (y - sMax + 1) * elementBytes,
+          ),
+        );
+      }
+      unscaledOutput.set(value, outputOffset);
+    }
+  }
+
+  const inverseDomain = field.inv(field.fromBigInt(BigInt(domainSize)));
+  const output = await field.batchApplyKeyBuffer(unscaledOutput, inverseDomain, field.one);
+  return BivariatePolynomialBuffer.fromOwnedBuffer(field, output, xSize, ySize);
 }
 
 export function mulByXMinusOne(polynomial: BivariatePolynomialBuffer): BivariatePolynomialBuffer {
@@ -640,4 +750,15 @@ function nextPowerOfTwo(value: number): number {
     size *= 2;
   }
   return size;
+}
+
+function checkedDomainProduct(left: number, right: number, label: string): number {
+  if (!Number.isSafeInteger(left) || left <= 0 || !Number.isSafeInteger(right) || right <= 0) {
+    throw new Error(`${label} domain dimensions must be positive safe integers.`);
+  }
+  const product = left * right;
+  if (!Number.isSafeInteger(product)) {
+    throw new Error(`${label} domain size must be a safe integer.`);
+  }
+  return product;
 }

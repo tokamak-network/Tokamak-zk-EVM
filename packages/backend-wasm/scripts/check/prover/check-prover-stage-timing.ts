@@ -50,6 +50,7 @@ import {
   mulByTerm9,
   mulByXMinusOne,
   multiplyByLagrangeK0,
+  multiplyByLagrangeKl,
   multiplyPairWithSharedRight,
 } from "../../../src/prover/internal/polynomial-ops.js";
 
@@ -291,6 +292,23 @@ async function polynomialMulLagrangeK0(
     () => multiplyByLagrangeK0(polynomial, mI),
     [
       shapeSize("lagrange-domain", mI, 1),
+      shapeSize("polynomial", polynomial.xSize, polynomial.ySize),
+    ],
+  );
+}
+
+async function polynomialMulLagrangeKl(
+  label: string,
+  polynomial: BivariatePolynomialBuffer,
+  mI: number,
+  sMax: number,
+): Promise<BivariatePolynomialBuffer> {
+  return polynomialOperation(
+    "polynomial.combination_with_multiplication",
+    label,
+    () => multiplyByLagrangeKl(polynomial, mI, sMax),
+    [
+      shapeSize("lagrange-domain", mI, sMax),
       shapeSize("polynomial", polynomial.xSize, polynomial.ySize),
     ],
   );
@@ -851,7 +869,7 @@ async function prove2Timed(input: {
     () => multiplyPairWithSharedRight(rOmegaX, rOmegaXOmegaY, fXY),
   );
   const p1Numerator = polynomialSub("prove2.p1.sub_one", rXY, constantPolynomialBuffer(field, field.one));
-  const p1XY = await polynomialMul("prove2.p1.mul_lagrange_KL", p1Numerator, lagrangeKlXY);
+  const p1XY = await polynomialMulLagrangeKl("prove2.p1.mul_lagrange_KL", p1Numerator, mI, sMax);
   const p2Input = polynomialSub("prove2.p2_input", rGXY, rOmegaXFXY);
   const p2XY = polynomialMulSpecial("prove2.p2.mul_x_minus_one", () => mulByXMinusOne(p2Input), [
     shapeSize("polynomial", p2Input.xSize, p2Input.ySize),

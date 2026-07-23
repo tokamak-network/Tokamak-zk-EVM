@@ -18,6 +18,7 @@ import {
   mulByTerm9,
   mulByXMinusOne,
   multiplyByLagrangeK0,
+  multiplyByLagrangeKl,
   multiplyPairWithSharedRight,
   transposeRowMajorBuffer,
 } from "../../../src/prover/internal/polynomial-ops.js";
@@ -138,7 +139,17 @@ async function checkLagrangeBuilders(field: FieldRuntime): Promise<void> {
   field.writeBufferElement(lEvals, sMax - 1, field.one);
   const expectedK = await DensePolynomialExt.fromRouEvals(field, field.split(kEvals), mI, 1);
   const expectedL = await DensePolynomialExt.fromRouEvals(field, field.split(lEvals), 1, sMax);
-  assertBufferDenseEqual(await buildLagrangeKl(field, mI, sMax), expectedK.mul(expectedL), "buildLagrangeKl");
+  const lagrangeKl = await buildLagrangeKl(field, mI, sMax);
+  assertBufferDenseEqual(lagrangeKl, expectedK.mul(expectedL), "buildLagrangeKl");
+  assertBufferDenseEqual(
+    await multiplyByLagrangeKl(k0Input, mI, sMax),
+    lagrangeKl.toDense().mul(k0Input.toDense()),
+    "multiplyByLagrangeKl",
+  );
+  await assertRejects(
+    () => multiplyByLagrangeKl(k0Input, 0, sMax),
+    "multiplyByLagrangeKl invalid domain",
+  );
 }
 
 async function checkEvaluationHelpers(field: FieldRuntime): Promise<void> {
