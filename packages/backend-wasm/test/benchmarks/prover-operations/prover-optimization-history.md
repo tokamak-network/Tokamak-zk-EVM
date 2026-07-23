@@ -819,6 +819,78 @@ Verification:
 - `npm pack --dry-run --json` passed with 249 files and no test, script,
   temporary, benchmark, or diagnostics paths.
 
+## Shifted ROU Product Reuse
+
+Production commit: `13cf6744` (`Reuse shifted ROU evaluations in copy
+quotient`).
+
+Candidate selection:
+
+- The three copy-quotient products share the same base polynomial `r`, while
+  two left operands are coefficient-scaled versions of `r` and two right
+  operands share `f`.
+- On the enlarged multiplication domain, scaling by `omega_mI^-1` and
+  `omega_sMax^-1` is exactly a cyclic evaluation-index shift. Small-domain
+  tests verify the relation against independent forward transforms byte for
+  byte.
+- The candidate transforms `r`, `g`, and `f` once each, applies the two
+  required shifts while reading the `r` evaluation buffer, and runs the same
+  three inverse transforms as before. It removes two forward transforms
+  without materializing shifted evaluation buffers.
+- At input shape `4096x256`, the independent benchmark decreased from
+  `14703.416 ms` to `11505.709 ms` (`21.7%`) with unchanged reported explicit
+  temporary storage of `384 MiB`, excluding the three required result buffers.
+
+Production change:
+
+- Added `multiplyOmegaShiftedProducts(...)` with explicit source-domain
+  dimensions.
+- Replaced the separate `rG` product and shared-right pair only in
+  copy-quotient construction.
+- Removed the superseded shared-right-only production helper.
+- Preserved coefficient-domain `rOmegaX` and `rOmegaXOmegaY` construction
+  because later copy-quotient subtraction formulas still require them.
+- The post-promotion benchmark measured `14456.432 ms` for the retained legacy
+  path and `11483.241 ms` for current production (`20.6%`).
+
+Standalone stage-timing comparison:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_without_multiplication` | 53.39 s | 53.82 s | +0.43 s |
+| `polynomial.combination_with_multiplication` | 37.96 s | 34.73 s | -3.23 s |
+| `polynomial.recursion` | 1.92 s | 2.17 s | +0.25 s |
+| `polynomial.evaluation` | 5.41 s | 5.36 s | -0.05 s |
+| `polynomial.div_ruffini` | 8.81 s | 8.81 s | 0.00 s |
+| `polynomial.div_vanishing` | 5.66 s | 5.69 s | +0.03 s |
+| `polynomial.encode` | 115.11 s | 115.12 s | +0.01 s |
+| `binding.encode` | 1.96 s | 2.04 s | +0.08 s |
+| `field.operations` | 113.15 s | 110.58 s | -2.57 s |
+| encode | 117.07 s | 117.16 s | +0.09 s |
+| prover stage total | 228.26 s | 225.71 s | -2.55 s |
+| total wall | 236.86 s | 234.06 s | -2.80 s |
+
+Interpretation:
+
+- The multiplication category decreased by `3.23 s`, consistent with the
+  isolated three-product benchmark.
+- Total wall time decreased by `2.80 s` (`1.2%`).
+- Chromium proof generation completed in `226.78 s`, and verification
+  completed in `21 ms`.
+
+Verification:
+
+- `npm run typecheck` passed.
+- `npm run typecheck:scripts` passed.
+- `npm run prover:ops:check` passed.
+- `npm run prover:testing-mode:check` passed.
+- `npm run prover:check` passed and verified the generated proof.
+- `npm run prover:stage-timing:check` passed and produced the timing table above.
+- `npm run build` passed.
+- `npm run prover:browser:check` passed.
+- `npm pack --dry-run --json` passed with 249 files and no test, script,
+  temporary, benchmark, or diagnostics paths.
+
 ## Superseded Old-Taxonomy Comparison
 
 The old comparison below is preserved only as historical context. It must not be used as the active timing table because it used add/sub/mul/scale rows that are no longer part of the accepted taxonomy.

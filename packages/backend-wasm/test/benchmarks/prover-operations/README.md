@@ -245,6 +245,55 @@ Chromium generated the 2408-byte proof in `229.72 s` and verified it in
 Node proof generation and verification, stage timing, build, browser
 verification, and package-content inspection pass.
 
+## Shifted ROU Product Benchmark
+
+`bench-shifted-rou-products.ts` isolates the three related copy-quotient
+products:
+
+```text
+r(X,Y) * g(X,Y)
+r(omega_mI^-1 X,Y) * f(X,Y)
+r(omega_mI^-1 X,omega_sMax^-1 Y) * f(X,Y)
+```
+
+For an `Nx x Ny` multiplication evaluation domain, scaling coefficients by
+`omega_mI^-1` and `omega_sMax^-1` is exactly equivalent to cyclic evaluation
+index shifts by `-Nx/mI` on X and `-Ny/sMax` on Y. The real multiplication
+domain is `2mI x 2sMax`, so the two shifted products read the single `r`
+evaluation buffer at offsets `(-2, 0)` and `(-2, -2)`.
+
+The benchmark checks this relation directly against separately transformed
+scaled polynomials on small domains, then checks all three output coefficient
+buffers byte-for-byte.
+
+Representative independent result at input shape `4096x256`:
+
+| candidate | median | reduction | output | explicit temporary |
+| --- | ---: | ---: | ---: | ---: |
+| current production | 14703.416 ms | n/a | 384 MiB | 384 MiB |
+| shifted ROU reuse | 11505.709 ms | 21.7% | 384 MiB | 384 MiB |
+
+Related production commit: `13cf6744` (`Reuse shifted ROU evaluations in copy
+quotient`).
+
+The post-promotion benchmark retains the old shared-right implementation
+locally. It measured `14456.432 ms` for the legacy path and `11483.241 ms` for
+current production, a `20.6%` reduction.
+
+Integrated stage timing:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_with_multiplication` | 37.96 s | 34.73 s | -3.23 s |
+| `field.operations` | 113.15 s | 110.58 s | -2.57 s |
+| prover stage total | 228.26 s | 225.71 s | -2.55 s |
+| total wall | 236.86 s | 234.06 s | -2.80 s |
+
+Chromium generated the 2408-byte proof in `226.78 s` and verified it in
+`21 ms`. Type checks, operation parity, native testing-mode-style diagnostics,
+Node proof generation and verification, stage timing, build, browser
+verification, and package-content inspection pass.
+
 ## Dedicated Ruffini Benchmark
 
 `bench-ruffini-division.ts` isolates the bivariate Ruffini opening path. It is the benchmark-first gate for changes to the production synthetic-division implementation.
