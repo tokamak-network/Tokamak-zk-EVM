@@ -332,11 +332,11 @@ export async function buildLagrangeKl(
 }
 
 export function mulByXMinusOne(polynomial: BivariatePolynomialBuffer): BivariatePolynomialBuffer {
-  return polynomial.mulMonomial(1, 0).sub(polynomial);
+  return multiplyByXDifference(polynomial, false);
 }
 
 export function mulByOneMinusX(polynomial: BivariatePolynomialBuffer): BivariatePolynomialBuffer {
-  return polynomial.sub(polynomial.mulMonomial(1, 0));
+  return multiplyByXDifference(polynomial, true);
 }
 
 export function mulByLinearX(
@@ -347,7 +347,7 @@ export function mulByLinearX(
     throw new Error("X-linear multiplier requires exactly two coefficients.");
   }
 
-  return polynomial.scale(coefficients[0]).add(polynomial.mulMonomial(1, 0).scale(coefficients[1]));
+  return multiplyByLinearXFactor(polynomial, coefficients[0], coefficients[1]);
 }
 
 export function mulByLinearY(
@@ -358,7 +358,7 @@ export function mulByLinearY(
     throw new Error("Y-linear multiplier requires exactly two coefficients.");
   }
 
-  return polynomial.scale(coefficients[0]).add(polynomial.mulMonomial(0, 1).scale(coefficients[1]));
+  return multiplyByLinearYFactor(polynomial, coefficients[0], coefficients[1]);
 }
 
 export function mulByTerm9(
@@ -376,10 +376,213 @@ export function mulByTerm9(
   const constant = field.add(field.mul(tMiEval, rB_X[0]), field.mul(tSMaxEval, rB_Y[0]));
   const xCoeff = field.mul(tMiEval, rB_X[1]);
   const yCoeff = field.mul(tSMaxEval, rB_Y[1]);
-  return polynomial
-    .scale(constant)
-    .add(polynomial.mulMonomial(1, 0).scale(xCoeff))
-    .add(polynomial.mulMonomial(0, 1).scale(yCoeff));
+  return multiplyByTerm9Factor(polynomial, constant, xCoeff, yCoeff);
+}
+
+function multiplyByXDifference(
+  polynomial: BivariatePolynomialBuffer,
+  negateShift: boolean,
+): BivariatePolynomialBuffer {
+  const degree = polynomial.findDegree();
+  if (degree.xDegree < 0 || degree.yDegree < 0) {
+    return BivariatePolynomialBuffer.zero(polynomial.field);
+  }
+
+  const field = polynomial.field;
+  const xSize = Math.max(polynomial.xSize, nextPowerOfTwo(degree.xDegree + 2));
+  const ySize = polynomial.ySize;
+  const output = new Uint8Array(xSize * ySize * field.byteLength);
+  const sourceRowBytes = polynomial.ySize * field.byteLength;
+  const outputRowBytes = ySize * field.byteLength;
+
+  for (let x = 0; x <= degree.xDegree + 1; x += 1) {
+    const outputRowOffset = x * outputRowBytes;
+    const currentRowOffset = x * sourceRowBytes;
+    const previousRowOffset = (x - 1) * sourceRowBytes;
+    for (let y = 0; y <= degree.yDegree; y += 1) {
+      const elementOffset = y * field.byteLength;
+      const current = x <= degree.xDegree
+        ? polynomial.coefficients.subarray(
+          currentRowOffset + elementOffset,
+          currentRowOffset + elementOffset + field.byteLength,
+        )
+        : field.zero;
+      const previous = x > 0
+        ? polynomial.coefficients.subarray(
+          previousRowOffset + elementOffset,
+          previousRowOffset + elementOffset + field.byteLength,
+        )
+        : field.zero;
+      output.set(
+        negateShift ? field.sub(current, previous) : field.sub(previous, current),
+        outputRowOffset + elementOffset,
+      );
+    }
+  }
+
+  return BivariatePolynomialBuffer.fromOwnedBuffer(field, output, xSize, ySize);
+}
+
+function multiplyByLinearXFactor(
+  polynomial: BivariatePolynomialBuffer,
+  constant: FieldElement,
+  xCoefficient: FieldElement,
+): BivariatePolynomialBuffer {
+  const degree = polynomial.findDegree();
+  if (degree.xDegree < 0 || degree.yDegree < 0) {
+    return BivariatePolynomialBuffer.zero(polynomial.field);
+  }
+
+  const field = polynomial.field;
+  const xSize = Math.max(polynomial.xSize, nextPowerOfTwo(degree.xDegree + 2));
+  const ySize = polynomial.ySize;
+  const output = new Uint8Array(xSize * ySize * field.byteLength);
+  const sourceRowBytes = polynomial.ySize * field.byteLength;
+  const outputRowBytes = ySize * field.byteLength;
+
+  for (let x = 0; x <= degree.xDegree + 1; x += 1) {
+    const outputRowOffset = x * outputRowBytes;
+    const currentRowOffset = x * sourceRowBytes;
+    const previousRowOffset = (x - 1) * sourceRowBytes;
+    for (let y = 0; y <= degree.yDegree; y += 1) {
+      const elementOffset = y * field.byteLength;
+      let value = field.zero;
+      if (x <= degree.xDegree) {
+        value = field.mul(
+          polynomial.coefficients.subarray(
+            currentRowOffset + elementOffset,
+            currentRowOffset + elementOffset + field.byteLength,
+          ),
+          constant,
+        );
+      }
+      if (x > 0) {
+        const shifted = field.mul(
+          polynomial.coefficients.subarray(
+            previousRowOffset + elementOffset,
+            previousRowOffset + elementOffset + field.byteLength,
+          ),
+          xCoefficient,
+        );
+        value = x <= degree.xDegree ? field.add(value, shifted) : shifted;
+      }
+      output.set(value, outputRowOffset + elementOffset);
+    }
+  }
+
+  return BivariatePolynomialBuffer.fromOwnedBuffer(field, output, xSize, ySize);
+}
+
+function multiplyByLinearYFactor(
+  polynomial: BivariatePolynomialBuffer,
+  constant: FieldElement,
+  yCoefficient: FieldElement,
+): BivariatePolynomialBuffer {
+  const degree = polynomial.findDegree();
+  if (degree.xDegree < 0 || degree.yDegree < 0) {
+    return BivariatePolynomialBuffer.zero(polynomial.field);
+  }
+
+  const field = polynomial.field;
+  const xSize = polynomial.xSize;
+  const ySize = Math.max(polynomial.ySize, nextPowerOfTwo(degree.yDegree + 2));
+  const output = new Uint8Array(xSize * ySize * field.byteLength);
+  const sourceRowBytes = polynomial.ySize * field.byteLength;
+  const outputRowBytes = ySize * field.byteLength;
+
+  for (let x = 0; x <= degree.xDegree; x += 1) {
+    const sourceRowOffset = x * sourceRowBytes;
+    const outputRowOffset = x * outputRowBytes;
+    for (let y = 0; y <= degree.yDegree + 1; y += 1) {
+      let value = field.zero;
+      if (y <= degree.yDegree) {
+        value = field.mul(
+          polynomial.coefficients.subarray(
+            sourceRowOffset + y * field.byteLength,
+            sourceRowOffset + (y + 1) * field.byteLength,
+          ),
+          constant,
+        );
+      }
+      if (y > 0) {
+        const shifted = field.mul(
+          polynomial.coefficients.subarray(
+            sourceRowOffset + (y - 1) * field.byteLength,
+            sourceRowOffset + y * field.byteLength,
+          ),
+          yCoefficient,
+        );
+        value = y <= degree.yDegree ? field.add(value, shifted) : shifted;
+      }
+      output.set(value, outputRowOffset + y * field.byteLength);
+    }
+  }
+
+  return BivariatePolynomialBuffer.fromOwnedBuffer(field, output, xSize, ySize);
+}
+
+function multiplyByTerm9Factor(
+  polynomial: BivariatePolynomialBuffer,
+  constant: FieldElement,
+  xCoefficient: FieldElement,
+  yCoefficient: FieldElement,
+): BivariatePolynomialBuffer {
+  const degree = polynomial.findDegree();
+  if (degree.xDegree < 0 || degree.yDegree < 0) {
+    return BivariatePolynomialBuffer.zero(polynomial.field);
+  }
+
+  const field = polynomial.field;
+  const xSize = Math.max(polynomial.xSize, nextPowerOfTwo(degree.xDegree + 2));
+  const ySize = Math.max(polynomial.ySize, nextPowerOfTwo(degree.yDegree + 2));
+  const output = new Uint8Array(xSize * ySize * field.byteLength);
+  const sourceRowBytes = polynomial.ySize * field.byteLength;
+  const outputRowBytes = ySize * field.byteLength;
+
+  for (let x = 0; x <= degree.xDegree + 1; x += 1) {
+    const outputRowOffset = x * outputRowBytes;
+    const currentRowOffset = x * sourceRowBytes;
+    const previousRowOffset = (x - 1) * sourceRowBytes;
+    for (let y = 0; y <= degree.yDegree + 1; y += 1) {
+      const outputOffset = outputRowOffset + y * field.byteLength;
+      let value = field.zero;
+      let hasValue = false;
+      if (x <= degree.xDegree && y <= degree.yDegree) {
+        value = field.mul(
+          polynomial.coefficients.subarray(
+            currentRowOffset + y * field.byteLength,
+            currentRowOffset + (y + 1) * field.byteLength,
+          ),
+          constant,
+        );
+        hasValue = true;
+      }
+      if (x > 0 && y <= degree.yDegree) {
+        const xTerm = field.mul(
+          polynomial.coefficients.subarray(
+            previousRowOffset + y * field.byteLength,
+            previousRowOffset + (y + 1) * field.byteLength,
+          ),
+          xCoefficient,
+        );
+        value = hasValue ? field.add(value, xTerm) : xTerm;
+        hasValue = true;
+      }
+      if (x <= degree.xDegree && y > 0) {
+        const yTerm = field.mul(
+          polynomial.coefficients.subarray(
+            currentRowOffset + (y - 1) * field.byteLength,
+            currentRowOffset + y * field.byteLength,
+          ),
+          yCoefficient,
+        );
+        value = hasValue ? field.add(value, yTerm) : yTerm;
+      }
+      output.set(value, outputOffset);
+    }
+  }
+
+  return BivariatePolynomialBuffer.fromOwnedBuffer(field, output, xSize, ySize);
 }
 
 function multiplicationShape(
