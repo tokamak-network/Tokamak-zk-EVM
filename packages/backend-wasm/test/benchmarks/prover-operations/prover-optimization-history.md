@@ -615,6 +615,69 @@ Verification:
 - `npm run prover:browser:check` passed; Chromium generated a 2408-byte proof in `257.57 s` and verified it in `20 ms`.
 - `npm pack --dry-run --json` passed, and diagnostics and benchmark sources were absent from the package file list.
 
+## Lagrange K0 Multiplication Optimization
+
+Benchmark commits:
+
+- `38a3a054` (`Benchmark K0 multiplication data path`)
+- `eb52001b` (`Benchmark batched K0 multiplication`)
+- `5ba49b2f` (`Benchmark K0 sliding convolution`)
+- `fe77809b` (`Benchmark optimized K0 sliding data path`)
+- `b623816f` (`Select optimized K0 multiplication candidate`)
+
+Production commit: `c02865f9` (`Optimize Lagrange K0 multiplication`).
+
+Candidate selection:
+
+- Candidate A retained the sequential per-column FFT/IFFT algorithm and changed only direct buffer access and output ownership. Its weighted four-call estimate improved by `2.0%`, which was insufficient for standalone promotion.
+- Candidate B batched the independent X transforms. It improved the weighted estimate by `29.4%`, but its largest explicit temporary footprint was approximately `768.5 MiB`, excluding internal worker-task allocations.
+- Candidate C used the exact K0 sliding-window recurrence and improved the weighted estimate by `56.0%`.
+- C+A added direct coefficient-buffer views and owned output construction, improving the weighted estimate by `57.0%` relative to current production.
+- The selected C+A+batch-scale combination moved the final scalar multiplication into one `batchApplyKeyBuffer(...)` call. It improved the weighted estimate from `22442.132 ms` to `5353.075 ms` (`76.1%`) with one output-sized unscaled buffer plus a small Y-row window.
+
+Production change:
+
+- Added the dedicated `multiplyByLagrangeK0(polynomial, mI)` helper. It requires the known K0 domain size and does not inspect arbitrary coefficients to infer polynomial identity.
+- Replaced exactly four K0 products in copy-quotient and opening-commitment construction.
+- Kept generic X-univariate multiplication unchanged.
+- Updated the timing mirror without changing the fixed timing taxonomy.
+
+Standalone stage-timing comparison:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| four K0 multiplication events | 18.584 s | 5.491 s | -13.093 s |
+| `polynomial.combination_without_multiplication` | 52.78 s | 52.46 s | -0.32 s |
+| `polynomial.combination_with_multiplication` | 66.51 s | 53.64 s | -12.87 s |
+| `polynomial.recursion` | 1.91 s | 1.98 s | +0.07 s |
+| `polynomial.evaluation` | 5.28 s | 5.32 s | +0.04 s |
+| `polynomial.div_ruffini` | 8.79 s | 8.59 s | -0.20 s |
+| `polynomial.div_vanishing` | 5.64 s | 5.60 s | -0.04 s |
+| `polynomial.encode` | 114.51 s | 114.48 s | -0.03 s |
+| `binding.encode` | 1.95 s | 1.95 s | 0.00 s |
+| `field.operations` | 140.92 s | 127.59 s | -13.33 s |
+| prover stage total | 255.44 s | 242.08 s | -13.36 s |
+| total wall | 263.51 s | 250.15 s | -13.36 s |
+
+Interpretation:
+
+- The four production K0 calls improved by `70.5%`, close to the selected isolated candidate's `76.1%` estimate.
+- The intended multiplication category decreased by `12.87 s`, while unrelated categories stayed within small run-to-run variation.
+- Total wall time decreased by `13.36 s` (`5.1%`). This integrated result, not the isolated benchmark percentage, is the prover-level improvement.
+
+Verification:
+
+- `npm run typecheck` passed.
+- `npm run typecheck:scripts` passed.
+- `npm run prover:ops:polynomial` passed.
+- `npm run prover:ops:check` passed.
+- `npm run prover:testing-mode:check` passed.
+- `npm run prover:check` passed and verified the generated proof.
+- `npm run prover:stage-timing:check` passed and produced the timing table above.
+- `npm run build` passed.
+- `npm run prover:browser:check` passed; Chromium generated a 2408-byte proof in `243.08 s` and verified it in `19 ms`.
+- `npm pack --dry-run --json` passed with 249 files and no test, script, temporary, benchmark, or diagnostics paths.
+
 ## Superseded Old-Taxonomy Comparison
 
 The old comparison below is preserved only as historical context. It must not be used as the active timing table because it used add/sub/mul/scale rows that are no longer part of the accepted taxonomy.

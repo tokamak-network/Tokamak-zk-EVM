@@ -133,6 +133,24 @@ The final combination writes unscaled sliding sums into one output-sized buffer 
 
 The batch-scaling combination is `43.8%` faster than C+A on the weighted workload. Its explicit largest-shape temporary is one 256 MiB unscaled output plus a small Y-row window, similar to the reported current path's 258 MiB and substantially below Candidate B's 768.5 MiB. This is the selected production candidate.
 
+### Production Promotion
+
+Related production commit: `c02865f9` (`Optimize Lagrange K0 multiplication`).
+
+Production now uses the dedicated `multiplyByLagrangeK0(polynomial, mI)` helper at exactly the four measured K0 product call sites. The helper uses the selected sliding-window recurrence, direct coefficient-buffer views, owned output construction, and one whole-buffer `batchApplyKeyBuffer(...)` scaling pass. Generic X-univariate multiplication remains unchanged.
+
+The isolated benchmark predicted a `76.1%` weighted reduction. In the integrated timing runner, the four K0 events decreased from `18.584 s` to `5.491 s` (`70.5%`). The complete prover result is smaller because all non-K0 work remains:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| four K0 multiplication events | 18.584 s | 5.491 s | -13.093 s |
+| `polynomial.combination_with_multiplication` | 66.51 s | 53.64 s | -12.87 s |
+| `field.operations` | 140.92 s | 127.59 s | -13.33 s |
+| prover stage total | 255.44 s | 242.08 s | -13.36 s |
+| total wall | 263.51 s | 250.15 s | -13.36 s |
+
+Exact parity, operation checks, native testing-mode-style diagnostics, Node proof generation and verification, stage timing, build, Chromium proof generation and verification, and package-content inspection all pass. Chromium generated the 2408-byte proof in `243.08 s` and verified it in `19 ms`. The package dry run contains no test, benchmark, script, temporary, or diagnostics paths.
+
 ## Dedicated Ruffini Benchmark
 
 `bench-ruffini-division.ts` isolates the bivariate Ruffini opening path. It is the benchmark-first gate for changes to the production synthetic-division implementation.
