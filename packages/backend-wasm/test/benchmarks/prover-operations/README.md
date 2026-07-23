@@ -97,6 +97,32 @@ npm run bench:ruffini -- --shapes=8192x512,16384x512,128x1 --candidates=current-
 
 Candidate B retains the production fixed-Y traversal and changes only coefficient access: field width and points are checked once, then the recurrence uses direct byte offsets and `subarray` views. It passes exact parity and reconstruction independently of Candidate A. Keep it eligible until the independent Candidate C result and later combination benchmarks are complete.
 
+### Candidate C Benchmark
+
+`bench-ruffini-constant-elision.ts` measures Candidate C independently of the division-kernel candidates:
+
+- baseline: materialize `P - c`, then run current production Ruffini division;
+- candidate: run current production Ruffini division on `P`, then subtract `c` only from the scalar remainder.
+
+The benchmark does not use Candidate A or Candidate B. It checks exact quotient/remainder parity and reconstructs the original `P - c` numerator.
+
+```bash
+npm run bench:ruffini:constant -- --shapes=8192x512,16384x512,128x1 --iterations=5 --warmup=1 --json=tmp/timing/ruffini-constant-elision-representative.json
+```
+
+Result:
+
+| shape | materialize `P-c` median | adjust remainder median | median reduction | temporary bytes removed |
+| --- | ---: | ---: | ---: | ---: |
+| `8192x512` | 2450.399 ms | 1751.366 ms | 28.5% | 128 MiB |
+| `16384x512` | 5130.673 ms | 3726.111 ms | 27.4% | 256 MiB |
+| `128x1` | 0.083 ms | 0.051 ms | 38.6% | 4 KiB |
+| five-call generic estimate | 12481.953 ms | 8980.260 ms | 28.1% | 640 MiB cumulative |
+
+Candidate C passes exact quotient/remainder parity and reconstruction of `P-c`. The result proves that constant-polynomial materialization is wasteful when the surrounding path is exactly `P-c` followed by Ruffini division.
+
+The five-call row is a generic mechanism estimate, not an integrated opening-call-site result. `M`, `N`, and `Pi_B` directly have this shape. `Pi_A` and `Pi_C` place the constant correction inside larger linear combinations, and `Pi_C` divides a larger final numerator than the `RXY-R_eval` term that supplies its correction. Their actual end-to-end gain must be measured in the later call-site combination benchmark.
+
 ## Promotion Rule
 
 Do not promote a candidate into production prover code from this benchmark alone. A production change must also pass the relevant operation parity check, native testing-mode-style prover diagnostics, full prover runtime verification, and package distribution checks.
