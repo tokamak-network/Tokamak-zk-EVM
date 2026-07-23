@@ -240,7 +240,23 @@ impl<'a> PolyExpr<'a> {
         }
         let mut leaf_cache = HashMap::new();
         let evals = self.evaluate_on_domain(target_x_size, target_y_size, &mut leaf_cache);
-        DensePolynomialExt::from_rou_evals(&evals, target_x_size, target_y_size, None, None)
+        #[cfg(feature = "timing")]
+        let start = Instant::now();
+        let result = DensePolynomialExt::from_rou_evals(
+            &evals,
+            target_x_size,
+            target_y_size,
+            None,
+            None,
+        );
+        #[cfg(feature = "timing")]
+        record_detail_step(
+            "fused_final_from_rou_evals",
+            start,
+            "evals",
+            vec![target_x_size, target_y_size],
+        );
+        result
     }
 
     fn degree_bound(&self) -> (i64, i64) {
@@ -306,22 +322,46 @@ impl<'a> PolyExpr<'a> {
             Self::Add(lhs, rhs) => {
                 let lhs_evals = lhs.evaluate_on_domain(x_size, y_size, leaf_cache);
                 let rhs_evals = rhs.evaluate_on_domain(x_size, y_size, leaf_cache);
+                #[cfg(feature = "timing")]
+                let start = Instant::now();
                 let mut out = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+                #[cfg(feature = "timing")]
+                record_detail_step("fused_add_alloc", start, "evals", vec![x_size, y_size]);
+                #[cfg(feature = "timing")]
+                let start = Instant::now();
                 ScalarCfg::add(&lhs_evals, &rhs_evals, &mut out, &vec_ops_cfg).unwrap();
+                #[cfg(feature = "timing")]
+                record_detail_step("fused_add_pointwise", start, "evals", vec![x_size, y_size]);
                 out
             }
             Self::Sub(lhs, rhs) => {
                 let lhs_evals = lhs.evaluate_on_domain(x_size, y_size, leaf_cache);
                 let rhs_evals = rhs.evaluate_on_domain(x_size, y_size, leaf_cache);
+                #[cfg(feature = "timing")]
+                let start = Instant::now();
                 let mut out = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+                #[cfg(feature = "timing")]
+                record_detail_step("fused_sub_alloc", start, "evals", vec![x_size, y_size]);
+                #[cfg(feature = "timing")]
+                let start = Instant::now();
                 ScalarCfg::sub(&lhs_evals, &rhs_evals, &mut out, &vec_ops_cfg).unwrap();
+                #[cfg(feature = "timing")]
+                record_detail_step("fused_sub_pointwise", start, "evals", vec![x_size, y_size]);
                 out
             }
             Self::Mul(lhs, rhs) => {
                 let lhs_evals = lhs.evaluate_on_domain(x_size, y_size, leaf_cache);
                 let rhs_evals = rhs.evaluate_on_domain(x_size, y_size, leaf_cache);
+                #[cfg(feature = "timing")]
+                let start = Instant::now();
                 let mut out = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+                #[cfg(feature = "timing")]
+                record_detail_step("fused_mul_alloc", start, "evals", vec![x_size, y_size]);
+                #[cfg(feature = "timing")]
+                let start = Instant::now();
                 ScalarCfg::mul(&lhs_evals, &rhs_evals, &mut out, &vec_ops_cfg).unwrap();
+                #[cfg(feature = "timing")]
+                record_detail_step("fused_mul_pointwise", start, "evals", vec![x_size, y_size]);
                 out
             }
             Self::Scale(scalar, expr) => {
@@ -329,8 +369,14 @@ impl<'a> PolyExpr<'a> {
                 if *scalar == ScalarField::one() {
                     return expr_evals;
                 }
+                #[cfg(feature = "timing")]
+                let start = Instant::now();
                 let mut out = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+                #[cfg(feature = "timing")]
+                record_detail_step("fused_scale_alloc", start, "evals", vec![x_size, y_size]);
                 let scaler = [*scalar];
+                #[cfg(feature = "timing")]
+                let start = Instant::now();
                 ScalarCfg::scalar_mul(
                     HostSlice::from_slice(&scaler),
                     &expr_evals,
@@ -338,21 +384,49 @@ impl<'a> PolyExpr<'a> {
                     &vec_ops_cfg,
                 )
                 .unwrap();
+                #[cfg(feature = "timing")]
+                record_detail_step("fused_scale_pointwise", start, "evals", vec![x_size, y_size]);
                 out
             }
             Self::MulXMinusOne(expr) => {
                 let expr_evals = expr.evaluate_on_domain(x_size, y_size, leaf_cache);
                 let x_minus_one = x_minus_one_evals(x_size, y_size);
+                #[cfg(feature = "timing")]
+                let start = Instant::now();
                 let mut out = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+                #[cfg(feature = "timing")]
+                record_detail_step(
+                    "fused_x_minus_one_alloc",
+                    start,
+                    "evals",
+                    vec![x_size, y_size],
+                );
+                #[cfg(feature = "timing")]
+                let start = Instant::now();
                 ScalarCfg::mul(&expr_evals, &x_minus_one, &mut out, &vec_ops_cfg).unwrap();
+                #[cfg(feature = "timing")]
+                record_detail_step(
+                    "fused_x_minus_one_pointwise",
+                    start,
+                    "evals",
+                    vec![x_size, y_size],
+                );
                 out
             }
             Self::Sum(terms) => {
                 let mut out = device_vec_from_scalar(ScalarField::zero(), size);
                 for term in terms {
                     let term_evals = term.evaluate_on_domain(x_size, y_size, leaf_cache);
+                    #[cfg(feature = "timing")]
+                    let start = Instant::now();
                     let mut next = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+                    #[cfg(feature = "timing")]
+                    record_detail_step("fused_sum_alloc", start, "evals", vec![x_size, y_size]);
+                    #[cfg(feature = "timing")]
+                    let start = Instant::now();
                     ScalarCfg::add(&out, &term_evals, &mut next, &vec_ops_cfg).unwrap();
+                    #[cfg(feature = "timing")]
+                    record_detail_step("fused_sum_pointwise", start, "evals", vec![x_size, y_size]);
                     out = next;
                 }
                 out
@@ -391,14 +465,38 @@ fn eval_poly_leaf(
     let len = x_size * y_size;
     let key = (poly as *const DensePolynomialExt as usize, x_size, y_size);
     if let Some(cached) = leaf_cache.get(&key) {
+        #[cfg(feature = "timing")]
+        {
+            let start = Instant::now();
+            let out = copy_device_vec(cached, len);
+            record_detail_step("fused_leaf_cache_copy", start, "evals", vec![x_size, y_size]);
+            return out;
+        }
+        #[cfg(not(feature = "timing"))]
         return copy_device_vec(cached, len);
     }
 
+    #[cfg(feature = "timing")]
+    let start = Instant::now();
     let mut resized = poly.clone();
     resized.resize(x_size, y_size);
+    #[cfg(feature = "timing")]
+    record_detail_step("fused_leaf_resize", start, "coeffs", vec![x_size, y_size]);
+    #[cfg(feature = "timing")]
+    let start = Instant::now();
     let mut evals = DeviceVec::<ScalarField>::device_malloc(len).unwrap();
+    #[cfg(feature = "timing")]
+    record_detail_step("fused_leaf_alloc", start, "evals", vec![x_size, y_size]);
+    #[cfg(feature = "timing")]
+    let start = Instant::now();
     resized.to_rou_evals(None, None, &mut evals);
+    #[cfg(feature = "timing")]
+    record_detail_step("fused_leaf_to_rou_evals", start, "evals", vec![x_size, y_size]);
+    #[cfg(feature = "timing")]
+    let start = Instant::now();
     let out = copy_device_vec(&evals, len);
+    #[cfg(feature = "timing")]
+    record_detail_step("fused_leaf_output_copy", start, "evals", vec![x_size, y_size]);
     leaf_cache.insert(key, evals);
     out
 }
