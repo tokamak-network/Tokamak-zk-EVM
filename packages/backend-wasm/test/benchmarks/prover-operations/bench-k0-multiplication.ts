@@ -81,6 +81,14 @@ const CANDIDATES: readonly BenchmarkCandidate[] = [
       output.xSize * testCase.input.field.byteLength * 4,
     notes: "Candidate A preserves sequential FFT/IFFT scheduling and changes only raw-buffer data movement and output ownership.",
   },
+  {
+    name: "candidate-b-batched-x-univariate",
+    run: multiplyXUnivariateBatched,
+    temporaryBytes: (testCase, output) =>
+      output.coefficients.byteLength * 3
+      + output.xSize * testCase.input.field.byteLength,
+    notes: "Candidate B packs all X columns once and uses one batched forward and inverse transform.",
+  },
 ];
 
 let resultSink = 0;
@@ -209,6 +217,62 @@ async function multiplyXUnivariateSequentialRawOwned(
       const sourceOffset = x * elementBytes;
       const targetOffset = (x * ySize + y) * elementBytes;
       output.set(columnCoefficients.subarray(sourceOffset, sourceOffset + elementBytes), targetOffset);
+    }
+  }
+
+  return BivariatePolynomialBuffer.fromOwnedBuffer(field, output, xSize, ySize);
+}
+
+async function multiplyXUnivariateBatched(
+  testCase: BenchmarkCase,
+): Promise<BivariatePolynomialBuffer> {
+  const { factor, input } = testCase;
+  const field = input.field;
+  const factorDegree = factor.findDegree();
+  const inputDegree = input.findDegree();
+  const xSize = nextPowerOfTwo(factorDegree.xDegree + inputDegree.xDegree + 1);
+  const ySize = nextPowerOfTwo(inputDegree.yDegree + 1);
+  const elementBytes = field.byteLength;
+  const factorEvals = await factor.resize(xSize, 1).toRouEvals();
+  const columns = field.createZeroBuffer(xSize * ySize);
+
+  for (let y = 0; y < input.ySize; y += 1) {
+    const targetColumnOffset = y * xSize * elementBytes;
+    for (let x = 0; x < input.xSize; x += 1) {
+      const sourceOffset = (x * input.ySize + y) * elementBytes;
+      columns.set(
+        input.coefficients.subarray(sourceOffset, sourceOffset + elementBytes),
+        targetColumnOffset + x * elementBytes,
+      );
+    }
+  }
+
+  const columnEvals = await field.batchFftBuffer(columns, xSize, "forward");
+  for (let y = 0; y < ySize; y += 1) {
+    const columnOffset = y * xSize * elementBytes;
+    for (let x = 0; x < xSize; x += 1) {
+      const factorOffset = x * elementBytes;
+      const outputOffset = columnOffset + factorOffset;
+      columnEvals.set(
+        field.mul(
+          columnEvals.subarray(outputOffset, outputOffset + elementBytes),
+          factorEvals.subarray(factorOffset, factorOffset + elementBytes),
+        ),
+        outputOffset,
+      );
+    }
+  }
+
+  const columnCoefficients = await field.batchFftBuffer(columnEvals, xSize, "inverse");
+  const output = field.createZeroBuffer(xSize * ySize);
+  for (let y = 0; y < ySize; y += 1) {
+    const sourceColumnOffset = y * xSize * elementBytes;
+    for (let x = 0; x < xSize; x += 1) {
+      const sourceOffset = sourceColumnOffset + x * elementBytes;
+      output.set(
+        columnCoefficients.subarray(sourceOffset, sourceOffset + elementBytes),
+        (x * ySize + y) * elementBytes,
+      );
     }
   }
 

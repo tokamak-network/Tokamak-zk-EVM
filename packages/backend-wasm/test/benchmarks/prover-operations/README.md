@@ -61,6 +61,25 @@ npm run bench:k0-mul -- --shapes=4096x8192x512,4096x8192x256,4096x4096x512 --can
 
 The four-call total counts `4096x8192x512` twice and each other shape once. Candidate A passes exact byte parity and the independent small-shape convolution oracle. The gain is positive but too small for standalone production promotion; retain it only for compatibility review after the batch and K0-specific candidates are measured.
 
+### Candidate B: Batched X-Univariate Multiplication
+
+Candidate B packs all X columns into contiguous segments once, invokes one batched forward transform and one batched inverse transform, applies the shared X-factor evaluations to every segment, and restores row-major output.
+
+Command:
+
+```bash
+npm run bench:k0-mul -- --shapes=4096x8192x512,4096x8192x256,4096x4096x512 --candidates=current-production,candidate-b-batched-x-univariate --iterations=3 --warmup=1 --json=tmp/timing/k0-candidate-b-representative.json
+```
+
+| shape | current median | Candidate B median | reduction | Candidate B explicit temporary |
+| --- | ---: | ---: | ---: | ---: |
+| `4096x8192x512` | 7295.337 ms | 5219.425 ms | 28.5% | 768.5 MiB |
+| `4096x8192x256` | 3720.978 ms | 2631.717 ms | 29.3% | 384.5 MiB |
+| `4096x4096x512` | 3896.726 ms | 2609.828 ms | 33.0% | 384.3 MiB |
+| four-call weighted total | 22208.378 ms | 15680.395 ms | 29.4% | n/a |
+
+Candidate B passes exact byte parity and the independent small-shape convolution oracle. The result confirms that batching the independent X transforms removes material scheduling overhead. It remains diagnostics-only until the K0-specific sliding-window candidate and later compatible combinations are measured. The temporary-byte column covers caller-owned full-size buffers and factor evaluations; internal `batchFftBuffer(...)` worker-task allocations can increase the actual peak further.
+
 ## Dedicated Ruffini Benchmark
 
 `bench-ruffini-division.ts` isolates the bivariate Ruffini opening path. It is the benchmark-first gate for changes to the production synthetic-division implementation.
