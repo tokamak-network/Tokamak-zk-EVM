@@ -115,6 +115,12 @@ npm run build
 npm pack --dry-run --json
 ```
 
+Encode optimization closure:
+
+- Project-owner conclusion: the encode area has no remaining optimization room under the current implementation plan and benchmark evidence.
+- Encode optimization work is closed after the snarkjs-style large-MSM delivery, dense MSM chunk-size selection, primitive-parallelism confirmation, density benchmark review, and sparse batch scalar conversion.
+- Do not add more encode optimization tasks unless new external evidence or a new project-owner decision explicitly reopens this area.
+
 ## Accepted Production Batched 2D NTT Segment Scheduler
 
 Related commit: this commit.
