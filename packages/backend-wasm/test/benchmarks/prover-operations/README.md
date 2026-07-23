@@ -619,6 +619,29 @@ Representative result:
 | evaluation | current-prove3-like-scaled-set | 8192x512 | 6111.938 | - |
 | evaluation | adjusted-point-prove3-like-set | 8192x512 | 4220.614 | 1.45x |
 
+Follow-up candidate benchmark:
+
+```bash
+npm run bench:prover-ops -- --groups=evaluation --shapes=16x16 --iterations=1 --warmup=0 --json=tmp/timing/evaluation-candidates-smoke.json
+npm run bench:prover-ops -- --groups=evaluation --shapes=4096x256,8192x512 --iterations=1 --warmup=0 --json=tmp/timing/evaluation-candidates-representative.json
+```
+
+Representative follow-up result:
+
+| candidate | 4096x256 ms/op | 8192x512 ms/op | interpretation |
+| --- | ---: | ---: | --- |
+| current-single-horner-eval | 335.025 | 1365.711 | Baseline single full-grid Horner evaluation. |
+| raw-buffer-horner-eval | 330.519 | 1607.586 | No representative gain; do not promote. |
+| power-table-eval | 334.264 | 1598.930 | No representative gain; do not promote. |
+| adjusted-point-prove3-like-set | 1014.815 | 4114.674 | Current adjusted-point repeated-evaluation baseline. |
+| shared-row-adjusted-prove3-like-set | 665.154 | 2596.415 | Strong candidate for production review when the same polynomial is evaluated at two points sharing the same Y challenge. |
+| current-rd-difference-evals | 1883.731 | 7430.791 | Current-style materialized difference-polynomial evaluation model. |
+| derived-rd-difference-evals | 764.723 | 2601.670 | Strong candidate for production review if the actual opening equations can reuse already computed adjusted-point values. |
+| lagrange-k0-polynomial-eval | 2.317 | 5.005 | Baseline materialized structured-polynomial evaluation. |
+| lagrange-k0-direct-formula-eval | 0.063 | 0.137 | Strong micro-candidate, but only meaningful where the Lagrange value is needed without requiring the materialized polynomial object. |
+
+The smoke run also passed parity checks for all follow-up candidates at `16x16`. The representative run passed parity checks for `4096x256` and `8192x512`.
+
 Interpretation:
 
 - The candidate is directly applicable to evaluation-only scaled-polynomial paths such as the challenge-evaluation responsibility where `R_omegaX` and `R_omegaX_omegaY` are only evaluated.
