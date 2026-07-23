@@ -33,6 +33,34 @@ Useful options:
 - `--seed=0x544f4b414d414b`: deterministic pseudo-random seed.
 - `--json=tmp/timing/prover-operation-matrix.json`: structured report path.
 
+## Dedicated K0 Multiplication Benchmark
+
+`bench-k0-multiplication.ts` isolates `Lagrange K0(X) * P(X,Y)` from the four measured prover call sites. Candidate implementations remain diagnostics-only until all independent candidates and compatible combinations have been measured.
+
+The shape syntax is `<mI>x<inputXSize>x<inputYSize>`. The benchmark checks small cases against both current production and a direct dense convolution oracle before representative timing.
+
+### Candidate A: Sequential Raw-Buffer Data Path
+
+Candidate A preserves the current per-Y-column forward FFT, pointwise multiplication, inverse FFT, and sequential scheduling. It changes only coefficient access and ownership:
+
+- direct validated byte offsets replace repeated coefficient accessor allocation;
+- the freshly allocated output is transferred through `fromOwnedBuffer(...)` instead of cloned by `fromBuffer(...)`.
+
+Command:
+
+```bash
+npm run bench:k0-mul -- --shapes=4096x8192x512,4096x8192x256,4096x4096x512 --candidates=current-production,candidate-a-sequential-raw-owned --iterations=3 --warmup=1 --json=tmp/timing/k0-candidate-a-representative.json
+```
+
+| shape | current median | Candidate A median | reduction |
+| --- | ---: | ---: | ---: |
+| `4096x8192x512` | 7692.693 ms | 7584.607 ms | 1.4% |
+| `4096x8192x256` | 3880.911 ms | 3685.530 ms | 5.0% |
+| `4096x4096x512` | 3993.267 ms | 3940.976 ms | 1.3% |
+| four-call weighted total | 23259.564 ms | 22795.720 ms | 2.0% |
+
+The four-call total counts `4096x8192x512` twice and each other shape once. Candidate A passes exact byte parity and the independent small-shape convolution oracle. The gain is positive but too small for standalone production promotion; retain it only for compatibility review after the batch and K0-specific candidates are measured.
+
 ## Dedicated Ruffini Benchmark
 
 `bench-ruffini-division.ts` isolates the bivariate Ruffini opening path. It is the benchmark-first gate for changes to the production synthetic-division implementation.
