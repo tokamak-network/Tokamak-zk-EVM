@@ -120,6 +120,19 @@ After all independent candidates were measured, Candidate C was combined with Ca
 
 C+A improves the weighted independent-C result by a further `4.6%`. It removes the cloned full-size output; the remaining caller-owned temporary is one Y-row window, approximately 16 KiB when `ySize=512`.
 
+### C+A+Batch-Scale Combination
+
+The final combination writes unscaled sliding sums into one output-sized buffer and applies `batchApplyKeyBuffer(output, mI^-1, 1)` once. This moves scalar multiplication from the JavaScript coefficient loop to the ffjavascript worker primitive.
+
+| shape | current median | C+A scalar median | C+A+batch median | final reduction |
+| --- | ---: | ---: | ---: | ---: |
+| `4096x8192x512` | 7342.486 ms | 3149.334 ms | 1776.129 ms | 75.8% |
+| `4096x8192x256` | 3783.656 ms | 1610.060 ms | 903.266 ms | 76.1% |
+| `4096x4096x512` | 3973.504 ms | 1623.249 ms | 897.551 ms | 77.4% |
+| four-call weighted total | 22442.132 ms | 9531.977 ms | 5353.075 ms | 76.1% |
+
+The batch-scaling combination is `43.8%` faster than C+A on the weighted workload. Its explicit largest-shape temporary is one 256 MiB unscaled output plus a small Y-row window, similar to the reported current path's 258 MiB and substantially below Candidate B's 768.5 MiB. This is the selected production candidate.
+
 ## Dedicated Ruffini Benchmark
 
 `bench-ruffini-division.ts` isolates the bivariate Ruffini opening path. It is the benchmark-first gate for changes to the production synthetic-division implementation.
