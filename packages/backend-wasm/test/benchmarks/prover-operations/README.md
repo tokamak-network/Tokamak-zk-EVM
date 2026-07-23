@@ -39,10 +39,10 @@ Useful options:
 
 The benchmark currently compares:
 
-- `current-production`: the current fixed-Y, reverse-X traversal.
-- `candidate-a-row-major-x`: the same recurrence with reverse X steps processing complete contiguous Y rows.
-- `candidate-b-raw-buffer`: the current traversal order with one-time boundary validation and direct raw-buffer offsets.
-- `candidate-ab-row-major-raw-buffer`: the post-independent-benchmark combination of Candidates A and B.
+- `current-production`: the promoted row-major, validated-once raw-buffer recurrence.
+- `candidate-a-row-major-x`: the historical Candidate A decomposition, using row-major X steps with accessor-based coefficient reads and writes.
+- `candidate-b-raw-buffer`: the historical Candidate B decomposition, using the old fixed-Y traversal with one-time validation and direct raw-buffer offsets.
+- `candidate-ab-row-major-raw-buffer`: the benchmark-local A+B implementation retained for parity with current production.
 
 Use `--candidates=current-production,candidate-b-raw-buffer` to isolate one candidate against production. `current-production` is mandatory in every candidate selection.
 
@@ -70,7 +70,7 @@ Command:
 npm run bench:ruffini -- --shapes=8192x512,16384x512,128x1 --iterations=5 --warmup=1 --json=tmp/timing/ruffini-division-representative.json
 ```
 
-Environment: local Node.js run with the backend-wasm single-thread curve runtime. Candidate order alternates between measured iterations.
+Environment: local Node.js run with the backend-wasm single-thread curve runtime before production promotion. Candidate order alternates between measured iterations.
 
 | shape | current median | Candidate A median | median reduction |
 | --- | ---: | ---: | ---: |
@@ -79,7 +79,7 @@ Environment: local Node.js run with the backend-wasm single-thread curve runtime
 | `128x1` | 0.051 ms | 0.055 ms | -7.8% |
 | five-call weighted estimate | 9387.557 ms | 7937.845 ms | 15.4% |
 
-Candidate A passes exact quotient/remainder parity and independent reconstruction for all smoke and representative shapes. The large prover shapes show a repeatable gain, while the negligible `128x1` case regresses by about four microseconds. Keep Candidate A for the cumulative benchmark with Candidate B; do not promote it to production before the remaining candidates and their end-to-end combinations are measured.
+Candidate A passed exact quotient/remainder parity and independent reconstruction for all smoke and representative shapes. The large prover shapes showed a repeatable gain, while the negligible `128x1` case regressed by about four microseconds. This independent result was recorded before any combination or production promotion.
 
 ### Candidate B Result
 
@@ -96,16 +96,16 @@ npm run bench:ruffini -- --shapes=8192x512,16384x512,128x1 --candidates=current-
 | `128x1` | 0.051 ms | 0.055 ms | -7.8% |
 | five-call weighted estimate | 9533.085 ms | 8778.695 ms | 7.9% |
 
-Candidate B retains the production fixed-Y traversal and changes only coefficient access: field width and points are checked once, then the recurrence uses direct byte offsets and `subarray` views. It passes exact parity and reconstruction independently of Candidate A. Keep it eligible until the independent Candidate C result and later combination benchmarks are complete.
+Candidate B retained the pre-promotion fixed-Y traversal and changed only coefficient access: field width and points were checked once, then the recurrence used direct byte offsets and `subarray` views. It passed exact parity and reconstruction independently of Candidate A. This independent result was recorded before the A+B combination benchmark.
 
 ### Candidate C Benchmark
 
-`bench-ruffini-constant-elision.ts` measures Candidate C independently of the division-kernel candidates:
+`bench-ruffini-constant-elision.ts` measures Candidate C independently of the division-kernel choice:
 
 - baseline: materialize `P - c`, then run current production Ruffini division;
 - candidate: run current production Ruffini division on `P`, then subtract `c` only from the scalar remainder.
 
-The benchmark does not use Candidate A or Candidate B. It checks exact quotient/remainder parity and reconstructs the original `P - c` numerator.
+Both paths use the same production division kernel, so the comparison isolates constant-polynomial materialization and remainder correction. The recorded independent result below was produced before A+B promotion; rerunning it after promotion evaluates the same C choice on top of the promoted kernel. The benchmark checks exact quotient/remainder parity and reconstructs the original `P - c` numerator.
 
 ```bash
 npm run bench:ruffini:constant -- --shapes=8192x512,16384x512,128x1 --candidates=current-subtract-materialize-divide,candidate-c-remainder-adjustment --iterations=5 --warmup=1 --json=tmp/timing/ruffini-constant-elision-representative.json
@@ -155,6 +155,24 @@ Result:
 Candidate C passes exact quotient/remainder parity and reconstruction of `P-c`. The result proves that constant-polynomial materialization is wasteful when the surrounding path is exactly `P-c` followed by Ruffini division.
 
 The five-call row is a generic mechanism estimate, not an integrated opening-call-site result. `M`, `N`, and `Pi_B` directly have this shape. `Pi_A` and `Pi_C` place the constant correction inside larger linear combinations, and `Pi_C` divides a larger final numerator than the `RXY-R_eval` term that supplies its correction. Their actual end-to-end gain must be measured in the later call-site combination benchmark.
+
+## Production Promotion
+
+Related commit: `1d18b1c5` (`Optimize Ruffini opening division`).
+
+The promoted implementation combines A+B in `BivariatePolynomialBuffer.divByRuffini(...)` and applies C at all five opening call sites. The division kernel processes contiguous Y rows for each reverse X recurrence step, validates points once, and uses direct byte views. The opening path no longer materializes full `P-c` buffers; it divides `P` and applies the weighted constant correction only to the scalar remainder.
+
+Standalone stage-timing comparison:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_without_multiplication` | 55.43 s | 52.78 s | -2.65 s |
+| `polynomial.div_ruffini` | 9.97 s | 8.79 s | -1.18 s |
+| `field.operations` | 144.26 s | 140.92 s | -3.34 s |
+| prover stage total | 258.49 s | 255.44 s | -3.05 s |
+| total wall | 266.36 s | 263.51 s | -2.85 s |
+
+The full integrated gain is smaller than the generic A+B+C estimate because only part of each opening numerator is a removable constant correction, and total wall time also contains unchanged polynomial and commitment work. Production parity, native testing-mode invariants, Node proof verification, Chromium proof generation and verification, build, and package-content checks all pass.
 
 ## Promotion Rule
 

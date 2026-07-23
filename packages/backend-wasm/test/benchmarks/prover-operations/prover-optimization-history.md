@@ -562,6 +562,59 @@ Verification:
 - `npm run prover:browser:check` passed and verified the generated proof in Chromium.
 - `npm pack --dry-run --json` passed.
 
+## Ruffini Opening Division Optimization
+
+Related commit: `1d18b1c5` (`Optimize Ruffini opening division`).
+
+Candidate selection:
+
+- Candidate A changed the X recurrence from fixed-Y strided traversal to reverse-X steps over contiguous Y rows. Its independent five-call estimate improved from `9387.557 ms` to `7937.845 ms` (`15.4%`).
+- Candidate B retained the old traversal and replaced repeated coefficient accessors with one-time validation and direct raw-buffer offsets. Its independent five-call estimate improved from `9533.085 ms` to `8778.695 ms` (`7.9%`).
+- Candidate C removed full `P-c` materialization by dividing `P` and subtracting `c` only from the scalar remainder. Its independent generic five-call estimate improved from `12481.953 ms` to `8980.260 ms` (`28.1%`).
+- After all candidates were measured independently, A+B improved the division-kernel five-call estimate from `8936.214 ms` to `7204.623 ms` (`19.4%`).
+- The generic A+B+C benchmark improved from `12624.563 ms` to `7339.050 ms` (`41.9%`). This was a candidate-selection result, not an integrated prover prediction.
+
+Production change:
+
+- `BivariatePolynomialBuffer.divByRuffini(...)` now validates input points once, processes each reverse X recurrence step across a contiguous Y row, and reads and writes field elements through direct byte views.
+- Opening commitments no longer allocate complete constant-corrected numerator polynomials for `Pi_A`, `M`, `N`, `Pi_B`, or `Pi_C`.
+- Constant corrections are applied only to the returned scalar remainder. Quotient polynomials are unchanged because subtracting a scalar constant does not change either synthetic-division quotient.
+- The stage-timing mirror uses the same production expressions and retains the fixed timing taxonomy.
+
+Standalone stage-timing comparison:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_without_multiplication` | 55.43 s | 52.78 s | -2.65 s |
+| `polynomial.combination_with_multiplication` | 65.92 s | 66.51 s | +0.59 s |
+| `polynomial.recursion` | 2.09 s | 1.91 s | -0.18 s |
+| `polynomial.evaluation` | 5.31 s | 5.28 s | -0.03 s |
+| `polynomial.div_ruffini` | 9.97 s | 8.79 s | -1.18 s |
+| `polynomial.div_vanishing` | 5.54 s | 5.64 s | +0.10 s |
+| `polynomial.encode` | 114.21 s | 114.51 s | +0.30 s |
+| `binding.encode` | 1.98 s | 1.95 s | -0.03 s |
+| `field.operations` | 144.26 s | 140.92 s | -3.34 s |
+| prover stage total | 258.49 s | 255.44 s | -3.05 s |
+| total wall | 266.36 s | 263.51 s | -2.85 s |
+
+Interpretation:
+
+- The intended rows improved: Ruffini division decreased by `1.18 s`, and removing constant-polynomial construction reduced combination-without-multiplication by `2.65 s`.
+- Small increases in unchanged multiplication, vanishing division, and encode categories are run-to-run variance; they are not part of the promoted rewrite.
+- The integrated total-wall reduction is `2.85 s` (`1.1%`). It is smaller than the generic candidate estimate because only a portion of the five real opening numerators is removable constant materialization and the rest of the prover is unchanged.
+
+Verification:
+
+- `npm run typecheck` passed.
+- `npm run typecheck:scripts` passed.
+- `npm run prover:ops:check` passed.
+- `npm run prover:testing-mode:check` passed, including native testing-mode-style witness, quotient, recursion, and opening invariants.
+- `npm run prover:check` passed and verified the generated proof through the prepared verifier runtime path.
+- `npm run prover:stage-timing:check` passed and wrote the latest report to `tmp/timing/prover-stage-timing.json`.
+- `npm run build` passed.
+- `npm run prover:browser:check` passed; Chromium generated a 2408-byte proof in `257.57 s` and verified it in `20 ms`.
+- `npm pack --dry-run --json` passed, and diagnostics and benchmark sources were absent from the package file list.
+
 ## Superseded Old-Taxonomy Comparison
 
 The old comparison below is preserved only as historical context. It must not be used as the active timing table because it used add/sub/mul/scale rows that are no longer part of the accepted taxonomy.
