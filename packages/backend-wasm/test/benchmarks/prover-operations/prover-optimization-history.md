@@ -891,6 +891,78 @@ Verification:
 - `npm pack --dry-run --json` passed with 249 files and no test, script,
   temporary, benchmark, or diagnostics paths.
 
+## Generic Multiplication Buffer Optimization
+
+Benchmark commit: `99947f12` (`Benchmark generic multiplication buffers`).
+
+Production commit: `348db687` (`Optimize generic polynomial multiplication
+buffers`).
+
+Candidate selection:
+
+- The remaining standalone generic multiplication is `prove0.p0XY.mul` with
+  two `4096x256` inputs and an `8192x512` output.
+- D1 replaces nested per-element resize access with zero allocation and
+  contiguous source-row copies. It decreased the complete product from
+  `5363.381 ms` to `5202.393 ms` (`3.0%`).
+- D2 keeps current padding and changes only the pointwise loop. It measured
+  `5348.244 ms` current versus `5330.142 ms` candidate (`0.34%`) with
+  overlapping ranges and was rejected as a standalone promotion.
+- The compatibility run measured `5337.722 ms` current, `5246.047 ms` D1,
+  `5270.137 ms` D2, and `5175.420 ms` D1+D2. The selected combination's
+  maximum `5180.980 ms` was below the current minimum `5322.863 ms`.
+
+Production change:
+
+- Generic `BivariatePolynomialBuffer.mul(...)` uses operation-local row-copy
+  padding and validated raw pointwise writes.
+- Public `resize(...)`, forward/inverse NTT scheduling, univariate
+  multiplication, and protocol-specific multiplication helpers are unchanged.
+- The executable benchmark retains the previous generic implementation.
+- The post-promotion comparison measured `5374.002 ms` legacy versus
+  `5138.923 ms` current production (`4.4%`).
+
+Standalone stage-timing comparison:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `prove0.p0XY.mul` | 6.336 s | 6.055 s | -0.281 s |
+| `polynomial.combination_without_multiplication` | 53.82 s | 53.97 s | +0.15 s |
+| `polynomial.combination_with_multiplication` | 34.73 s | 34.17 s | -0.56 s |
+| `polynomial.recursion` | 2.17 s | 2.00 s | -0.17 s |
+| `polynomial.evaluation` | 5.36 s | 5.33 s | -0.03 s |
+| `polynomial.div_ruffini` | 8.81 s | 8.85 s | +0.04 s |
+| `polynomial.div_vanishing` | 5.69 s | 5.75 s | +0.06 s |
+| `polynomial.encode` | 115.12 s | 115.20 s | +0.08 s |
+| `binding.encode` | 2.04 s | 2.03 s | -0.01 s |
+| `field.operations` | 110.58 s | 110.07 s | -0.51 s |
+| encode | 117.16 s | 117.23 s | +0.07 s |
+| prover stage total | 225.71 s | 225.27 s | -0.44 s |
+| total wall | 234.06 s | 233.71 s | -0.35 s |
+
+Interpretation:
+
+- The direct target decreased by `0.281 s` (`4.4%`), matching the
+  post-promotion benchmark percentage.
+- The full multiplication category changed by `0.56 s`; only the target row
+  is attributed to this rewrite, while other event changes are timing
+  variation.
+- Chromium proof generation completed in `226.13 s`, and verification
+  completed in `24 ms`.
+
+Verification:
+
+- `npm run typecheck` passed.
+- `npm run typecheck:scripts` passed.
+- `npm run prover:ops:check` passed.
+- `npm run prover:testing-mode:check` passed.
+- `npm run prover:check` passed and verified the generated proof.
+- `npm run prover:stage-timing:check` passed and produced the timing table above.
+- `npm run build` passed.
+- `npm run prover:browser:check` passed.
+- `npm pack --dry-run --json` passed with 249 files and no test, script,
+  temporary, benchmark, or diagnostics paths.
+
 ## Superseded Old-Taxonomy Comparison
 
 The old comparison below is preserved only as historical context. It must not be used as the active timing table because it used add/sub/mul/scale rows that are no longer part of the accepted taxonomy.

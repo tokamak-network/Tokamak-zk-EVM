@@ -294,6 +294,71 @@ Chromium generated the 2408-byte proof in `226.78 s` and verified it in
 Node proof generation and verification, stage timing, build, browser
 verification, and package-content inspection pass.
 
+## Generic Multiplication Buffer Benchmark
+
+`bench-generic-multiplication-buffers.ts` isolates the remaining standalone
+generic product, `prove0.p0XY.mul`, at two `4096x256` inputs and one
+`8192x512` output.
+
+The retained production decomposition measured:
+
+| stage | median |
+| --- | ---: |
+| degree discovery | 0.013 ms |
+| left padding | 81.158 ms |
+| left forward NTT | 1348.603 ms |
+| right padding | 75.077 ms |
+| right forward NTT | 1358.069 ms |
+| pointwise multiplication | 1005.221 ms |
+| inverse NTT and output | 1491.710 ms |
+
+Independent candidate results:
+
+| candidate | current median | candidate median | reduction |
+| --- | ---: | ---: | ---: |
+| D1: row-copy padding | 5363.381 ms | 5202.393 ms | 3.0% |
+| D2: raw pointwise | 5348.244 ms | 5330.142 ms | 0.34% |
+
+D2's independent ranges overlapped, so it was not accepted alone. The
+subsequent compatibility run measured:
+
+| path | median | min | max |
+| --- | ---: | ---: | ---: |
+| current | 5337.722 ms | 5322.863 ms | 5385.810 ms |
+| D1 | 5246.047 ms | 5190.763 ms | 5322.891 ms |
+| D2 | 5270.137 ms | 5262.221 ms | 5365.167 ms |
+| D1+D2 | 5175.420 ms | 5135.815 ms | 5180.980 ms |
+
+The selected D1+D2 path is `3.0%` faster than current in the compatibility
+run, and its maximum is below the current minimum.
+
+Related production commit: `348db687` (`Optimize generic polynomial
+multiplication buffers`).
+
+Production applies row-copy padding and validated raw pointwise writes only
+inside generic `BivariatePolynomialBuffer.mul(...)`. It does not change public
+`resize(...)`, NTT scheduling, univariate multiplication, or protocol-specific
+helpers. The post-promotion benchmark measured `5374.002 ms` for retained
+legacy production and `5138.923 ms` for current production (`4.4%`).
+
+Integrated stage timing:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `prove0.p0XY.mul` | 6.336 s | 6.055 s | -0.281 s |
+| `polynomial.combination_with_multiplication` | 34.73 s | 34.17 s | -0.56 s |
+| `field.operations` | 110.58 s | 110.07 s | -0.51 s |
+| prover stage total | 225.71 s | 225.27 s | -0.44 s |
+| total wall | 234.06 s | 233.71 s | -0.35 s |
+
+Only the `prove0.p0XY.mul` row is the direct production effect. Smaller
+changes in unrelated rows are run-to-run variation.
+
+Chromium generated the 2408-byte proof in `226.13 s` and verified it in
+`24 ms`. Type checks, operation parity, native testing-mode-style diagnostics,
+Node proof generation and verification, stage timing, build, browser
+verification, and package-content inspection pass.
+
 ## Dedicated Ruffini Benchmark
 
 `bench-ruffini-division.ts` isolates the bivariate Ruffini opening path. It is the benchmark-first gate for changes to the production synthetic-division implementation.
