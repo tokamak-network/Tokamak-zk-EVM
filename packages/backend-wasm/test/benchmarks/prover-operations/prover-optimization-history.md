@@ -21,6 +21,8 @@ Lowest operation layer:
 | --- | --- |
 | `polynomial.combination_without_multiplication` | Add, subtract, scale, fused scaled-add accumulation, coefficient rescale, and related shape/materialization work when the measured call site does not perform polynomial multiplication. |
 | `polynomial.combination_with_multiplication` | Generic polynomial multiplication, special-form polynomial products, shared-right products, and protocol products that perform polynomial multiplication. |
+| `polynomial.recursion` | Recursion polynomial calculation for the copy-constraint recursion path, including ROU-evaluation conversion, recursion evaluation buffer construction, and inverse conversion at the measured call-site boundary. |
+| `polynomial.evaluation` | Polynomial evaluation at transcript challenge points. |
 | `polynomial.div_ruffini` | Ruffini division. |
 | `polynomial.div_vanishing` | Vanishing-polynomial division. |
 | `polynomial.encode` | Polynomial commitment encoding, including MSM input preparation and the MSM call. |
@@ -31,6 +33,8 @@ Middle operation layer:
 | operation | definition |
 | --- | --- |
 | `polynomial.combination` | `polynomial.combination_without_multiplication + polynomial.combination_with_multiplication` |
+| `polynomial.recursion` | Lowest-layer `polynomial.recursion` |
+| `polynomial.evaluation` | Lowest-layer `polynomial.evaluation` |
 | `polynomial.division` | `polynomial.div_ruffini + polynomial.div_vanishing` |
 | `encode` | `polynomial.encode + binding.encode` |
 
@@ -38,7 +42,7 @@ Top operation layer:
 
 | operation | definition |
 | --- | --- |
-| `field.operations` | `polynomial.combination + polynomial.division` |
+| `field.operations` | `polynomial.combination + polynomial.recursion + polynomial.evaluation + polynomial.division` |
 | `encode` | `polynomial.encode + binding.encode` |
 
 Execution boundary layer:
@@ -62,6 +66,46 @@ The runner enforces:
 - Execution boundary rows sum to total wall time.
 - `classified operation time <= total wall time + tolerance`.
 - `unclassified prover time >= -tolerance`.
+
+## Timing Taxonomy Extension For Recursion And Evaluation
+
+Related commit: this commit.
+
+This is a diagnostics-only timing taxonomy change, not a prover performance optimization. The previous timing table left recursion polynomial construction and challenge-point polynomial evaluation inside `stage.unclassified`. The timing runner now reports them as first-class field-operation rows:
+
+- `polynomial.recursion`: prove1 recursion polynomial calculation.
+- `polynomial.evaluation`: prove3/prove4 polynomial evaluations at transcript challenge points.
+
+Latest timing after the taxonomy change:
+
+| row | total | count |
+| --- | ---: | ---: |
+| `polynomial.combination_without_multiplication` | 60.31 s | 61 |
+| `polynomial.combination_with_multiplication` | 67.86 s | 23 |
+| `polynomial.recursion` | 10.08 s | 1 |
+| `polynomial.evaluation` | 8.40 s | 11 |
+| `polynomial.div_ruffini` | 10.84 s | 5 |
+| `polynomial.div_vanishing` | 5.83 s | 2 |
+| `polynomial.encode` | 116.40 s | 18 |
+| `binding.encode` | 2.02 s | 1 |
+| `field.operations` | 163.31 s | 103 |
+| `encode` | 118.42 s | 19 |
+| `stage.unclassified` | 99 ms | 1 |
+| prover stage total | 279.81 s | - |
+| total wall | 288.45 s | - |
+
+Classification effect:
+
+- The immediately preceding timing taxonomy reported `stage.unclassified` around 18.13 s because recursion and evaluation work had no official rows.
+- The new taxonomy reports `polynomial.recursion = 10.08 s` and `polynomial.evaluation = 8.40 s`, leaving only 99 ms of stage-level unclassified time.
+- All timing invariant checks pass, including derived-layer equality and execution-boundary total-wall equality.
+
+Verification:
+
+```bash
+npm run typecheck:scripts
+npm run prover:stage-timing:check
+```
 
 ## Accepted Production Sparse Batch Scalar Conversion
 

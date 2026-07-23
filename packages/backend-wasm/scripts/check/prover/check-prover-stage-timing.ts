@@ -106,13 +106,15 @@ interface TimingInvariantCheck {
 const lowestOperationOrder = [
   "polynomial.combination_without_multiplication",
   "polynomial.combination_with_multiplication",
+  "polynomial.recursion",
+  "polynomial.evaluation",
   "polynomial.div_ruffini",
   "polynomial.div_vanishing",
   "polynomial.encode",
   "binding.encode",
 ] as const;
 
-const middleOperationOrder = ["polynomial.combination", "polynomial.division", "encode"] as const;
+const middleOperationOrder = ["polynomial.combination", "polynomial.recursion", "polynomial.evaluation", "polynomial.division", "encode"] as const;
 const topOperationOrder = ["field.operations", "encode"] as const;
 const executionBoundaryOrder = [
   "init",
@@ -282,6 +284,33 @@ function polynomialMulSpecial(
   sizes: readonly SizeInfo[] = [],
 ): BivariatePolynomialBuffer {
   return polynomialOperationSync("polynomial.combination_with_multiplication", label, callback, sizes);
+}
+
+async function polynomialRecursion<T>(
+  label: string,
+  callback: () => Promise<T>,
+  sizes: readonly SizeInfo[] = [],
+): Promise<T> {
+  return polynomialOperation("polynomial.recursion", label, callback, sizes);
+}
+
+function polynomialEvaluation<T>(
+  label: string,
+  callback: () => T,
+  sizes: readonly SizeInfo[] = [],
+): T {
+  return polynomialOperationSync("polynomial.evaluation", label, callback, sizes);
+}
+
+function evaluatePolynomialAt(
+  label: string,
+  polynomial: BivariatePolynomialBuffer,
+  x: FieldElement,
+  y: FieldElement,
+): FieldElement {
+  return polynomialEvaluation(label, () => polynomial.eval(x, y), [
+    shapeSize("polynomial", polynomial.xSize, polynomial.ySize),
+  ]);
 }
 
 async function polynomialDivVanishing(
@@ -693,10 +722,16 @@ async function prove1Timed(
     [thetas[1], yMonomial],
     [field.one, theta2],
   ]);
-  const fXYEvals = await fXY.resize(mI, sMax).toRouEvals();
-  const gXYEvals = await gXY.resize(mI, sMax).toRouEvals();
-  const rXYEvals = computeRecursionEvalsBuffer(field, gXYEvals, fXYEvals, mI, sMax);
-  const rXY = await BivariatePolynomialBuffer.fromRouEvals(field, rXYEvals, mI, sMax);
+  const rXY = await polynomialRecursion(
+    "prove1.recursion_polynomial",
+    async () => {
+      const fXYEvals = await fXY.resize(mI, sMax).toRouEvals();
+      const gXYEvals = await gXY.resize(mI, sMax).toRouEvals();
+      const rXYEvals = computeRecursionEvalsBuffer(field, gXYEvals, fXYEvals, mI, sMax);
+      return BivariatePolynomialBuffer.fromRouEvals(field, rXYEvals, mI, sMax);
+    },
+    [shapeSize("domain", mI, sMax)],
+  );
   const RXY = polynomialLinearCombination("prove1.R", field, [
     [field.one, rXY],
     [state.mixer.rR_X, state.instanceBuffers.tMi],
@@ -883,9 +918,9 @@ async function prove4Timed(input: {
   const kappa1Sq = field.square(kappa1);
   const kappa1Cube = field.mul(kappa1Sq, kappa1);
   const kappa1Fourth = field.square(kappa1Sq);
-  const tNEval = state.instance.tN.eval(chi, field.one);
-  const tSMaxEval = state.instance.tSMax.eval(field.one, zeta);
-  const smallVEval = state.witness.vXY.eval(chi, zeta);
+  const tNEval = evaluatePolynomialAt("prove4.tN_eval", state.instance.tN, chi, field.one);
+  const tSMaxEval = evaluatePolynomialAt("prove4.tSMax_eval", state.instance.tSMax, field.one, zeta);
+  const smallVEval = evaluatePolynomialAt("prove4.V_eval", state.witness.vXY, chi, zeta);
   const rW_X = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_X, state.mixer.rW_X.length, 1);
   const rW_Y = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_Y, 1, state.mixer.rW_Y.length);
   const VXY = polynomialLinearCombination(
@@ -970,7 +1005,7 @@ async function prove4Timed(input: {
     omegaMIInv,
     omegaSMaxInv,
   });
-  const aEval = state.instance.aFreeX.eval(chi, zeta);
+  const aEval = evaluatePolynomialAt("prove4.A_free_eval", state.instance.aFreeX, chi, zeta);
   const piBNumerator = polynomialSub(
     "prove4.Pi_B.A_free_minus_eval",
     state.instance.aFreeX,
@@ -1076,10 +1111,15 @@ async function buildCopyOpeningsTimed(input: {
   const tMiEval = field.sub(field.pow(chi, mI), field.one);
   const tSMaxEval = field.sub(field.pow(zeta, sMax), field.one);
   const lagrangeK0XY = await buildLagrangeK0(field, mI);
-  const lagrangeK0Eval = lagrangeK0XY.eval(chi, zeta);
-  const smallREval = rXY.eval(chi, zeta);
-  const smallROmegaXEval = rOmegaX.eval(chi, zeta);
-  const smallROmegaXOmegaYEval = rOmegaXOmegaY.eval(chi, zeta);
+  const lagrangeK0Eval = evaluatePolynomialAt("prove4.lagrange_K0_eval", lagrangeK0XY, chi, zeta);
+  const smallREval = evaluatePolynomialAt("prove4.r_eval", rXY, chi, zeta);
+  const smallROmegaXEval = evaluatePolynomialAt("prove4.r_omega_x_eval", rOmegaX, chi, zeta);
+  const smallROmegaXOmegaYEval = evaluatePolynomialAt(
+    "prove4.r_omega_x_omega_y_eval",
+    rOmegaXOmegaY,
+    chi,
+    zeta,
+  );
   const term5 = polynomialLinearCombination(
     "prove4.term5",
     field,
@@ -1109,8 +1149,8 @@ async function buildCopyOpeningsTimed(input: {
   );
   const rD1 = polynomialSub("prove4.rD1", rXY, rOmegaX);
   const rD2 = polynomialSub("prove4.rD2", rXY, rOmegaXOmegaY);
-  const rD1Eval = rD1.eval(chi, zeta);
-  const rD2Eval = rD2.eval(chi, zeta);
+  const rD1Eval = evaluatePolynomialAt("prove4.rD1_eval", rD1, chi, zeta);
+  const rD2Eval = evaluatePolynomialAt("prove4.rD2_eval", rD2, chi, zeta);
   const gMinusF = polynomialSub("prove4.gMinusF", gXY, fXY);
   const term10Scale = field.add(field.mul(state.mixer.rR_X, tMiEval), field.mul(state.mixer.rR_Y, tSMaxEval));
   const term10 = polynomialScale("prove4.term10", gMinusF, term10Scale);
@@ -1185,12 +1225,21 @@ function evaluateChallengePointsTimed(input: {
   const rOmegaX = polynomialScaleX("prove3.r_omega_x", RXY, field.inv(omegaMI));
   const rOmegaXOmegaY = polynomialScaleY("prove3.r_omega_x_omega_y", rOmegaX, field.inv(omegaSMax));
 
-  return {
-    V_eval: VXY.eval(chi, zeta),
-    R_eval: RXY.eval(chi, zeta),
-    R_omegaX_eval: rOmegaX.eval(chi, zeta),
-    R_omegaX_omegaY_eval: rOmegaXOmegaY.eval(chi, zeta),
-  };
+  return polynomialEvaluation(
+    "prove3.challenge_evaluations",
+    () => ({
+      V_eval: VXY.eval(chi, zeta),
+      R_eval: RXY.eval(chi, zeta),
+      R_omegaX_eval: rOmegaX.eval(chi, zeta),
+      R_omegaX_omegaY_eval: rOmegaXOmegaY.eval(chi, zeta),
+    }),
+    [
+      shapeSize("V", VXY.xSize, VXY.ySize),
+      shapeSize("R", RXY.xSize, RXY.ySize),
+      shapeSize("R_omega_x", rOmegaX.xSize, rOmegaX.ySize),
+      shapeSize("R_omega_x_omega_y", rOmegaXOmegaY.xSize, rOmegaXOmegaY.ySize),
+    ],
+  );
 }
 
 async function encodePolynomialBufferWithSigma1Timed(
@@ -1497,6 +1546,18 @@ function buildMiddleOperationTotals(
   );
   addOperationTotal(
     totals,
+    "polynomial.recursion",
+    operationDuration(lowestOperationTotals, "polynomial.recursion"),
+    operationCount(lowestOperationTotals, "polynomial.recursion"),
+  );
+  addOperationTotal(
+    totals,
+    "polynomial.evaluation",
+    operationDuration(lowestOperationTotals, "polynomial.evaluation"),
+    operationCount(lowestOperationTotals, "polynomial.evaluation"),
+  );
+  addOperationTotal(
+    totals,
     "polynomial.division",
     operationDuration(lowestOperationTotals, "polynomial.div_ruffini") +
       operationDuration(lowestOperationTotals, "polynomial.div_vanishing"),
@@ -1521,8 +1582,12 @@ function buildTopOperationTotals(middleOperationTotals: readonly OperationTiming
     totals,
     "field.operations",
     operationDuration(middleOperationTotals, "polynomial.combination") +
+      operationDuration(middleOperationTotals, "polynomial.recursion") +
+      operationDuration(middleOperationTotals, "polynomial.evaluation") +
       operationDuration(middleOperationTotals, "polynomial.division"),
     operationCount(middleOperationTotals, "polynomial.combination") +
+      operationCount(middleOperationTotals, "polynomial.recursion") +
+      operationCount(middleOperationTotals, "polynomial.evaluation") +
       operationCount(middleOperationTotals, "polynomial.division"),
   );
   addOperationTotal(
@@ -1593,6 +1658,8 @@ function isPolynomialFieldOperation(category: string): boolean {
   return (
     category === "polynomial.combination_without_multiplication" ||
     category === "polynomial.combination_with_multiplication" ||
+    category === "polynomial.recursion" ||
+    category === "polynomial.evaluation" ||
     category === "polynomial.div_ruffini" ||
     category === "polynomial.div_vanishing"
   );
@@ -1732,6 +1799,24 @@ function buildTimingInvariantChecks(input: {
     ),
   });
   checks.push({
+    name: "middle_recursion_equals_lowest_recursion",
+    parentMs: operationDuration(middleOperationTotals, "polynomial.recursion"),
+    childMs: operationDuration(lowestOperationTotals, "polynomial.recursion"),
+    ok: durationsEqual(
+      operationDuration(middleOperationTotals, "polynomial.recursion"),
+      operationDuration(lowestOperationTotals, "polynomial.recursion"),
+    ),
+  });
+  checks.push({
+    name: "middle_evaluation_equals_lowest_evaluation",
+    parentMs: operationDuration(middleOperationTotals, "polynomial.evaluation"),
+    childMs: operationDuration(lowestOperationTotals, "polynomial.evaluation"),
+    ok: durationsEqual(
+      operationDuration(middleOperationTotals, "polynomial.evaluation"),
+      operationDuration(lowestOperationTotals, "polynomial.evaluation"),
+    ),
+  });
+  checks.push({
     name: "middle_encode_equals_lowest_encode_sum",
     parentMs: operationDuration(middleOperationTotals, "encode"),
     childMs:
@@ -1748,10 +1833,14 @@ function buildTimingInvariantChecks(input: {
     parentMs: operationDuration(topOperationTotals, "field.operations"),
     childMs:
       operationDuration(middleOperationTotals, "polynomial.combination") +
+      operationDuration(middleOperationTotals, "polynomial.recursion") +
+      operationDuration(middleOperationTotals, "polynomial.evaluation") +
       operationDuration(middleOperationTotals, "polynomial.division"),
     ok: durationsEqual(
       operationDuration(topOperationTotals, "field.operations"),
       operationDuration(middleOperationTotals, "polynomial.combination") +
+        operationDuration(middleOperationTotals, "polynomial.recursion") +
+        operationDuration(middleOperationTotals, "polynomial.evaluation") +
         operationDuration(middleOperationTotals, "polynomial.division"),
     ),
   });
@@ -1805,11 +1894,13 @@ function buildMarkdownTimingReport(report: TimingReport): string {
   lines.push("- The lowest layer is limited to the fixed production-like operation set listed in the lowest operation layer table.");
   lines.push("- Polynomial combination includes add, subtract, scale, fused scaled-add accumulation, coefficient rescale, and related shape/materialization work.");
   lines.push("- Fused polynomial combination work is measured at its production-like call-site boundary and is not decomposed into artificial helper rows.");
-  lines.push("- The middle layer is limited to polynomial combination, polynomial division, and encode.");
+  lines.push("- The middle layer is limited to polynomial combination, recursion polynomial calculation, polynomial evaluation, polynomial division, and encode.");
   lines.push("- The top layer is limited to field operations and encode.");
   lines.push("- `polynomial.combination = polynomial.combination_without_multiplication + polynomial.combination_with_multiplication`.");
+  lines.push("- `polynomial.recursion` is passed through from the lowest layer.");
+  lines.push("- `polynomial.evaluation` is passed through from the lowest layer.");
   lines.push("- `polynomial.division = Ruffini division + vanishing division`.");
-  lines.push("- `field.operations = polynomial.combination + polynomial.division`.");
+  lines.push("- `field.operations = polynomial.combination + polynomial.recursion + polynomial.evaluation + polynomial.division`.");
   lines.push("- `encode = polynomial.encode + binding.encode`.");
   lines.push("- `binding.encode` means the `buildProverBinding(...)` commitment work for `A_free`, `O_pub_free`, `O_mid`, and `O_prv`.");
   lines.push("- The execution boundary layer partitions total wall time and includes initialization, top-layer operation rows, stage gaps, binding encoding, I/O, verification, output, and external gaps.");
@@ -1912,6 +2003,10 @@ function middleOperationDefinition(operation: string): string {
   switch (operation) {
     case "polynomial.combination":
       return "polynomial.combination_without_multiplication + polynomial.combination_with_multiplication";
+    case "polynomial.recursion":
+      return "lowest-layer polynomial.recursion";
+    case "polynomial.evaluation":
+      return "lowest-layer polynomial.evaluation";
     case "polynomial.division":
       return "polynomial.div_ruffini + polynomial.div_vanishing";
     case "encode":
@@ -1924,7 +2019,7 @@ function middleOperationDefinition(operation: string): string {
 function topOperationDefinition(operation: string): string {
   switch (operation) {
     case "field.operations":
-      return "polynomial.combination + polynomial.division";
+      return "polynomial.combination + polynomial.recursion + polynomial.evaluation + polynomial.division";
     case "encode":
       return "polynomial.encode + binding.encode";
     default:
