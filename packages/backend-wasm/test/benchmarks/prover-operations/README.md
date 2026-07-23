@@ -151,6 +151,46 @@ The isolated benchmark predicted a `76.1%` weighted reduction. In the integrated
 
 Exact parity, operation checks, native testing-mode-style diagnostics, Node proof generation and verification, stage timing, build, Chromium proof generation and verification, and package-content inspection all pass. Chromium generated the 2408-byte proof in `243.08 s` and verified it in `19 ms`. The package dry run contains no test, benchmark, script, temporary, or diagnostics paths.
 
+## Dedicated Special-Form Multiplication Benchmark
+
+`bench-special-form-multiplication.ts` isolates five low-degree products that previously composed full-buffer `scale`, monomial shift, and add/subtract operations:
+
+- `(X-1)P`
+- `(1-X)P`
+- `(a+bX)P`
+- `(a+bY)P`
+- `(c+aX+bY)P`, used by term9
+
+Each candidate writes directly into one owned output buffer. The benchmark retains the pre-promotion formulas as `legacy-production`, retains a benchmark-local fused implementation as an independent oracle, and compares both with `current-production`.
+
+Independent pre-promotion results at input shape `4096x256`:
+
+| operation | legacy median | fused median | reduction |
+| --- | ---: | ---: | ---: |
+| `(X-1)P` | 610.016 ms | 168.640 ms | 72.4% |
+| `(1-X)P` | 607.958 ms | 169.154 ms | 72.2% |
+| X-linear | 1264.852 ms | 538.572 ms | 57.4% |
+| Y-linear | 1264.385 ms | 540.269 ms | 57.3% |
+| term9 | 2495.228 ms | 869.045 ms | 65.2% |
+
+All five candidates passed full-buffer byte parity on deterministic full, sparse, zero, and boundary inputs before production code changed. In the combined pre-promotion run, the five medians totaled `6269.880 ms` legacy versus `2323.621 ms` fused (`62.9%`).
+
+Related production commit: `06ea4a26` (`Fuse special-form polynomial products`).
+
+The post-promotion representative run measured `6271.535 ms` for the retained legacy formulas and `2320.722 ms` for current production (`63.0%`). The production helpers preserve their existing names, call sites, output-shape behavior, and timing categories.
+
+Integrated stage timing:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| ten promoted special-form events | 17.67 s | 6.56 s | -11.11 s |
+| `polynomial.combination_with_multiplication` | 53.64 s | 42.79 s | -10.85 s |
+| `field.operations` | 127.59 s | 118.62 s | -8.97 s |
+| prover stage total | 242.08 s | 234.00 s | -8.08 s |
+| total wall | 250.15 s | 241.90 s | -8.25 s |
+
+Chromium generated the 2408-byte proof in `233.30 s` and verified it in `24 ms`. Type checks, operation parity, native testing-mode-style diagnostics, Node proof generation and verification, stage timing, build, browser verification, and package-content inspection pass.
+
 ## Dedicated Ruffini Benchmark
 
 `bench-ruffini-division.ts` isolates the bivariate Ruffini opening path. It is the benchmark-first gate for changes to the production synthetic-division implementation.

@@ -678,6 +678,74 @@ Verification:
 - `npm run prover:browser:check` passed; Chromium generated a 2408-byte proof in `243.08 s` and verified it in `19 ms`.
 - `npm pack --dry-run --json` passed with 249 files and no test, script, temporary, benchmark, or diagnostics paths.
 
+## Special-Form Polynomial Multiplication Optimization
+
+Related commit: `06ea4a26` (`Fuse special-form polynomial products`).
+
+Independent candidate results at input shape `4096x256`:
+
+| operation | legacy median | fused median | reduction |
+| --- | ---: | ---: | ---: |
+| `(X-1)P` | 610.016 ms | 168.640 ms | 72.4% |
+| `(1-X)P` | 607.958 ms | 169.154 ms | 72.2% |
+| X-linear | 1264.852 ms | 538.572 ms | 57.4% |
+| Y-linear | 1264.385 ms | 540.269 ms | 57.3% |
+| term9 | 2495.228 ms | 869.045 ms | 65.2% |
+
+Candidate selection:
+
+- Each candidate was measured independently before production code changed.
+- Every candidate passed exact byte parity on deterministic full, sparse, zero, and boundary inputs.
+- The combined pre-promotion run totaled `6269.880 ms` legacy versus `2323.621 ms` fused (`62.9%`).
+- All five candidates are compatible because each replaces one operation-local materialization chain with a direct owned-output kernel without sharing mutable state or changing formulas.
+
+Production change:
+
+- `(X-1)P` and `(1-X)P` now perform one direct subtraction traversal.
+- X-linear and Y-linear products now write the two scaled source terms directly into one output.
+- term9 now writes `c*P[x,y] + a*P[x-1,y] + b*P[x,y-1]` directly into one output.
+- Existing helper names, call sites, allocated-shape semantics, transcript behavior, and timing taxonomy are unchanged.
+- The executable benchmark retains both the old formulas and an independent benchmark-local fused oracle. Post-promotion timing measured `6271.535 ms` legacy versus `2320.722 ms` production (`63.0%`).
+
+Standalone stage-timing comparison:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| ten promoted special-form events | 17.67 s | 6.56 s | -11.11 s |
+| `polynomial.combination_without_multiplication` | 52.46 s | 53.64 s | +1.18 s |
+| `polynomial.combination_with_multiplication` | 53.64 s | 42.79 s | -10.85 s |
+| `polynomial.recursion` | 1.98 s | 2.29 s | +0.31 s |
+| `polynomial.evaluation` | 5.32 s | 5.33 s | +0.01 s |
+| `polynomial.div_ruffini` | 8.59 s | 8.83 s | +0.24 s |
+| `polynomial.div_vanishing` | 5.60 s | 5.72 s | +0.12 s |
+| `polynomial.encode` | 114.48 s | 115.37 s | +0.89 s |
+| `binding.encode` | 1.95 s | 2.03 s | +0.08 s |
+| `field.operations` | 127.59 s | 118.62 s | -8.97 s |
+| encode | 116.43 s | 117.40 s | +0.97 s |
+| prover stage total | 242.08 s | 234.00 s | -8.08 s |
+| total wall | 250.15 s | 241.90 s | -8.25 s |
+
+Interpretation:
+
+- The intended ten events decreased by `11.11 s` (`62.9%`), matching the independent combined benchmark.
+- The complete multiplication category decreased by `10.85 s`; unchanged categories varied upward by smaller amounts in this run.
+- Total wall time decreased by `8.25 s` (`3.3%`).
+- The non-instrumented Node run measured the copy-quotient span at `87.84 s` and the opening span at `81.67 s`, and the generated proof verified successfully.
+- Chromium proof generation decreased from the previous `243.08 s` to `233.30 s` and verification completed in `24 ms`.
+
+Verification:
+
+- `npm run typecheck` passed.
+- `npm run typecheck:scripts` passed.
+- `npm run prover:ops:polynomial` passed.
+- `npm run prover:ops:check` passed.
+- `npm run prover:testing-mode:check` passed.
+- `npm run prover:check` passed and verified the generated proof.
+- `npm run prover:stage-timing:check` passed and produced the timing table above.
+- `npm run build` passed.
+- `npm run prover:browser:check` passed.
+- `npm pack --dry-run --json` passed with 249 files and no test, script, temporary, benchmark, or diagnostics paths.
+
 ## Superseded Old-Taxonomy Comparison
 
 The old comparison below is preserved only as historical context. It must not be used as the active timing table because it used add/sub/mul/scale rows that are no longer part of the accepted taxonomy.
