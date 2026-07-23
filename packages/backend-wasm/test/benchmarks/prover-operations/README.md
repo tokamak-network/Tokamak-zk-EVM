@@ -107,6 +107,19 @@ npm run bench:k0-mul -- --shapes=4096x8192x512,4096x8192x256,4096x4096x512 --can
 
 Candidate C passes exact byte parity and the independent direct-convolution oracle. It is faster than Candidate B without Candidate B's full-size batched-transform temporaries. Production promotion still waits for the planned raw-buffer/owned-output and batch-scaling combination measurements.
 
+### C+A Combination: Sliding Window With Raw Owned Output
+
+After all independent candidates were measured, Candidate C was combined with Candidate A's direct byte views and owned-output construction. Per-output scalar multiplication remains unchanged in this combination.
+
+| shape | current median | independent C median | C+A median | C+A vs current |
+| --- | ---: | ---: | ---: | ---: |
+| `4096x8192x512` | 7493.340 ms | 3424.459 ms | 3261.249 ms | 56.5% |
+| `4096x8192x256` | 3822.428 ms | 1708.345 ms | 1633.597 ms | 57.3% |
+| `4096x4096x512` | 3926.171 ms | 1677.897 ms | 1612.836 ms | 58.9% |
+| four-call weighted total | 22735.279 ms | 10235.160 ms | 9768.931 ms | 57.0% |
+
+C+A improves the weighted independent-C result by a further `4.6%`. It removes the cloned full-size output; the remaining caller-owned temporary is one Y-row window, approximately 16 KiB when `ySize=512`.
+
 ## Dedicated Ruffini Benchmark
 
 `bench-ruffini-division.ts` isolates the bivariate Ruffini opening path. It is the benchmark-first gate for changes to the production synthetic-division implementation.

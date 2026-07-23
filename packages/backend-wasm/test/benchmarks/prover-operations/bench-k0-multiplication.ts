@@ -97,6 +97,13 @@ const CANDIDATES: readonly BenchmarkCandidate[] = [
       + output.ySize * testCase.input.field.byteLength,
     notes: "Candidate C replaces FFT multiplication with K0 sliding sums while retaining accessor-based writes, per-output scaling, and cloned output.",
   },
+  {
+    name: "candidate-ca-k0-sliding-raw-owned-scalar",
+    run: multiplyK0SlidingRawOwnedScalar,
+    temporaryBytes: (testCase, output) =>
+      output.ySize * testCase.input.field.byteLength,
+    notes: "C+A combination: K0 sliding sums with direct byte views, per-output scaling, and owned output.",
+  },
 ];
 
 let resultSink = 0;
@@ -317,6 +324,55 @@ async function multiplyK0SlidingScalar(
   }
 
   return BivariatePolynomialBuffer.fromBuffer(field, output, xSize, ySize);
+}
+
+async function multiplyK0SlidingRawOwnedScalar(
+  testCase: BenchmarkCase,
+): Promise<BivariatePolynomialBuffer> {
+  const { factor, input } = testCase;
+  const field = input.field;
+  const factorDegree = factor.findDegree();
+  const inputDegree = input.findDegree();
+  const mI = factorDegree.xDegree + 1;
+  const xSize = nextPowerOfTwo(factorDegree.xDegree + inputDegree.xDegree + 1);
+  const ySize = nextPowerOfTwo(inputDegree.yDegree + 1);
+  const elementBytes = field.byteLength;
+  const inverseMI = field.inv(field.fromBigInt(BigInt(mI)));
+  const window = field.createZeroBuffer(ySize);
+  const output = field.createZeroBuffer(xSize * ySize);
+
+  for (let x = 0; x < xSize; x += 1) {
+    const inputRowOffset = x * input.ySize * elementBytes;
+    const removedX = x - mI;
+    const removedRowOffset = removedX * input.ySize * elementBytes;
+    const outputRowOffset = x * ySize * elementBytes;
+    for (let y = 0; y < ySize; y += 1) {
+      const elementOffset = y * elementBytes;
+      let sum = window.subarray(elementOffset, elementOffset + elementBytes);
+      if (x < input.xSize) {
+        sum = field.add(
+          sum,
+          input.coefficients.subarray(
+            inputRowOffset + elementOffset,
+            inputRowOffset + elementOffset + elementBytes,
+          ),
+        );
+      }
+      if (removedX >= 0 && removedX < input.xSize) {
+        sum = field.sub(
+          sum,
+          input.coefficients.subarray(
+            removedRowOffset + elementOffset,
+            removedRowOffset + elementOffset + elementBytes,
+          ),
+        );
+      }
+      window.set(sum, elementOffset);
+      output.set(field.mul(sum, inverseMI), outputRowOffset + elementOffset);
+    }
+  }
+
+  return BivariatePolynomialBuffer.fromOwnedBuffer(field, output, xSize, ySize);
 }
 
 async function runSmallParity(
