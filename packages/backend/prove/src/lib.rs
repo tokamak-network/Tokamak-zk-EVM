@@ -37,6 +37,14 @@ macro_rules! poly_comb {
         }};
     }
 
+#[cfg(feature = "timing")]
+fn use_coeff_backend_for_prove2_p_comb_timing() -> bool {
+    std::env::var("TOKAMAK_PROVE2_PCOMB_BACKEND")
+        .ok()
+        .as_deref()
+        == Some("coeff")
+}
+
 fn low_degree_x_times_vanishing(coeffs: &[ScalarField], exponent: usize) -> DensePolynomialExt {
     assert!(exponent > 0);
     let x_size = (exponent + coeffs.len()).next_power_of_two();
@@ -1755,12 +1763,23 @@ impl Prover {
                     ),
                 );
 
-                PolyExpr::weighted_sum(vec![
+                let expr = PolyExpr::weighted_sum(vec![
                     (ScalarField::one(), p1XY),
                     (kappa0, p2XY),
                     (kappa0_sq, p3XY),
-                ])
-                .evaluate_fused_with_domain(4 * m_i, 2 * s_max)
+                ]);
+                #[cfg(feature = "timing")]
+                {
+                    if use_coeff_backend_for_prove2_p_comb_timing() {
+                        expr.evaluate_coeffs()
+                    } else {
+                        expr.evaluate_fused_with_domain(4 * m_i, 2 * s_max)
+                    }
+                }
+                #[cfg(not(feature = "timing"))]
+                {
+                    expr.evaluate_fused_with_domain(4 * m_i, 2 * s_max)
+                }
             }
         );
         (self.quotients.q2XY, self.quotients.q3XY) = crate::time_block!(
