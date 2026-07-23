@@ -613,7 +613,7 @@ Interpretation:
 
 - The candidate is directly applicable to evaluation-only scaled-polynomial paths such as the challenge-evaluation responsibility where `R_omegaX` and `R_omegaX_omegaY` are only evaluated.
 - The candidate should not be blindly applied to paths that also need the scaled polynomial object for later polynomial arithmetic. In those cases the materialized scaled polynomial may still be required.
-- Production promotion requires a targeted prover rewrite, native testing-mode-style diagnostics, full prover timing, and package-boundary checks.
+- Production promotion has been accepted for challenge evaluation only. Opening-commitment scaled-polynomial paths remain unchanged because they reuse the scaled polynomial objects in later arithmetic.
 
 ## Accepted Scaled-Add Fast Path
 

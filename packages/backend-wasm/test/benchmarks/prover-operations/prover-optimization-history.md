@@ -69,7 +69,7 @@ The runner enforces:
 
 ## Timing Taxonomy Extension For Recursion And Evaluation
 
-Related commit: this commit.
+Related commit: `800516da Add recursion and evaluation timing rows`.
 
 This is a diagnostics-only timing taxonomy change, not a prover performance optimization. The previous timing table left recursion polynomial construction and challenge-point polynomial evaluation inside `stage.unclassified`. The timing runner now reports them as first-class field-operation rows:
 
@@ -146,6 +146,51 @@ Verification:
 npm run typecheck:scripts
 npm run bench:prover-ops -- --groups=evaluation --shapes=16x16 --iterations=1 --warmup=0 --json=tmp/timing/evaluation-adjusted-point-smoke.json
 npm run bench:prover-ops -- --groups=evaluation --shapes=4096x256,8192x512 --iterations=1 --warmup=0 --json=tmp/timing/evaluation-adjusted-point-representative.json
+```
+
+## Accepted Production Adjusted-Point Challenge Evaluation
+
+Related commit: `f9a3539c Apply adjusted-point challenge evaluations`.
+
+Production `evaluateChallengePoints(...)` now computes `R_omegaX_eval` and `R_omegaX_omegaY_eval` by adjusting the evaluation point instead of materializing `RXY.scaleCoeffsX(...)` and `scaleCoeffsY(...)`.
+
+Correctness boundary:
+
+- `V_eval` and `R_eval` are unchanged.
+- `R_omegaX_eval` now uses `RXY.eval(omega_m_i^-1 * chi, zeta)`.
+- `R_omegaX_omegaY_eval` now uses `RXY.eval(omega_m_i^-1 * chi, omega_s_max^-1 * zeta)`.
+- Opening-commitment scaled `rXY` polynomials are unchanged because those scaled polynomials are used later in polynomial arithmetic, not only for evaluation.
+- The timing runner mirrors this production path so prove3-style diagnostics no longer include old scaled-polynomial materialization.
+
+Stage timing comparison:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| challenge-evaluation diagnostic label | 8.44 s | 6.23 s | -2.21 s |
+| `polynomial.combination_without_multiplication` | 60.31 s / 61 events | 58.53 s / 59 events | -1.78 s / -2 events |
+| `polynomial.evaluation` | 8.40 s / 11 events | 8.42 s / 11 events | +0.02 s / 0 events |
+| `field.operations` | 163.31 s | 163.36 s | +0.05 s |
+| `stage.unclassified` | 99 ms | 113 ms | +14 ms |
+| prover stage total | 279.81 s | 280.95 s | +1.14 s |
+| total wall | 288.45 s | 288.91 s | +0.46 s |
+
+Interpretation:
+
+- The direct target improved: the prove3-style challenge-evaluation label no longer pays for two scaled-polynomial materializations.
+- `polynomial.evaluation` stays effectively unchanged because the number of Horner evaluations is unchanged; the improvement is recorded in the removed non-multiplication combination work.
+- Overall wall-time changes are within single-run noise for this small targeted rewrite, so future optimization selection should treat the operation-local reduction as the acceptance signal.
+
+Verification:
+
+```bash
+npm run typecheck
+npm run typecheck:scripts
+npm run prover:ops:check
+npm run prover:testing-mode:check
+npm run prover:stage-timing:check
+npm run build
+npm run prover:browser:check
+npm pack --dry-run --json
 ```
 
 ## Accepted Production Sparse Batch Scalar Conversion
