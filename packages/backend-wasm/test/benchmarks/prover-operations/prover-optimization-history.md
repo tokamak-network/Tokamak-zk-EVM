@@ -526,6 +526,42 @@ Verification:
 - `npm run prover:check` passed and verified the generated proof through the prepared verifier runtime path.
 - `npm run prover:stage-timing:check` passed in a standalone run and wrote `tmp/timing/prover-stage-timing.json`.
 
+## Prover Evaluation Reuse Optimization
+
+Related commit: `b5901e11` (`Optimize prover evaluation reuse`).
+
+Change:
+
+- Added the internal `evaluateAtScaledChallengeSet(...)` helper for the prover hot path. It evaluates one polynomial at `(x,y)`, `(scaledX,y)`, and `(scaledX,scaledY)` while sharing the row reductions for the first two values.
+- Rewrote challenge evaluation for the three `RXY` values to use the shared-row helper.
+- Rewrote the opening-commitment `rXY` evaluation values to use the shared-row helper while keeping the required `rOmegaX`, `rOmegaXOmegaY`, `rD1`, and `rD2` polynomial objects materialized for later polynomial arithmetic.
+- Replaced `rD1.eval(chi,zeta)` and `rD2.eval(chi,zeta)` with derived scalar values: `rD1Eval = rXY(chi,zeta) - rXY(omegaMI^-1 * chi,zeta)` and `rD2Eval = rXY(chi,zeta) - rXY(omegaMI^-1 * chi,omegaSMax^-1 * zeta)`.
+- Replaced the scalar `lagrangeK0Eval` calculation with the direct `L_0(chi)` formula while keeping the materialized `lagrangeK0XY` polynomial for `lagrangeK0XY.mul(...)`.
+- Updated the stage-timing mirror and prover polynomial-operation parity checks for the new helpers.
+
+Standalone stage-timing comparison:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.evaluation` | 8.42 s | 5.31 s | -3.11 s |
+| `field.operations` | 151.31 s | 144.26 s | -7.05 s |
+| prover stage total | 269.37 s | 258.49 s | -10.88 s |
+| total wall | 278.10 s | 266.36 s | -11.74 s |
+
+The before values are the latest recorded standalone stage-timing result after the recursion recurrence batch-inverse optimization. The after values are from the standalone `npm run prover:stage-timing:check` run for this change.
+
+Verification:
+
+- `npm run typecheck` passed.
+- `npm run typecheck:scripts` passed.
+- `npm run prover:ops:polynomial` passed.
+- `npm run prover:testing-mode:check` passed.
+- `npm run prover:check` passed and verified the generated proof through the prepared verifier runtime path.
+- `npm run prover:stage-timing:check` passed and wrote `tmp/timing/prover-stage-timing.json`.
+- `npm run build` passed.
+- `npm run prover:browser:check` passed and verified the generated proof in Chromium.
+- `npm pack --dry-run --json` passed.
+
 ## Superseded Old-Taxonomy Comparison
 
 The old comparison below is preserved only as historical context. It must not be used as the active timing table because it used add/sub/mul/scale rows that are no longer part of the accepted taxonomy.
