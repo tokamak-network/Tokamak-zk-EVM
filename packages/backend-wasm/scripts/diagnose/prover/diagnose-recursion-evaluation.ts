@@ -165,7 +165,7 @@ async function diagnoseRecursion(
     resizedG.toRouEvals(),
     `${mI}x${sMax}`,
   );
-  const rXYEvals = timeSync("recursion", "recursion recurrence buffer", () =>
+  const rXYEvals = await timeAsync("recursion", "recursion recurrence buffer", () =>
     computeRecursionEvalsBuffer(field, gXYEvals, fXYEvals, mI, sMax),
     `${mI}x${sMax}`,
   );

@@ -727,7 +727,7 @@ async function prove1Timed(
     async () => {
       const fXYEvals = await fXY.resize(mI, sMax).toRouEvals();
       const gXYEvals = await gXY.resize(mI, sMax).toRouEvals();
-      const rXYEvals = computeRecursionEvalsBuffer(field, gXYEvals, fXYEvals, mI, sMax);
+      const rXYEvals = await computeRecursionEvalsBuffer(field, gXYEvals, fXYEvals, mI, sMax);
       return BivariatePolynomialBuffer.fromRouEvals(field, rXYEvals, mI, sMax);
     },
     [shapeSize("domain", mI, sMax)],

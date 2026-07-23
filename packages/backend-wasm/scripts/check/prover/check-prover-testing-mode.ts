@@ -409,7 +409,7 @@ async function checkProve1Recursion(
   const { fXY, gXY } = buildCopyPolynomials(runtime, state, thetas);
   const fXYEvals = await fXY.resize(mI, sMax).toRouEvals();
   const gXYEvals = await gXY.resize(mI, sMax).toRouEvals();
-  const expectedRXYEvals = computeRecursionEvalsBuffer(field, gXYEvals, fXYEvals, mI, sMax);
+  const expectedRXYEvals = await computeRecursionEvalsBuffer(field, gXYEvals, fXYEvals, mI, sMax);
   const rXYEvals = await prove1Output.rXY.resize(mI, sMax).toRouEvals();
 
   assertFieldBufferEqual(runtime, rXYEvals, expectedRXYEvals, "prove1 recursion eval construction");

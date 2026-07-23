@@ -59,6 +59,14 @@ async function checkFieldBufferOps(field: FieldRuntime): Promise<void> {
 
   const raw = await field.batchFromMontgomeryBuffer(buffer);
   assertBytesEqual(raw, concatBytes(values.map((value) => field.toRawLittleEndian(value))), "batchFromMontgomeryBuffer");
+
+  const inverses = await field.batchInverseBuffer(buffer);
+  assertFields(
+    field,
+    field.split(inverses),
+    values.map((value) => field.inv(value)),
+    "batchInverseBuffer",
+  );
 }
 
 function assertFields(

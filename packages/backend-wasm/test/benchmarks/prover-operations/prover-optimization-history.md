@@ -490,6 +490,42 @@ Interpretation:
 - Upper-layer `encode` is now `polynomial.encode + binding.encode`, and it is the second largest active bucket at 119.58 s.
 - `binding.encode` means `buildProverBinding(...)`; it is binding commitment work, not binary serialization.
 
+## Recursion Recurrence Batch-Inverse Optimization
+
+Related commit: recorded in the commit that updates this section.
+
+Change:
+
+- Exposed ffjavascript `Fr.batchInverse(...)` as `FieldRuntime.batchInverseBuffer(...)`.
+- Rewrote recursion recurrence construction to avoid per-element `field.div(...)`.
+- The optimized path computes denominator inverses in one batch, multiplies each numerator by the corresponding inverse, and writes the suffix-product recurrence directly into final row-major output positions.
+- The hot loop now avoids `readBufferElement(...)` and `writeBufferElement(...)` validation overhead after the input lengths have already been checked.
+- No binary artifact validation, JSON/rkyv parsing, or fallback behavior was added to the prover runtime path.
+
+Recursion/evaluation diagnostic comparison:
+
+| metric | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `recursion recurrence buffer` | 8731.575 ms | 710.206 ms | -8021.369 ms |
+
+Standalone stage-timing comparison:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.recursion` | 10.08 s | 2.30 s | -7.78 s |
+| prover stage total | 279.81 s | 269.37 s | -10.44 s |
+| total wall | 288.45 s | 278.10 s | -10.35 s |
+
+Verification:
+
+- `npm run prover:ops:field` passed.
+- `npm run prover:ops:polynomial` passed.
+- `npm run typecheck` passed.
+- `npm run typecheck:scripts` passed.
+- `npm run diagnose:prover:recursion-evaluation` passed and wrote `tmp/timing/prover-recursion-evaluation-breakdown.json`.
+- `npm run prover:check` passed and verified the generated proof through the prepared verifier runtime path.
+- `npm run prover:stage-timing:check` passed in a standalone run and wrote `tmp/timing/prover-stage-timing.json`.
+
 ## Superseded Old-Taxonomy Comparison
 
 The old comparison below is preserved only as historical context. It must not be used as the active timing table because it used add/sub/mul/scale rows that are no longer part of the accepted taxonomy.

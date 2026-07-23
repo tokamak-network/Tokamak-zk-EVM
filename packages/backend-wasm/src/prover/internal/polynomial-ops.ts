@@ -139,39 +139,44 @@ export function lowDegreeYTimesVanishingBuffer(
   return output;
 }
 
-export function computeRecursionEvalsBuffer(
+export async function computeRecursionEvalsBuffer(
   field: CurveRuntime["Fr"],
   gXYEvals: Uint8Array,
   fXYEvals: Uint8Array,
   mI: number,
   sMax: number,
-): Uint8Array {
+): Promise<Uint8Array> {
   if (field.bufferElementCount(gXYEvals) !== mI * sMax || field.bufferElementCount(fXYEvals) !== mI * sMax) {
     throw new Error("computeRecursionCommitment recursion input eval length does not match the setup grid.");
   }
 
-  const transposed = field.createZeroBuffer(mI * sMax);
-  field.writeBufferElement(transposed, mI * sMax - 1, field.one);
+  const total = mI * sMax;
+  if (total <= 0) {
+    throw new Error("computeRecursionCommitment recursion domain must be non-empty.");
+  }
 
-  for (let index = mI * sMax - 2; index >= 0; index -= 1) {
-    const nextIndex = index + 1;
-    const originalX = nextIndex % mI;
-    const originalY = Math.floor(nextIndex / mI);
-    const originalIndex = originalX * sMax + originalY;
-    field.writeBufferElement(
-      transposed,
-      index,
-      field.mul(
-        field.readBufferElement(transposed, nextIndex),
-        field.div(
-          field.readBufferElement(gXYEvals, originalIndex),
-          field.readBufferElement(fXYEvals, originalIndex),
-        ),
-      ),
+  const elementByteLength = field.byteLength;
+  const inverseF = await field.batchInverseBuffer(fXYEvals);
+  const output = new Uint8Array(total * elementByteLength);
+  output.set(field.one, (total - 1) * elementByteLength);
+
+  for (let transposedIndex = total - 2; transposedIndex >= 0; transposedIndex -= 1) {
+    const nextTransposedIndex = transposedIndex + 1;
+    const nextOriginalIndex = (nextTransposedIndex % mI) * sMax + Math.floor(nextTransposedIndex / mI);
+    const currentOriginalIndex = (transposedIndex % mI) * sMax + Math.floor(transposedIndex / mI);
+    const nextOriginalOffset = nextOriginalIndex * elementByteLength;
+    const currentOriginalOffset = currentOriginalIndex * elementByteLength;
+    const ratio = field.mul(
+      gXYEvals.subarray(nextOriginalOffset, nextOriginalOffset + elementByteLength),
+      inverseF.subarray(nextOriginalOffset, nextOriginalOffset + elementByteLength),
+    );
+    output.set(
+      field.mul(output.subarray(nextOriginalOffset, nextOriginalOffset + elementByteLength), ratio),
+      currentOriginalOffset,
     );
   }
 
-  return transposeRowMajorBuffer(field, transposed, sMax, mI);
+  return output;
 }
 
 export function transposeRowMajorBuffer(

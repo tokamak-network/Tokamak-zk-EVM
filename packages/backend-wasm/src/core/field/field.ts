@@ -29,6 +29,7 @@ export interface FieldRuntime {
   ): Promise<Uint8Array>;
   batchApplyKeyBuffer(buffer: Uint8Array, first: FieldElement, increment: FieldElement): Promise<Uint8Array>;
   batchFromMontgomeryBuffer(buffer: Uint8Array): Promise<Uint8Array>;
+  batchInverseBuffer(buffer: Uint8Array): Promise<Uint8Array>;
   fft(values: readonly FieldElement[]): Promise<FieldElement[]>;
   ifft(values: readonly FieldElement[]): Promise<FieldElement[]>;
   add(left: FieldElement, right: FieldElement): FieldElement;
@@ -130,6 +131,10 @@ export function createFieldRuntime(field: FfField): FieldRuntime {
     async batchFromMontgomeryBuffer(buffer) {
       assertFieldBuffer(buffer, field.n8);
       return await field.batchFromMontgomery(buffer);
+    },
+    async batchInverseBuffer(buffer) {
+      assertFieldBuffer(buffer, field.n8);
+      return await field.batchInverse(buffer);
     },
     async fft(values) {
       return splitFieldBuffer(await field.fft(concatFieldElements(values, field.n8)), field.n8);

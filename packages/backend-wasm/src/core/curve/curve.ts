@@ -32,6 +32,7 @@ export interface FfField {
   ifft(buffer: Uint8Array): Promise<Uint8Array>;
   batchApplyKey(buffer: Uint8Array, first: Uint8Array, increment: Uint8Array): Promise<Uint8Array>;
   batchFromMontgomery(buffer: Uint8Array): Promise<Uint8Array>;
+  batchInverse(buffer: Uint8Array): Promise<Uint8Array>;
 }
 
 export interface FfGroup {

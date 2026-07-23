@@ -34,7 +34,7 @@ async function checkProverPolynomialOps(field: FieldRuntime): Promise<void> {
   checkLinearCombination(field);
   checkLowDegreeVanishingProducts(field);
   checkTranspose(field);
-  checkRecursionEvals(field);
+  await checkRecursionEvals(field);
   await checkLagrangeBuilders(field);
   checkSpecialProducts(field);
   await checkSharedRightMultiplication(field);
@@ -90,15 +90,15 @@ function checkTranspose(field: FieldRuntime): void {
   assertThrows(() => transposeRowMajorBuffer(field, field.concat(values), 4, 2), "transpose shape mismatch");
 }
 
-function checkRecursionEvals(field: FieldRuntime): void {
+async function checkRecursionEvals(field: FieldRuntime): Promise<void> {
   const mI = 4;
   const sMax = 4;
   const g = Array.from({ length: mI * sMax }, (_, index) => field.fromBigInt(BigInt(index + 3)));
   const f = Array.from({ length: mI * sMax }, (_, index) => field.fromBigInt(BigInt(index + 41)));
-  const actual = computeRecursionEvalsBuffer(field, field.concat(g), field.concat(f), mI, sMax);
+  const actual = await computeRecursionEvalsBuffer(field, field.concat(g), field.concat(f), mI, sMax);
   const expected = computeRecursionEvalsDense(field, g, f, mI, sMax);
   assertFields(field, field.split(actual), expected, "computeRecursionEvalsBuffer");
-  assertThrows(
+  await assertRejects(
     () => computeRecursionEvalsBuffer(field, field.concat(g.slice(1)), field.concat(f), mI, sMax),
     "recursion eval length mismatch",
   );
@@ -276,6 +276,15 @@ function assertThrows(fn: () => unknown, label: string): void {
     return;
   }
   throw new Error(`${label} did not throw`);
+}
+
+async function assertRejects(fn: () => Promise<unknown>, label: string): Promise<void> {
+  try {
+    await fn();
+  } catch {
+    return;
+  }
+  throw new Error(`${label} did not reject`);
 }
 
 function assertEqual(actual: unknown, expected: unknown, label: string): void {

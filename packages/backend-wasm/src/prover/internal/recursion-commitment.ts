@@ -50,7 +50,7 @@ export async function computeRecursionCommitment(
   ]);
   const fXYEvals = await fXY.resize(mI, sMax).toRouEvals();
   const gXYEvals = await gXY.resize(mI, sMax).toRouEvals();
-  const rXYEvals = computeRecursionEvalsBuffer(field, gXYEvals, fXYEvals, mI, sMax);
+  const rXYEvals = await computeRecursionEvalsBuffer(field, gXYEvals, fXYEvals, mI, sMax);
   const rXY = await BivariatePolynomialBuffer.fromRouEvals(field, rXYEvals, mI, sMax);
   const RXY = linearCombinationBuffer(field, [
     [field.one, rXY],
