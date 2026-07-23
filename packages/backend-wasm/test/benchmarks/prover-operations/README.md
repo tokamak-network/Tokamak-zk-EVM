@@ -33,6 +33,50 @@ Useful options:
 - `--seed=0x544f4b414d414b`: deterministic pseudo-random seed.
 - `--json=tmp/timing/prover-operation-matrix.json`: structured report path.
 
+## Dedicated Ruffini Benchmark
+
+`bench-ruffini-division.ts` isolates the bivariate Ruffini opening path. It is the benchmark-first gate for changes to the production synthetic-division implementation.
+
+The benchmark currently compares:
+
+- `current-production`: the current fixed-Y, reverse-X traversal.
+- `candidate-a-row-major-x`: the same recurrence with reverse X steps processing complete contiguous Y rows.
+
+Before timing, it checks exact quotient and remainder bytes against production and independently reconstructs the input polynomial. Edge-case parity covers zero, constant, X-only, Y-only, and general bivariate polynomials.
+
+Smoke command:
+
+```bash
+npm run bench:ruffini -- --shapes=4x2,8x4,1x1,8x1,1x8 --iterations=3 --warmup=1 --json=tmp/timing/ruffini-division-smoke.json
+```
+
+Representative prover-shape command:
+
+```bash
+npm run bench:ruffini -- --shapes=8192x512,16384x512,128x1 --iterations=3 --warmup=1 --json=tmp/timing/ruffini-division-representative.json
+```
+
+When all three representative shapes are present, the report includes a derived five-call workload estimate corresponding to three `8192x512` divisions, one `16384x512` division, and one `128x1` division. Timings include result allocation and construction. Reports also record the input, output, and algorithm-owned temporary buffer sizes.
+
+### Candidate A Result
+
+Command:
+
+```bash
+npm run bench:ruffini -- --shapes=8192x512,16384x512,128x1 --iterations=5 --warmup=1 --json=tmp/timing/ruffini-division-representative.json
+```
+
+Environment: local Node.js run with the backend-wasm single-thread curve runtime. Candidate order alternates between measured iterations.
+
+| shape | current median | Candidate A median | median reduction |
+| --- | ---: | ---: | ---: |
+| `8192x512` | 1875.670 ms | 1596.064 ms | 14.9% |
+| `16384x512` | 3760.494 ms | 3149.598 ms | 16.2% |
+| `128x1` | 0.051 ms | 0.055 ms | -7.8% |
+| five-call weighted estimate | 9387.557 ms | 7937.845 ms | 15.4% |
+
+Candidate A passes exact quotient/remainder parity and independent reconstruction for all smoke and representative shapes. The large prover shapes show a repeatable gain, while the negligible `128x1` case regresses by about four microseconds. Keep Candidate A for the cumulative benchmark with Candidate B; do not promote it to production before the remaining candidates and their end-to-end combinations are measured.
+
 ## Promotion Rule
 
 Do not promote a candidate into production prover code from this benchmark alone. A production change must also pass the relevant operation parity check, native testing-mode-style prover diagnostics, full prover runtime verification, and package distribution checks.
