@@ -642,6 +642,23 @@ Representative follow-up result:
 
 The smoke run also passed parity checks for all follow-up candidates at `16x16`. The representative run passed parity checks for `4096x256` and `8192x512`.
 
+Production call-site review:
+
+| candidate | production call site | review result |
+| --- | --- | --- |
+| `shared-row-adjusted-prove3-like-set` | `src/prover/internal/challenge-evaluations.ts`, where `RXY` is evaluated at `(chi,zeta)`, `(omegaMI^-1 * chi,zeta)`, and `(omegaMI^-1 * chi,omegaSMax^-1 * zeta)` | Applicable. The first two evaluations share the same Y point, so a helper can share the row Horner reductions for those two values while preserving the third adjusted-Y evaluation. |
+| `shared-row-adjusted-prove3-like-set` | `src/prover/internal/opening-commitments.ts`, where `rXY`, `rOmegaX`, and `rOmegaXOmegaY` evaluation values are needed | Applicable to the evaluation values only. The materialized `rOmegaX` and `rOmegaXOmegaY` polynomial objects are still needed to construct `rD1`, `rD2`, and later polynomial terms. |
+| `derived-rd-difference-evals` | `src/prover/internal/opening-commitments.ts`, where `rD1Eval = rD1(chi,zeta)` and `rD2Eval = rD2(chi,zeta)` | Applicable after the adjusted `rXY` evaluations are available. Since `rD1 = rXY - rOmegaX`, `rD1Eval = rXY(chi,zeta) - rXY(omegaMI^-1 * chi,zeta)`. Since `rD2 = rXY - rOmegaXOmegaY`, `rD2Eval = rXY(chi,zeta) - rXY(omegaMI^-1 * chi,omegaSMax^-1 * zeta)`. The `rD1` and `rD2` polynomial objects are still needed for `mulByTerm9(...)`. |
+| `lagrange-k0-direct-formula-eval` | `src/prover/internal/opening-commitments.ts`, where `lagrangeK0Eval` is used as a scalar and `lagrangeK0XY` is also multiplied by `rD2Term9PlusTerm10` | Applicable to `lagrangeK0Eval` only. The materialized `lagrangeK0XY` polynomial object is still required for `lagrangeK0XY.mul(...)`. The value can use `L_0(chi) = (chi^mI - 1) / (mI * (chi - 1))`, with the explicit `chi = 1` branch. |
+| `raw-buffer-horner-eval` | General `BivariatePolynomialBuffer.eval(...)` replacement candidate | Not applicable for promotion. It is not consistently faster at representative size. |
+| `power-table-eval` | General `BivariatePolynomialBuffer.eval(...)` replacement candidate | Not applicable for promotion. It is slower at representative size and increases temporary state. |
+
+Promotion guidance:
+
+- A production rewrite may introduce a small internal multi-point evaluation helper if it stays under `src/prover/internal/`, has no artifact validation behavior, and is used only by prover hot paths that already own trusted binary runtime objects.
+- The timing mirror in `scripts/check/prover/check-prover-stage-timing.ts` must be updated in the same change if production evaluation call sites are rewritten.
+- Production promotion must run prover acceptance checks and update `prover-optimization-history.md` with before/after stage timing because the change is optimization-motivated.
+
 Interpretation:
 
 - The candidate is directly applicable to evaluation-only scaled-polynomial paths such as the challenge-evaluation responsibility where `R_omegaX` and `R_omegaX_omegaY` are only evaluated.
