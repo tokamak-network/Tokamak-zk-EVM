@@ -175,6 +175,7 @@ Useful options:
 - `--iterations=1`: measured iterations.
 - `--warmup=0`: warmup iterations.
 - `--seed=0x544f4b414d414b`: deterministic pseudo-random scalar seed.
+- `--multi-thread`: use ffjavascript primitive-level parallelism.
 - `--json=tmp/timing/commitment-density.json`: write a JSON report to an ignored diagnostics path.
 
 ### Latest Density Result
@@ -210,3 +211,27 @@ Interpretation:
 - Compact rectangular input construction is not a safe global replacement for sparse extraction.
 - Compact only becomes competitive near fully dense inputs, and the measured win is small or inconsistent.
 - Production commitment optimization should focus on real raw-buffer reuse, reducing the number of MSMs, or worker scheduling rather than replacing every commitment with compact rectangular input.
+
+### Latest Multi-Thread Density Result
+
+Command:
+
+```bash
+npm run bench:commitment-density -- --multi-thread --lengths=262144 --densities=0.1,0.25,0.5,0.75,1 --iterations=1 --warmup=0 --json=tmp/timing/commitment-density-multi-thread-2pow18.json
+```
+
+Environment: local Node.js run, backend-wasm multi-thread curve runtime. Length `262144` matches the current dense Sigma1 MSM chunk size.
+
+| density | nonzero | sparse prep ms | sparse MSM ms | sparse total ms | compact prep ms | compact MSM ms | compact total ms | compact speedup |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.10 | 26604 | 23.978 | 142.069 | 165.595 | 2.640 | 217.746 | 221.962 | 0.75x |
+| 0.25 | 65630 | 29.936 | 327.394 | 365.223 | 1.879 | 398.279 | 386.997 | 0.94x |
+| 0.50 | 131007 | 42.435 | 614.922 | 662.560 | 2.903 | 688.104 | 677.195 | 0.98x |
+| 0.75 | 196809 | 53.967 | 914.066 | 955.049 | 1.781 | 959.525 | 963.581 | 0.99x |
+| 1.00 | 262144 | 64.235 | 1227.091 | 1327.364 | 1.813 | 1235.318 | 1221.161 | 1.09x |
+
+Interpretation:
+
+- Sparse prep is much more expensive than compact prep because it scans coefficients, skips zeros, copies selected bases, and converts nonzero scalars one by one with `Fr.toRawLittleEndian(...)`.
+- At low density, the shorter sparse MSM input still wins end-to-end despite the per-element scalar conversion cost.
+- Around `50%` density the two paths are close. At full density, compact wins because sparse prep does the same MSM work plus extra scan, copy, and scalar-conversion work.

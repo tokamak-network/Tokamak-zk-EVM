@@ -11,6 +11,7 @@ interface BenchmarkOptions {
   readonly densities: readonly number[];
   readonly iterations: number;
   readonly warmup: number;
+  readonly singleThread: boolean;
   readonly jsonPath?: string;
 }
 
@@ -42,7 +43,7 @@ interface TimingRow {
 
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2));
-  const runtime = await createCurveRuntime({ singleThread: true });
+  const runtime = await createCurveRuntime({ singleThread: options.singleThread });
 
   try {
     const rows: TimingRow[] = [];
@@ -66,6 +67,11 @@ async function main(): Promise<void> {
 function parseOptions(args: readonly string[]): BenchmarkOptions {
   const values = new Map<string, string>();
   for (const arg of args) {
+    if (arg === "--multi-thread") {
+      values.set("multi-thread", "true");
+      continue;
+    }
+
     const match = /^--([a-zA-Z-]+)=(.+)$/.exec(arg);
     if (match === null) {
       throw new Error(`Unknown argument '${arg}'.`);
@@ -80,6 +86,7 @@ function parseOptions(args: readonly string[]): BenchmarkOptions {
     densities: parseDensities(values.get("densities") ?? "0.1,0.25,0.5,0.75,1"),
     iterations: parsePositiveInteger(values.get("iterations") ?? "2", "iterations"),
     warmup: parseNonNegativeInteger(values.get("warmup") ?? "1", "warmup"),
+    singleThread: values.get("multi-thread") !== "true",
     jsonPath: values.get("json"),
   };
 }
@@ -302,8 +309,9 @@ async function measure(options: BenchmarkOptions, callback: () => void | Promise
 }
 
 function printRows(rows: readonly TimingRow[], options: BenchmarkOptions): void {
+  const mode = options.singleThread ? "single-thread" : "multi-thread";
   console.log(
-    `Commitment density benchmark seed=${formatSeed(options.seed)} iterations=${options.iterations} warmup=${options.warmup}`,
+    `Commitment density benchmark mode=${mode} seed=${formatSeed(options.seed)} iterations=${options.iterations} warmup=${options.warmup}`,
   );
   console.log(
     "length | density | nonzero | sparse prep ms | sparse msm ms | sparse total ms | compact prep ms | compact msm ms | compact total ms | compact speedup",
@@ -339,6 +347,7 @@ async function writeJsonReport(
     `${JSON.stringify(
       {
         benchmark: "commitment-density",
+        mode: options.singleThread ? "single-thread" : "multi-thread",
         seed: formatSeed(options.seed),
         lengths: options.lengths,
         densities: options.densities,
