@@ -268,18 +268,17 @@ export class BivariatePolynomialBuffer {
       return await multiplyByYUnivariateFactor(this, other, xSize, ySize);
     }
 
-    const leftEvals = await this.resize(xSize, ySize).toRouEvals();
-    const rightEvals = await other.resize(xSize, ySize).toRouEvals();
-    const outputEvals = this.field.createZeroBuffer(xSize * ySize);
+    const leftEvals = await resizeForMultiplication(this, xSize, ySize).toRouEvals();
+    const rightEvals = await resizeForMultiplication(other, xSize, ySize).toRouEvals();
+    const outputEvals = new Uint8Array(leftEvals.byteLength);
 
-    for (let index = 0; index < xSize * ySize; index += 1) {
-      this.field.writeBufferElement(
-        outputEvals,
-        index,
+    for (let offset = 0; offset < leftEvals.byteLength; offset += this.field.byteLength) {
+      outputEvals.set(
         this.field.mul(
-          this.field.readBufferElement(leftEvals, index),
-          this.field.readBufferElement(rightEvals, index),
+          leftEvals.subarray(offset, offset + this.field.byteLength),
+          rightEvals.subarray(offset, offset + this.field.byteLength),
         ),
+        offset,
       );
     }
 
@@ -832,6 +831,29 @@ function resizedAccumulator(
     Math.max(left.xSize, right.xSize),
     Math.max(left.ySize, right.ySize),
   );
+}
+
+function resizeForMultiplication(
+  polynomial: BivariatePolynomialBuffer,
+  targetXSize: number,
+  targetYSize: number,
+): BivariatePolynomialBuffer {
+  const xSize = nextPowerOfTwo(targetXSize);
+  const ySize = nextPowerOfTwo(targetYSize);
+  const output = new Uint8Array(xSize * ySize * polynomial.field.byteLength);
+  const copiedXSize = Math.min(polynomial.xSize, xSize);
+  const copiedYBytes = Math.min(polynomial.ySize, ySize) * polynomial.field.byteLength;
+  const sourceRowBytes = polynomial.ySize * polynomial.field.byteLength;
+  const targetRowBytes = ySize * polynomial.field.byteLength;
+
+  for (let x = 0; x < copiedXSize; x += 1) {
+    output.set(
+      polynomial.coefficients.subarray(x * sourceRowBytes, x * sourceRowBytes + copiedYBytes),
+      x * targetRowBytes,
+    );
+  }
+
+  return BivariatePolynomialBuffer.fromOwnedBuffer(polynomial.field, output, xSize, ySize);
 }
 
 function isPowerOfTwo(value: number): boolean {

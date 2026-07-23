@@ -8,7 +8,12 @@ import {
   type FieldRuntime,
 } from "../../../src/index.js";
 
-type Candidate = "current-production" | "row-copy-padding" | "raw-pointwise" | "combined";
+type Candidate =
+  | "legacy-production"
+  | "current-production"
+  | "row-copy-padding"
+  | "raw-pointwise"
+  | "combined";
 type ProfileStage =
   | "degree-discovery"
   | "left-padding"
@@ -143,6 +148,8 @@ async function runCandidate(
   right: BivariatePolynomialBuffer,
 ): Promise<BivariatePolynomialBuffer> {
   switch (candidate) {
+    case "legacy-production":
+      return await genericMultiply(left, right, false, false);
     case "current-production":
       return await left.mul(right);
     case "row-copy-padding":
@@ -354,7 +361,9 @@ function parseOptions(args: readonly string[]): Options {
   return {
     seed: parseSeed(values.get("seed") ?? "0x47454e455249434d"),
     shapes: parseShapes(values.get("shapes") ?? "4096x256"),
-    candidates: parseCandidates(values.get("candidates") ?? "current-production,row-copy-padding,raw-pointwise,combined"),
+    candidates: parseCandidates(
+      values.get("candidates") ?? "legacy-production,current-production,row-copy-padding,raw-pointwise,combined",
+    ),
     iterations: parsePositiveInteger(values.get("iterations") ?? "3", "iterations"),
     warmup: parseNonNegativeInteger(values.get("warmup") ?? "1", "warmup"),
     profileIterations: parsePositiveInteger(values.get("profile-iterations") ?? "3", "profile-iterations"),
@@ -363,7 +372,13 @@ function parseOptions(args: readonly string[]): Options {
 }
 
 function parseCandidates(value: string): Candidate[] {
-  const valid = new Set<Candidate>(["current-production", "row-copy-padding", "raw-pointwise", "combined"]);
+  const valid = new Set<Candidate>([
+    "legacy-production",
+    "current-production",
+    "row-copy-padding",
+    "raw-pointwise",
+    "combined",
+  ]);
   const candidates = value.split(",").map((entry) => entry.trim() as Candidate);
   if (candidates.length === 0 || !candidates.includes("current-production")) {
     throw new Error("Candidate selection must include current-production.");
