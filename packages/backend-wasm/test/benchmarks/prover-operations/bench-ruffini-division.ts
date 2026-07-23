@@ -9,6 +9,7 @@ import {
   type FieldElement,
   type FieldRuntime,
 } from "../../../src/index.js";
+import { divideRuffiniRowMajorRawBuffer } from "./ruffini-combined-candidate.js";
 
 interface Shape {
   readonly xSize: number;
@@ -77,6 +78,11 @@ const CANDIDATES: readonly BenchmarkCandidate[] = [
     name: "candidate-b-raw-buffer",
     run: divideRuffiniRawBufferCurrentOrder,
     notes: "Benchmark-only Candidate B: current traversal with validation once and direct raw-buffer offsets.",
+  },
+  {
+    name: "candidate-ab-row-major-raw-buffer",
+    run: divideRuffiniRowMajorRawBuffer,
+    notes: "Benchmark-only combination: Candidate A row order plus Candidate B raw-buffer access.",
   },
 ];
 

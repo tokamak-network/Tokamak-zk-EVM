@@ -42,6 +42,7 @@ The benchmark currently compares:
 - `current-production`: the current fixed-Y, reverse-X traversal.
 - `candidate-a-row-major-x`: the same recurrence with reverse X steps processing complete contiguous Y rows.
 - `candidate-b-raw-buffer`: the current traversal order with one-time boundary validation and direct raw-buffer offsets.
+- `candidate-ab-row-major-raw-buffer`: the post-independent-benchmark combination of Candidates A and B.
 
 Use `--candidates=current-production,candidate-b-raw-buffer` to isolate one candidate against production. `current-production` is mandatory in every candidate selection.
 
@@ -107,8 +108,40 @@ Candidate B retains the production fixed-Y traversal and changes only coefficien
 The benchmark does not use Candidate A or Candidate B. It checks exact quotient/remainder parity and reconstructs the original `P - c` numerator.
 
 ```bash
-npm run bench:ruffini:constant -- --shapes=8192x512,16384x512,128x1 --iterations=5 --warmup=1 --json=tmp/timing/ruffini-constant-elision-representative.json
+npm run bench:ruffini:constant -- --shapes=8192x512,16384x512,128x1 --candidates=current-subtract-materialize-divide,candidate-c-remainder-adjustment --iterations=5 --warmup=1 --json=tmp/timing/ruffini-constant-elision-representative.json
 ```
+
+After the independent Candidate C result, the same script also reports `candidate-abc-row-major-raw-buffer-remainder-adjustment`, which combines the accepted-for-combination A+B kernel with C. This combined row must not be used as evidence for the earlier independent Candidate C result.
+
+```bash
+npm run bench:ruffini:constant -- --shapes=8192x512,16384x512,128x1 --candidates=current-subtract-materialize-divide,candidate-abc-row-major-raw-buffer-remainder-adjustment --iterations=5 --warmup=1 --json=tmp/timing/ruffini-abc-representative.json
+```
+
+### Combination Results
+
+`A+B` command:
+
+```bash
+npm run bench:ruffini -- --shapes=8192x512,16384x512,128x1 --candidates=current-production,candidate-ab-row-major-raw-buffer --iterations=5 --warmup=1 --json=tmp/timing/ruffini-division-ab-representative.json
+```
+
+| shape | production median | A+B median | median reduction |
+| --- | ---: | ---: | ---: |
+| `8192x512` | 1740.681 ms | 1432.674 ms | 17.7% |
+| `16384x512` | 3714.118 ms | 2906.546 ms | 21.7% |
+| `128x1` | 0.051 ms | 0.055 ms | -7.8% |
+| five-call weighted estimate | 8936.214 ms | 7204.623 ms | 19.4% |
+
+Generic `A+B+C` result:
+
+| shape | materialize `P-c` + production median | A+B+C median | median reduction |
+| --- | ---: | ---: | ---: |
+| `8192x512` | 2487.744 ms | 1467.442 ms | 41.0% |
+| `16384x512` | 5161.251 ms | 2936.670 ms | 43.1% |
+| `128x1` | 0.080 ms | 0.055 ms | 31.3% |
+| five-call generic estimate | 12624.563 ms | 7339.050 ms | 41.9% |
+
+All combination smoke and representative cases pass exact quotient/remainder parity and independent reconstruction. A+B is the fastest verified division kernel. A+B+C is the fastest verified generic constant-correction path and removes the full corrected-numerator temporary. The generic five-call estimate retains the previously documented `Pi_A`/`Pi_C` limitation; production promotion must be followed by the full prover timing and verification gates to establish actual integrated impact.
 
 Result:
 

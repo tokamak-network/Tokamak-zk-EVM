@@ -9,6 +9,7 @@ import {
   type FieldElement,
   type FieldRuntime,
 } from "../../../src/index.js";
+import { divideRuffiniRowMajorRawBuffer } from "./ruffini-combined-candidate.js";
 
 interface Shape {
   readonly xSize: number;
@@ -18,6 +19,7 @@ interface Shape {
 interface BenchmarkOptions {
   readonly seed: bigint;
   readonly shapes: readonly Shape[];
+  readonly candidateNames: ReadonlySet<string>;
   readonly iterations: number;
   readonly warmup: number;
   readonly jsonPath: string;
@@ -44,6 +46,7 @@ interface BenchmarkReport {
   readonly options: {
     readonly seed: string;
     readonly shapes: readonly string[];
+    readonly candidates: readonly string[];
     readonly iterations: number;
     readonly warmup: number;
   };
@@ -89,6 +92,23 @@ const CANDIDATES: readonly BenchmarkCandidate[] = [
     temporaryBytes: (testCase) => testCase.polynomial.ySize * testCase.polynomial.field.byteLength,
     notes: "Candidate C: divide P directly and apply -c only to the scalar remainder.",
   },
+  {
+    name: "candidate-abc-row-major-raw-buffer-remainder-adjustment",
+    run: (testCase) => {
+      const division = divideRuffiniRowMajorRawBuffer(
+        testCase.polynomial,
+        testCase.xPoint,
+        testCase.yPoint,
+      );
+      return {
+        quotientX: division.quotientX,
+        quotientY: division.quotientY,
+        remainder: testCase.polynomial.field.sub(division.remainder, testCase.constant),
+      };
+    },
+    temporaryBytes: (testCase) => testCase.polynomial.ySize * testCase.polynomial.field.byteLength,
+    notes: "Combined A+B+C path: row-major raw-buffer division of P plus scalar remainder adjustment.",
+  },
 ];
 
 let resultSink = 0;
@@ -98,13 +118,14 @@ async function main(): Promise<void> {
   const runtime = await createCurveRuntime({ singleThread: true });
 
   try {
-    runEdgeCaseParity(runtime.Fr);
+    const candidates = CANDIDATES.filter((candidate) => options.candidateNames.has(candidate.name));
+    runEdgeCaseParity(runtime.Fr, candidates);
 
     const records: BenchmarkRecord[] = [];
     for (const shape of options.shapes) {
-      records.push(...await benchmarkShape(runtime.Fr, shape, options));
+      records.push(...await benchmarkShape(runtime.Fr, shape, options, candidates));
     }
-    records.push(...buildWeightedWorkloadRecords(records));
+    records.push(...buildWeightedWorkloadRecords(records, candidates));
 
     printRecords(records);
     await writeReport(options, records);
@@ -117,6 +138,7 @@ async function benchmarkShape(
   field: FieldRuntime,
   shape: Shape,
   options: BenchmarkOptions,
+  candidates: readonly BenchmarkCandidate[],
 ): Promise<BenchmarkRecord[]> {
   const polynomial = deterministicPolynomial(field, shape, options.seed);
   const xPoint = field.fromBigInt(11n);
@@ -125,16 +147,17 @@ async function benchmarkShape(
   const testCase = { polynomial, xPoint, yPoint, constant };
   const expectedNumerator = polynomial.sub(constantPolynomial(field, constant));
   const baseline = CANDIDATES[0].run(testCase);
-  const candidate = CANDIDATES[1].run(testCase);
+  for (const candidate of candidates.filter((candidate) => candidate.name !== CANDIDATES[0].name)) {
+    const actual = candidate.run(testCase);
+    assertDivisionEqual(actual, baseline, `${formatShape(shape)} ${candidate.name}`);
+    assertReconstruction(field, expectedNumerator, actual, xPoint, yPoint, `${formatShape(shape)} ${candidate.name}`);
+  }
 
-  assertDivisionEqual(candidate, baseline, `${formatShape(shape)} Candidate C`);
-  assertReconstruction(field, expectedNumerator, candidate, xPoint, yPoint, `${formatShape(shape)} Candidate C`);
-
-  const timings = await measureCandidates(testCase, options);
+  const timings = await measureCandidates(testCase, options, candidates);
   const inputBytes = shape.xSize * shape.ySize * field.byteLength;
   const outputBytes = (shape.xSize * shape.ySize + shape.ySize + 1) * field.byteLength;
 
-  return CANDIDATES.map((entry) => ({
+  return candidates.map((entry) => ({
     candidate: entry.name,
     shape: formatShape(shape),
     inputBytes,
@@ -148,16 +171,17 @@ async function benchmarkShape(
 async function measureCandidates(
   testCase: ConstantCorrectionCase,
   options: BenchmarkOptions,
+  candidates: readonly BenchmarkCandidate[],
 ): Promise<ReadonlyMap<string, TimingSummary>> {
   for (let iteration = 0; iteration < options.warmup; iteration += 1) {
-    for (const candidate of CANDIDATES) {
+    for (const candidate of candidates) {
       consumeResult(candidate.run(testCase));
     }
   }
 
-  const samples = new Map(CANDIDATES.map((candidate) => [candidate.name, [] as number[]]));
+  const samples = new Map(candidates.map((candidate) => [candidate.name, [] as number[]]));
   for (let iteration = 0; iteration < options.iterations; iteration += 1) {
-    const ordered = iteration % 2 === 0 ? CANDIDATES : [...CANDIDATES].reverse();
+    const ordered = iteration % 2 === 0 ? candidates : [...candidates].reverse();
     for (const candidate of ordered) {
       const start = performance.now();
       const result = candidate.run(testCase);
@@ -184,7 +208,7 @@ async function measureCandidates(
   );
 }
 
-function runEdgeCaseParity(field: FieldRuntime): void {
+function runEdgeCaseParity(field: FieldRuntime, candidates: readonly BenchmarkCandidate[]): void {
   const xPoint = field.fromBigInt(11n);
   const yPoint = field.fromBigInt(13n);
   const cases: readonly { readonly label: string; readonly polynomial: BivariatePolynomialBuffer }[] = [
@@ -219,10 +243,12 @@ function runEdgeCaseParity(field: FieldRuntime): void {
     const constant = testCase.polynomial.divByRuffini(xPoint, yPoint).remainder;
     const context = { polynomial: testCase.polynomial, xPoint, yPoint, constant };
     const baseline = CANDIDATES[0].run(context);
-    const candidate = CANDIDATES[1].run(context);
     const expectedNumerator = testCase.polynomial.sub(constantPolynomial(field, constant));
-    assertDivisionEqual(candidate, baseline, `${testCase.label} Candidate C`);
-    assertReconstruction(field, expectedNumerator, candidate, xPoint, yPoint, `${testCase.label} Candidate C`);
+    for (const candidate of candidates.filter((candidate) => candidate.name !== CANDIDATES[0].name)) {
+      const actual = candidate.run(context);
+      assertDivisionEqual(actual, baseline, `${testCase.label} ${candidate.name}`);
+      assertReconstruction(field, expectedNumerator, actual, xPoint, yPoint, `${testCase.label} ${candidate.name}`);
+    }
   }
 }
 
@@ -286,7 +312,10 @@ function deterministicPolynomial(field: FieldRuntime, shape: Shape, seed: bigint
   return BivariatePolynomialBuffer.fromOwnedBuffer(field, coefficients, shape.xSize, shape.ySize);
 }
 
-function buildWeightedWorkloadRecords(records: readonly BenchmarkRecord[]): BenchmarkRecord[] {
+function buildWeightedWorkloadRecords(
+  records: readonly BenchmarkRecord[],
+  candidates: readonly BenchmarkCandidate[],
+): BenchmarkRecord[] {
   const requiredShapes = new Map([
     ["8192x512", 3],
     ["16384x512", 1],
@@ -296,7 +325,7 @@ function buildWeightedWorkloadRecords(records: readonly BenchmarkRecord[]): Benc
     return [];
   }
 
-  return CANDIDATES.map((candidate) => {
+  return candidates.map((candidate) => {
     const selected = [...requiredShapes].map(([shape, count]) => ({
       record: records.find((record) => record.candidate === candidate.name && record.shape === shape)!,
       count,
@@ -342,10 +371,25 @@ function parseOptions(args: readonly string[]): BenchmarkOptions {
   return {
     seed: parseSeed(values.get("seed") ?? "0x52554646494e49"),
     shapes: parseShapes(values.get("shapes") ?? "4x2,8x4"),
+    candidateNames: parseCandidates(values.get("candidates") ?? CANDIDATES.map((candidate) => candidate.name).join(",")),
     iterations: parsePositiveInteger(values.get("iterations") ?? "3", "iterations"),
     warmup: parseNonNegativeInteger(values.get("warmup") ?? "1", "warmup"),
     jsonPath: values.get("json") ?? "tmp/timing/ruffini-constant-elision.json",
   };
+}
+
+function parseCandidates(value: string): ReadonlySet<string> {
+  const names = new Set(value.split(",").map((entry) => entry.trim()));
+  const knownNames = new Set(CANDIDATES.map((candidate) => candidate.name));
+  if (!names.has(CANDIDATES[0].name)) {
+    throw new Error(`Ruffini constant benchmarks must include '${CANDIDATES[0].name}' as the baseline.`);
+  }
+  for (const name of names) {
+    if (!knownNames.has(name)) {
+      throw new Error(`Unknown Ruffini constant candidate '${name}'.`);
+    }
+  }
+  return names;
 }
 
 function parseSeed(value: string): bigint {
@@ -425,6 +469,7 @@ async function writeReport(options: BenchmarkOptions, records: readonly Benchmar
     options: {
       seed: `0x${options.seed.toString(16)}`,
       shapes: options.shapes.map(formatShape),
+      candidates: [...options.candidateNames],
       iterations: options.iterations,
       warmup: options.warmup,
     },
