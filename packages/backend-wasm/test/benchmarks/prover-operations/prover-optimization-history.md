@@ -193,6 +193,61 @@ npm run prover:browser:check
 npm pack --dry-run --json
 ```
 
+## Recursion And Evaluation Internal Breakdown
+
+Related commit: this commit.
+
+This is diagnostics-only evidence. It does not change production prover code.
+
+The dedicated diagnostic command breaks down the two timing rows that were not intuitively explained by the official timing table:
+
+```bash
+npm run diagnose:prover:recursion-evaluation
+```
+
+The command writes structured output to `tmp/timing/prover-recursion-evaluation-breakdown.json`.
+
+Measured recursion breakdown:
+
+| substep | shape | time |
+| --- | ---: | ---: |
+| build `fXY` linear combination | 4096x256 | 1062.005 ms |
+| build `gXY` linear combination | 4096x256 | 54.014 ms |
+| resize `fXY` | 4096x256 | 3.317 ms |
+| forward 2D NTT `fXY.toRouEvals` | 4096x256 | 426.056 ms |
+| resize `gXY` | 4096x256 | 2.458 ms |
+| forward 2D NTT `gXY.toRouEvals` | 4096x256 | 475.119 ms |
+| recursion recurrence buffer | 4096x256 | 8731.575 ms |
+| inverse 2D NTT `rXY.fromRouEvals` | 4096x256 | 550.855 ms |
+| build `RXY` linear combination | 4096x256 | 72.817 ms |
+| commit `RXY` encode | 8192x512 | 5691.022 ms |
+
+Interpretation:
+
+- The recursion-polynomial bottleneck is the recurrence buffer, not the 2D NTT implementation.
+- The three 2D NTT operations together are about `1.45 s`; the recurrence buffer alone is about `8.73 s`.
+- The recurrence performs about `m_i * s_max = 1,048,576` sequential field steps and currently uses one field division per step. Future recursion optimization should investigate eliminating repeated divisions or batching inversions before changing NTT scheduling again.
+- `commit RXY encode` is listed for context, but it is a commitment/MSM cost, not part of the recursion-polynomial calculation row.
+
+Measured challenge-evaluation breakdown:
+
+| substep | shape | time |
+| --- | ---: | ---: |
+| build `VXY` linear combination | 4096x256 | 101.829 ms |
+| build `RXY` linear combination | 4096x256 | 97.309 ms |
+| compute scaled chi | - | 0.052 ms |
+| compute scaled zeta | - | 0.008 ms |
+| Horner eval `VXY(chi,zeta)` | 8192x512 | 1602.647 ms |
+| Horner eval `RXY(chi,zeta)` | 8192x512 | 1582.092 ms |
+| Horner eval `RXY(omega^-1 chi,zeta)` | 8192x512 | 1501.435 ms |
+| Horner eval `RXY(omega^-1 chi,omega^-1 zeta)` | 8192x512 | 1482.823 ms |
+
+Interpretation:
+
+- The evaluation cost is almost entirely four full-size Horner passes over `8192x512` coefficient grids.
+- Point adjustment is effectively free; the accepted adjusted-point rewrite removed scaled-polynomial materialization but did not reduce the number of full Horner passes.
+- Future evaluation optimization must reduce repeated full-grid passes or reuse powers/intermediate row values across the three `RXY` evaluations. Another point-scaling rewrite will not materially improve this row by itself.
+
 ## Accepted Production Sparse Batch Scalar Conversion
 
 Related commit: this commit.
