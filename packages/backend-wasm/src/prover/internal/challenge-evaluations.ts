@@ -33,13 +33,13 @@ export function evaluateChallengePoints(input: {
     [state.mixer.rR_X, state.instanceBuffers.tMi],
     [state.mixer.rR_Y, state.instanceBuffers.tSMax],
   ]);
-  const rOmegaX = RXY.scaleCoeffsX(field.inv(omegaMI));
-  const rOmegaXOmegaY = rOmegaX.scaleCoeffsY(field.inv(omegaSMax));
+  const scaledChi = field.mul(field.inv(omegaMI), chi);
+  const scaledZeta = field.mul(field.inv(omegaSMax), zeta);
 
   return {
     V_eval: VXY.eval(chi, zeta),
     R_eval: RXY.eval(chi, zeta),
-    R_omegaX_eval: rOmegaX.eval(chi, zeta),
-    R_omegaX_omegaY_eval: rOmegaXOmegaY.eval(chi, zeta),
+    R_omegaX_eval: RXY.eval(scaledChi, zeta),
+    R_omegaX_omegaY_eval: RXY.eval(scaledChi, scaledZeta),
   };
 }

@@ -1222,22 +1222,22 @@ function evaluateChallengePointsTimed(input: {
     [state.mixer.rR_X, state.instanceBuffers.tMi],
     [state.mixer.rR_Y, state.instanceBuffers.tSMax],
   ]);
-  const rOmegaX = polynomialScaleX("prove3.r_omega_x", RXY, field.inv(omegaMI));
-  const rOmegaXOmegaY = polynomialScaleY("prove3.r_omega_x_omega_y", rOmegaX, field.inv(omegaSMax));
+  const scaledChi = field.mul(field.inv(omegaMI), chi);
+  const scaledZeta = field.mul(field.inv(omegaSMax), zeta);
 
   return polynomialEvaluation(
     "prove3.challenge_evaluations",
     () => ({
       V_eval: VXY.eval(chi, zeta),
       R_eval: RXY.eval(chi, zeta),
-      R_omegaX_eval: rOmegaX.eval(chi, zeta),
-      R_omegaX_omegaY_eval: rOmegaXOmegaY.eval(chi, zeta),
+      R_omegaX_eval: RXY.eval(scaledChi, zeta),
+      R_omegaX_omegaY_eval: RXY.eval(scaledChi, scaledZeta),
     }),
     [
       shapeSize("V", VXY.xSize, VXY.ySize),
       shapeSize("R", RXY.xSize, RXY.ySize),
-      shapeSize("R_omega_x", rOmegaX.xSize, rOmegaX.ySize),
-      shapeSize("R_omega_x_omega_y", rOmegaXOmegaY.xSize, rOmegaXOmegaY.ySize),
+      shapeSize("R_omega_x", RXY.xSize, RXY.ySize),
+      shapeSize("R_omega_x_omega_y", RXY.xSize, RXY.ySize),
     ],
   );
 }
