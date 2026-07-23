@@ -89,6 +89,14 @@ const CANDIDATES: readonly BenchmarkCandidate[] = [
       + output.xSize * testCase.input.field.byteLength,
     notes: "Candidate B packs all X columns once and uses one batched forward and inverse transform.",
   },
+  {
+    name: "candidate-c-k0-sliding-scalar",
+    run: multiplyK0SlidingScalar,
+    temporaryBytes: (testCase, output) =>
+      output.coefficients.byteLength
+      + output.ySize * testCase.input.field.byteLength,
+    notes: "Candidate C replaces FFT multiplication with K0 sliding sums while retaining accessor-based writes, per-output scaling, and cloned output.",
+  },
 ];
 
 let resultSink = 0;
@@ -277,6 +285,38 @@ async function multiplyXUnivariateBatched(
   }
 
   return BivariatePolynomialBuffer.fromOwnedBuffer(field, output, xSize, ySize);
+}
+
+async function multiplyK0SlidingScalar(
+  testCase: BenchmarkCase,
+): Promise<BivariatePolynomialBuffer> {
+  const { factor, input } = testCase;
+  const field = input.field;
+  const factorDegree = factor.findDegree();
+  const inputDegree = input.findDegree();
+  const mI = factorDegree.xDegree + 1;
+  const xSize = nextPowerOfTwo(factorDegree.xDegree + inputDegree.xDegree + 1);
+  const ySize = nextPowerOfTwo(inputDegree.yDegree + 1);
+  const inverseMI = field.inv(field.fromBigInt(BigInt(mI)));
+  const window = field.createZeroBuffer(ySize);
+  const output = field.createZeroBuffer(xSize * ySize);
+
+  for (let x = 0; x < xSize; x += 1) {
+    for (let y = 0; y < ySize; y += 1) {
+      let sum = field.readBufferElement(window, y);
+      if (x < input.xSize) {
+        sum = field.add(sum, input.getCoeff(x, y));
+      }
+      const removedX = x - mI;
+      if (removedX >= 0 && removedX < input.xSize) {
+        sum = field.sub(sum, input.getCoeff(removedX, y));
+      }
+      field.writeBufferElement(window, y, sum);
+      field.writeBufferElement(output, x * ySize + y, field.mul(sum, inverseMI));
+    }
+  }
+
+  return BivariatePolynomialBuffer.fromBuffer(field, output, xSize, ySize);
 }
 
 async function runSmallParity(

@@ -80,6 +80,33 @@ npm run bench:k0-mul -- --shapes=4096x8192x512,4096x8192x256,4096x4096x512 --can
 
 Candidate B passes exact byte parity and the independent small-shape convolution oracle. The result confirms that batching the independent X transforms removes material scheduling overhead. It remains diagnostics-only until the K0-specific sliding-window candidate and later compatible combinations are measured. The temporary-byte column covers caller-owned full-size buffers and factor evaluations; internal `batchFftBuffer(...)` worker-task allocations can increase the actual peak further.
 
+### Candidate C: K0 Sliding-Window Convolution
+
+Candidate C uses the exact K0 identity:
+
+```text
+K0(X) = mI^-1 * (1 + X + ... + X^(mI-1))
+S[k] = S[k-1] + P[k] - P[k-mI]
+Q[k] = mI^-1 * S[k]
+```
+
+The independent implementation removes all FFT/IFFT work but deliberately retains accessor-based reads/writes, per-output scalar multiplication, and final output cloning. This isolates the algorithmic change from Candidate A and the later combination work.
+
+Command:
+
+```bash
+npm run bench:k0-mul -- --shapes=4096x8192x512,4096x8192x256,4096x4096x512 --candidates=current-production,candidate-c-k0-sliding-scalar --iterations=3 --warmup=1 --json=tmp/timing/k0-candidate-c-representative.json
+```
+
+| shape | current median | Candidate C median | reduction |
+| --- | ---: | ---: | ---: |
+| `4096x8192x512` | 7725.439 ms | 3409.564 ms | 55.9% |
+| `4096x8192x256` | 3878.603 ms | 1722.118 ms | 55.6% |
+| `4096x4096x512` | 3876.899 ms | 1679.916 ms | 56.7% |
+| four-call weighted total | 23206.380 ms | 10221.162 ms | 56.0% |
+
+Candidate C passes exact byte parity and the independent direct-convolution oracle. It is faster than Candidate B without Candidate B's full-size batched-transform temporaries. Production promotion still waits for the planned raw-buffer/owned-output and batch-scaling combination measurements.
+
 ## Dedicated Ruffini Benchmark
 
 `bench-ruffini-division.ts` isolates the bivariate Ruffini opening path. It is the benchmark-first gate for changes to the production synthetic-division implementation.
