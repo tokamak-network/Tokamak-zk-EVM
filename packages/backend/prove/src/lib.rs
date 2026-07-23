@@ -310,6 +310,132 @@ pub struct Prover {
     pub cache: ProverCache,
 }
 
+#[cfg(feature = "timing")]
+#[derive(Debug, Serialize)]
+pub struct CandidateBenchResult {
+    pub name: &'static str,
+    pub repeats: usize,
+    pub baseline_ms: Vec<f64>,
+    pub fused_ms: Vec<f64>,
+    pub baseline_avg_ms: f64,
+    pub fused_avg_ms: f64,
+    pub delta_avg_ms: f64,
+    pub output_x_size: usize,
+    pub output_y_size: usize,
+}
+
+#[cfg(feature = "timing")]
+fn average_ms(values: &[f64]) -> f64 {
+    if values.is_empty() {
+        0.0
+    } else {
+        values.iter().sum::<f64>() / values.len() as f64
+    }
+}
+
+#[cfg(feature = "timing")]
+fn assert_same_polynomial(
+    name: &str,
+    baseline: &DensePolynomialExt,
+    fused: &DensePolynomialExt,
+) {
+    let target_x_size = baseline.x_size.max(fused.x_size);
+    let target_y_size = baseline.y_size.max(fused.y_size);
+    let mut baseline_resized = baseline.clone();
+    baseline_resized.resize(target_x_size, target_y_size);
+    let mut fused_resized = fused.clone();
+    fused_resized.resize(target_x_size, target_y_size);
+
+    let len = target_x_size * target_y_size;
+    let mut baseline_coeffs = vec![ScalarField::zero(); len];
+    let mut fused_coeffs = vec![ScalarField::zero(); len];
+    baseline_resized.copy_coeffs(0, HostSlice::from_mut_slice(&mut baseline_coeffs));
+    fused_resized.copy_coeffs(0, HostSlice::from_mut_slice(&mut fused_coeffs));
+    assert_eq!(baseline_coeffs, fused_coeffs, "{name} fused benchmark mismatch");
+}
+
+#[cfg(feature = "timing")]
+fn benchmark_candidate_pair<Baseline, Fused>(
+    name: &'static str,
+    repeats: usize,
+    baseline: Baseline,
+    fused: Fused,
+) -> CandidateBenchResult
+where
+    Baseline: Fn() -> DensePolynomialExt,
+    Fused: Fn(usize, usize) -> DensePolynomialExt,
+{
+    let warmup_baseline = baseline();
+    let output_x_size = warmup_baseline.x_size;
+    let output_y_size = warmup_baseline.y_size;
+    let warmup_fused = fused(output_x_size, output_y_size);
+    assert_same_polynomial(name, &warmup_baseline, &warmup_fused);
+    drop(warmup_baseline);
+    drop(warmup_fused);
+
+    let mut baseline_ms = Vec::with_capacity(repeats);
+    let mut fused_ms = Vec::with_capacity(repeats);
+    for _ in 0..repeats {
+        let start = Instant::now();
+        let baseline_result = baseline();
+        baseline_ms.push(start.elapsed().as_secs_f64() * 1000.0);
+
+        let start = Instant::now();
+        let fused_result = fused(output_x_size, output_y_size);
+        fused_ms.push(start.elapsed().as_secs_f64() * 1000.0);
+
+        assert_same_polynomial(name, &baseline_result, &fused_result);
+        std::hint::black_box((baseline_result.x_size, fused_result.x_size));
+    }
+
+    let baseline_avg_ms = average_ms(&baseline_ms);
+    let fused_avg_ms = average_ms(&fused_ms);
+    CandidateBenchResult {
+        name,
+        repeats,
+        baseline_ms,
+        fused_ms,
+        baseline_avg_ms,
+        fused_avg_ms,
+        delta_avg_ms: fused_avg_ms - baseline_avg_ms,
+        output_x_size,
+        output_y_size,
+    }
+}
+
+#[cfg(feature = "timing")]
+fn lagrange_kl_xy(m_i: usize, s_max: usize) -> DensePolynomialExt {
+    let mut k_evals = vec![ScalarField::zero(); m_i];
+    k_evals[m_i - 1] = ScalarField::one();
+    let lagrange_k_xy =
+        DensePolynomialExt::from_rou_evals(HostSlice::from_slice(&k_evals), m_i, 1, None, None);
+
+    let mut l_evals = vec![ScalarField::zero(); s_max];
+    l_evals[s_max - 1] = ScalarField::one();
+    let lagrange_l_xy =
+        DensePolynomialExt::from_rou_evals(HostSlice::from_slice(&l_evals), 1, s_max, None, None);
+    &lagrange_k_xy * &lagrange_l_xy
+}
+
+#[cfg(feature = "timing")]
+fn lagrange_k0_xy(m_i: usize) -> DensePolynomialExt {
+    let mut k0_evals = vec![ScalarField::zero(); m_i];
+    k0_evals[0] = ScalarField::one();
+    DensePolynomialExt::from_rou_evals(HostSlice::from_slice(&k0_evals), m_i, 1, None, None)
+}
+
+#[cfg(feature = "timing")]
+fn x_monomial() -> DensePolynomialExt {
+    let coeffs = [ScalarField::zero(), ScalarField::one()];
+    DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs), 2, 1)
+}
+
+#[cfg(feature = "timing")]
+fn y_monomial() -> DensePolynomialExt {
+    let coeffs = [ScalarField::zero(), ScalarField::one()];
+    DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs), 1, 2)
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Proof {
     pub binding: Binding,
@@ -1077,6 +1203,244 @@ impl Prover {
             },
             binding,
         );
+    }
+
+    #[cfg(feature = "timing")]
+    pub fn benchmark_fused_expression_candidates(
+        &self,
+        thetas: &[ScalarField],
+        kappa0: ScalarField,
+        chi: ScalarField,
+        zeta: ScalarField,
+        repeats: usize,
+    ) -> Vec<CandidateBenchResult> {
+        let m_i = self.setup_params.l_D - self.setup_params.l;
+        let s_max = self.setup_params.s_max;
+        let kappa0_sq = kappa0.pow(2);
+        let omega_m_i = ntt::get_root_of_unity::<ScalarField>(m_i as u64);
+        let omega_s_max = ntt::get_root_of_unity::<ScalarField>(s_max as u64);
+
+        let r_omegaX = self.witness.rXY.scale_coeffs_x(&omega_m_i.inv());
+        let r_omegaX_omegaY = r_omegaX.scale_coeffs_y(&omega_s_max.inv());
+        let x_mono = x_monomial();
+        let y_mono = y_monomial();
+        let fXY = &(&(&self.witness.bXY + &(&thetas[0] * &self.instance.s0XY))
+            + &(&thetas[1] * &self.instance.s1XY))
+            + &thetas[2];
+        let gXY =
+            &(&(&self.witness.bXY + &(&thetas[0] * &x_mono)) + &(&thetas[1] * &y_mono))
+                + &thetas[2];
+        let lagrange_KL_XY = self
+            .cache
+            .lagrange_kl_xy
+            .clone()
+            .unwrap_or_else(|| lagrange_kl_xy(m_i, s_max));
+        let lagrange_K0_XY = lagrange_k0_xy(m_i);
+        let r_D1 = &self.witness.rXY - &r_omegaX;
+        let r_D2 = &self.witness.rXY - &r_omegaX_omegaY;
+        let g_D = &gXY - &fXY;
+
+        let term_B_zk = self.cache.term_b_zk.clone().unwrap_or_else(|| {
+            let rB_X_t_mi = low_degree_x_times_vanishing(&self.mixer.rB_X, m_i);
+            let rB_Y_t_smax = low_degree_y_times_vanishing(&self.mixer.rB_Y, s_max);
+            &rB_X_t_mi + &rB_Y_t_smax
+        });
+        let t_mi_eval = chi.pow(m_i) - ScalarField::one();
+        let t_s_max_eval = zeta.pow(s_max) - ScalarField::one();
+        let lagrange_K0_eval = lagrange_K0_XY.eval(&chi, &zeta);
+        let r_D1_eval = r_D1.eval(&chi, &zeta);
+        let r_D2_eval = r_D2.eval(&chi, &zeta);
+        let term10_scale = self.mixer.rR_X * t_mi_eval + self.mixer.rR_Y * t_s_max_eval;
+        let term10 = &term10_scale * &g_D;
+
+        let mut results = Vec::new();
+        results.push(benchmark_candidate_pair(
+            "prove0.p0XY",
+            repeats,
+            || &(&self.witness.uXY * &self.witness.vXY) - &self.witness.wXY,
+            |target_x_size, target_y_size| {
+                PolyExpr::sub(
+                    PolyExpr::mul(
+                        PolyExpr::poly(&self.witness.uXY),
+                        PolyExpr::poly(&self.witness.vXY),
+                    ),
+                    PolyExpr::poly(&self.witness.wXY),
+                )
+                .evaluate_fused_with_domain(target_x_size, target_y_size)
+            },
+        ));
+        results.push(benchmark_candidate_pair(
+            "prove2.Q_CX",
+            repeats,
+            || {
+                let rB_X_r_D1 = mul_by_linear_x(&r_D1, &self.mixer.rB_X);
+                let rB_X_r_D2 = mul_by_linear_x(&r_D2, &self.mixer.rB_X);
+                let d1_comb = &rB_X_r_D1 + &(&self.mixer.rR_X * &g_D);
+                let d2_comb = &rB_X_r_D2 + &(&self.mixer.rR_X * &g_D);
+                let x_minus_one_d1_comb = mul_by_x_minus_one(&d1_comb);
+                poly_comb!(
+                    (ScalarField::one(), self.quotients.q2XY),
+                    (self.mixer.rR_X, lagrange_KL_XY),
+                    (kappa0, x_minus_one_d1_comb),
+                    (kappa0_sq, &lagrange_K0_XY * &d2_comb)
+                )
+            },
+            |target_x_size, target_y_size| {
+                let rB_X_r_D1 = mul_by_linear_x(&r_D1, &self.mixer.rB_X);
+                let rB_X_r_D2 = mul_by_linear_x(&r_D2, &self.mixer.rB_X);
+                let d1_comb = &rB_X_r_D1 + &(&self.mixer.rR_X * &g_D);
+                let d2_comb = &rB_X_r_D2 + &(&self.mixer.rR_X * &g_D);
+                PolyExpr::weighted_sum(vec![
+                    (
+                        ScalarField::one(),
+                        PolyExpr::poly(&self.quotients.q2XY),
+                    ),
+                    (self.mixer.rR_X, PolyExpr::poly(&lagrange_KL_XY)),
+                    (kappa0, PolyExpr::mul_x_minus_one(PolyExpr::poly(&d1_comb))),
+                    (
+                        kappa0_sq,
+                        PolyExpr::mul(
+                            PolyExpr::poly(&lagrange_K0_XY),
+                            PolyExpr::poly(&d2_comb),
+                        ),
+                    ),
+                ])
+                .evaluate_fused_with_domain(target_x_size, target_y_size)
+            },
+        ));
+        results.push(benchmark_candidate_pair(
+            "prove2.Q_CY",
+            repeats,
+            || {
+                let rB_Y_r_D1 = mul_by_linear_y(&r_D1, &self.mixer.rB_Y);
+                let rB_Y_r_D2 = mul_by_linear_y(&r_D2, &self.mixer.rB_Y);
+                let d1_comb = &rB_Y_r_D1 + &(&self.mixer.rR_Y * &g_D);
+                let d2_comb = &rB_Y_r_D2 + &(&self.mixer.rR_Y * &g_D);
+                let x_minus_one_d1_comb = mul_by_x_minus_one(&d1_comb);
+                poly_comb!(
+                    (ScalarField::one(), self.quotients.q3XY),
+                    (self.mixer.rR_Y, lagrange_KL_XY),
+                    (kappa0, x_minus_one_d1_comb),
+                    (kappa0_sq, &lagrange_K0_XY * &d2_comb)
+                )
+            },
+            |target_x_size, target_y_size| {
+                let rB_Y_r_D1 = mul_by_linear_y(&r_D1, &self.mixer.rB_Y);
+                let rB_Y_r_D2 = mul_by_linear_y(&r_D2, &self.mixer.rB_Y);
+                let d1_comb = &rB_Y_r_D1 + &(&self.mixer.rR_Y * &g_D);
+                let d2_comb = &rB_Y_r_D2 + &(&self.mixer.rR_Y * &g_D);
+                PolyExpr::weighted_sum(vec![
+                    (
+                        ScalarField::one(),
+                        PolyExpr::poly(&self.quotients.q3XY),
+                    ),
+                    (self.mixer.rR_Y, PolyExpr::poly(&lagrange_KL_XY)),
+                    (kappa0, PolyExpr::mul_x_minus_one(PolyExpr::poly(&d1_comb))),
+                    (
+                        kappa0_sq,
+                        PolyExpr::mul(
+                            PolyExpr::poly(&lagrange_K0_XY),
+                            PolyExpr::poly(&d2_comb),
+                        ),
+                    ),
+                ])
+                .evaluate_fused_with_domain(target_x_size, target_y_size)
+            },
+        ));
+        results.push(benchmark_candidate_pair(
+            "prove4.LHS_zk1",
+            repeats,
+            || {
+                let r_D1_term9 = mul_by_term9(
+                    &r_D1,
+                    &self.mixer.rB_X,
+                    &self.mixer.rB_Y,
+                    &t_mi_eval,
+                    &t_s_max_eval,
+                );
+                let r_d1_term9_plus_term10 = &r_D1_term9 + &term10;
+                let one_minus_x_times = mul_by_one_minus_x(&r_d1_term9_plus_term10);
+                poly_comb!(
+                    ((chi - ScalarField::one()) * r_D1_eval, term_B_zk),
+                    (ScalarField::one(), one_minus_x_times),
+                    (chi - ScalarField::one(), term10)
+                )
+            },
+            |target_x_size, target_y_size| {
+                let r_D1_term9 = mul_by_term9(
+                    &r_D1,
+                    &self.mixer.rB_X,
+                    &self.mixer.rB_Y,
+                    &t_mi_eval,
+                    &t_s_max_eval,
+                );
+                let sum_expr = PolyExpr::add(
+                    PolyExpr::poly(&r_D1_term9),
+                    PolyExpr::poly(&term10),
+                );
+                let one_minus_x_expr = PolyExpr::scale(
+                    ScalarField::zero() - ScalarField::one(),
+                    PolyExpr::mul_x_minus_one(sum_expr),
+                );
+                PolyExpr::weighted_sum(vec![
+                    (
+                        (chi - ScalarField::one()) * r_D1_eval,
+                        PolyExpr::poly(&term_B_zk),
+                    ),
+                    (ScalarField::one(), one_minus_x_expr),
+                    (chi - ScalarField::one(), PolyExpr::poly(&term10)),
+                ])
+                .evaluate_fused_with_domain(target_x_size, target_y_size)
+            },
+        ));
+        results.push(benchmark_candidate_pair(
+            "prove4.LHS_zk2",
+            repeats,
+            || {
+                let r_D2_term9 = mul_by_term9(
+                    &r_D2,
+                    &self.mixer.rB_X,
+                    &self.mixer.rB_Y,
+                    &t_mi_eval,
+                    &t_s_max_eval,
+                );
+                let r_d2_term9_plus_term10 = &r_D2_term9 + &term10;
+                poly_comb!(
+                    (lagrange_K0_eval * r_D2_eval, term_B_zk),
+                    (lagrange_K0_eval, term10),
+                    (
+                        ScalarField::zero() - ScalarField::one(),
+                        &lagrange_K0_XY * &r_d2_term9_plus_term10
+                    )
+                )
+            },
+            |target_x_size, target_y_size| {
+                let r_D2_term9 = mul_by_term9(
+                    &r_D2,
+                    &self.mixer.rB_X,
+                    &self.mixer.rB_Y,
+                    &t_mi_eval,
+                    &t_s_max_eval,
+                );
+                let sum_expr = PolyExpr::add(
+                    PolyExpr::poly(&r_D2_term9),
+                    PolyExpr::poly(&term10),
+                );
+                PolyExpr::weighted_sum(vec![
+                    (
+                        lagrange_K0_eval * r_D2_eval,
+                        PolyExpr::poly(&term_B_zk),
+                    ),
+                    (lagrange_K0_eval, PolyExpr::poly(&term10)),
+                    (
+                        ScalarField::zero() - ScalarField::one(),
+                        PolyExpr::mul(PolyExpr::poly(&lagrange_K0_XY), sum_expr),
+                    ),
+                ])
+                .evaluate_fused_with_domain(target_x_size, target_y_size)
+            },
+        ));
+        results
     }
 
     pub fn prove0(&mut self) -> Proof0 {
