@@ -119,6 +119,9 @@ Encode optimization closure:
 
 - Project-owner conclusion: the encode area has no remaining optimization room under the current implementation plan and benchmark evidence.
 - Encode optimization work is closed after the snarkjs-style large-MSM delivery, dense MSM chunk-size selection, primitive-parallelism confirmation, density benchmark review, and sparse batch scalar conversion.
+- Closure scope: accepted encode work covers ffjavascript primitive-level MSM parallelism, bounded dense Sigma1 chunks at `262144` points, raw CRS section reuse for dense chunks, sparse/dense density routing, and sparse-path batch scalar conversion.
+- Historical notes about compact rectangle extraction, CRS/base layout experiments, worker-wrapper commitment scheduling, encode input reporters, or additional commitment-input delivery work are audit records only. They are not active encode optimization backlog.
+- Future prover optimization work should focus on non-encode bottlenecks shown by the current timing table.
 - Do not add more encode optimization tasks unless new external evidence or a new project-owner decision explicitly reopens this area.
 
 ## Accepted Production Batched 2D NTT Segment Scheduler
