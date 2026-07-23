@@ -492,7 +492,7 @@ Interpretation:
 
 ## Recursion Recurrence Batch-Inverse Optimization
 
-Related commit: recorded in the commit that updates this section.
+Related commit: `5ee48194` (`Optimize prover recursion recurrence`).
 
 Change:
 
