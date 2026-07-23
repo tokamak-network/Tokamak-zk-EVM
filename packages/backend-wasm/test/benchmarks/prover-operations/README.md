@@ -582,6 +582,16 @@ For a bivariate polynomial `P(X,Y)`, coefficient scaling by `a^i` in the X coeff
 
 This benchmark compares current-style scaled-polynomial materialization plus evaluation against direct evaluation at adjusted points. It is diagnostics-only and does not change production prover code.
 
+The evaluation group also contains benchmark-only candidates for the next evaluation optimization phase:
+
+- `raw-buffer-horner-eval`: scans the coefficient buffer by byte offset instead of calling `getCoeff()` for every coefficient.
+- `power-table-eval`: precomputes X/Y powers and evaluates by coefficient dot products.
+- `shared-row-adjusted-prove3-like-set`: evaluates the prove3-style three-point set while sharing row reductions for the two points with the same Y coordinate.
+- `derived-rd-difference-evals`: derives `rD1`/`rD2` evaluation values from base and adjusted-point evaluations instead of evaluating materialized difference polynomials.
+- `lagrange-k0-direct-formula-eval`: evaluates the structured `L_0(X)` basis polynomial by formula instead of materializing and scanning the polynomial.
+
+These candidates are diagnostics-only. They are implemented for parity and future timing runs; they are not production changes and must not be promoted without representative benchmark results and prover acceptance checks.
+
 Command:
 
 ```bash

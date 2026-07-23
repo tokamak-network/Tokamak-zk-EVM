@@ -10,6 +10,7 @@ import {
   type FieldRuntime,
 } from "../../../src/index.js";
 import {
+  buildLagrangeK0,
   linearCombinationBuffer,
   transposeRowMajorBuffer,
 } from "../../../src/prover/internal/polynomial-ops.js";
@@ -360,13 +361,67 @@ async function benchmarkEvaluation(
   const adjustedXYEval = testCase.left.eval(field.mul(xScale, testCase.xPoint), field.mul(yScale, testCase.yPoint));
   const currentProve3Like = currentScaledEvaluationSet(testCase.left, xScale, yScale, testCase.xPoint, testCase.yPoint);
   const adjustedProve3Like = adjustedEvaluationSet(field, testCase.left, xScale, yScale, testCase.xPoint, testCase.yPoint);
+  const sharedRowProve3Like = sharedRowAdjustedEvaluationSet(
+    field,
+    testCase.left,
+    xScale,
+    yScale,
+    testCase.xPoint,
+    testCase.yPoint,
+  );
+  const rawBufferEval = evalRawBufferHorner(field, testCase.left, testCase.xPoint, testCase.yPoint);
+  const powerTableEval = evalWithPowerTables(field, testCase.left, testCase.xPoint, testCase.yPoint);
+  const currentDerivedDifferenceEvals = currentDifferenceEvaluationSet(
+    testCase.left,
+    xScale,
+    yScale,
+    testCase.xPoint,
+    testCase.yPoint,
+  );
+  const derivedDifferenceEvals = derivedDifferenceEvaluationSet(
+    field,
+    testCase.left,
+    xScale,
+    yScale,
+    testCase.xPoint,
+    testCase.yPoint,
+  );
+  const lagrangeK0 = await buildLagrangeK0(field, testCase.shape.xSize);
+  const lagrangeK0CurrentEval = lagrangeK0.eval(testCase.xPoint, testCase.yPoint);
+  const lagrangeK0FormulaEval = evalLagrangeK0Formula(field, testCase.shape.xSize, testCase.xPoint);
 
   assertFieldEqual(field, scaledXEval, adjustedXEval, `X-scaled evaluation mismatch at ${shape}`);
   assertFieldEqual(field, scaledYEval, adjustedYEval, `Y-scaled evaluation mismatch at ${shape}`);
   assertFieldEqual(field, scaledXYEval, adjustedXYEval, `XY-scaled evaluation mismatch at ${shape}`);
   assertFieldArrayEqual(field, currentProve3Like, adjustedProve3Like, `prove3-like evaluation set mismatch at ${shape}`);
+  assertFieldArrayEqual(field, adjustedProve3Like, sharedRowProve3Like, `shared-row prove3-like evaluation set mismatch at ${shape}`);
+  assertFieldEqual(field, testCase.left.eval(testCase.xPoint, testCase.yPoint), rawBufferEval, `raw-buffer Horner mismatch at ${shape}`);
+  assertFieldEqual(field, testCase.left.eval(testCase.xPoint, testCase.yPoint), powerTableEval, `power-table evaluation mismatch at ${shape}`);
+  assertFieldArrayEqual(field, currentDerivedDifferenceEvals, derivedDifferenceEvals, `derived difference evaluation mismatch at ${shape}`);
+  assertFieldEqual(field, lagrangeK0CurrentEval, lagrangeK0FormulaEval, `Lagrange K0 formula mismatch at ${shape}`);
 
   return [
+    {
+      group: "evaluation",
+      candidate: "current-single-horner-eval",
+      shape,
+      ms: await measure(options, () => Promise.resolve(testCase.left.eval(testCase.xPoint, testCase.yPoint))),
+      notes: "Current nested Horner evaluation through BivariatePolynomialBuffer.eval().",
+    },
+    {
+      group: "evaluation",
+      candidate: "raw-buffer-horner-eval",
+      shape,
+      ms: await measure(options, () => Promise.resolve(evalRawBufferHorner(field, testCase.left, testCase.xPoint, testCase.yPoint))),
+      notes: "Diagnostic-only nested Horner evaluator that scans the coefficient buffer by byte offset and avoids getCoeff().",
+    },
+    {
+      group: "evaluation",
+      candidate: "power-table-eval",
+      shape,
+      ms: await measure(options, () => Promise.resolve(evalWithPowerTables(field, testCase.left, testCase.xPoint, testCase.yPoint))),
+      notes: "Diagnostic-only evaluator that precomputes X/Y powers and evaluates by coefficient dot products.",
+    },
     {
       group: "evaluation",
       candidate: "current-scale-x-then-eval",
@@ -431,6 +486,47 @@ async function benchmarkEvaluation(
       ),
       notes: "Candidate prove3-style set: base eval plus adjusted-point X and XY evaluations with no scaled polynomial materialization.",
     },
+    {
+      group: "evaluation",
+      candidate: "shared-row-adjusted-prove3-like-set",
+      shape,
+      ms: await measure(options, () =>
+        Promise.resolve(sharedRowAdjustedEvaluationSet(field, testCase.left, xScale, yScale, testCase.xPoint, testCase.yPoint)),
+      ),
+      notes: "Diagnostic-only multi-point evaluator that shares row reductions for the two evaluations with the same Y point.",
+    },
+    {
+      group: "evaluation",
+      candidate: "current-rd-difference-evals",
+      shape,
+      ms: await measure(options, () =>
+        Promise.resolve(currentDifferenceEvaluationSet(testCase.left, xScale, yScale, testCase.xPoint, testCase.yPoint)),
+      ),
+      notes: "Current-style rD1/rD2 evaluation model: materialize scaled polynomials, subtract, then evaluate each difference polynomial.",
+    },
+    {
+      group: "evaluation",
+      candidate: "derived-rd-difference-evals",
+      shape,
+      ms: await measure(options, () =>
+        Promise.resolve(derivedDifferenceEvaluationSet(field, testCase.left, xScale, yScale, testCase.xPoint, testCase.yPoint)),
+      ),
+      notes: "Diagnostic-only model deriving rD1/rD2 evaluations from already computed base and adjusted-point evaluations.",
+    },
+    {
+      group: "evaluation",
+      candidate: "lagrange-k0-polynomial-eval",
+      shape,
+      ms: await measure(options, () => Promise.resolve(lagrangeK0.eval(testCase.xPoint, testCase.yPoint))),
+      notes: "Current structured-polynomial baseline: materialized Lagrange K0 polynomial evaluated through nested Horner.",
+    },
+    {
+      group: "evaluation",
+      candidate: "lagrange-k0-direct-formula-eval",
+      shape,
+      ms: await measure(options, () => Promise.resolve(evalLagrangeK0Formula(field, testCase.shape.xSize, testCase.xPoint))),
+      notes: "Diagnostic-only structured formula for L_0(x) over the root-of-unity domain.",
+    },
   ];
 }
 
@@ -464,6 +560,163 @@ function adjustedEvaluationSet(
     polynomial.eval(scaledXPoint, yPoint),
     polynomial.eval(scaledXPoint, field.mul(yScale, yPoint)),
   ];
+}
+
+function sharedRowAdjustedEvaluationSet(
+  field: FieldRuntime,
+  polynomial: BivariatePolynomialBuffer,
+  xScale: FieldElement,
+  yScale: FieldElement,
+  xPoint: FieldElement,
+  yPoint: FieldElement,
+): readonly FieldElement[] {
+  const scaledXPoint = field.mul(xScale, xPoint);
+  const scaledYPoint = field.mul(yScale, yPoint);
+  return evalTwoXOneScaledY(field, polynomial, xPoint, scaledXPoint, yPoint, scaledYPoint);
+}
+
+function currentDifferenceEvaluationSet(
+  polynomial: BivariatePolynomialBuffer,
+  xScale: FieldElement,
+  yScale: FieldElement,
+  xPoint: FieldElement,
+  yPoint: FieldElement,
+): readonly FieldElement[] {
+  const scaledX = polynomial.scaleCoeffsX(xScale);
+  const scaledXY = scaledX.scaleCoeffsY(yScale);
+  return [
+    polynomial.sub(scaledX).eval(xPoint, yPoint),
+    polynomial.sub(scaledXY).eval(xPoint, yPoint),
+  ];
+}
+
+function derivedDifferenceEvaluationSet(
+  field: FieldRuntime,
+  polynomial: BivariatePolynomialBuffer,
+  xScale: FieldElement,
+  yScale: FieldElement,
+  xPoint: FieldElement,
+  yPoint: FieldElement,
+): readonly FieldElement[] {
+  const [baseEval, scaledXEval, scaledXYEval] = sharedRowAdjustedEvaluationSet(
+    field,
+    polynomial,
+    xScale,
+    yScale,
+    xPoint,
+    yPoint,
+  );
+  return [
+    field.sub(baseEval, scaledXEval),
+    field.sub(baseEval, scaledXYEval),
+  ];
+}
+
+function evalRawBufferHorner(
+  field: FieldRuntime,
+  polynomial: BivariatePolynomialBuffer,
+  xPoint: FieldElement,
+  yPoint: FieldElement,
+): FieldElement {
+  let result = field.zero;
+  const elementBytes = field.byteLength;
+  const rowBytes = polynomial.ySize * elementBytes;
+
+  for (let x = polynomial.xSize - 1; x >= 0; x -= 1) {
+    let rowValue = field.zero;
+    const rowOffset = x * rowBytes;
+    for (let y = polynomial.ySize - 1; y >= 0; y -= 1) {
+      const offset = rowOffset + y * elementBytes;
+      rowValue = field.add(
+        polynomial.coefficients.subarray(offset, offset + elementBytes),
+        field.mul(rowValue, yPoint),
+      );
+    }
+    result = field.add(rowValue, field.mul(result, xPoint));
+  }
+
+  return result;
+}
+
+function evalTwoXOneScaledY(
+  field: FieldRuntime,
+  polynomial: BivariatePolynomialBuffer,
+  firstXPoint: FieldElement,
+  secondXPoint: FieldElement,
+  yPoint: FieldElement,
+  scaledYPoint: FieldElement,
+): readonly FieldElement[] {
+  let firstResult = field.zero;
+  let secondResult = field.zero;
+  let scaledYResult = field.zero;
+  const elementBytes = field.byteLength;
+  const rowBytes = polynomial.ySize * elementBytes;
+
+  for (let x = polynomial.xSize - 1; x >= 0; x -= 1) {
+    let rowValue = field.zero;
+    let scaledYRowValue = field.zero;
+    const rowOffset = x * rowBytes;
+    for (let y = polynomial.ySize - 1; y >= 0; y -= 1) {
+      const offset = rowOffset + y * elementBytes;
+      const coefficient = polynomial.coefficients.subarray(offset, offset + elementBytes);
+      rowValue = field.add(coefficient, field.mul(rowValue, yPoint));
+      scaledYRowValue = field.add(coefficient, field.mul(scaledYRowValue, scaledYPoint));
+    }
+    firstResult = field.add(rowValue, field.mul(firstResult, firstXPoint));
+    secondResult = field.add(rowValue, field.mul(secondResult, secondXPoint));
+    scaledYResult = field.add(scaledYRowValue, field.mul(scaledYResult, secondXPoint));
+  }
+
+  return [firstResult, secondResult, scaledYResult];
+}
+
+function evalWithPowerTables(
+  field: FieldRuntime,
+  polynomial: BivariatePolynomialBuffer,
+  xPoint: FieldElement,
+  yPoint: FieldElement,
+): FieldElement {
+  const xPowers = powerTable(field, xPoint, polynomial.xSize);
+  const yPowers = powerTable(field, yPoint, polynomial.ySize);
+  let result = field.zero;
+  const elementBytes = field.byteLength;
+  const rowBytes = polynomial.ySize * elementBytes;
+
+  for (let x = 0; x < polynomial.xSize; x += 1) {
+    let rowValue = field.zero;
+    const rowOffset = x * rowBytes;
+    for (let y = 0; y < polynomial.ySize; y += 1) {
+      const offset = rowOffset + y * elementBytes;
+      rowValue = field.add(
+        rowValue,
+        field.mul(polynomial.coefficients.subarray(offset, offset + elementBytes), yPowers[y]),
+      );
+    }
+    result = field.add(result, field.mul(rowValue, xPowers[x]));
+  }
+
+  return result;
+}
+
+function evalLagrangeK0Formula(field: FieldRuntime, domainSize: number, xPoint: FieldElement): FieldElement {
+  if (field.eq(xPoint, field.one)) {
+    return field.one;
+  }
+
+  return field.div(
+    field.sub(field.pow(xPoint, domainSize), field.one),
+    field.mul(field.fromBigInt(BigInt(domainSize)), field.sub(xPoint, field.one)),
+  );
+}
+
+function powerTable(field: FieldRuntime, base: FieldElement, length: number): FieldElement[] {
+  const powers: FieldElement[] = [];
+  let power = field.one;
+  for (let index = 0; index < length; index += 1) {
+    powers.push(power);
+    power = field.mul(power, base);
+  }
+  return powers;
 }
 
 async function benchmarkLinearCombination(
