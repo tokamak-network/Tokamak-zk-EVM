@@ -22,6 +22,11 @@ export interface FieldRuntime {
   rootOfUnity(size: number): FieldElement;
   fftBuffer(buffer: Uint8Array): Promise<Uint8Array>;
   ifftBuffer(buffer: Uint8Array): Promise<Uint8Array>;
+  batchFftBuffer(
+    buffer: Uint8Array,
+    segmentSize: number,
+    direction: "forward" | "inverse",
+  ): Promise<Uint8Array>;
   batchApplyKeyBuffer(buffer: Uint8Array, first: FieldElement, increment: FieldElement): Promise<Uint8Array>;
   batchFromMontgomeryBuffer(buffer: Uint8Array): Promise<Uint8Array>;
   fft(values: readonly FieldElement[]): Promise<FieldElement[]>;
@@ -114,6 +119,10 @@ export function createFieldRuntime(field: FfField): FieldRuntime {
       assertFieldBuffer(buffer, field.n8);
       return await field.ifft(buffer);
     },
+    async batchFftBuffer(buffer, segmentSize, direction) {
+      assertFieldBuffer(buffer, field.n8);
+      return await batchFftBuffer(field, buffer, segmentSize, direction);
+    },
     async batchApplyKeyBuffer(buffer, first, increment) {
       assertFieldBuffer(buffer, field.n8);
       return await field.batchApplyKey(buffer, first, increment);
@@ -162,6 +171,233 @@ export function createFieldRuntime(field: FfField): FieldRuntime {
       return field.random();
     },
   };
+}
+
+interface FfThreadManager {
+  readonly concurrency: number;
+  queueAction(actionData: readonly FfWorkerCommand[]): Promise<Uint8Array[]>;
+}
+
+interface FfFieldWithWorkerTasks extends FfField {
+  readonly prefix: string;
+  readonly tm: FfThreadManager;
+}
+
+type FfWorkerCommand =
+  | {
+      readonly cmd: "ALLOCSET";
+      readonly var: number;
+      readonly buff: Uint8Array;
+    }
+  | {
+      readonly cmd: "CALL";
+      readonly fnName: string;
+      readonly params: readonly FfWorkerCallParam[];
+    }
+  | {
+      readonly cmd: "GET";
+      readonly out: number;
+      readonly var: number;
+      readonly len: number;
+    };
+
+type FfWorkerCallParam =
+  | {
+      readonly var: number;
+    }
+  | {
+      readonly val: number;
+    };
+
+const MAX_FFT_MIX_BITS_PER_BATCH_TASK = 14;
+
+async function batchFftBuffer(
+  field: FfField,
+  buffer: Uint8Array,
+  segmentSize: number,
+  direction: "forward" | "inverse",
+): Promise<Uint8Array> {
+  const segmentBits = checkedPowerOfTwoLog(segmentSize);
+  const elementCount = buffer.byteLength / field.n8;
+  if (elementCount % segmentSize !== 0) {
+    throw new Error("Batch FFT input count must be divisible by the segment size.");
+  }
+
+  if (segmentSize === 1 || elementCount === 0) {
+    return buffer.slice();
+  }
+
+  if (segmentBits > MAX_FFT_MIX_BITS_PER_BATCH_TASK) {
+    return await transformLargeSegmentsWithPublicFft(field, buffer, segmentSize, direction);
+  }
+
+  return await transformSmallSegmentsWithWorkerTasks(
+    field as FfFieldWithWorkerTasks,
+    buffer,
+    segmentSize,
+    segmentBits,
+    direction,
+  );
+}
+
+async function transformLargeSegmentsWithPublicFft(
+  field: FfField,
+  buffer: Uint8Array,
+  segmentSize: number,
+  direction: "forward" | "inverse",
+): Promise<Uint8Array> {
+  const transform = direction === "forward" ? field.fft.bind(field) : field.ifft.bind(field);
+  const segmentByteLength = segmentSize * field.n8;
+  const segmentCount = buffer.byteLength / segmentByteLength;
+  const output = new Uint8Array(buffer.byteLength);
+
+  for (let segmentIndex = 0; segmentIndex < segmentCount; segmentIndex += 1) {
+    const segmentStart = segmentIndex * segmentByteLength;
+    output.set(await transform(buffer.slice(segmentStart, segmentStart + segmentByteLength)), segmentStart);
+  }
+
+  return output;
+}
+
+async function transformSmallSegmentsWithWorkerTasks(
+  field: FfFieldWithWorkerTasks,
+  buffer: Uint8Array,
+  segmentSize: number,
+  segmentBits: number,
+  direction: "forward" | "inverse",
+): Promise<Uint8Array> {
+  const segmentByteLength = segmentSize * field.n8;
+  const segmentCount = buffer.byteLength / segmentByteLength;
+  const output = new Uint8Array(buffer.byteLength);
+  const taskCount = Math.min(Math.max(1, field.tm.concurrency), segmentCount);
+  const segmentsPerTask = Math.ceil(segmentCount / taskCount);
+  const reversed = bitReverseSegments(buffer, segmentSize, field.n8);
+  const promises: Promise<Uint8Array[]>[] = [];
+  const taskStarts: number[] = [];
+
+  for (let taskIndex = 0; taskIndex < taskCount; taskIndex += 1) {
+    const startSegment = taskIndex * segmentsPerTask;
+    const endSegment = Math.min(segmentCount, startSegment + segmentsPerTask);
+    if (startSegment >= endSegment) {
+      continue;
+    }
+
+    taskStarts.push(startSegment);
+    promises.push(
+      field.tm.queueAction(
+        buildBatchFftTask(field, reversed, segmentByteLength, startSegment, endSegment, segmentSize, segmentBits, direction),
+      ),
+    );
+  }
+
+  const results = await Promise.all(promises);
+  for (let taskIndex = 0; taskIndex < results.length; taskIndex += 1) {
+    const startSegment = taskStarts[taskIndex];
+    const taskResult = results[taskIndex];
+    for (let localIndex = 0; localIndex < taskResult.length; localIndex += 1) {
+      const segmentOutput =
+        direction === "inverse" ? rotateInverseFftSegment(taskResult[localIndex], field.n8) : taskResult[localIndex];
+      output.set(segmentOutput, (startSegment + localIndex) * segmentByteLength);
+    }
+  }
+
+  return output;
+}
+
+function buildBatchFftTask(
+  field: FfFieldWithWorkerTasks,
+  reversed: Uint8Array,
+  segmentByteLength: number,
+  startSegment: number,
+  endSegment: number,
+  segmentSize: number,
+  segmentBits: number,
+  direction: "forward" | "inverse",
+): FfWorkerCommand[] {
+  const task: FfWorkerCommand[] = [];
+  const inverseFactorVar = 0;
+  const firstSegmentVar = direction === "inverse" ? 1 : 0;
+
+  if (direction === "inverse") {
+    task.push({
+      cmd: "ALLOCSET",
+      var: inverseFactorVar,
+      buff: field.inv(field.e(segmentSize)),
+    });
+  }
+
+  for (let segmentIndex = startSegment; segmentIndex < endSegment; segmentIndex += 1) {
+    const localIndex = segmentIndex - startSegment;
+    const variable = firstSegmentVar + localIndex;
+    const segmentStart = segmentIndex * segmentByteLength;
+    task.push({
+      cmd: "ALLOCSET",
+      var: variable,
+      buff: reversed.slice(segmentStart, segmentStart + segmentByteLength),
+    });
+
+    for (let mixBits = 1; mixBits <= segmentBits; mixBits += 1) {
+      task.push({
+        cmd: "CALL",
+        fnName: `${field.prefix}_fftMix`,
+        params: [{ var: variable }, { val: segmentSize }, { val: mixBits }],
+      });
+    }
+
+    if (direction === "inverse") {
+      task.push({
+        cmd: "CALL",
+        fnName: `${field.prefix}_fftFinal`,
+        params: [{ var: variable }, { val: segmentSize }, { var: inverseFactorVar }],
+      });
+    }
+
+    task.push({
+      cmd: "GET",
+      out: localIndex,
+      var: variable,
+      len: segmentByteLength,
+    });
+  }
+
+  return task;
+}
+
+function bitReverseSegments(buffer: Uint8Array, segmentSize: number, elementByteLength: number): Uint8Array {
+  const segmentByteLength = segmentSize * elementByteLength;
+  const segmentCount = buffer.byteLength / segmentByteLength;
+  const bits = checkedPowerOfTwoLog(segmentSize);
+  const output = new Uint8Array(buffer.byteLength);
+
+  for (let segmentIndex = 0; segmentIndex < segmentCount; segmentIndex += 1) {
+    const segmentStart = segmentIndex * segmentByteLength;
+    for (let index = 0; index < segmentSize; index += 1) {
+      const reversedIndex = reverseBits(index, bits);
+      output.set(
+        buffer.subarray(segmentStart + index * elementByteLength, segmentStart + (index + 1) * elementByteLength),
+        segmentStart + reversedIndex * elementByteLength,
+      );
+    }
+  }
+
+  return output;
+}
+
+function reverseBits(value: number, bits: number): number {
+  let output = 0;
+  for (let index = 0; index < bits; index += 1) {
+    output = (output << 1) | (value & 1);
+    value >>= 1;
+  }
+  return output;
+}
+
+function rotateInverseFftSegment(segment: Uint8Array, elementByteLength: number): Uint8Array {
+  const elementCount = segment.byteLength / elementByteLength;
+  const output = new Uint8Array(segment.byteLength);
+  output.set(segment.subarray((elementCount - 1) * elementByteLength), 0);
+  output.set(segment.subarray(0, (elementCount - 1) * elementByteLength), elementByteLength);
+  return output;
 }
 
 function assertFieldBuffer(buffer: Uint8Array, byteLength: number): void {

@@ -63,11 +63,11 @@ The runner enforces:
 - `classified operation time <= total wall time + tolerance`.
 - `unclassified prover time >= -tolerance`.
 
-## Diagnostics-Only Batched 2D NTT Segment Scheduler
+## Accepted Production Batched 2D NTT Segment Scheduler
 
 Related commit: this commit.
 
-This record covers a benchmark-only 2D NTT candidate. Production `biNttBuffer()` remains unchanged. The current production path calls ffjavascript's public `Fr.fft()` / `Fr.ifft()` once per row and once per column, which makes prover-size grids submit thousands of small FFT calls. The diagnostics-only candidate keeps each row or column as an independent polynomial and only batches them at the ffjavascript worker-task boundary.
+Production `biNttBuffer()` now batches independent same-size row and column transforms at the ffjavascript worker-task boundary. The previous production path called ffjavascript's public `Fr.fft()` / `Fr.ifft()` once per row and once per column, which made prover-size grids submit thousands of small FFT calls.
 
 Correctness boundary:
 
@@ -82,9 +82,9 @@ Benchmark command:
 npm run bench:2d-ntt -- --shapes=1024x256,4096x256 --modes=single,parallel --directions=forward,inverse --iterations=1 --warmup=0 --json=tmp/timing/2d-ntt-segment-scheduler.json
 ```
 
-The benchmark parity-checks the batched candidate against production `biNttBuffer()` before timing. Record timing tables here after benchmark runs. No production promotion is implied by this diagnostics record.
+The benchmark parity-checks the batched candidate against production `biNttBuffer()` before timing.
 
-Initial local result:
+Pre-promotion benchmark result:
 
 | mode | direction | candidate | shape | ms/op |
 | --- | --- | --- | ---: | ---: |
@@ -105,18 +105,61 @@ Initial local result:
 | parallel | inverse | current-biNttBuffer | 4096x256 | 2835.549 |
 | parallel | inverse | batched-segment-biNttBuffer | 4096x256 | 411.732 |
 
+Post-promotion benchmark result:
+
+| mode | direction | candidate | shape | ms/op |
+| --- | --- | --- | ---: | ---: |
+| single | forward | legacy-sequential-biNttBuffer | 1024x256 | 458.463 |
+| single | forward | production-biNttBuffer | 1024x256 | 455.499 |
+| single | inverse | legacy-sequential-biNttBuffer | 1024x256 | 525.494 |
+| single | inverse | production-biNttBuffer | 1024x256 | 480.133 |
+| single | forward | legacy-sequential-biNttBuffer | 4096x256 | 2066.471 |
+| single | forward | production-biNttBuffer | 4096x256 | 1971.661 |
+| single | inverse | legacy-sequential-biNttBuffer | 4096x256 | 2231.297 |
+| single | inverse | production-biNttBuffer | 4096x256 | 2110.126 |
+| parallel | forward | legacy-sequential-biNttBuffer | 1024x256 | 701.210 |
+| parallel | forward | production-biNttBuffer | 1024x256 | 91.218 |
+| parallel | inverse | legacy-sequential-biNttBuffer | 1024x256 | 711.655 |
+| parallel | inverse | production-biNttBuffer | 1024x256 | 94.094 |
+| parallel | forward | legacy-sequential-biNttBuffer | 4096x256 | 2433.564 |
+| parallel | forward | production-biNttBuffer | 4096x256 | 378.400 |
+| parallel | inverse | legacy-sequential-biNttBuffer | 4096x256 | 2457.709 |
+| parallel | inverse | production-biNttBuffer | 4096x256 | 421.063 |
+
+Full prover timing comparison:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_without_multiplication` | 60.37 s | 59.16 s | -1.21 s |
+| `polynomial.combination_with_multiplication` | 132.87 s | 68.26 s | -64.61 s |
+| `polynomial.div_ruffini` | 11.19 s | 10.09 s | -1.10 s |
+| `polynomial.div_vanishing` | 5.67 s | 6.00 s | +0.33 s |
+| `polynomial.encode` | 117.67 s | 117.48 s | -0.19 s |
+| `binding.encode` | 1.91 s | 1.99 s | +0.08 s |
+| `field.operations` | 210.11 s | 143.50 s | -66.61 s |
+| `encode` | 119.58 s | 119.47 s | -0.11 s |
+| `init` | 15.80 s | 4.79 s | -11.01 s |
+| `stage.unclassified` | 24.13 s | 18.65 s | -5.48 s |
+| prover stage total | 351.91 s | 279.63 s | -72.28 s |
+| total wall | 370.68 s | 287.48 s | -83.20 s |
+
 Interpretation:
 
-- The current production row/column path is not structured to benefit from ffjavascript primitive parallelism for these 2D shapes.
-- The diagnostics-only batched segment candidate shows a large primitive-parallel timing advantage while passing byte parity against production `biNttBuffer()`.
-- This result is not a production change. A future production promotion must be explicitly approved and then verified with full prover diagnostics.
+- The main confirmed improvement is in `polynomial.combination_with_multiplication`, down 64.61 s.
+- The optimization targets bivariate NTT/ROU scheduling, so commitment encoding is effectively unchanged.
+- `init` also drops because witness/state construction uses `fromRouEvals(...)` and therefore uses the production batched 2D NTT path.
 
 Verification:
 
 ```bash
 npm run typecheck
 npm run typecheck:scripts
-npm run bench:2d-ntt -- --shapes=1024x256,4096x256 --modes=single,parallel --directions=forward,inverse --iterations=1 --warmup=0 --json=tmp/timing/2d-ntt-segment-scheduler.json
+npm run polynomial:buffer:check
+npm run prover:ops:polynomial
+npm run prover:ops:check
+npm run bench:2d-ntt -- --shapes=1024x256,4096x256 --modes=single,parallel --directions=forward,inverse --iterations=1 --warmup=0 --json=tmp/timing/2d-ntt-segment-scheduler-after-production.json
+npm run prover:testing-mode:check
+npm run prover:stage-timing:check
 ```
 
 ## Active Linear Accumulation Comparison

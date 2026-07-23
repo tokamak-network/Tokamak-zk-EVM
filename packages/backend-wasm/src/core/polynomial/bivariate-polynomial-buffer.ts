@@ -744,29 +744,37 @@ export async function biNttBuffer(
     throw new Error("NTT input count does not match the bivariate shape.");
   }
 
-  const transform = direction === "forward" ? field.fftBuffer.bind(field) : field.ifftBuffer.bind(field);
-
   if (xSize === 1 || ySize === 1) {
-    return await transform(values);
+    return await field.batchFftBuffer(values, xSize * ySize, direction);
   }
 
-  const yTransformed = field.createZeroBuffer(xSize * ySize);
-  for (let x = 0; x < xSize; x += 1) {
-    const rowStart = x * ySize * field.byteLength;
-    const row = values.slice(rowStart, rowStart + ySize * field.byteLength);
-    yTransformed.set(await transform(row), rowStart);
+  const yTransformed = await field.batchFftBuffer(values, ySize, direction);
+  const transposed = transposeRowMajorFieldBuffer(field, yTransformed, xSize, ySize);
+  const xTransformedTransposed = await field.batchFftBuffer(transposed, xSize, direction);
+  return transposeRowMajorFieldBuffer(field, xTransformedTransposed, ySize, xSize);
+}
+
+function transposeRowMajorFieldBuffer(
+  field: FieldRuntime,
+  values: Uint8Array,
+  rowCount: number,
+  columnCount: number,
+): Uint8Array {
+  if (field.bufferElementCount(values) !== rowCount * columnCount) {
+    throw new Error("Cannot transpose a field buffer whose length does not match its shape.");
   }
 
-  const output = field.createZeroBuffer(xSize * ySize);
-  for (let y = 0; y < ySize; y += 1) {
-    const column = field.createZeroBuffer(xSize);
-    for (let x = 0; x < xSize; x += 1) {
-      field.writeBufferElement(column, x, field.readBufferElement(yTransformed, x * ySize + y));
-    }
-
-    const columnTransformed = await transform(column);
-    for (let x = 0; x < xSize; x += 1) {
-      field.writeBufferElement(output, x * ySize + y, field.readBufferElement(columnTransformed, x));
+  const output = new Uint8Array(values.byteLength);
+  const elementByteLength = field.byteLength;
+  for (let row = 0; row < rowCount; row += 1) {
+    for (let column = 0; column < columnCount; column += 1) {
+      output.set(
+        values.subarray(
+          (row * columnCount + column) * elementByteLength,
+          (row * columnCount + column + 1) * elementByteLength,
+        ),
+        (column * rowCount + row) * elementByteLength,
+      );
     }
   }
 

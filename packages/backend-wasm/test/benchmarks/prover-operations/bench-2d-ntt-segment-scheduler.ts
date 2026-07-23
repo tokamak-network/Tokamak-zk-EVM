@@ -103,7 +103,12 @@ async function main(): Promise<void> {
         for (const direction of options.directions) {
           await assertCandidateParity(raw.Fr as FfFieldWithWorkerTasks, field, values, shape, direction);
           records.push(
-            await benchmarkCandidate(options, mode, direction, "current-biNttBuffer", shape, () =>
+            await benchmarkCandidate(options, mode, direction, "legacy-sequential-biNttBuffer", shape, () =>
+              legacyBiNttBuffer(field, values, shape.xSize, shape.ySize, direction),
+            ),
+          );
+          records.push(
+            await benchmarkCandidate(options, mode, direction, "production-biNttBuffer", shape, () =>
               biNttBuffer(field, values, shape.xSize, shape.ySize, direction),
             ),
           );
@@ -131,7 +136,11 @@ async function assertCandidateParity(
   direction: NttDirection,
 ): Promise<void> {
   const expected = await biNttBuffer(field, values, shape.xSize, shape.ySize, direction);
+  const legacy = await legacyBiNttBuffer(field, values, shape.xSize, shape.ySize, direction);
   const actual = await biNttBufferViaBatchedSegments(rawField, field, values, shape.xSize, shape.ySize, direction);
+  if (!buffersEqual(expected, legacy)) {
+    throw new Error(`Legacy 2D NTT mismatch for ${shape.xSize}x${shape.ySize} ${direction}.`);
+  }
   if (!buffersEqual(expected, actual)) {
     throw new Error(`Batched 2D NTT mismatch for ${shape.xSize}x${shape.ySize} ${direction}.`);
   }
@@ -163,6 +172,46 @@ async function benchmarkCandidate(
     ms: elapsed / options.iterations,
     notes: "parity-checked against production biNttBuffer before measurement",
   };
+}
+
+async function legacyBiNttBuffer(
+  field: FieldRuntime,
+  values: Uint8Array,
+  xSize: number,
+  ySize: number,
+  direction: NttDirection,
+): Promise<Uint8Array> {
+  validateShape(xSize, ySize);
+  if (field.bufferElementCount(values) !== xSize * ySize) {
+    throw new Error("NTT input count does not match the bivariate shape.");
+  }
+
+  const transform = direction === "forward" ? field.fftBuffer.bind(field) : field.ifftBuffer.bind(field);
+  if (xSize === 1 || ySize === 1) {
+    return await transform(values);
+  }
+
+  const yTransformed = field.createZeroBuffer(xSize * ySize);
+  for (let x = 0; x < xSize; x += 1) {
+    const rowStart = x * ySize * field.byteLength;
+    const row = values.slice(rowStart, rowStart + ySize * field.byteLength);
+    yTransformed.set(await transform(row), rowStart);
+  }
+
+  const output = field.createZeroBuffer(xSize * ySize);
+  for (let y = 0; y < ySize; y += 1) {
+    const column = field.createZeroBuffer(xSize);
+    for (let x = 0; x < xSize; x += 1) {
+      field.writeBufferElement(column, x, field.readBufferElement(yTransformed, x * ySize + y));
+    }
+
+    const columnTransformed = await transform(column);
+    for (let x = 0; x < xSize; x += 1) {
+      field.writeBufferElement(output, x * ySize + y, field.readBufferElement(columnTransformed, x));
+    }
+  }
+
+  return output;
 }
 
 async function biNttBufferViaBatchedSegments(
