@@ -150,6 +150,62 @@ Measured full prover check after the cache:
 
 Historical `prove*` names in the table are diagnostic labels only.
 
+## Diagnostics-Only Batched 2D NTT Segment Scheduler
+
+`bench:2d-ntt` tests a diagnostics-only batched segment scheduler for independent same-size row and column transforms. Production `biNttBuffer()` is unchanged by this benchmark. The production implementation currently calls ffjavascript once per row and once per column. For prover-size grids such as `4096x256`, that produces thousands of small public `Fr.fft()` / `Fr.ifft()` calls and may not give ffjavascript's worker-parallel primitive scheduler enough work per call.
+
+The benchmark candidate keeps the 2D NTT algebra unchanged:
+
+- each row and column remains an independent 1D transform;
+- independent rows or columns are never concatenated into one large 1D FFT;
+- column transforms are made contiguous through an explicit transpose, then transposed back to row-major `(x, y)` layout;
+- inverse normalization and output rotation match ffjavascript's public `Fr.ifft()` behavior.
+
+Command:
+
+```bash
+npm run bench:2d-ntt -- --shapes=1024x256,4096x256 --modes=single,parallel --directions=forward,inverse --iterations=1 --warmup=0 --json=tmp/timing/2d-ntt-segment-scheduler.json
+```
+
+The script parity-checks every candidate against production `biNttBuffer()` before timing. Results should be recorded here after each run. A production promotion decision still requires a separate owner approval and full prover diagnostics.
+
+Initial local result:
+
+| mode | direction | candidate | shape | ms/op |
+| --- | --- | --- | ---: | ---: |
+| single | forward | current-biNttBuffer | 1024x256 | 468.413 |
+| single | forward | batched-segment-biNttBuffer | 1024x256 | 443.903 |
+| single | inverse | current-biNttBuffer | 1024x256 | 505.052 |
+| single | inverse | batched-segment-biNttBuffer | 1024x256 | 479.064 |
+| single | forward | current-biNttBuffer | 4096x256 | 2081.253 |
+| single | forward | batched-segment-biNttBuffer | 4096x256 | 1961.657 |
+| single | inverse | current-biNttBuffer | 4096x256 | 2254.328 |
+| single | inverse | batched-segment-biNttBuffer | 4096x256 | 2100.196 |
+| parallel | forward | current-biNttBuffer | 1024x256 | 750.972 |
+| parallel | forward | batched-segment-biNttBuffer | 1024x256 | 94.062 |
+| parallel | inverse | current-biNttBuffer | 1024x256 | 753.399 |
+| parallel | inverse | batched-segment-biNttBuffer | 1024x256 | 102.221 |
+| parallel | forward | current-biNttBuffer | 4096x256 | 2415.140 |
+| parallel | forward | batched-segment-biNttBuffer | 4096x256 | 362.200 |
+| parallel | inverse | current-biNttBuffer | 4096x256 | 2835.549 |
+| parallel | inverse | batched-segment-biNttBuffer | 4096x256 | 411.732 |
+
+Interpretation:
+
+- The current production row/column path is slower with ffjavascript primitive parallelism for these 2D shapes because it submits many small public FFT calls.
+- The diagnostics-only batched segment candidate preserves per-row/per-column FFT semantics while grouping worker tasks, and it is substantially faster in primitive-parallel mode.
+- This is benchmark evidence only. Production code still requires an explicit promotion decision and full prover diagnostics.
+
+Verification:
+
+```bash
+npm run typecheck
+npm run typecheck:scripts
+npm run bench:2d-ntt -- --shapes=1024x256,4096x256 --modes=single,parallel --directions=forward,inverse --iterations=1 --warmup=0 --json=tmp/timing/2d-ntt-segment-scheduler.json
+```
+
+This benchmark supersedes neither the rejected transpose-scheduled production trial nor the rule that algebraic expression rewrites require their own benchmark and diagnostics.
+
 ## Candidate 1: Same-Shape Flat Linear Kernels
 
 The first linear-operation candidate keeps the same arithmetic semantics as the current polynomial buffer implementation and changes only the coefficient access pattern for same-shape inputs. It uses flat byte offsets over raw coefficient buffers and avoids per-coefficient `getCoeff()` / `readBufferElement()` allocation paths where that is safe.

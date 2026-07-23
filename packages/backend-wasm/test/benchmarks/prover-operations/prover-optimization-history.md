@@ -63,6 +63,62 @@ The runner enforces:
 - `classified operation time <= total wall time + tolerance`.
 - `unclassified prover time >= -tolerance`.
 
+## Diagnostics-Only Batched 2D NTT Segment Scheduler
+
+Related commit: this commit.
+
+This record covers a benchmark-only 2D NTT candidate. Production `biNttBuffer()` remains unchanged. The current production path calls ffjavascript's public `Fr.fft()` / `Fr.ifft()` once per row and once per column, which makes prover-size grids submit thousands of small FFT calls. The diagnostics-only candidate keeps each row or column as an independent polynomial and only batches them at the ffjavascript worker-task boundary.
+
+Correctness boundary:
+
+- independent rows or columns are not concatenated into one large 1D FFT;
+- the row-major `(x, y)` layout is preserved by transposing before and after the column pass;
+- inverse normalization and output rotation match ffjavascript's public `Fr.ifft()` behavior;
+- segment sizes that exceed ffjavascript's direct mix path continue to use the public 1D FFT algorithm per segment.
+
+Benchmark command:
+
+```bash
+npm run bench:2d-ntt -- --shapes=1024x256,4096x256 --modes=single,parallel --directions=forward,inverse --iterations=1 --warmup=0 --json=tmp/timing/2d-ntt-segment-scheduler.json
+```
+
+The benchmark parity-checks the batched candidate against production `biNttBuffer()` before timing. Record timing tables here after benchmark runs. No production promotion is implied by this diagnostics record.
+
+Initial local result:
+
+| mode | direction | candidate | shape | ms/op |
+| --- | --- | --- | ---: | ---: |
+| single | forward | current-biNttBuffer | 1024x256 | 468.413 |
+| single | forward | batched-segment-biNttBuffer | 1024x256 | 443.903 |
+| single | inverse | current-biNttBuffer | 1024x256 | 505.052 |
+| single | inverse | batched-segment-biNttBuffer | 1024x256 | 479.064 |
+| single | forward | current-biNttBuffer | 4096x256 | 2081.253 |
+| single | forward | batched-segment-biNttBuffer | 4096x256 | 1961.657 |
+| single | inverse | current-biNttBuffer | 4096x256 | 2254.328 |
+| single | inverse | batched-segment-biNttBuffer | 4096x256 | 2100.196 |
+| parallel | forward | current-biNttBuffer | 1024x256 | 750.972 |
+| parallel | forward | batched-segment-biNttBuffer | 1024x256 | 94.062 |
+| parallel | inverse | current-biNttBuffer | 1024x256 | 753.399 |
+| parallel | inverse | batched-segment-biNttBuffer | 1024x256 | 102.221 |
+| parallel | forward | current-biNttBuffer | 4096x256 | 2415.140 |
+| parallel | forward | batched-segment-biNttBuffer | 4096x256 | 362.200 |
+| parallel | inverse | current-biNttBuffer | 4096x256 | 2835.549 |
+| parallel | inverse | batched-segment-biNttBuffer | 4096x256 | 411.732 |
+
+Interpretation:
+
+- The current production row/column path is not structured to benefit from ffjavascript primitive parallelism for these 2D shapes.
+- The diagnostics-only batched segment candidate shows a large primitive-parallel timing advantage while passing byte parity against production `biNttBuffer()`.
+- This result is not a production change. A future production promotion must be explicitly approved and then verified with full prover diagnostics.
+
+Verification:
+
+```bash
+npm run typecheck
+npm run typecheck:scripts
+npm run bench:2d-ntt -- --shapes=1024x256,4096x256 --modes=single,parallel --directions=forward,inverse --iterations=1 --warmup=0 --json=tmp/timing/2d-ntt-segment-scheduler.json
+```
+
 ## Active Linear Accumulation Comparison
 
 This is the active before/after comparison. Both runs use the same production-like timing taxonomy.
