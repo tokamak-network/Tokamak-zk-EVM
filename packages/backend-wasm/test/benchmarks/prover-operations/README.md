@@ -191,6 +191,60 @@ Integrated stage timing:
 
 Chromium generated the 2408-byte proof in `233.30 s` and verified it in `24 ms`. Type checks, operation parity, native testing-mode-style diagnostics, Node proof generation and verification, stage timing, build, browser verification, and package-content inspection pass.
 
+## Lagrange KL Multiplication Benchmark
+
+`bench-lagrange-kl-multiplication.ts` isolates both construction of
+`K_{mI-1}(X)L_{sMax-1}(Y)` and the single prover product that multiplies this
+structured polynomial by `r(X,Y)-1`.
+
+The construction candidate uses the exact separable coefficient formula:
+
+```text
+K(X)L(Y)[x,y] = (mI * sMax)^-1 * omega_mI^x * omega_sMax^y
+```
+
+The multiplication candidate applies weighted sliding recurrences along X and
+then Y. It avoids materializing the KL polynomial and avoids generic forward
+and inverse 2D transforms. The benchmark keeps KL construction and KL
+multiplication as independent rows, checks them against retained legacy
+formulas, and uses a small dense-convolution oracle.
+
+Representative independent result at `mI=4096`, `sMax=256`, and polynomial
+shape `4096x256`:
+
+| operation | legacy median | candidate median | reduction |
+| --- | ---: | ---: | ---: |
+| KL construction | 940.573 ms | 195.987 ms | 79.2% |
+| KL multiplication | 5454.478 ms | 2368.567 ms | 56.6% |
+| independent combined path | 6409.385 ms | 2564.554 ms | 60.0% |
+
+The selected recurrence uses approximately `192 MiB` of explicitly owned
+temporary data at the representative shape, compared with approximately
+`384 MiB` for the retained generic path.
+
+Related production commit: `5f8723bd` (`Optimize Lagrange KL multiplication`).
+
+Production now constructs KL coefficients directly and uses the semantic
+`multiplyByLagrangeKl(...)` helper only at the measured `p1` call site. The
+post-promotion benchmark measured `6376.665 ms` for the retained legacy
+construction plus multiplication and `2578.966 ms` for current production, a
+`59.6%` reduction.
+
+Integrated stage timing:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| KL construction plus `p1` multiplication | 7.304 s | 2.820 s | -4.484 s |
+| `polynomial.combination_with_multiplication` | 42.79 s | 37.96 s | -4.83 s |
+| `field.operations` | 118.62 s | 113.15 s | -5.47 s |
+| prover stage total | 234.00 s | 228.26 s | -5.74 s |
+| total wall | 241.90 s | 236.86 s | -5.04 s |
+
+Chromium generated the 2408-byte proof in `229.72 s` and verified it in
+`20 ms`. Type checks, operation parity, native testing-mode-style diagnostics,
+Node proof generation and verification, stage timing, build, browser
+verification, and package-content inspection pass.
+
 ## Dedicated Ruffini Benchmark
 
 `bench-ruffini-division.ts` isolates the bivariate Ruffini opening path. It is the benchmark-first gate for changes to the production synthetic-division implementation.

@@ -746,6 +746,79 @@ Verification:
 - `npm run prover:browser:check` passed.
 - `npm pack --dry-run --json` passed with 249 files and no test, script, temporary, benchmark, or diagnostics paths.
 
+## Lagrange KL Multiplication Optimization
+
+Production commit: `5f8723bd` (`Optimize Lagrange KL multiplication`).
+
+Candidate selection:
+
+- Direct KL construction uses the exact separable geometric coefficient
+  formula instead of two inverse transforms.
+- KL multiplication uses weighted X/Y sliding recurrences instead of generic
+  2D polynomial multiplication.
+- Construction and multiplication were benchmarked independently before
+  promotion. Both pass exact byte parity and an independent small-shape dense
+  convolution oracle.
+- At `mI=4096`, `sMax=256`, and polynomial shape `4096x256`, construction
+  decreased from `940.573 ms` to `195.987 ms` (`79.2%`), multiplication
+  decreased from `5454.478 ms` to `2368.567 ms` (`56.6%`), and the independent
+  combined path decreased from `6409.385 ms` to `2564.554 ms` (`60.0%`).
+- The selected multiplication path reduces explicit temporary storage from
+  approximately `384 MiB` to approximately `192 MiB` at the representative
+  shape.
+
+Production change:
+
+- `buildLagrangeKl(...)` now writes the separable geometric coefficients
+  directly.
+- Added `multiplyByLagrangeKl(...)`, whose API requires the known `mI` and
+  `sMax` semantics.
+- Replaced only the measured `p1` generic product in copy-quotient
+  construction.
+- Retained generic polynomial multiplication unchanged.
+- The post-promotion benchmark measured `6376.665 ms` for the legacy combined
+  path and `2578.966 ms` for current production (`59.6%`).
+
+Standalone stage-timing comparison:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| KL construction plus `p1` multiplication | 7.304 s | 2.820 s | -4.484 s |
+| `polynomial.combination_without_multiplication` | 53.64 s | 53.39 s | -0.25 s |
+| `polynomial.combination_with_multiplication` | 42.79 s | 37.96 s | -4.83 s |
+| `polynomial.recursion` | 2.29 s | 1.92 s | -0.37 s |
+| `polynomial.evaluation` | 5.33 s | 5.41 s | +0.08 s |
+| `polynomial.div_ruffini` | 8.83 s | 8.81 s | -0.02 s |
+| `polynomial.div_vanishing` | 5.72 s | 5.66 s | -0.06 s |
+| `polynomial.encode` | 115.37 s | 115.11 s | -0.26 s |
+| `binding.encode` | 2.03 s | 1.96 s | -0.07 s |
+| `field.operations` | 118.62 s | 113.15 s | -5.47 s |
+| encode | 117.40 s | 117.07 s | -0.33 s |
+| prover stage total | 234.00 s | 228.26 s | -5.74 s |
+| total wall | 241.90 s | 236.86 s | -5.04 s |
+
+Interpretation:
+
+- The two targeted events decreased by `4.484 s` (`61.4%`), consistent with
+  the independent and post-promotion benchmarks.
+- The complete multiplication category decreased by `4.83 s`.
+- Total wall time decreased by `5.04 s` (`2.1%`).
+- Chromium proof generation completed in `229.72 s`, and verification
+  completed in `20 ms`.
+
+Verification:
+
+- `npm run typecheck` passed.
+- `npm run typecheck:scripts` passed.
+- `npm run prover:ops:check` passed.
+- `npm run prover:testing-mode:check` passed.
+- `npm run prover:check` passed and verified the generated proof.
+- `npm run prover:stage-timing:check` passed and produced the timing table above.
+- `npm run build` passed.
+- `npm run prover:browser:check` passed.
+- `npm pack --dry-run --json` passed with 249 files and no test, script,
+  temporary, benchmark, or diagnostics paths.
+
 ## Superseded Old-Taxonomy Comparison
 
 The old comparison below is preserved only as historical context. It must not be used as the active timing table because it used add/sub/mul/scale rows that are no longer part of the accepted taxonomy.
