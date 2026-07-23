@@ -27,6 +27,39 @@ Useful options:
 - `--seed=0x544f4b414d414b`: deterministic pseudo-random seed.
 - `--multi-thread`: use the runtime's multi-thread mode instead of single-thread mode.
 
+## Primitive MSM Parallelism Check
+
+Audience: backend-wasm developers verifying that ffjavascript primitive-level MSM parallelism is active and consistent with prover commitment timing.
+
+`bench:msm:primitive` calls the ffjavascript primitive `G1.multiExpAffine(...)` directly in both curve modes:
+
+- single-thread mode: `getCurveFromName("bls12381", true)`.
+- multi-thread mode: `getCurveFromName("bls12381", false)`.
+
+The benchmark builds deterministic affine G1 bases and raw little-endian scalar buffers, runs one MSM per mode, and asserts that the two outputs are equal before reporting timing.
+
+Command:
+
+```bash
+npm run bench:msm:primitive -- --length=1048576 --iterations=1 --warmup=0 --json=tmp/timing/primitive-msm-2pow20.json
+```
+
+Environment: local Node.js run, direct ffjavascript primitive API.
+
+| mode | length | base generation ms | scalar generation ms | multiExpAffine ms/op |
+| :--- | ---: | ---: | ---: | ---: |
+| single-thread | 1048576 | 25338.854 | 1298.138 | 30641.016 |
+| multi-thread | 1048576 | 25989.511 | 1374.119 | 4890.646 |
+
+Result: multi-thread primitive MSM was `6.27x` faster than single-thread primitive MSM at length `2^20`, and the output equality check passed.
+
+Production encode consistency check:
+
+- The current prover dense Sigma1 commitment path chunks dense MSM input at `262144` points.
+- The direct primitive benchmark at that production chunk size measured single-thread `8830.436 ms/op`, multi-thread `1243.881 ms/op`, and `7.10x` speedup.
+- The latest prover timing table reports `polynomial.encode = 117.479 s`, `binding.encode = 1.992 s`, and total `encode = 119.471 s` across 19 encode events.
+- This is consistent with production encode using ffjavascript primitive-level parallel MSM: a single-thread encode path would be expected to be several times slower for MSM-dominated commitment events. The total encode time is not expected to equal one `2^20` MSM because production encode consists of many commitment events, dense `2^18` chunks, sparse commitments, scalar conversion, CRS slicing, and G1 partial-result accumulation.
+
 ## Latest Single-Thread Result
 
 Command:
