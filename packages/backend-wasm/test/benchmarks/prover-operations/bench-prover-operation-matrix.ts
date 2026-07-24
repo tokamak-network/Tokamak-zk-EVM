@@ -767,6 +767,25 @@ async function benchmarkLinearCombination(
     [testCase.scaleB, prefix],
     [testCase.scaleC, testCase.right],
   ]);
+  const elementWise = linearCombinationElementWise(field, [
+    [testCase.scaleA, testCase.left],
+    [testCase.scaleB, testCase.right],
+    [testCase.scaleC, testCase.third],
+  ]);
+  const mixedElementWise = linearCombinationElementWise(field, [
+    [testCase.scaleA, testCase.left],
+    [testCase.scaleB, prefix],
+    [testCase.scaleC, testCase.right],
+  ]);
+  const fiveTermInputs = [
+    [testCase.scaleA, testCase.left],
+    [testCase.scaleB, testCase.right],
+    [testCase.scaleC, testCase.third],
+    [one, testCase.left],
+    [minusOne, testCase.right],
+  ] as const;
+  const fiveTermCurrent = linearCombinationBuffer(field, fiveTermInputs);
+  const fiveTermElementWise = linearCombinationElementWise(field, fiveTermInputs);
   assertBytesEqual(current.coefficients, preallocated.coefficients, `linear combination mismatch at ${shape}`);
   assertBytesEqual(current.coefficients, flatLinearCombination, `flat same-shape linear combination mismatch at ${shape}`);
   assertBytesEqual(currentAdd.coefficients, flatAdd, `flat same-shape add mismatch at ${shape}`);
@@ -779,6 +798,9 @@ async function benchmarkLinearCombination(
   assertBytesEqual(currentAddScaled.coefficients, twoPassAddScaled, `two-pass non-unit addScaled mismatch at ${shape}`);
   assertBytesEqual(current.coefficients, firstTermLinearCombination, `first-term linear combination mismatch at ${shape}`);
   assertBytesEqual(mixedCurrent.coefficients, mixedShapeAware, `shape-aware mixed linear combination mismatch at ${shape}`);
+  assertBytesEqual(current.coefficients, elementWise, `element-wise linear combination mismatch at ${shape}`);
+  assertBytesEqual(mixedCurrent.coefficients, mixedElementWise, `element-wise mixed combination mismatch at ${shape}`);
+  assertBytesEqual(fiveTermCurrent.coefficients, fiveTermElementWise, `element-wise five-term combination mismatch at ${shape}`);
   checkLinearOperationCandidateParity(field, testCase);
 
   return [
@@ -941,7 +963,80 @@ async function benchmarkLinearCombination(
       ),
       notes: "Diagnostic-only shape-aware dispatch: same-shape flat kernel plus prefix row-offset kernel.",
     },
+    {
+      group: "linear-combination",
+      candidate: "candidate22c-element-wise-three-term",
+      shape,
+      ms: await measure(options, () => Promise.resolve(linearCombinationElementWise(field, [
+        [testCase.scaleA, testCase.left],
+        [testCase.scaleB, testCase.right],
+        [testCase.scaleC, testCase.third],
+      ]))),
+      notes: "Diagnostic-only coefficient-oriented three-term combination with one output write per coefficient.",
+    },
+    {
+      group: "linear-combination",
+      candidate: "candidate22c-element-wise-mixed-prefix",
+      shape,
+      ms: await measure(options, () => Promise.resolve(linearCombinationElementWise(field, [
+        [testCase.scaleA, testCase.left],
+        [testCase.scaleB, prefix],
+        [testCase.scaleC, testCase.right],
+      ]))),
+      notes: `Diagnostic-only coefficient-oriented mixed-prefix combination using prefix ${formatShape(prefixShape)}.`,
+    },
+    {
+      group: "linear-combination",
+      candidate: "current-five-term-linearCombination",
+      shape,
+      ms: await measure(options, () => Promise.resolve(linearCombinationBuffer(field, fiveTermInputs))),
+      notes: "Current term-oriented accumulator with five representative terms.",
+    },
+    {
+      group: "linear-combination",
+      candidate: "candidate22c-element-wise-five-term",
+      shape,
+      ms: await measure(options, () => Promise.resolve(linearCombinationElementWise(field, fiveTermInputs))),
+      notes: "Diagnostic-only coefficient-oriented five-term combination.",
+    },
   ];
+}
+
+function linearCombinationElementWise(
+  field: FieldRuntime,
+  terms: readonly (readonly [FieldElement, BivariatePolynomialBuffer])[],
+): Uint8Array {
+  const xSize = Math.max(...terms.map(([, polynomial]) => polynomial.xSize));
+  const ySize = Math.max(...terms.map(([, polynomial]) => polynomial.ySize));
+  const output = new Uint8Array(xSize * ySize * field.byteLength);
+  const activeTerms = terms.filter(([scalar]) => !field.isZero(scalar)).map(([scalar, polynomial]) => ({
+    scalar,
+    polynomial,
+    isOne: field.eq(scalar, field.one),
+    isMinusOne: field.eq(scalar, field.neg(field.one)),
+  }));
+
+  for (let x = 0; x < xSize; x += 1) {
+    for (let y = 0; y < ySize; y += 1) {
+      let value = field.zero;
+      for (const term of activeTerms) {
+        if (x >= term.polynomial.xSize || y >= term.polynomial.ySize) {
+          continue;
+        }
+        const offset = (x * term.polynomial.ySize + y) * field.byteLength;
+        const coefficient = term.polynomial.coefficients.subarray(offset, offset + field.byteLength);
+        if (term.isOne) {
+          value = field.add(value, coefficient);
+        } else if (term.isMinusOne) {
+          value = field.sub(value, coefficient);
+        } else {
+          value = field.add(value, field.mul(coefficient, term.scalar));
+        }
+      }
+      output.set(value, (x * ySize + y) * field.byteLength);
+    }
+  }
+  return output;
 }
 
 async function benchmarkDivision(

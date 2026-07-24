@@ -1249,3 +1249,29 @@ Production commit `ec31e7dd` applies dedicated X/Y fused helpers to the four
 copy-quotient call sites. `field.operations` decreased from `115.56 s` to
 `113.67 s`, total wall decreased from `256.76 s` to `255.25 s`, and Chromium
 proof generation completed in `241.44 s`.
+
+## N-Term Linear Combination
+
+Candidate 22C tests a coefficient-oriented kernel that traverses all active
+terms for each output coefficient and writes that coefficient once. The
+current implementation instead accumulates one term at a time. Both paths
+include scalar dispatch, allocation, arithmetic, mixed-shape bounds checks,
+and output construction.
+
+```bash
+npm run bench:prover-ops -- --groups=linear-combination --shapes=4096x256,8192x512 --iterations=1 --warmup=0 --json=tmp/timing/nterm-linear-combination-representative.json
+```
+
+| workload | shape | current | coefficient-oriented | candidate change |
+| --- | ---: | ---: | ---: | ---: |
+| three full-shape terms | `4096x256` | 1041.922 ms | 1117.061 ms | +7.2% |
+| two full-shape terms plus prefix | `4096x256` | 744.508 ms | 991.750 ms | +33.2% |
+| five full-shape terms | `4096x256` | 1425.707 ms | 1470.801 ms | +3.2% |
+| three full-shape terms | `8192x512` | 4027.813 ms | 4357.717 ms | +8.2% |
+| two full-shape terms plus prefix | `8192x512` | 2865.006 ms | 3254.124 ms | +13.6% |
+| five full-shape terms | `8192x512` | 5552.795 ms | 5662.926 ms | +2.0% |
+
+All candidate outputs passed exact byte parity. The candidate is rejected:
+reduced accumulator writes do not offset the per-coefficient term loop,
+mixed-shape bounds checks, and scalar dispatch. Production remains on the
+term-oriented accumulator.
