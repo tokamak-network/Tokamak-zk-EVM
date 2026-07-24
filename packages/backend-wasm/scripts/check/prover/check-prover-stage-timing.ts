@@ -325,12 +325,17 @@ async function polynomialMulLagrangeKl(
   );
 }
 
-function polynomialMulSpecial(
+async function polynomialMulSpecial(
   label: string,
-  callback: () => BivariatePolynomialBuffer,
+  callback: () => BivariatePolynomialBuffer | Promise<BivariatePolynomialBuffer>,
   sizes: readonly SizeInfo[] = [],
-): BivariatePolynomialBuffer {
-  return polynomialOperationSync("polynomial.combination_with_multiplication", label, callback, sizes);
+): Promise<BivariatePolynomialBuffer> {
+  return polynomialOperation(
+    "polynomial.combination_with_multiplication",
+    label,
+    async () => await callback(),
+    sizes,
+  );
 }
 
 async function polynomialRecursion<T>(
@@ -632,10 +637,10 @@ async function prove0Timed(
       [state.mixer.rV_Y, state.instance.tSMax],
     ],
   );
-  const wZkX = polynomialMulSpecial("prove0.W_zk.x_vanishing_mul", () =>
+  const wZkX = await polynomialMulSpecial("prove0.W_zk.x_vanishing_mul", () =>
     lowDegreeXTimesVanishingBuffer(field, state.mixer.rW_X, state.setup.n),
   );
-  const wZkY = polynomialMulSpecial("prove0.W_zk.y_vanishing_mul", () =>
+  const wZkY = await polynomialMulSpecial("prove0.W_zk.y_vanishing_mul", () =>
     lowDegreeYTimesVanishingBuffer(field, state.mixer.rW_Y, state.setup.s_max),
   );
   const wZk = await polynomialLinearCombination("prove0.W_zk", field, [
@@ -674,10 +679,10 @@ async function prove0Timed(
       [field.mul(state.mixer.rU_Y, state.mixer.rV_Y), state.instance.tSMax],
     ],
   );
-  const termBZkX = polynomialMulSpecial("prove0.term_B_zk.x_vanishing_mul", () =>
+  const termBZkX = await polynomialMulSpecial("prove0.term_B_zk.x_vanishing_mul", () =>
     lowDegreeXTimesVanishingBuffer(field, state.mixer.rB_X, state.setup.l_D - state.setup.l),
   );
-  const termBZkY = polynomialMulSpecial("prove0.term_B_zk.y_vanishing_mul", () =>
+  const termBZkY = await polynomialMulSpecial("prove0.term_B_zk.y_vanishing_mul", () =>
     lowDegreeYTimesVanishingBuffer(field, state.mixer.rB_Y, state.setup.s_max),
   );
   const termBZk = await polynomialLinearCombination("prove0.term_B_zk", field, [
@@ -821,7 +826,7 @@ async function prove2Timed(input: {
   const p1Numerator = await polynomialSub("prove2.p1.sub_one", rXY, constantPolynomialBuffer(field, field.one));
   const p1XY = await polynomialMulLagrangeKl("prove2.p1.mul_lagrange_KL", p1Numerator, mI, sMax);
   const p2Input = await polynomialSub("prove2.p2_input", rGXY, rOmegaXFXY);
-  const p2XY = polynomialMulSpecial("prove2.p2.mul_x_minus_one", () => mulByXMinusOne(p2Input), [
+  const p2XY = await polynomialMulSpecial("prove2.p2.mul_x_minus_one", () => mulByXMinusOne(p2Input), [
     shapeSize("polynomial", p2Input.xSize, p2Input.ySize),
   ]);
   const p3Input = await polynomialSub("prove2.p3.sub", rGXY, rOmegaXOmegaYFXY);
@@ -844,7 +849,7 @@ async function prove2Timed(input: {
     "prove2.Q_CX.term2.fused_inner",
     () => combineLinearXWithScaled(rD1, state.mixer.rB_X, gD, state.mixer.rR_X),
   );
-  const qCxTerm2 = polynomialMulSpecial(
+  const qCxTerm2 = await polynomialMulSpecial(
     "prove2.Q_CX.term2.mul_x_minus_one",
     () => mulByXMinusOne(qCxTerm2Sum),
     [shapeSize("polynomial", qCxTerm2Sum.xSize, qCxTerm2Sum.ySize)],
@@ -870,7 +875,7 @@ async function prove2Timed(input: {
     "prove2.Q_CY.term2.fused_inner",
     () => combineLinearYWithScaled(rD1, state.mixer.rB_Y, gD, state.mixer.rR_Y),
   );
-  const qCyTerm2 = polynomialMulSpecial(
+  const qCyTerm2 = await polynomialMulSpecial(
     "prove2.Q_CY.term2.mul_x_minus_one",
     () => mulByXMinusOne(qCyTerm2Sum),
     [shapeSize("polynomial", qCyTerm2Sum.xSize, qCyTerm2Sum.ySize)],
@@ -1214,11 +1219,11 @@ async function buildCopyOpeningsTimed(input: {
   const term10Scale = field.add(field.mul(state.mixer.rR_X, tMiEval), field.mul(state.mixer.rR_Y, tSMaxEval));
   const term10 = await polynomialBatchScale("prove4.term10", gMinusF, term10Scale, field.one);
   const lhsZk1 = await (async () => {
-    const rD1Term9 = polynomialMulSpecial("prove4.LHS_zk1.term9", () =>
+    const rD1Term9 = await polynomialMulSpecial("prove4.LHS_zk1.term9", () =>
       mulByTerm9(rD1, state.mixer.rB_X, state.mixer.rB_Y, tMiEval, tSMaxEval),
     );
     const rD1Term9PlusTerm10 = await polynomialAdd("prove4.LHS_zk1.term9_plus_term10", rD1Term9, term10);
-    const oneMinusX = polynomialMulSpecial("prove4.LHS_zk1.one_minus_x", () =>
+    const oneMinusX = await polynomialMulSpecial("prove4.LHS_zk1.one_minus_x", () =>
       mulByOneMinusX(rD1Term9PlusTerm10),
       [shapeSize("polynomial", rD1Term9PlusTerm10.xSize, rD1Term9PlusTerm10.ySize)],
     );
@@ -1229,7 +1234,7 @@ async function buildCopyOpeningsTimed(input: {
     ]);
   })();
   const lhsZk2 = await (async () => {
-    const rD2Term9 = polynomialMulSpecial("prove4.LHS_zk2.term9", () =>
+    const rD2Term9 = await polynomialMulSpecial("prove4.LHS_zk2.term9", () =>
       mulByTerm9(rD2, state.mixer.rB_X, state.mixer.rB_Y, tMiEval, tSMaxEval),
     );
     const rD2Term9PlusTerm10 = await polynomialAdd("prove4.LHS_zk2.term9_plus_term10", rD2Term9, term10);

@@ -42,7 +42,7 @@ async function checkProverPolynomialOps(field: FieldRuntime): Promise<void> {
   await checkRecursionEvals(field);
   await checkLagrangeBuilders(field);
   await checkEvaluationHelpers(field);
-  checkSpecialProducts(field);
+  await checkSpecialProducts(field);
   await checkOmegaShiftedMultiplication(field);
 }
 
@@ -225,7 +225,7 @@ async function checkEvaluationHelpers(field: FieldRuntime): Promise<void> {
   );
 }
 
-function checkSpecialProducts(field: FieldRuntime): void {
+async function checkSpecialProducts(field: FieldRuntime): Promise<void> {
   const polynomial = DensePolynomialExt.fromCoeffs(
     field,
     [3n, 5n, 7n, 11n].map((value) => field.fromBigInt(value)),
@@ -238,15 +238,15 @@ function checkSpecialProducts(field: FieldRuntime): void {
   const tMiEval = field.fromBigInt(29n);
   const tSMaxEval = field.fromBigInt(31n);
 
-  assertBufferDenseEqual(mulByXMinusOne(buffer), polynomial.mulMonomial(1, 0).sub(polynomial), "mulByXMinusOne");
-  assertBufferDenseEqual(mulByOneMinusX(buffer), polynomial.sub(polynomial.mulMonomial(1, 0)), "mulByOneMinusX");
+  assertBufferDenseEqual(await mulByXMinusOne(buffer), polynomial.mulMonomial(1, 0).sub(polynomial), "mulByXMinusOne");
+  assertBufferDenseEqual(await mulByOneMinusX(buffer), polynomial.sub(polynomial.mulMonomial(1, 0)), "mulByOneMinusX");
   assertBufferDenseEqual(
-    mulByLinearX(buffer, xCoefficients),
+    await mulByLinearX(buffer, xCoefficients),
     polynomial.scale(xCoefficients[0]).add(polynomial.mulMonomial(1, 0).scale(xCoefficients[1])),
     "mulByLinearX",
   );
   assertBufferDenseEqual(
-    mulByLinearY(buffer, yCoefficients),
+    await mulByLinearY(buffer, yCoefficients),
     polynomial.scale(yCoefficients[0]).add(polynomial.mulMonomial(0, 1).scale(yCoefficients[1])),
     "mulByLinearY",
   );
@@ -259,14 +259,17 @@ function checkSpecialProducts(field: FieldRuntime): void {
     .add(polynomial.mulMonomial(1, 0).scale(term9X))
     .add(polynomial.mulMonomial(0, 1).scale(term9Y));
   assertBufferDenseEqual(
-    mulByTerm9(buffer, xCoefficients, yCoefficients, tMiEval, tSMaxEval),
+    await mulByTerm9(buffer, xCoefficients, yCoefficients, tMiEval, tSMaxEval),
     expectedTerm9,
     "mulByTerm9",
   );
 
-  assertThrows(() => mulByLinearX(buffer, [field.one]), "mulByLinearX invalid coefficient count");
-  assertThrows(() => mulByLinearY(buffer, [field.one]), "mulByLinearY invalid coefficient count");
-  assertThrows(() => mulByTerm9(buffer, [field.one], yCoefficients, tMiEval, tSMaxEval), "mulByTerm9 invalid rB_X count");
+  await assertRejects(() => mulByLinearX(buffer, [field.one]), "mulByLinearX invalid coefficient count");
+  await assertRejects(() => mulByLinearY(buffer, [field.one]), "mulByLinearY invalid coefficient count");
+  await assertRejects(
+    () => mulByTerm9(buffer, [field.one], yCoefficients, tMiEval, tSMaxEval),
+    "mulByTerm9 invalid rB_X count",
+  );
 }
 
 async function checkOmegaShiftedMultiplication(field: FieldRuntime): Promise<void> {

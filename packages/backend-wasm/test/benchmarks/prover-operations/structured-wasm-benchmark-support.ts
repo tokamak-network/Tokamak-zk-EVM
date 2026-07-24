@@ -11,6 +11,24 @@ import {
 const K0_RECURRENCE = "tokamak_bench_k0Recurrence";
 const KL_RECURRENCE_X = "tokamak_bench_klRecurrenceX";
 const KL_RECURRENCE_Y = "tokamak_bench_klRecurrenceY";
+const SPECIAL_X_MINUS_ONE = "tokamak_bench_xMinusOne";
+const SPECIAL_ONE_MINUS_X = "tokamak_bench_oneMinusX";
+const SPECIAL_LINEAR_X = "tokamak_bench_linearX";
+const SPECIAL_LINEAR_Y = "tokamak_bench_linearY";
+const SPECIAL_TERM9 = "tokamak_bench_term9";
+
+export type SpecialOperation =
+  | "x-minus-one"
+  | "one-minus-x"
+  | "linear-x"
+  | "linear-y"
+  | "term9";
+
+export interface SpecialCoefficients {
+  readonly constant: Uint8Array;
+  readonly x: Uint8Array;
+  readonly y: Uint8Array;
+}
 
 interface RawCurve {
   readonly Fr: FfField;
@@ -159,6 +177,48 @@ export function klTemporaryBytes(
   return intermediateBytes + outputBytes + shardCopies;
 }
 
+export async function multiplySpecialWasmSingle(
+  runtime: StructuredBenchmarkRuntimes,
+  polynomial: BivariatePolynomialBuffer,
+  operation: SpecialOperation,
+  coefficients: SpecialCoefficients,
+): Promise<BivariatePolynomialBuffer> {
+  return multiplySpecial(runtime, runtime.singleField, polynomial, operation, coefficients, 1);
+}
+
+export async function multiplySpecialWasmOneWorker(
+  runtime: StructuredBenchmarkRuntimes,
+  polynomial: BivariatePolynomialBuffer,
+  operation: SpecialOperation,
+  coefficients: SpecialCoefficients,
+): Promise<BivariatePolynomialBuffer> {
+  return multiplySpecial(runtime, runtime.multiField, polynomial, operation, coefficients, 1);
+}
+
+export async function multiplySpecialWasmWorkers(
+  runtime: StructuredBenchmarkRuntimes,
+  polynomial: BivariatePolynomialBuffer,
+  operation: SpecialOperation,
+  coefficients: SpecialCoefficients,
+): Promise<BivariatePolynomialBuffer> {
+  return multiplySpecial(
+    runtime,
+    runtime.multiField,
+    polynomial,
+    operation,
+    coefficients,
+    runtime.workerCount,
+  );
+}
+
+export function specialTemporaryBytes(
+  inputBytes: number,
+  outputBytes: number,
+  taskCount: number,
+): number {
+  return outputBytes * 2 + inputBytes + (taskCount > 1 ? inputBytes : 0);
+}
+
 async function multiplyK0(
   runtime: StructuredBenchmarkRuntimes,
   rawField: FfField,
@@ -287,11 +347,87 @@ async function multiplyKl(
   );
 }
 
+async function multiplySpecial(
+  runtime: StructuredBenchmarkRuntimes,
+  rawField: FfField,
+  polynomial: BivariatePolynomialBuffer,
+  operation: SpecialOperation,
+  coefficients: SpecialCoefficients,
+  taskCount: number,
+): Promise<BivariatePolynomialBuffer> {
+  const degree = polynomial.findDegree();
+  if (degree.xDegree < 0 || degree.yDegree < 0) {
+    return BivariatePolynomialBuffer.zero(runtime.field);
+  }
+  const extendsX = operation !== "linear-y";
+  const extendsY = operation === "linear-y" || operation === "term9";
+  const activeX = degree.xDegree + 1;
+  const activeY = degree.yDegree + 1;
+  const activeOutputX = activeX + (extendsX ? 1 : 0);
+  const activeOutputY = activeY + (extendsY ? 1 : 0);
+  const outputXSize = extendsX
+    ? Math.max(polynomial.xSize, nextPowerOfTwo(activeOutputX))
+    : polynomial.xSize;
+  const outputYSize = extendsY
+    ? Math.max(polynomial.ySize, nextPowerOfTwo(activeOutputY))
+    : polynomial.ySize;
+  const ranges = splitRanges(activeOutputX, taskCount);
+  const functionName = specialFunctionName(operation);
+  const sourceRowBytes = polynomial.ySize * runtime.field.byteLength;
+  const results = await Promise.all(ranges.map(({ start, count }) => {
+    const sourceStart = Math.max(0, start - 1);
+    const sourceEnd = Math.min(activeX, start + count);
+    const source = sourceStart < sourceEnd
+      ? polynomial.coefficients.slice(sourceStart * sourceRowBytes, sourceEnd * sourceRowBytes)
+      : new Uint8Array(0);
+    return rawField.tm.queueAction(buildSpecialTask(
+      source,
+      sourceStart,
+      sourceEnd - sourceStart,
+      polynomial.ySize,
+      start,
+      count,
+      activeX,
+      activeY,
+      activeOutputY,
+      functionName,
+      coefficients,
+      runtime.field.byteLength,
+    ));
+  }));
+  const output = new Uint8Array(outputXSize * outputYSize * runtime.field.byteLength);
+  for (let index = 0; index < ranges.length; index += 1) {
+    const shard = requireOutputs(results[index], 1, operation)[0];
+    const { start, count } = ranges[index];
+    for (let localX = 0; localX < count; localX += 1) {
+      const sourceOffset = localX * activeOutputY * runtime.field.byteLength;
+      output.set(
+        shard.subarray(
+          sourceOffset,
+          sourceOffset + activeOutputY * runtime.field.byteLength,
+        ),
+        (start + localX) * outputYSize * runtime.field.byteLength,
+      );
+    }
+  }
+  return BivariatePolynomialBuffer.fromOwnedBuffer(
+    runtime.field,
+    output,
+    outputXSize,
+    outputYSize,
+  );
+}
+
 function installStructuredBenchmarkPlugin(module: WasmModuleBuilder): void {
   installLinearBatchPlugin(module);
   buildK0Kernel(module as unknown as ModuleBuilder);
   buildKlXKernel(module as unknown as ModuleBuilder);
   buildKlYKernel(module as unknown as ModuleBuilder);
+  buildSpecialKernel(module as unknown as ModuleBuilder, SPECIAL_X_MINUS_ONE, "x-minus-one");
+  buildSpecialKernel(module as unknown as ModuleBuilder, SPECIAL_ONE_MINUS_X, "one-minus-x");
+  buildSpecialKernel(module as unknown as ModuleBuilder, SPECIAL_LINEAR_X, "linear-x");
+  buildSpecialKernel(module as unknown as ModuleBuilder, SPECIAL_LINEAR_Y, "linear-y");
+  buildSpecialKernel(module as unknown as ModuleBuilder, SPECIAL_TERM9, "term9");
 }
 
 function buildK0Kernel(module: ModuleBuilder): void {
@@ -539,6 +675,128 @@ function buildKlYKernel(module: ModuleBuilder): void {
   module.exportFunction(KL_RECURRENCE_Y);
 }
 
+function buildSpecialKernel(
+  module: ModuleBuilder,
+  functionName: string,
+  operation: SpecialOperation,
+): void {
+  const fn = module.addFunction(functionName);
+  fn.addParam("pInput", "i32");
+  fn.addParam("sourceStart", "i32");
+  fn.addParam("inputY", "i32");
+  fn.addParam("outputStart", "i32");
+  fn.addParam("xRows", "i32");
+  fn.addParam("activeX", "i32");
+  fn.addParam("activeY", "i32");
+  fn.addParam("activeOutputY", "i32");
+  fn.addParam("pConstant", "i32");
+  fn.addParam("pX", "i32");
+  fn.addParam("pY", "i32");
+  fn.addParam("pOutput", "i32");
+  fn.addLocal("x", "i32");
+  fn.addLocal("y", "i32");
+  fn.addLocal("globalX", "i32");
+  const code = fn.getCodeBuilder();
+  const value = code.i32_const(module.alloc(32));
+  const current = code.i32_const(module.alloc(32));
+  const shifted = code.i32_const(module.alloc(32));
+  const term = code.i32_const(module.alloc(32));
+  const sequence = (...parts: unknown[]): unknown =>
+    (parts as readonly (readonly unknown[])[]).flat();
+  const currentPointer = () =>
+    specialInputPointer(code, code.getLocal("globalX"), code.getLocal("y"));
+  const previousXPointer = () =>
+    specialInputPointer(
+      code,
+      code.i32_sub(code.getLocal("globalX"), code.i32_const(1)),
+      code.getLocal("y"),
+    );
+  const previousYPointer = () =>
+    specialInputPointer(
+      code,
+      code.getLocal("globalX"),
+      code.i32_sub(code.getLocal("y"), code.i32_const(1)),
+    );
+  const ifCurrent = (body: unknown) =>
+    code.if(
+      code.i32_lt_u(code.getLocal("globalX"), code.getLocal("activeX")),
+      code.if(code.i32_lt_u(code.getLocal("y"), code.getLocal("activeY")), body),
+    );
+  const ifPreviousX = (body: unknown) =>
+    code.if(
+      code.i32_gt_u(code.getLocal("globalX"), code.i32_const(0)),
+      code.if(
+        code.i32_lt_u(
+          code.i32_sub(code.getLocal("globalX"), code.i32_const(1)),
+          code.getLocal("activeX"),
+        ),
+        code.if(code.i32_lt_u(code.getLocal("y"), code.getLocal("activeY")), body),
+      ),
+    );
+  const ifPreviousY = (body: unknown) =>
+    code.if(
+      code.i32_lt_u(code.getLocal("globalX"), code.getLocal("activeX")),
+      code.if(
+        code.i32_gt_u(code.getLocal("y"), code.i32_const(0)),
+        code.if(
+          code.i32_lt_u(
+            code.i32_sub(code.getLocal("y"), code.i32_const(1)),
+            code.getLocal("activeY"),
+          ),
+          body,
+        ),
+      ),
+    );
+  const addScaled = (pointer: unknown, factor: string): unknown =>
+    sequence(
+      code.call("frm_mul", pointer, code.getLocal(factor), term),
+      code.call("frm_add", value, term, value),
+    );
+
+  const coefficientCode = operation === "x-minus-one" || operation === "one-minus-x"
+    ? sequence(
+        code.call("frm_zero", current),
+        code.call("frm_zero", shifted),
+        ifCurrent(code.call("frm_copy", currentPointer(), current)),
+        ifPreviousX(code.call("frm_copy", previousXPointer(), shifted)),
+        operation === "x-minus-one"
+          ? code.call("frm_sub", shifted, current, value)
+          : code.call("frm_sub", current, shifted, value),
+      )
+    : sequence(
+        code.call("frm_zero", value),
+        ifCurrent(addScaled(currentPointer(), "pConstant")),
+        operation === "linear-x" || operation === "term9"
+          ? ifPreviousX(addScaled(previousXPointer(), "pX"))
+          : [],
+        operation === "linear-y" || operation === "term9"
+          ? ifPreviousY(addScaled(previousYPointer(), "pY"))
+          : [],
+      );
+
+  fn.addCode(
+    code.setLocal("x", code.i32_const(0)),
+    code.block(code.loop(
+      code.br_if(1, code.i32_eq(code.getLocal("x"), code.getLocal("xRows"))),
+      code.setLocal(
+        "globalX",
+        code.i32_add(code.getLocal("outputStart"), code.getLocal("x")),
+      ),
+      code.setLocal("y", code.i32_const(0)),
+      code.block(code.loop(
+        code.br_if(1, code.i32_eq(code.getLocal("y"), code.getLocal("activeOutputY"))),
+        coefficientCode,
+        code.call("frm_copy", value, specialOutputPointer(code)),
+        code.setLocal("y", code.i32_add(code.getLocal("y"), code.i32_const(1))),
+        code.br(0),
+      )),
+      code.setLocal("x", code.i32_add(code.getLocal("x"), code.i32_const(1))),
+      code.br(0),
+    )),
+  );
+  module.exportFunction(functionName);
+}
+
 function rowPointer(
   code: WasmCodeBuilder,
   base: string,
@@ -549,6 +807,39 @@ function rowPointer(
     code.getLocal(base),
     code.i32_mul(
       code.i32_add(code.i32_mul(row, code.getLocal(rowSize)), code.getLocal("y")),
+      code.i32_const(32),
+    ),
+  );
+}
+
+function specialInputPointer(
+  code: WasmCodeBuilder,
+  globalX: unknown,
+  y: unknown,
+): unknown {
+  return code.i32_add(
+    code.getLocal("pInput"),
+    code.i32_mul(
+      code.i32_add(
+        code.i32_mul(
+          code.i32_sub(globalX, code.getLocal("sourceStart")),
+          code.getLocal("inputY"),
+        ),
+        y,
+      ),
+      code.i32_const(32),
+    ),
+  );
+}
+
+function specialOutputPointer(code: WasmCodeBuilder): unknown {
+  return code.i32_add(
+    code.getLocal("pOutput"),
+    code.i32_mul(
+      code.i32_add(
+        code.i32_mul(code.getLocal("x"), code.getLocal("activeOutputY")),
+        code.getLocal("y"),
+      ),
       code.i32_const(32),
     ),
   );
@@ -664,6 +955,49 @@ function buildKlYTask(
   ];
 }
 
+function buildSpecialTask(
+  source: Uint8Array,
+  sourceStart: number,
+  _sourceRows: number,
+  inputYSize: number,
+  outputStart: number,
+  outputXRows: number,
+  activeX: number,
+  activeY: number,
+  activeOutputY: number,
+  functionName: string,
+  coefficients: SpecialCoefficients,
+  elementBytes: number,
+): FfWorkerCommand[] {
+  const outputBytes = outputXRows * activeOutputY * elementBytes;
+  return [
+    { cmd: "ALLOCSET", var: 0, buff: source },
+    { cmd: "ALLOCSET", var: 1, buff: coefficients.constant },
+    { cmd: "ALLOCSET", var: 2, buff: coefficients.x },
+    { cmd: "ALLOCSET", var: 3, buff: coefficients.y },
+    { cmd: "ALLOC", var: 4, len: outputBytes },
+    {
+      cmd: "CALL",
+      fnName: functionName,
+      params: [
+        { var: 0 },
+        { val: sourceStart },
+        { val: inputYSize },
+        { val: outputStart },
+        { val: outputXRows },
+        { val: activeX },
+        { val: activeY },
+        { val: activeOutputY },
+        { var: 1 },
+        { var: 2 },
+        { var: 3 },
+        { var: 4 },
+      ],
+    },
+    { cmd: "GET", out: 0, var: 4, len: outputBytes },
+  ];
+}
+
 function extractColumns(
   input: Uint8Array,
   xSize: number,
@@ -745,6 +1079,21 @@ function requireOutputs(
     throw new Error(`${label} returned ${outputs.length} outputs; expected ${expected}.`);
   }
   return outputs;
+}
+
+function specialFunctionName(operation: SpecialOperation): string {
+  switch (operation) {
+    case "x-minus-one":
+      return SPECIAL_X_MINUS_ONE;
+    case "one-minus-x":
+      return SPECIAL_ONE_MINUS_X;
+    case "linear-x":
+      return SPECIAL_LINEAR_X;
+    case "linear-y":
+      return SPECIAL_LINEAR_Y;
+    case "term9":
+      return SPECIAL_TERM9;
+  }
 }
 
 function nextPowerOfTwo(value: number): number {

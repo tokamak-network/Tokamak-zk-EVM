@@ -18,11 +18,22 @@ import {
   FIELD_RUFFINI_X,
   FIELD_RUFFINI_Y,
   FIELD_RECURSION_RECURRENCE,
+  FIELD_SPECIAL_LINEAR_X,
+  FIELD_SPECIAL_LINEAR_Y,
+  FIELD_SPECIAL_ONE_MINUS_X,
+  FIELD_SPECIAL_TERM9,
+  FIELD_SPECIAL_X_MINUS_ONE,
   FIELD_VANISHING_X,
   FIELD_VANISHING_Y,
 } from "./linear-batch-plugin.js";
 
 export type FieldElement = Uint8Array;
+export type SpecialPolynomialOperation =
+  | "x-minus-one"
+  | "one-minus-x"
+  | "linear-x"
+  | "linear-y"
+  | "term9";
 
 export interface FieldRuntime {
   readonly byteLength: number;
@@ -142,6 +153,19 @@ export interface FieldRuntime {
     outputYSize: number,
     mI: number,
     sMax: number,
+  ): Promise<Uint8Array>;
+  specialPolynomialBuffer(
+    buffer: Uint8Array,
+    inputXSize: number,
+    inputYSize: number,
+    activeXSize: number,
+    activeYSize: number,
+    outputXSize: number,
+    outputYSize: number,
+    operation: SpecialPolynomialOperation,
+    constant: FieldElement,
+    xCoefficient: FieldElement,
+    yCoefficient: FieldElement,
   ): Promise<Uint8Array>;
   fft(values: readonly FieldElement[]): Promise<FieldElement[]>;
   ifft(values: readonly FieldElement[]): Promise<FieldElement[]>;
@@ -707,6 +731,84 @@ export function createFieldRuntime(field: FfField): FieldRuntime {
       );
       return assembleTaskOutputs(yResults, outputXSize * outputYSize * field.n8);
     },
+    async specialPolynomialBuffer(
+      buffer,
+      inputXSize,
+      inputYSize,
+      activeXSize,
+      activeYSize,
+      outputXSize,
+      outputYSize,
+      operation,
+      constant,
+      xCoefficient,
+      yCoefficient,
+    ) {
+      assertPolynomialBufferShape(buffer, inputXSize, inputYSize, field.n8, "Special polynomial input");
+      assertPositiveSafeInteger(activeXSize, "Special polynomial active X size");
+      assertPositiveSafeInteger(activeYSize, "Special polynomial active Y size");
+      assertPositiveSafeInteger(outputXSize, "Special polynomial output X size");
+      assertPositiveSafeInteger(outputYSize, "Special polynomial output Y size");
+      assertFieldElement(constant, field.n8, "Special polynomial constant");
+      assertFieldElement(xCoefficient, field.n8, "Special polynomial X coefficient");
+      assertFieldElement(yCoefficient, field.n8, "Special polynomial Y coefficient");
+      if (
+        activeXSize > inputXSize
+        || activeYSize > inputYSize
+        || outputXSize < activeXSize
+        || outputYSize < activeYSize
+      ) {
+        throw new Error("Special polynomial active and output shapes are incompatible.");
+      }
+
+      const extendsX = operation !== "linear-y";
+      const extendsY = operation === "linear-y" || operation === "term9";
+      const activeOutputX = activeXSize + (extendsX ? 1 : 0);
+      const activeOutputY = activeYSize + (extendsY ? 1 : 0);
+      if (activeOutputX > outputXSize || activeOutputY > outputYSize) {
+        throw new Error("Special polynomial output shape cannot contain the active result.");
+      }
+
+      const ranges = splitRanges(activeOutputX, field.tm.concurrency);
+      const inputRowBytes = inputYSize * field.n8;
+      const functionName = specialPolynomialFunctionName(operation);
+      const results = await Promise.all(ranges.map(({ start, count }) => {
+        const sourceStart = Math.max(0, start - 1);
+        const sourceEnd = Math.min(activeXSize, start + count);
+        const source = buffer.slice(
+          sourceStart * inputRowBytes,
+          sourceEnd * inputRowBytes,
+        );
+        return field.tm.queueAction(buildSpecialPolynomialTask(
+          source,
+          sourceStart,
+          inputYSize,
+          start,
+          count,
+          activeXSize,
+          activeYSize,
+          activeOutputY,
+          functionName,
+          constant,
+          xCoefficient,
+          yCoefficient,
+          field.n8,
+        ));
+      }));
+      const output = new Uint8Array(outputXSize * outputYSize * field.n8);
+      for (let index = 0; index < ranges.length; index += 1) {
+        const shard = requireTaskOutputs(results[index], 1, operation)[0];
+        const { start, count } = ranges[index];
+        for (let localX = 0; localX < count; localX += 1) {
+          const sourceOffset = localX * activeOutputY * field.n8;
+          output.set(
+            shard.subarray(sourceOffset, sourceOffset + activeOutputY * field.n8),
+            (start + localX) * outputYSize * field.n8,
+          );
+        }
+      }
+      return output;
+    },
     async fft(values) {
       return splitFieldBuffer(await field.fft(concatFieldElements(values, field.n8)), field.n8);
     },
@@ -1068,6 +1170,11 @@ function assertLinearBatchExports(field: FfField): void {
     FIELD_RUFFINI_X,
     FIELD_RUFFINI_Y,
     FIELD_RECURSION_RECURRENCE,
+    FIELD_SPECIAL_LINEAR_X,
+    FIELD_SPECIAL_LINEAR_Y,
+    FIELD_SPECIAL_ONE_MINUS_X,
+    FIELD_SPECIAL_TERM9,
+    FIELD_SPECIAL_X_MINUS_ONE,
     FIELD_VANISHING_X,
     FIELD_VANISHING_Y,
   ];
@@ -1166,6 +1273,65 @@ function buildRuffiniXTask(
     { cmd: "GET", out: 0, var: 2, len: quotientBytes },
     { cmd: "GET", out: 1, var: 3, len: remainderBytes },
   ];
+}
+
+function buildSpecialPolynomialTask(
+  source: Uint8Array,
+  sourceStart: number,
+  inputYSize: number,
+  outputStart: number,
+  outputXRows: number,
+  activeXSize: number,
+  activeYSize: number,
+  activeOutputY: number,
+  functionName: string,
+  constant: FieldElement,
+  xCoefficient: FieldElement,
+  yCoefficient: FieldElement,
+  elementBytes: number,
+): FfWorkerCommand[] {
+  const outputBytes = outputXRows * activeOutputY * elementBytes;
+  return [
+    { cmd: "ALLOCSET", var: 0, buff: source },
+    { cmd: "ALLOCSET", var: 1, buff: constant },
+    { cmd: "ALLOCSET", var: 2, buff: xCoefficient },
+    { cmd: "ALLOCSET", var: 3, buff: yCoefficient },
+    { cmd: "ALLOC", var: 4, len: outputBytes },
+    {
+      cmd: "CALL",
+      fnName: functionName,
+      params: [
+        { var: 0 },
+        { val: sourceStart },
+        { val: inputYSize },
+        { val: outputStart },
+        { val: outputXRows },
+        { val: activeXSize },
+        { val: activeYSize },
+        { val: activeOutputY },
+        { var: 1 },
+        { var: 2 },
+        { var: 3 },
+        { var: 4 },
+      ],
+    },
+    { cmd: "GET", out: 0, var: 4, len: outputBytes },
+  ];
+}
+
+function specialPolynomialFunctionName(operation: SpecialPolynomialOperation): string {
+  switch (operation) {
+    case "x-minus-one":
+      return FIELD_SPECIAL_X_MINUS_ONE;
+    case "one-minus-x":
+      return FIELD_SPECIAL_ONE_MINUS_X;
+    case "linear-x":
+      return FIELD_SPECIAL_LINEAR_X;
+    case "linear-y":
+      return FIELD_SPECIAL_LINEAR_Y;
+    case "term9":
+      return FIELD_SPECIAL_TERM9;
+  }
 }
 
 function buildRuffiniYTask(

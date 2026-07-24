@@ -85,7 +85,7 @@ export async function computeCopyQuotientCommitments(input: {
   ]);
   const p1XY = await multiplyByLagrangeKl(p1Input, mI, sMax);
   const p2Input = await rGXY.subBatch(rOmegaXFXY);
-  const p2XY = mulByXMinusOne(p2Input);
+  const p2XY = await mulByXMinusOne(p2Input);
   const p3XY = await multiplyByLagrangeK0(await rGXY.subBatch(rOmegaXOmegaYFXY), mI);
   const pCombined = await linearCombinationBufferBatch(field, [
     [field.one, p1XY],
@@ -96,7 +96,7 @@ export async function computeCopyQuotientCommitments(input: {
   const rD1 = await rXY.subBatch(rOmegaX);
   const rD2 = await rXY.subBatch(rOmegaXOmegaY);
   const gD = await gXY.subBatch(fXY);
-  const qCxTerm2 = mulByXMinusOne(
+  const qCxTerm2 = await mulByXMinusOne(
     combineLinearXWithScaled(rD1, state.mixer.rB_X, gD, state.mixer.rR_X),
   );
   const qCxTerm3 = await multiplyByLagrangeK0(
@@ -109,7 +109,7 @@ export async function computeCopyQuotientCommitments(input: {
     [kappa0, qCxTerm2],
     [kappa0Sq, qCxTerm3],
   ]);
-  const qCyTerm2 = mulByXMinusOne(
+  const qCyTerm2 = await mulByXMinusOne(
     combineLinearYWithScaled(rD1, state.mixer.rB_Y, gD, state.mixer.rR_Y),
   );
   const qCyTerm3 = await multiplyByLagrangeK0(

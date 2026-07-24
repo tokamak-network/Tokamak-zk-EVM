@@ -274,14 +274,14 @@ async function checkOperationParityMatrix(field: FieldRuntime): Promise<readonly
       "mulByLinearX",
       testCase.label,
       () => dense.scale(linearX[0]).add(dense.mulMonomial(1, 0).scale(linearX[1])).toHexCoeffs(),
-      () => mulByLinearX(buffer, linearX).toHexCoeffs(),
+      async () => (await mulByLinearX(buffer, linearX)).toHexCoeffs(),
     );
     await recordOperation(
       records,
       "mulByLinearY",
       testCase.label,
       () => dense.scale(linearY[0]).add(dense.mulMonomial(0, 1).scale(linearY[1])).toHexCoeffs(),
-      () => mulByLinearY(buffer, linearY).toHexCoeffs(),
+      async () => (await mulByLinearY(buffer, linearY)).toHexCoeffs(),
     );
     await recordOperation(records, "mul", testCase.label, () => dense.mul(otherDense).toHexCoeffs(), async () => (await buffer.mul(otherBuffer)).toHexCoeffs());
     await recordOperation(

@@ -4,7 +4,6 @@ import path from "node:path";
 
 import {
   BivariatePolynomialBuffer,
-  createCurveRuntime,
   type FieldElement,
   type FieldRuntime,
 } from "../../../src/index.js";
@@ -15,6 +14,15 @@ import {
   mulByTerm9,
   mulByXMinusOne,
 } from "../../../src/prover/internal/polynomial-ops.js";
+import {
+  createStructuredBenchmarkRuntimes,
+  multiplySpecialWasmOneWorker,
+  multiplySpecialWasmSingle,
+  multiplySpecialWasmWorkers,
+  specialTemporaryBytes,
+  type SpecialCoefficients,
+  type StructuredBenchmarkRuntimes,
+} from "./structured-wasm-benchmark-support.js";
 
 type OperationName = "x-minus-one" | "one-minus-x" | "linear-x" | "linear-y" | "term9";
 
@@ -41,7 +49,7 @@ interface TimingSummary {
 
 interface BenchmarkRecord extends TimingSummary {
   readonly operation: OperationName;
-  readonly candidate: "legacy-production" | "fused-owned-output" | "current-production";
+  readonly candidate: string;
   readonly shape: string;
   readonly outputShape: string;
   readonly inputBytes: number;
@@ -51,9 +59,12 @@ interface BenchmarkRecord extends TimingSummary {
 
 interface OperationCase {
   readonly name: OperationName;
+  readonly specialCoefficients: SpecialCoefficients;
   readonly legacy: (polynomial: BivariatePolynomialBuffer) => BivariatePolynomialBuffer;
   readonly candidate: (polynomial: BivariatePolynomialBuffer) => BivariatePolynomialBuffer;
-  readonly production: (polynomial: BivariatePolynomialBuffer) => BivariatePolynomialBuffer;
+  readonly production: (
+    polynomial: BivariatePolynomialBuffer,
+  ) => Promise<BivariatePolynomialBuffer>;
 }
 
 interface BenchmarkReport {
@@ -80,17 +91,17 @@ let resultSink = 0;
 
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2));
-  const runtime = await createCurveRuntime();
+  const runtime = await createStructuredBenchmarkRuntimes();
 
   try {
-    const operations = createOperationCases(runtime.Fr).filter(({ name }) => options.operations.has(name));
-    runSmallParity(runtime.Fr, operations);
+    const operations = createOperationCases(runtime.field).filter(({ name }) => options.operations.has(name));
+    await runSmallParity(runtime, operations);
 
     const records: BenchmarkRecord[] = [];
     for (const shape of options.shapes) {
-      const polynomial = deterministicPolynomial(runtime.Fr, shape, options.seed);
+      const polynomial = deterministicPolynomial(runtime.field, shape, options.seed);
       for (const operation of operations) {
-        records.push(...benchmarkOperation(polynomial, operation, shape, options));
+        records.push(...await benchmarkOperation(runtime, polynomial, operation, shape, options));
       }
     }
 
@@ -102,6 +113,7 @@ async function main(): Promise<void> {
 }
 
 function createOperationCases(field: FieldRuntime): readonly OperationCase[] {
+  const zero = field.zero;
   const linearX = [field.fromBigInt(3n), field.fromBigInt(5n)];
   const linearY = [field.fromBigInt(7n), field.fromBigInt(11n)];
   const rBX = [field.fromBigInt(13n), field.fromBigInt(17n)];
@@ -115,18 +127,21 @@ function createOperationCases(field: FieldRuntime): readonly OperationCase[] {
   return [
     {
       name: "x-minus-one",
+      specialCoefficients: { constant: zero, x: zero, y: zero },
       legacy: (polynomial) => polynomial.mulMonomial(1, 0).sub(polynomial),
       candidate: multiplyByXMinusOneFused,
       production: mulByXMinusOne,
     },
     {
       name: "one-minus-x",
+      specialCoefficients: { constant: zero, x: zero, y: zero },
       legacy: (polynomial) => polynomial.sub(polynomial.mulMonomial(1, 0)),
       candidate: multiplyByOneMinusXFused,
       production: mulByOneMinusX,
     },
     {
       name: "linear-x",
+      specialCoefficients: { constant: linearX[0], x: linearX[1], y: zero },
       legacy: (polynomial) =>
         polynomial.scale(linearX[0]).add(polynomial.mulMonomial(1, 0).scale(linearX[1])),
       candidate: (polynomial) => multiplyByLinearXFused(polynomial, linearX[0], linearX[1]),
@@ -134,6 +149,7 @@ function createOperationCases(field: FieldRuntime): readonly OperationCase[] {
     },
     {
       name: "linear-y",
+      specialCoefficients: { constant: linearY[0], x: zero, y: linearY[1] },
       legacy: (polynomial) =>
         polynomial.scale(linearY[0]).add(polynomial.mulMonomial(0, 1).scale(linearY[1])),
       candidate: (polynomial) => multiplyByLinearYFused(polynomial, linearY[0], linearY[1]),
@@ -141,6 +157,7 @@ function createOperationCases(field: FieldRuntime): readonly OperationCase[] {
     },
     {
       name: "term9",
+      specialCoefficients: { constant: term9Constant, x: term9X, y: term9Y },
       legacy: (polynomial) => polynomial
         .scale(term9Constant)
         .add(polynomial.mulMonomial(1, 0).scale(term9X))
@@ -151,27 +168,50 @@ function createOperationCases(field: FieldRuntime): readonly OperationCase[] {
   ];
 }
 
-function benchmarkOperation(
+async function benchmarkOperation(
+  runtime: StructuredBenchmarkRuntimes,
   polynomial: BivariatePolynomialBuffer,
   operation: OperationCase,
   shape: Shape,
   options: BenchmarkOptions,
-): BenchmarkRecord[] {
+): Promise<BenchmarkRecord[]> {
   const expected = operation.legacy(polynomial);
   const actual = operation.candidate(polynomial);
   assertPolynomialEqual(actual, expected, `${operation.name} ${formatShape(shape)}`);
-  const production = operation.production(polynomial);
+  const production = await operation.production(polynomial);
   assertPolynomialEqual(production, expected, `${operation.name} production ${formatShape(shape)}`);
 
   const implementations = [
     { name: "legacy-production" as const, run: operation.legacy },
     { name: "fused-owned-output" as const, run: operation.candidate },
     { name: "current-production" as const, run: operation.production },
+    {
+      name: "wasm-single-task" as const,
+      run: (value: BivariatePolynomialBuffer) =>
+        multiplySpecialWasmSingle(runtime, value, operation.name, operation.specialCoefficients),
+    },
+    {
+      name: "wasm-one-worker" as const,
+      run: (value: BivariatePolynomialBuffer) =>
+        multiplySpecialWasmOneWorker(runtime, value, operation.name, operation.specialCoefficients),
+    },
+    {
+      name: "wasm-workers" as const,
+      run: (value: BivariatePolynomialBuffer) =>
+        multiplySpecialWasmWorkers(runtime, value, operation.name, operation.specialCoefficients),
+    },
   ];
   const samples = new Map(implementations.map(({ name }) => [name, [] as number[]]));
+  for (const implementation of implementations.slice(3)) {
+    assertPolynomialEqual(
+      await implementation.run(polynomial),
+      expected,
+      `${operation.name} ${implementation.name} ${formatShape(shape)}`,
+    );
+  }
   for (let iteration = 0; iteration < options.warmup; iteration += 1) {
     for (const implementation of implementations) {
-      consumeResult(implementation.run(polynomial));
+      consumeResult(await implementation.run(polynomial));
     }
   }
   for (let iteration = 0; iteration < options.iterations; iteration += 1) {
@@ -180,7 +220,7 @@ function benchmarkOperation(
       : [...implementations].reverse();
     for (const implementation of ordered) {
       const start = performance.now();
-      const result = implementation.run(polynomial);
+      const result = await implementation.run(polynomial);
       const elapsed = performance.now() - start;
       consumeResult(result);
       samples.get(implementation.name)!.push(elapsed);
@@ -195,7 +235,17 @@ function benchmarkOperation(
       outputShape: `${expected.xSize}x${expected.ySize}`,
       inputBytes: polynomial.coefficients.byteLength,
       outputBytes,
-      temporaryBytesExcludingResult: implementation.name === "legacy-production" ? outputBytes : 0,
+      temporaryBytesExcludingResult: implementation.name === "legacy-production"
+        ? outputBytes
+        : implementation.name === "wasm-single-task" || implementation.name === "wasm-one-worker"
+          ? specialTemporaryBytes(polynomial.coefficients.byteLength, outputBytes, 1)
+          : implementation.name === "wasm-workers"
+            ? specialTemporaryBytes(
+                polynomial.coefficients.byteLength,
+                outputBytes,
+                runtime.workerCount,
+              )
+            : 0,
       ...summarize(samples.get(implementation.name)!),
     }));
 }
@@ -414,7 +464,11 @@ function multiplyByTerm9Fused(
   return BivariatePolynomialBuffer.fromOwnedBuffer(field, output, xSize, ySize);
 }
 
-function runSmallParity(field: FieldRuntime, operations: readonly OperationCase[]): void {
+async function runSmallParity(
+  runtime: StructuredBenchmarkRuntimes,
+  operations: readonly OperationCase[],
+): Promise<void> {
+  const field = runtime.field;
   const shapes: readonly Shape[] = [
     { xSize: 1, ySize: 1 },
     { xSize: 2, ySize: 2 },
@@ -429,17 +483,23 @@ function runSmallParity(field: FieldRuntime, operations: readonly OperationCase[
         `small parity ${operation.name} ${formatShape(shape)}`,
       );
       assertPolynomialEqual(
-        operation.production(polynomial),
+        await operation.production(polynomial),
         operation.legacy(polynomial),
         `small production parity ${operation.name} ${formatShape(shape)}`,
       );
+      await assertSpecialWasmParity(runtime, polynomial, operation, `small ${formatShape(shape)}`);
     }
   }
 
   const zero = BivariatePolynomialBuffer.zero(field);
   for (const operation of operations) {
     assertPolynomialEqual(operation.candidate(zero), operation.legacy(zero), `zero parity ${operation.name}`);
-    assertPolynomialEqual(operation.production(zero), operation.legacy(zero), `zero production parity ${operation.name}`);
+    assertPolynomialEqual(
+      await operation.production(zero),
+      operation.legacy(zero),
+      `zero production parity ${operation.name}`,
+    );
+    await assertSpecialWasmParity(runtime, zero, operation, "zero");
   }
 
   const sparse = BivariatePolynomialBuffer.zero(field).resize(8, 4);
@@ -447,9 +507,55 @@ function runSmallParity(field: FieldRuntime, operations: readonly OperationCase[
   for (const operation of operations) {
     assertPolynomialEqual(operation.candidate(sparse), operation.legacy(sparse), `sparse parity ${operation.name}`);
     assertPolynomialEqual(
-      operation.production(sparse),
+      await operation.production(sparse),
       operation.legacy(sparse),
       `sparse production parity ${operation.name}`,
+    );
+    await assertSpecialWasmParity(runtime, sparse, operation, "sparse");
+  }
+}
+
+async function assertSpecialWasmParity(
+  runtime: StructuredBenchmarkRuntimes,
+  polynomial: BivariatePolynomialBuffer,
+  operation: OperationCase,
+  label: string,
+): Promise<void> {
+  const expected = operation.legacy(polynomial);
+  const candidates = [
+    {
+      name: "wasm-single-task",
+      output: multiplySpecialWasmSingle(
+        runtime,
+        polynomial,
+        operation.name,
+        operation.specialCoefficients,
+      ),
+    },
+    {
+      name: "wasm-one-worker",
+      output: multiplySpecialWasmOneWorker(
+        runtime,
+        polynomial,
+        operation.name,
+        operation.specialCoefficients,
+      ),
+    },
+    {
+      name: "wasm-workers",
+      output: multiplySpecialWasmWorkers(
+        runtime,
+        polynomial,
+        operation.name,
+        operation.specialCoefficients,
+      ),
+    },
+  ];
+  for (const candidate of candidates) {
+    assertPolynomialEqual(
+      await candidate.output,
+      expected,
+      `${label} ${operation.name} ${candidate.name}`,
     );
   }
 }

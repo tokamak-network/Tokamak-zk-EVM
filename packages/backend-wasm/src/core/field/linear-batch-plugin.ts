@@ -18,6 +18,18 @@ export const FIELD_RECURSION_RECURRENCE = "tokamak_frm_recursionRecurrence";
 export const FIELD_K0_RECURRENCE = "tokamak_frm_k0Recurrence";
 export const FIELD_KL_RECURRENCE_X = "tokamak_frm_klRecurrenceX";
 export const FIELD_KL_RECURRENCE_Y = "tokamak_frm_klRecurrenceY";
+export const FIELD_SPECIAL_X_MINUS_ONE = "tokamak_frm_xMinusOne";
+export const FIELD_SPECIAL_ONE_MINUS_X = "tokamak_frm_oneMinusX";
+export const FIELD_SPECIAL_LINEAR_X = "tokamak_frm_linearX";
+export const FIELD_SPECIAL_LINEAR_Y = "tokamak_frm_linearY";
+export const FIELD_SPECIAL_TERM9 = "tokamak_frm_term9";
+
+type SpecialPolynomialOperation =
+  | "x-minus-one"
+  | "one-minus-x"
+  | "linear-x"
+  | "linear-y"
+  | "term9";
 
 interface WasmCodeBuilder {
   i32_const(value: number): unknown;
@@ -73,6 +85,11 @@ export function installLinearBatchPlugin(module: WasmModuleBuilder): void {
   buildK0RecurrenceKernel(module);
   buildKlXRecurrenceKernel(module);
   buildKlYRecurrenceKernel(module);
+  buildSpecialPolynomialKernel(module, FIELD_SPECIAL_X_MINUS_ONE, "x-minus-one");
+  buildSpecialPolynomialKernel(module, FIELD_SPECIAL_ONE_MINUS_X, "one-minus-x");
+  buildSpecialPolynomialKernel(module, FIELD_SPECIAL_LINEAR_X, "linear-x");
+  buildSpecialPolynomialKernel(module, FIELD_SPECIAL_LINEAR_Y, "linear-y");
+  buildSpecialPolynomialKernel(module, FIELD_SPECIAL_TERM9, "term9");
 }
 
 function buildAddScaledKernel(module: WasmModuleBuilder): void {
@@ -1156,6 +1173,127 @@ function buildKlYRecurrenceKernel(module: WasmModuleBuilder): void {
   module.exportFunction(FIELD_KL_RECURRENCE_Y);
 }
 
+function buildSpecialPolynomialKernel(
+  module: WasmModuleBuilder,
+  functionName: string,
+  operation: SpecialPolynomialOperation,
+): void {
+  const fn = module.addFunction(functionName);
+  fn.addParam("pInput", "i32");
+  fn.addParam("sourceStart", "i32");
+  fn.addParam("inputY", "i32");
+  fn.addParam("outputStart", "i32");
+  fn.addParam("xRows", "i32");
+  fn.addParam("activeX", "i32");
+  fn.addParam("activeY", "i32");
+  fn.addParam("activeOutputY", "i32");
+  fn.addParam("pConstant", "i32");
+  fn.addParam("pX", "i32");
+  fn.addParam("pY", "i32");
+  fn.addParam("pOutput", "i32");
+  fn.addLocal("x", "i32");
+  fn.addLocal("y", "i32");
+  fn.addLocal("globalX", "i32");
+  const code = fn.getCodeBuilder();
+  const value = code.i32_const(module.alloc(32));
+  const current = code.i32_const(module.alloc(32));
+  const shifted = code.i32_const(module.alloc(32));
+  const term = code.i32_const(module.alloc(32));
+  const sequence = (...parts: unknown[]): unknown =>
+    (parts as readonly (readonly unknown[])[]).flat();
+  const currentPointer = () =>
+    specialInputPointer(code, code.getLocal("globalX"), code.getLocal("y"));
+  const previousXPointer = () =>
+    specialInputPointer(
+      code,
+      code.i32_sub(code.getLocal("globalX"), code.i32_const(1)),
+      code.getLocal("y"),
+    );
+  const previousYPointer = () =>
+    specialInputPointer(
+      code,
+      code.getLocal("globalX"),
+      code.i32_sub(code.getLocal("y"), code.i32_const(1)),
+    );
+  const ifCurrent = (body: unknown) =>
+    code.if(
+      code.i32_lt_u(code.getLocal("globalX"), code.getLocal("activeX")),
+      code.if(code.i32_lt_u(code.getLocal("y"), code.getLocal("activeY")), body),
+    );
+  const ifPreviousX = (body: unknown) =>
+    code.if(
+      code.i32_gt_u(code.getLocal("globalX"), code.i32_const(0)),
+      code.if(
+        code.i32_lt_u(
+          code.i32_sub(code.getLocal("globalX"), code.i32_const(1)),
+          code.getLocal("activeX"),
+        ),
+        code.if(code.i32_lt_u(code.getLocal("y"), code.getLocal("activeY")), body),
+      ),
+    );
+  const ifPreviousY = (body: unknown) =>
+    code.if(
+      code.i32_lt_u(code.getLocal("globalX"), code.getLocal("activeX")),
+      code.if(
+        code.i32_gt_u(code.getLocal("y"), code.i32_const(0)),
+        code.if(
+          code.i32_lt_u(
+            code.i32_sub(code.getLocal("y"), code.i32_const(1)),
+            code.getLocal("activeY"),
+          ),
+          body,
+        ),
+      ),
+    );
+  const addScaled = (pointer: unknown, factor: string): unknown =>
+    sequence(
+      code.call("frm_mul", pointer, code.getLocal(factor), term),
+      code.call("frm_add", value, term, value),
+    );
+  const coefficientCode = operation === "x-minus-one" || operation === "one-minus-x"
+    ? sequence(
+        code.call("frm_zero", current),
+        code.call("frm_zero", shifted),
+        ifCurrent(code.call("frm_copy", currentPointer(), current)),
+        ifPreviousX(code.call("frm_copy", previousXPointer(), shifted)),
+        operation === "x-minus-one"
+          ? code.call("frm_sub", shifted, current, value)
+          : code.call("frm_sub", current, shifted, value),
+      )
+    : sequence(
+        code.call("frm_zero", value),
+        ifCurrent(addScaled(currentPointer(), "pConstant")),
+        operation === "linear-x" || operation === "term9"
+          ? ifPreviousX(addScaled(previousXPointer(), "pX"))
+          : [],
+        operation === "linear-y" || operation === "term9"
+          ? ifPreviousY(addScaled(previousYPointer(), "pY"))
+          : [],
+      );
+
+  fn.addCode(
+    code.setLocal("x", code.i32_const(0)),
+    code.block(code.loop(
+      code.br_if(1, code.i32_eq(code.getLocal("x"), code.getLocal("xRows"))),
+      code.setLocal(
+        "globalX",
+        code.i32_add(code.getLocal("outputStart"), code.getLocal("x")),
+      ),
+      code.setLocal("y", code.i32_const(0)),
+      code.block(code.loop(
+        code.br_if(1, code.i32_eq(code.getLocal("y"), code.getLocal("activeOutputY"))),
+        coefficientCode,
+        code.call("frm_copy", value, specialOutputPointer(code)),
+        code.setLocal("y", code.i32_add(code.getLocal("y"), code.i32_const(1))),
+        code.br(0),
+      )),
+      code.setLocal("x", code.i32_add(code.getLocal("x"), code.i32_const(1))),
+      code.br(0),
+    )),
+  );
+  module.exportFunction(functionName);
+}
+
 function k0Pointer(code: WasmCodeBuilder, base: string, row: unknown): unknown {
   return code.i32_add(
     code.getLocal(base),
@@ -1181,6 +1319,39 @@ function klYPointer(
       code.i32_add(
         code.i32_mul(code.getLocal("x"), code.getLocal(rowSize)),
         column,
+      ),
+      code.i32_const(32),
+    ),
+  );
+}
+
+function specialInputPointer(
+  code: WasmCodeBuilder,
+  globalX: unknown,
+  y: unknown,
+): unknown {
+  return code.i32_add(
+    code.getLocal("pInput"),
+    code.i32_mul(
+      code.i32_add(
+        code.i32_mul(
+          code.i32_sub(globalX, code.getLocal("sourceStart")),
+          code.getLocal("inputY"),
+        ),
+        y,
+      ),
+      code.i32_const(32),
+    ),
+  );
+}
+
+function specialOutputPointer(code: WasmCodeBuilder): unknown {
+  return code.i32_add(
+    code.getLocal("pOutput"),
+    code.i32_mul(
+      code.i32_add(
+        code.i32_mul(code.getLocal("x"), code.getLocal("activeOutputY")),
+        code.getLocal("y"),
       ),
       code.i32_const(32),
     ),

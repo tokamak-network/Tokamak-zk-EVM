@@ -44,31 +44,31 @@ async function main(): Promise<void> {
 
     for (const parityScale of [field.zero, field.one, scale]) {
       assertBytesEqual(
-        currentInnerX(rD, gD, linearCoefficients, parityScale).coefficients,
+        (await currentInnerX(rD, gD, linearCoefficients, parityScale)).coefficients,
         fusedLinearPlusScaled(rD, gD, linearCoefficients, parityScale, "x").coefficients,
         "fused X-linear inner parity",
       );
       assertBytesEqual(
-        currentInnerY(rD, gD, linearCoefficients, parityScale).coefficients,
+        (await currentInnerY(rD, gD, linearCoefficients, parityScale)).coefficients,
         fusedLinearPlusScaled(rD, gD, linearCoefficients, parityScale, "y").coefficients,
         "fused Y-linear inner parity",
       );
     }
 
-    const currentX = currentInnerX(rD, gD, linearCoefficients, scale);
+    const currentX = await currentInnerX(rD, gD, linearCoefficients, scale);
     const fusedX = fusedLinearPlusScaled(rD, gD, linearCoefficients, scale, "x");
-    const currentY = currentInnerY(rD, gD, linearCoefficients, scale);
+    const currentY = await currentInnerY(rD, gD, linearCoefficients, scale);
     const fusedY = fusedLinearPlusScaled(rD, gD, linearCoefficients, scale, "y");
     assertBytesEqual(currentX.coefficients, fusedX.coefficients, "representative X inner parity");
     assertBytesEqual(currentY.coefficients, fusedY.coefficients, "representative Y inner parity");
     assertBytesEqual(
-      mulByXMinusOne(currentX).coefficients,
-      mulByXMinusOne(fusedX).coefficients,
+      (await mulByXMinusOne(currentX)).coefficients,
+      (await mulByXMinusOne(fusedX)).coefficients,
       "representative X term2 parity",
     );
     assertBytesEqual(
-      mulByXMinusOne(currentY).coefficients,
-      mulByXMinusOne(fusedY).coefficients,
+      (await mulByXMinusOne(currentY)).coefficients,
+      (await mulByXMinusOne(fusedY)).coefficients,
       "representative Y term2 parity",
     );
     assertBytesEqual(
@@ -87,21 +87,29 @@ async function main(): Promise<void> {
       await record(options, "fused-inner-x", () => fusedLinearPlusScaled(rD, gD, linearCoefficients, scale, "x")),
       await record(options, "current-inner-y", () => currentInnerY(rD, gD, linearCoefficients, scale)),
       await record(options, "fused-inner-y", () => fusedLinearPlusScaled(rD, gD, linearCoefficients, scale, "y")),
-      await record(options, "current-term2-x", () => mulByXMinusOne(currentInnerX(rD, gD, linearCoefficients, scale))),
+      await record(options, "current-term2-x", async () =>
+        mulByXMinusOne(await currentInnerX(rD, gD, linearCoefficients, scale))),
       await record(options, "fused-term2-x", () =>
         mulByXMinusOne(fusedLinearPlusScaled(rD, gD, linearCoefficients, scale, "x"))),
-      await record(options, "current-term2-y", () => mulByXMinusOne(currentInnerY(rD, gD, linearCoefficients, scale))),
+      await record(options, "current-term2-y", async () =>
+        mulByXMinusOne(await currentInnerY(rD, gD, linearCoefficients, scale))),
       await record(options, "fused-term2-y", () =>
         mulByXMinusOne(fusedLinearPlusScaled(rD, gD, linearCoefficients, scale, "y"))),
-      await record(options, "current-term3-x", () =>
-        multiplyByLagrangeK0(currentInnerX(rD, gD, linearCoefficients, scale), options.shape.xSize)),
+      await record(options, "current-term3-x", async () =>
+        multiplyByLagrangeK0(
+          await currentInnerX(rD, gD, linearCoefficients, scale),
+          options.shape.xSize,
+        )),
       await record(options, "fused-term3-x", () =>
         multiplyByLagrangeK0(
           fusedLinearPlusScaled(rD, gD, linearCoefficients, scale, "x"),
           options.shape.xSize,
         )),
-      await record(options, "current-term3-y", () =>
-        multiplyByLagrangeK0(currentInnerY(rD, gD, linearCoefficients, scale), options.shape.xSize)),
+      await record(options, "current-term3-y", async () =>
+        multiplyByLagrangeK0(
+          await currentInnerY(rD, gD, linearCoefficients, scale),
+          options.shape.xSize,
+        )),
       await record(options, "fused-term3-y", () =>
         multiplyByLagrangeK0(
           fusedLinearPlusScaled(rD, gD, linearCoefficients, scale, "y"),
@@ -120,22 +128,22 @@ async function main(): Promise<void> {
   }
 }
 
-function currentInnerX(
+async function currentInnerX(
   rD: BivariatePolynomialBuffer,
   gD: BivariatePolynomialBuffer,
   coefficients: readonly FieldElement[],
   scale: FieldElement,
-): BivariatePolynomialBuffer {
-  return mulByLinearX(rD, coefficients).add(gD.scale(scale));
+): Promise<BivariatePolynomialBuffer> {
+  return (await mulByLinearX(rD, coefficients)).add(gD.scale(scale));
 }
 
-function currentInnerY(
+async function currentInnerY(
   rD: BivariatePolynomialBuffer,
   gD: BivariatePolynomialBuffer,
   coefficients: readonly FieldElement[],
   scale: FieldElement,
-): BivariatePolynomialBuffer {
-  return mulByLinearY(rD, coefficients).add(gD.scale(scale));
+): Promise<BivariatePolynomialBuffer> {
+  return (await mulByLinearY(rD, coefficients)).add(gD.scale(scale));
 }
 
 function fusedLinearPlusScaled(

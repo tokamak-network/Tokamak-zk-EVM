@@ -824,7 +824,7 @@ async function buildCopyQuotientNumerator(
   const lagrangeK0XY = await buildLagrangeK0(field, mI);
   const rGXY = await rXY.mul(gXY);
   const p1XY = await rXY.sub(constantPolynomialBuffer(field, field.one)).mul(lagrangeKlXY);
-  const p2XY = mulByXMinusOne(rGXY.sub(await rOmegaX.mul(fXY)));
+  const p2XY = await mulByXMinusOne(rGXY.sub(await rOmegaX.mul(fXY)));
   const p3XY = await lagrangeK0XY.mul(rGXY.sub(await rOmegaXOmegaY.mul(fXY)));
 
   return {
@@ -904,14 +904,14 @@ async function buildCopyOpeningNumerator(input: {
   const gMinusF = gXY.sub(fXY);
   const term10Scale = field.add(field.mul(state.mixer.rR_X, tMiEval), field.mul(state.mixer.rR_Y, tSMaxEval));
   const term10 = gMinusF.scale(term10Scale);
-  const rD1Term9 = mulByTerm9(rD1, state.mixer.rB_X, state.mixer.rB_Y, tMiEval, tSMaxEval);
+  const rD1Term9 = await mulByTerm9(rD1, state.mixer.rB_X, state.mixer.rB_Y, tMiEval, tSMaxEval);
   const rD1Term9PlusTerm10 = rD1Term9.add(term10);
   const lhsZk1 = linearCombinationBuffer(field, [
     [field.mul(field.sub(chi, field.one), rD1Eval), prove0Output.termBZk],
-    [field.one, mulByOneMinusX(rD1Term9PlusTerm10)],
+    [field.one, await mulByOneMinusX(rD1Term9PlusTerm10)],
     [field.sub(chi, field.one), term10],
   ]);
-  const rD2Term9 = mulByTerm9(rD2, state.mixer.rB_X, state.mixer.rB_Y, tMiEval, tSMaxEval);
+  const rD2Term9 = await mulByTerm9(rD2, state.mixer.rB_X, state.mixer.rB_Y, tMiEval, tSMaxEval);
   const rD2Term9PlusTerm10 = rD2Term9.add(term10);
   const lhsZk2Product = await lagrangeK0XY.mul(rD2Term9PlusTerm10);
   const lhsZk2 = linearCombinationBuffer(field, [

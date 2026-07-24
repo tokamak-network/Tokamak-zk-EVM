@@ -314,17 +314,17 @@ async function buildCopyOpeningPolynomials(input: {
     gMinusF.xSize,
     gMinusF.ySize,
   );
-  const rD1Term9 = mulByTerm9(rD1, state.mixer.rB_X, state.mixer.rB_Y, tMiEval, tSMaxEval);
+  const rD1Term9 = await mulByTerm9(rD1, state.mixer.rB_X, state.mixer.rB_Y, tMiEval, tSMaxEval);
   const rD1Term9PlusTerm10 = await linearCombinationBufferBatch(field, [
     [field.one, rD1Term9],
     [field.one, term10],
   ]);
   const lhsZk1 = await linearCombinationBufferBatch(field, [
     [field.mul(field.sub(chi, field.one), rD1Eval), initialRelation.termBZk],
-    [field.one, mulByOneMinusX(rD1Term9PlusTerm10)],
+    [field.one, await mulByOneMinusX(rD1Term9PlusTerm10)],
     [field.sub(chi, field.one), term10],
   ]);
-  const rD2Term9 = mulByTerm9(rD2, state.mixer.rB_X, state.mixer.rB_Y, tMiEval, tSMaxEval);
+  const rD2Term9 = await mulByTerm9(rD2, state.mixer.rB_X, state.mixer.rB_Y, tMiEval, tSMaxEval);
   const rD2Term9PlusTerm10 = await linearCombinationBufferBatch(field, [
     [field.one, rD2Term9],
     [field.one, term10],
