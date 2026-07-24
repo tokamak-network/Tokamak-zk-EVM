@@ -276,18 +276,19 @@ async function buildCopyOpeningPolynomials(input: {
     zeta,
     field.mul(omegaSMaxInv, zeta),
   );
-  const term5 = linearCombinationBuffer(field, [
-    [smallREval, gXY],
-    [field.neg(smallROmegaXEval), fXY],
-  ]);
-  const term6 = linearCombinationBuffer(field, [
-    [smallREval, gXY],
-    [field.neg(smallROmegaXOmegaYEval), fXY],
-  ]);
+  const term5Scale = field.mul(kappa0, field.sub(chi, field.one));
+  const term6Scale = field.mul(kappa0Sq, lagrangeK0Eval);
+  const gScale = field.mul(smallREval, field.add(term5Scale, term6Scale));
+  const fScale = field.neg(
+    field.add(
+      field.mul(term5Scale, smallROmegaXEval),
+      field.mul(term6Scale, smallROmegaXOmegaYEval),
+    ),
+  );
   const pCXY = linearCombinationBuffer(field, [
     [field.sub(smallREval, field.one), copyQuotient.lagrangeKlXY],
-    [field.mul(kappa0, field.sub(chi, field.one)), term5],
-    [field.mul(kappa0Sq, lagrangeK0Eval), term6],
+    [gScale, gXY],
+    [fScale, fXY],
     [field.neg(tMiEval), copyQuotient.q2XY],
     [field.neg(tSMaxEval), copyQuotient.q3XY],
   ]);

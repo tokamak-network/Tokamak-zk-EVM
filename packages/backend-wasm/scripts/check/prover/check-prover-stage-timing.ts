@@ -1202,29 +1202,22 @@ async function buildCopyOpeningsTimed(input: {
       shapeSize("r_omega_x_omega_y", rXY.xSize, rXY.ySize),
     ],
   );
-  const term5 = polynomialLinearCombination(
-    "prove4.term5",
-    field,
-    [
-      [smallREval, gXY],
-      [field.neg(smallROmegaXEval), fXY],
-    ],
-  );
-  const term6 = polynomialLinearCombination(
-    "prove4.term6",
-    field,
-    [
-      [smallREval, gXY],
-      [field.neg(smallROmegaXOmegaYEval), fXY],
-    ],
+  const term5Scale = field.mul(kappa0, field.sub(chi, field.one));
+  const term6Scale = field.mul(kappa0Sq, lagrangeK0Eval);
+  const gScale = field.mul(smallREval, field.add(term5Scale, term6Scale));
+  const fScale = field.neg(
+    field.add(
+      field.mul(term5Scale, smallROmegaXEval),
+      field.mul(term6Scale, smallROmegaXOmegaYEval),
+    ),
   );
   const pCXY = polynomialLinearCombination(
     "prove4.pC",
     field,
     [
       [field.sub(smallREval, field.one), prove2.lagrangeKlXY],
-      [field.mul(kappa0, field.sub(chi, field.one)), term5],
-      [field.mul(kappa0Sq, lagrangeK0Eval), term6],
+      [gScale, gXY],
+      [fScale, fXY],
       [field.neg(tMiEval), prove2.q2XY],
       [field.neg(tSMaxEval), prove2.q3XY],
     ],
