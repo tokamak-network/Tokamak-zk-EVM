@@ -25,6 +25,7 @@ import {
   FIELD_SPECIAL_ONE_MINUS_X,
   FIELD_SPECIAL_TERM9,
   FIELD_SPECIAL_X_MINUS_ONE,
+  FIELD_SPARSE_ROW_DOT,
   FIELD_VANISHING_X,
   FIELD_VANISHING_Y,
 } from "./linear-batch-plugin.js";
@@ -184,6 +185,13 @@ export interface FieldRuntime {
     constant: FieldElement,
     shiftCoefficient: FieldElement,
     addendScale: FieldElement,
+  ): Promise<Uint8Array>;
+  sparseRowDotBuffer(
+    rowOffsets: Uint8Array,
+    columns: Uint8Array,
+    coefficients: Uint8Array,
+    variables: Uint8Array,
+    rowCount: number,
   ): Promise<Uint8Array>;
   fft(values: readonly FieldElement[]): Promise<FieldElement[]>;
   ifft(values: readonly FieldElement[]): Promise<FieldElement[]>;
@@ -908,6 +916,42 @@ export function createFieldRuntime(field: FfField): FieldRuntime {
       }
       return output;
     },
+    async sparseRowDotBuffer(rowOffsets, columns, coefficients, variables, rowCount) {
+      assertNonNegativeSafeInteger(rowCount, "Sparse row count");
+      if (rowOffsets.byteLength !== (rowCount + 1) * 4) {
+        throw new Error("Sparse row-offset buffer length does not match the row count.");
+      }
+      if (columns.byteLength % 4 !== 0) {
+        throw new Error("Sparse column buffer length must be a multiple of four bytes.");
+      }
+      assertFieldBuffer(coefficients, field.n8);
+      assertFieldBuffer(variables, field.n8);
+      if (columns.byteLength / 4 !== coefficients.byteLength / field.n8) {
+        throw new Error("Sparse columns and coefficients must contain the same number of entries.");
+      }
+      const outputBytes = rowCount * field.n8;
+      const outputs = await field.tm.queueAction([
+        { cmd: "ALLOCSET", var: 0, buff: rowOffsets },
+        { cmd: "ALLOCSET", var: 1, buff: columns },
+        { cmd: "ALLOCSET", var: 2, buff: coefficients },
+        { cmd: "ALLOCSET", var: 3, buff: variables },
+        { cmd: "ALLOC", var: 4, len: outputBytes },
+        {
+          cmd: "CALL",
+          fnName: FIELD_SPARSE_ROW_DOT,
+          params: [
+            { var: 0 },
+            { var: 1 },
+            { var: 2 },
+            { var: 3 },
+            { val: rowCount },
+            { var: 4 },
+          ],
+        },
+        { cmd: "GET", out: 0, var: 4, len: outputBytes },
+      ]);
+      return requireTaskOutputs(outputs, 1, "sparse row dot")[0];
+    },
     async fft(values) {
       return splitFieldBuffer(await field.fft(concatFieldElements(values, field.n8)), field.n8);
     },
@@ -1276,6 +1320,7 @@ function assertLinearBatchExports(field: FfField): void {
     FIELD_SPECIAL_ONE_MINUS_X,
     FIELD_SPECIAL_TERM9,
     FIELD_SPECIAL_X_MINUS_ONE,
+    FIELD_SPARSE_ROW_DOT,
     FIELD_VANISHING_X,
     FIELD_VANISHING_Y,
   ];

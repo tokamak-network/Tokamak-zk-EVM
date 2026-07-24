@@ -150,7 +150,7 @@ export async function genUvwXY(
       throw new Error(`Missing sparse R1CS for subcircuit ${placement.subcircuitId}.`);
     }
 
-    evaluateSparseMatrixRows(
+    await evaluateSparseMatrixRows(
       field,
       placement.variables,
       r1cs.A,
@@ -158,7 +158,7 @@ export async function genUvwXY(
       uByPlacement,
       placementIndex * setup.n,
     );
-    evaluateSparseMatrixRows(
+    await evaluateSparseMatrixRows(
       field,
       placement.variables,
       r1cs.B,
@@ -166,7 +166,7 @@ export async function genUvwXY(
       vByPlacement,
       placementIndex * setup.n,
     );
-    evaluateSparseMatrixRows(
+    await evaluateSparseMatrixRows(
       field,
       placement.variables,
       r1cs.C,
@@ -187,42 +187,71 @@ export async function genUvwXY(
   };
 }
 
-function evaluateSparseMatrixRows(
+async function evaluateSparseMatrixRows(
   field: FieldRuntime,
   variables: readonly FieldElement[],
   matrix: ProverSparseMatrix,
   rowCount: number,
   output: FieldElement[],
   outputOffset: number,
-): void {
-  const dVec = matrix.activeWires.map((localIndex) => {
+): Promise<void> {
+  const activeVariables = new Uint8Array(matrix.activeWires.length * field.byteLength);
+  for (let index = 0; index < matrix.activeWires.length; index += 1) {
+    const localIndex = matrix.activeWires[index];
     if (!Number.isSafeInteger(localIndex) || localIndex < 0 || localIndex >= variables.length) {
       throw new Error(`Sparse R1CS active wire ${localIndex} is outside the placement variable range.`);
     }
 
-    return variables[localIndex];
-  });
-
-  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
-    output[outputOffset + rowIndex] = field.zero;
+    field.writeBufferElement(activeVariables, index, variables[localIndex]);
   }
 
+  const rowOffsets = new Uint32Array(rowCount + 1);
+  let entryCount = 0;
   for (let rowIndex = 0; rowIndex < matrix.sparseRows.length; rowIndex += 1) {
     if (rowIndex >= rowCount) {
       throw new Error(`Sparse R1CS row ${rowIndex} exceeds the expected row count ${rowCount}.`);
     }
 
-    let accumulator = field.zero;
+    entryCount += matrix.sparseRows[rowIndex].length;
+    rowOffsets[rowIndex + 1] = entryCount;
+  }
+  for (let rowIndex = matrix.sparseRows.length; rowIndex < rowCount; rowIndex += 1) {
+    rowOffsets[rowIndex + 1] = entryCount;
+  }
+
+  const columns = new Uint32Array(entryCount);
+  const coefficients = new Uint8Array(entryCount * field.byteLength);
+  let entryIndex = 0;
+  for (let rowIndex = 0; rowIndex < matrix.sparseRows.length; rowIndex += 1) {
     for (const entry of matrix.sparseRows[rowIndex]) {
-      if (!Number.isSafeInteger(entry.column) || entry.column < 0 || entry.column >= dVec.length) {
+      if (!Number.isSafeInteger(entry.column) || entry.column < 0 || entry.column >= matrix.activeWires.length) {
         throw new Error(`Sparse R1CS column ${entry.column} is outside the active wire range.`);
       }
-
-      accumulator = field.add(accumulator, field.mul(entry.coefficient, dVec[entry.column]));
+      columns[entryIndex] = entry.column;
+      field.writeBufferElement(coefficients, entryIndex, entry.coefficient);
+      entryIndex += 1;
     }
-
-    output[outputOffset + rowIndex] = accumulator;
   }
+
+  const rows = await field.sparseRowDotBuffer(
+    uint32Bytes(rowOffsets),
+    uint32Bytes(columns),
+    coefficients,
+    activeVariables,
+    rowCount,
+  );
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+    output[outputOffset + rowIndex] = field.readBufferElement(rows, rowIndex);
+  }
+}
+
+function uint32Bytes(values: Uint32Array): Uint8Array {
+  const output = new Uint8Array(values.length * 4);
+  const view = new DataView(output.buffer);
+  for (let index = 0; index < values.length; index += 1) {
+    view.setUint32(index * 4, values[index], true);
+  }
+  return output;
 }
 
 function transposePlacementMajorToRowMajor(
