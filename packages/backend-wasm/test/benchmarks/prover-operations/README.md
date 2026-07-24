@@ -1243,4 +1243,9 @@ Lagrange-K0 term3 paths.
 | four-path total | 8773.274 ms | 7190.939 ms | 18.0% |
 
 All output buffers passed exact parity at smoke and representative
-`4096x256` input shape. The candidate is eligible for production promotion.
+`4096x256` input shape.
+
+Production commit `ec31e7dd` applies dedicated X/Y fused helpers to the four
+copy-quotient call sites. `field.operations` decreased from `115.56 s` to
+`113.67 s`, total wall decreased from `256.76 s` to `255.25 s`, and Chromium
+proof generation completed in `241.44 s`.

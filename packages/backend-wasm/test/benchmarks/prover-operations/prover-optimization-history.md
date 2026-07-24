@@ -1136,6 +1136,35 @@ Verification:
 - `npm pack --dry-run --json` passed with 249 files and no test, script,
   temporary, benchmark, or diagnostics paths.
 
+## Copy Quotient Linear-Term Fusion
+
+Benchmark commit: `6e50df0b` (`Benchmark copy polynomial term fusion`).
+
+Production commit: `ec31e7dd` (`Fuse copy quotient linear terms`).
+
+The independent benchmark covered X/Y linear factors, zero/unit/non-unit
+addend scales, and complete term2 and Lagrange-K0 term3 paths. At the real
+`4096x256` input shape, the four complete paths decreased from `8773.274 ms`
+to `7190.939 ms`, a `1582.335 ms` (`18.0%`) reduction with exact output parity.
+
+Production adds dedicated X/Y helpers that construct
+`linearFactor(rD) + rR*gD` in one output buffer. Only the four copy-quotient
+call sites use them.
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_without_multiplication` | 53.78 s | 54.09 s | +0.31 s |
+| `polynomial.combination_with_multiplication` | 37.68 s | 35.79 s | -1.89 s |
+| `field.operations` | 115.56 s | 113.67 s | -1.89 s |
+| encode | 135.08 s | 135.71 s | +0.63 s |
+| prover stage total | 248.38 s | 247.26 s | -1.12 s |
+| total wall | 256.76 s | 255.25 s | -1.51 s |
+
+Chromium proof generation completed in `241.44 s`, and verification completed
+in `22 ms`. Type checks, testing-mode invariants, stage timing and generated
+proof verification, build, Chromium verification, and package inspection
+passed.
+
 ## Superseded Old-Taxonomy Comparison
 
 The old comparison below is preserved only as historical context. It must not be used as the active timing table because it used add/sub/mul/scale rows that are no longer part of the accepted taxonomy.
