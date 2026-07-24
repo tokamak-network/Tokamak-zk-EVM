@@ -1501,3 +1501,37 @@ Verification:
 - build and package dry-run passed;
 - package inspection found 253 files and no `test/`, `scripts/`, `fixtures/`,
   or `tmp/` paths.
+
+## Whole-Loop WASM Ruffini Division
+
+Related commit: `f94f9942`.
+
+The accepted rewrite replaces five large JavaScript scalar recurrences with
+backend-owned WASM kernels. The X recurrence is partitioned only across
+independent Y columns through the existing ffjavascript worker queue. The
+dependent Y recurrence remains one ordered task. The previously accepted
+row-major layout, direct field-buffer access, and constant-correction elision
+remain unchanged.
+
+Representative pre-promotion benchmark:
+
+| shape | scalar JS | caller-thread WASM | worker-sharded WASM | worker reduction |
+| --- | ---: | ---: | ---: | ---: |
+| `8192x512` | 1428.639 ms | 334.120 ms | 122.492 ms | 91.4% |
+| `16384x512` | 2881.126 ms | 694.283 ms | 244.438 ms | 91.5% |
+| `128x1` | 0.056 ms | 0.019 ms | 0.052 ms | 7.1% |
+| five-call weighted estimate | 7167.099 ms | 1696.662 ms | 611.965 ms | 91.5% |
+
+All candidates passed exact quotient/remainder parity and independent
+reconstruction. Integrated fixed-taxonomy timing:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.div_ruffini` | 8.58 s | 0.801 s | -7.78 s (-90.7%) |
+| prover stage total | 165.300 s | 156.511 s | -8.789 s |
+| total wall | 172.570 s | 164.651 s | -7.919 s |
+
+Native testing-mode-style invariants and Node proof verification passed.
+Chromium generated a 2408-byte proof in `160.48 s` and verified it in `19 ms`.
+Build and package inspection passed; the 253-file package contains no
+`test/`, `scripts/`, `fixtures/`, or `tmp/` paths.

@@ -75,9 +75,17 @@ interface BenchmarkCandidate {
 const CANDIDATES: readonly BenchmarkCandidate[] = [
   {
     name: "current-production",
+    run: async (_runtime, polynomial, xPoint, yPoint) =>
+      polynomial.divByRuffiniBatch(xPoint, yPoint),
+    temporaryBytes: (shape, elementBytes) =>
+      workerShardTemporaryBytes(shape.xSize, shape.ySize, elementBytes),
+    notes: "Current production Y-column-sharded WASM X recurrence plus one dependent Y recurrence.",
+  },
+  {
+    name: "scalar-production-baseline",
     run: async (_runtime, polynomial, xPoint, yPoint) => polynomial.divByRuffini(xPoint, yPoint),
     temporaryBytes: (shape, elementBytes) => shape.ySize * elementBytes,
-    notes: "Current production traversal: fixed Y column with reverse X recurrence.",
+    notes: "Retained pre-promotion row-major raw-buffer scalar recurrence.",
   },
   {
     name: "candidate-a-row-major-x",
@@ -107,11 +115,11 @@ const CANDIDATES: readonly BenchmarkCandidate[] = [
     notes: "Benchmark-only whole-loop WASM X and dependent Y recurrences on the single-thread runtime.",
   },
   {
-    name: "candidate-wasm-worker-x",
+    name: "worker-kernel-mirror",
     run: divideRuffiniWasmWorkerShards,
     temporaryBytes: (shape, elementBytes) =>
       workerShardTemporaryBytes(shape.xSize, shape.ySize, elementBytes),
-    notes: "Benchmark-only Y-column-sharded WASM X recurrence plus one dependent Y recurrence.",
+    notes: "Benchmark-local mirror of the promoted worker-sharded recurrence.",
   },
 ];
 
@@ -129,7 +137,7 @@ async function main(): Promise<void> {
     for (const shape of options.shapes) {
       records.push(...await benchmarkShape(runtime, shape, options, candidates));
     }
-    records.push(...buildWeightedWorkloadRecords(records, runtime.field.byteLength, candidates));
+    records.push(...buildWeightedWorkloadRecords(records, candidates));
 
     printRecords(records);
     await writeReport(options, records);
@@ -476,7 +484,6 @@ function deterministicPolynomial(field: FieldRuntime, shape: Shape, seed: bigint
 
 function buildWeightedWorkloadRecords(
   records: readonly BenchmarkRecord[],
-  elementBytes: number,
   candidates: readonly BenchmarkCandidate[],
 ): BenchmarkRecord[] {
   const requiredShapes = new Map([
@@ -502,8 +509,9 @@ function buildWeightedWorkloadRecords(
       samplesMs: [],
       inputBytes: selected.reduce((sum, entry) => sum + entry.record.inputBytes * entry.count, 0),
       outputBytes: selected.reduce((sum, entry) => sum + entry.record.outputBytes * entry.count, 0),
-      temporaryBytes: (3 * 512 + 512 + 1) * elementBytes,
-      notes: "Derived as 3 * 8192x512 + 1 * 16384x512 + 1 * 128x1 from per-shape timing summaries.",
+      temporaryBytes: Math.max(...selected.map((entry) => entry.record.temporaryBytes)),
+      notes:
+        "Timing is derived as 3 * 8192x512 + 1 * 16384x512 + 1 * 128x1; temporary bytes are the largest per-call explicit allocation bound.",
     };
   });
 }

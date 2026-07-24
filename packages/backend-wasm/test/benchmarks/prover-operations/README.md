@@ -378,12 +378,15 @@ verification, and package-content inspection pass.
 
 The benchmark currently compares:
 
-- `current-production`: the promoted row-major, validated-once raw-buffer recurrence.
+- `current-production`: the promoted Y-column-sharded WASM X recurrence followed by one dependent WASM Y recurrence.
+- `scalar-production-baseline`: the retained pre-promotion row-major, validated-once raw-buffer recurrence.
 - `candidate-a-row-major-x`: the historical Candidate A decomposition, using row-major X steps with accessor-based coefficient reads and writes.
 - `candidate-b-raw-buffer`: the historical Candidate B decomposition, using the old fixed-Y traversal with one-time validation and direct raw-buffer offsets.
-- `candidate-ab-row-major-raw-buffer`: the benchmark-local A+B implementation retained for parity with current production.
+- `candidate-ab-row-major-raw-buffer`: the benchmark-local A+B scalar implementation.
+- `candidate-wasm-single-task`: whole-loop WASM recurrences on the caller thread.
+- `worker-kernel-mirror`: a benchmark-local mirror of the current production worker-sharded kernel.
 
-Use `--candidates=current-production,candidate-b-raw-buffer` to isolate one candidate against production. `current-production` is mandatory in every candidate selection.
+Use `--candidates=current-production,scalar-production-baseline,candidate-wasm-single-task` to compare current production with the pre-promotion scalar path and caller-thread WASM. `current-production` is mandatory in every candidate selection.
 
 Before timing, it checks exact quotient and remainder bytes against production and independently reconstructs the input polynomial. Edge-case parity covers zero, constant, X-only, Y-only, and general bivariate polynomials.
 
@@ -512,6 +515,55 @@ Standalone stage-timing comparison:
 | total wall | 266.36 s | 263.51 s | -2.85 s |
 
 The full integrated gain is smaller than the generic A+B+C estimate because only part of each opening numerator is a removable constant correction, and total wall time also contains unchanged polynomial and commitment work. Production parity, native testing-mode invariants, Node proof verification, Chromium proof generation and verification, build, and package-content checks all pass.
+
+## Whole-Loop WASM And Worker Promotion
+
+Related commit: `f94f9942` (`Parallelize prover Ruffini division`).
+
+The post-A+B scalar recurrence still crossed the JavaScript/WASM boundary once
+per field operation. The accepted rewrite moves the complete reverse X
+recurrence into a backend-owned WASM kernel, partitions independent Y columns
+through ffjavascript's existing worker queue, reassembles the X quotient, and
+then runs the dependent Y recurrence once. Recurrence order within a column is
+unchanged. Constant-correction elision at the five opening call sites is also
+unchanged.
+
+Pre-promotion benchmark:
+
+```bash
+npm run bench:ruffini -- --shapes=8192x512,16384x512,128x1 --candidates=current-production,candidate-wasm-single-task,candidate-wasm-worker-x --iterations=3 --warmup=1 --json=tmp/timing/ruffini-wasm-representative.json
+```
+
+The command above records the names used before promotion; the current script
+renames that scalar baseline to `scalar-production-baseline` and the accepted
+worker path to `current-production`.
+
+| shape | scalar JS | caller-thread WASM | worker-sharded WASM | worker reduction |
+| --- | ---: | ---: | ---: | ---: |
+| `8192x512` | 1428.639 ms | 334.120 ms | 122.492 ms | 91.4% |
+| `16384x512` | 2881.126 ms | 694.283 ms | 244.438 ms | 91.5% |
+| `128x1` | 0.056 ms | 0.019 ms | 0.052 ms | 7.1% |
+| five-call weighted estimate | 7167.099 ms | 1696.662 ms | 611.965 ms | 91.5% |
+
+Every candidate passed exact quotient/remainder parity, small edge cases, and
+independent reconstruction. The diagnostic explicit-allocation upper bound for
+the worker candidate is 768 MiB at `8192x512` and 1536 MiB at `16384x512`;
+these are conservative sums of owned buffers, not measured process peaks.
+
+Integrated fixed-taxonomy timing:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.div_ruffini` | 8.58 s | 0.801 s | -7.78 s (-90.7%) |
+| prover stage total | 165.30 s | 156.51 s | -8.79 s |
+| total wall | 172.57 s | 164.65 s | -7.92 s |
+
+The aggregate stage comparison contains normal variation in unchanged MSM and
+field work; `polynomial.div_ruffini` is the direct target. Native
+testing-mode-style invariants and Node proof verification passed. Chromium
+generated a 2408-byte proof in `160.48 s` and verified it in `19 ms`. Build
+and package inspection also passed; the 253-file package contains no
+`test/`, `scripts/`, `fixtures/`, or `tmp/` paths.
 
 ## Promotion Rule
 
