@@ -165,9 +165,9 @@ and partial-point accumulation. It retains the production dense threshold
 
 Candidates:
 
-- `current-production`: scalar field zero tests in the original two-scan path.
-- `raw-byte-two-scan`: direct zero tests over the validated all-zero Montgomery
-  representation.
+- `scalar-two-scan`: retained pre-Priority-24B scalar field zero tests.
+- `current-production`: direct zero tests over the validated all-zero
+  Montgomery representation.
 - `single-scan`: one caller-thread scan with maximum-size compact buffers.
 - `wasm-single-scan`: one backend-owned WASM compaction task.
 - `wasm-worker-scan`: ffjavascript-worker-sharded WASM compaction.
@@ -182,7 +182,7 @@ Useful options:
 
 - `--shapes=1024x256,4096x256`: comma-separated `xSize` by `ySize` rectangles.
 - `--densities=0,0.1,0.25,0.5,0.75,1`: nonzero probabilities.
-- `--candidates=current-production,raw-byte-two-scan`: selected candidates;
+- `--candidates=scalar-two-scan,current-production`: selected candidates;
   `current-production` is mandatory for parity.
 - `--iterations=2`: measured iterations.
 - `--warmup=1`: warmup iterations.

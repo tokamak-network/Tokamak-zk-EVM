@@ -1455,3 +1455,49 @@ Verification:
 - build and package dry-run passed;
 - package inspection found 253 files and no `test/`, `scripts/`, `fixtures/`,
   or `tmp/` paths.
+
+## Batched Binding Scalar Conversion
+
+Related commit: `8ac0d692`.
+
+The binding MSM helper previously called `toRawLittleEndian(...)` for every
+scalar and then concatenated the resulting small buffers. The accepted path
+concatenates the existing Montgomery field elements once and converts the
+complete buffer with ffjavascript `batchFromMontgomery(...)`. Base
+concatenation and `G1.multiExpAffine(...)` are unchanged.
+
+The fixture-derived benchmark covered every binding input and required exact
+G1 equality:
+
+| binding | scalars | per-scalar total | batched total | reduction |
+| --- | ---: | ---: | ---: | ---: |
+| `O_pub_free` | 109 | 1.53 ms | 1.54 ms | -0.7% |
+| `O_mid` | 6,820 | 12.57 ms | 11.03 ms | 12.3% |
+| `O_prv` | 650,925 | 1705.12 ms | 1573.26 ms | 7.7% |
+
+The common batched path was accepted because the sub-millisecond
+`O_pub_free` difference is immaterial while both representative larger inputs
+improve. Integrated fixed-taxonomy timing:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `binding.encode` | 1.984 s | 1.809 s | -0.175 s (-8.8%) |
+| encode | 109.702 s | 109.625 s | -0.077 s |
+| prover stage total | 164.973 s | 165.300 s | +0.327 s |
+| total wall | 172.942 s | 172.570 s | -0.372 s |
+
+Only `binding.encode` is the direct target. MSM-dominated polynomial
+commitments and unrelated field-operation variation account for the aggregate
+rows.
+
+Verification:
+
+- type checks and commitment parity passed;
+- native testing-mode-style witness, arithmetic, recursion, copy quotient, and
+  opening invariants passed;
+- Node stage timing generated a proof accepted by the verifier;
+- Chromium generated a 2408-byte proof in `167.10 s` and verified it in
+  `19 ms`;
+- build and package dry-run passed;
+- package inspection found 253 files and no `test/`, `scripts/`, `fixtures/`,
+  or `tmp/` paths.

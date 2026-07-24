@@ -15,8 +15,8 @@ const DENSE_CHUNK_POINTS = 1 << 18;
 const DENSE_MIN_DENSITY = 0.75;
 
 type Candidate =
+  | "scalar-two-scan"
   | "current-production"
-  | "raw-byte-two-scan"
   | "single-scan"
   | "wasm-single-scan"
   | "wasm-worker-scan";
@@ -220,9 +220,9 @@ async function prepareCandidate(
   candidate: Candidate,
 ): Promise<PreparedCommitment> {
   switch (candidate) {
-    case "current-production":
+    case "scalar-two-scan":
       return prepareTwoScan(runtime, benchmarkCase, false);
-    case "raw-byte-two-scan":
+    case "current-production":
       return prepareTwoScan(runtime, benchmarkCase, true);
     case "single-scan":
       return prepareSingleScan(runtime, benchmarkCase);
@@ -632,7 +632,7 @@ async function checkSmallParity(runtime: CompactionBenchmarkRuntime): Promise<vo
     const benchmarkCase = buildBenchmarkCase(runtime, { xSize: 8, ySize: 4 }, density, 0x504152495459n, rawBases);
     const current = await runCandidate(runtime, benchmarkCase, "current-production");
     for (const candidate of [
-      "raw-byte-two-scan",
+      "scalar-two-scan",
       "single-scan",
       "wasm-single-scan",
       "wasm-worker-scan",
@@ -664,7 +664,7 @@ function parseOptions(args: readonly string[]): BenchmarkOptions {
     densities: parseDensities(values.get("densities") ?? "0,0.1,0.25,0.5,0.75,1"),
     candidates: parseCandidates(
       values.get("candidates")
-      ?? "current-production,raw-byte-two-scan,single-scan,wasm-single-scan,wasm-worker-scan",
+      ?? "scalar-two-scan,current-production,single-scan,wasm-single-scan,wasm-worker-scan",
     ),
     iterations: parsePositiveInteger(values.get("iterations") ?? "3", "iterations"),
     warmup: parseNonNegativeInteger(values.get("warmup") ?? "1", "warmup"),
@@ -698,8 +698,8 @@ function parseDensities(value: string): number[] {
 
 function parseCandidates(value: string): Candidate[] {
   const valid = new Set<Candidate>([
+    "scalar-two-scan",
     "current-production",
-    "raw-byte-two-scan",
     "single-scan",
     "wasm-single-scan",
     "wasm-worker-scan",
