@@ -46,6 +46,10 @@ export interface FieldRuntime {
 }
 
 export function createFieldRuntime(field: FfField): FieldRuntime {
+  if (field.zero.byteLength !== field.n8 || field.zero.some((byte) => byte !== 0)) {
+    throw new Error("Field runtime requires an all-zero byte representation for the additive identity.");
+  }
+
   return {
     byteLength: field.n8,
     modulus: field.p,
@@ -57,11 +61,7 @@ export function createFieldRuntime(field: FfField): FieldRuntime {
     },
     createZeroBuffer(elementCount) {
       assertNonNegativeSafeInteger(elementCount, "Field buffer element count");
-      const output = new Uint8Array(elementCount * field.n8);
-      for (let index = 0; index < elementCount; index += 1) {
-        output.set(field.zero, index * field.n8);
-      }
-      return output;
+      return new Uint8Array(elementCount * field.n8);
     },
     cloneBuffer(buffer) {
       assertFieldBuffer(buffer, field.n8);

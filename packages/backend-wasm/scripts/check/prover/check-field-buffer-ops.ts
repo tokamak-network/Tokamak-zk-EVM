@@ -18,6 +18,7 @@ async function checkFieldBufferOps(field: FieldRuntime): Promise<void> {
   const values = [3n, 5n, 7n, 11n].map((value) => field.fromBigInt(value));
   const buffer = field.concat(values);
 
+  assertBytesEqual(field.zero, new Uint8Array(field.byteLength), "field zero byte representation");
   assertEqual(field.bufferElementCount(buffer), values.length, "buffer element count");
   assertFields(field, field.split(buffer), values, "split");
   assertFields(
@@ -38,6 +39,7 @@ async function checkFieldBufferOps(field: FieldRuntime): Promise<void> {
   );
 
   const zeros = field.createZeroBuffer(3);
+  assertBytesEqual(zeros, new Uint8Array(3 * field.byteLength), "createZeroBuffer raw bytes");
   assertFields(field, field.split(zeros), [field.zero, field.zero, field.zero], "createZeroBuffer");
 
   const fftBuffer = await field.fftBuffer(buffer);
