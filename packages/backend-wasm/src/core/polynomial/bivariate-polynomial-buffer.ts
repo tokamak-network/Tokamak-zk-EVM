@@ -112,6 +112,21 @@ export class BivariatePolynomialBuffer {
   }
 
   add(other: BivariatePolynomialBuffer): BivariatePolynomialBuffer {
+    if (this.field === other.field && this.xSize === other.xSize && this.ySize === other.ySize) {
+      const output = new Uint8Array(this.coefficients.byteLength);
+      const elementBytes = this.field.byteLength;
+      for (let offset = 0; offset < output.byteLength; offset += elementBytes) {
+        output.set(
+          this.field.add(
+            this.coefficients.subarray(offset, offset + elementBytes),
+            other.coefficients.subarray(offset, offset + elementBytes),
+          ),
+          offset,
+        );
+      }
+      return BivariatePolynomialBuffer.fromOwnedBuffer(this.field, output, this.xSize, this.ySize);
+    }
+
     const accumulator = resizedAccumulator(this, other);
     accumulator.addScaledPrefixAssign(this, this.field.one);
     accumulator.addScaledPrefixAssign(other, this.field.one);
@@ -119,6 +134,21 @@ export class BivariatePolynomialBuffer {
   }
 
   sub(other: BivariatePolynomialBuffer): BivariatePolynomialBuffer {
+    if (this.field === other.field && this.xSize === other.xSize && this.ySize === other.ySize) {
+      const output = new Uint8Array(this.coefficients.byteLength);
+      const elementBytes = this.field.byteLength;
+      for (let offset = 0; offset < output.byteLength; offset += elementBytes) {
+        output.set(
+          this.field.sub(
+            this.coefficients.subarray(offset, offset + elementBytes),
+            other.coefficients.subarray(offset, offset + elementBytes),
+          ),
+          offset,
+        );
+      }
+      return BivariatePolynomialBuffer.fromOwnedBuffer(this.field, output, this.xSize, this.ySize);
+    }
+
     const accumulator = resizedAccumulator(this, other);
     accumulator.addScaledPrefixAssign(this, this.field.one);
     accumulator.addScaledPrefixAssign(other, this.field.neg(this.field.one));
