@@ -1170,3 +1170,24 @@ Observed diagnostics after this change:
 | verify generated proof | 17 ms |
 
 Historical `prove*` names in the table are diagnostic labels only.
+
+## Same-Shape Add/Sub Construction
+
+Production commit `9edb6876` changes `BivariatePolynomialBuffer.add(...)` and
+`sub(...)` so equal-shape inputs construct their output in one coefficient
+traversal. Mixed-shape operations retain the previous prefix-accumulation
+path.
+
+Post-promotion representative timing:
+
+| operation | `4096x256` | `8192x512` |
+| --- | ---: | ---: |
+| production add | 190.550 ms | 876.130 ms |
+| production sub | 190.058 ms | 872.330 ms |
+
+Across the stable integrated add/sub call-site set, accumulated time decreased
+from `10.790 s` to `8.917 s`, a `1.873 s` (`17.4%`) reduction. The full timing
+run had unrelated multiplication and encode increases, so its total wall-time
+regression is not attributed to this rewrite. Exact polynomial parity,
+testing-mode invariants, generated-proof verification, build, Chromium proof
+generation and verification, and package-content inspection passed.

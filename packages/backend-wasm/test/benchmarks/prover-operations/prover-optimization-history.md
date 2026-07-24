@@ -963,6 +963,77 @@ Verification:
 - `npm pack --dry-run --json` passed with 249 files and no test, script,
   temporary, benchmark, or diagnostics paths.
 
+## Same-Shape Add/Sub Single-Pass Construction
+
+Production commit: `9edb6876` (`Optimize same-shape polynomial addition`).
+
+Production change:
+
+- `BivariatePolynomialBuffer.add(...)` and `sub(...)` now construct a
+  same-shape output in one coefficient traversal.
+- Mixed-shape operations retain the previous zero-accumulator and prefix
+  accumulation path.
+- The change removes the previous same-shape sequence of zero allocation,
+  complete left-input accumulation, and complete right-input accumulation.
+
+Representative post-promotion benchmark:
+
+| operation | shape | promoted production | retained direct candidate |
+| --- | ---: | ---: | ---: |
+| add | `4096x256` | 190.550 ms | 190.496 ms |
+| sub | `4096x256` | 190.058 ms | 200.176 ms |
+| add | `8192x512` | 876.130 ms | 765.305 ms |
+| sub | `8192x512` | 872.330 ms | 906.986 ms |
+
+The promoted production path is the current result in this table. The
+retained candidates are independent benchmark implementations and do not
+replace production.
+
+Integrated target-event comparison:
+
+| target event set | before | after | delta |
+| --- | ---: | ---: | ---: |
+| same-shape and mixed add/sub call-site events | 10.790 s | 8.917 s | -1.873 s (-17.4%) |
+
+The mixed-shape events are included to keep the call-site set stable even
+though their implementation was intentionally unchanged. The largest direct
+same-shape reductions were `prove2.p2_input` (`1.517 s` to `0.904 s`) and
+`prove2.p3.sub` (`1.616 s` to `0.884 s`).
+
+Standalone stage-timing context:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_without_multiplication` | 53.97 s | 56.11 s | +2.14 s |
+| `polynomial.combination_with_multiplication` | 34.17 s | 37.49 s | +3.32 s |
+| `field.operations` | 110.07 s | 117.84 s | +7.77 s |
+| encode | 117.23 s | 134.03 s | +16.80 s |
+| prover stage total | 225.27 s | 249.75 s | +24.48 s |
+| total wall | 233.71 s | 258.28 s | +24.57 s |
+
+Interpretation:
+
+- The stable target call-site set decreased by `1.873 s`; this is the
+  attributable integrated result for the rewrite.
+- The standalone full-run totals regressed while unrelated multiplication and
+  encode rows also increased. Those changes are recorded as run variation and
+  are not attributed to the add/sub rewrite.
+- Chromium proof generation completed in `242.56 s`, and verification
+  completed in `22 ms`.
+
+Verification:
+
+- `npm run typecheck` passed.
+- `npm run polynomial:buffer:check` passed.
+- `npm run prover:ops:polynomial` passed.
+- `npm run prover:ops:check` passed.
+- `npm run prover:testing-mode:check` passed.
+- `npm run prover:stage-timing:check` passed and verified the generated proof.
+- `npm run build` passed.
+- `npm run prover:browser:check` passed.
+- `npm pack --dry-run --json` passed with 249 files and no test, script,
+  temporary, benchmark, or diagnostics paths.
+
 ## Superseded Old-Taxonomy Comparison
 
 The old comparison below is preserved only as historical context. It must not be used as the active timing table because it used add/sub/mul/scale rows that are no longer part of the accepted taxonomy.
