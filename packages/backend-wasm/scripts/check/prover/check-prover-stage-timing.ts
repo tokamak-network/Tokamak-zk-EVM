@@ -240,16 +240,6 @@ function polynomialSub(
   ]);
 }
 
-function polynomialScale(
-  label: string,
-  polynomial: BivariatePolynomialBuffer,
-  scalar: FieldElement,
-): BivariatePolynomialBuffer {
-  return polynomialOperationSync("polynomial.combination_without_multiplication", label, () => polynomial.scale(scalar), [
-    shapeSize("polynomial", polynomial.xSize, polynomial.ySize),
-  ]);
-}
-
 function polynomialScaleX(
   label: string,
   polynomial: BivariatePolynomialBuffer,
@@ -260,14 +250,24 @@ function polynomialScaleX(
   ]);
 }
 
-function polynomialScaleY(
+async function polynomialBatchScale(
   label: string,
   polynomial: BivariatePolynomialBuffer,
-  scalar: FieldElement,
-): BivariatePolynomialBuffer {
-  return polynomialOperationSync("polynomial.combination_without_multiplication", label, () => polynomial.scaleCoeffsY(scalar), [
-    shapeSize("polynomial", polynomial.xSize, polynomial.ySize),
-  ]);
+  first: FieldElement,
+  increment: FieldElement,
+): Promise<BivariatePolynomialBuffer> {
+  return polynomialOperation(
+    "polynomial.combination_without_multiplication",
+    label,
+    async () =>
+      BivariatePolynomialBuffer.fromOwnedBuffer(
+        polynomial.field,
+        await polynomial.field.batchApplyKeyBuffer(polynomial.coefficients, first, increment),
+        polynomial.xSize,
+        polynomial.ySize,
+      ),
+    [shapeSize("polynomial", polynomial.xSize, polynomial.ySize)],
+  );
 }
 
 async function polynomialMul(
@@ -835,7 +835,12 @@ async function prove2Timed(input: {
   const omegaMI = field.rootOfUnity(mI);
   const omegaSMax = field.rootOfUnity(sMax);
   const rOmegaX = polynomialScaleX("prove2.r_omega_x", rXY, field.inv(omegaMI));
-  const rOmegaXOmegaY = polynomialScaleY("prove2.r_omega_x_omega_y", rOmegaX, field.inv(omegaSMax));
+  const rOmegaXOmegaY = await polynomialBatchScale(
+    "prove2.r_omega_x_omega_y",
+    rOmegaX,
+    field.one,
+    field.inv(omegaSMax),
+  );
   const xMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 2, 1);
   const yMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 1, 2);
   const theta2 = constantPolynomialBuffer(field, thetas[2]);
@@ -1162,7 +1167,12 @@ async function buildCopyOpeningsTimed(input: {
   const mI = state.setup.l_D - state.setup.l;
   const sMax = state.setup.s_max;
   const rOmegaX = polynomialScaleX("prove4.r_omega_x", rXY, omegaMIInv);
-  const rOmegaXOmegaY = polynomialScaleY("prove4.r_omega_x_omega_y", rOmegaX, omegaSMaxInv);
+  const rOmegaXOmegaY = await polynomialBatchScale(
+    "prove4.r_omega_x_omega_y",
+    rOmegaX,
+    field.one,
+    omegaSMaxInv,
+  );
   const xMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 2, 1);
   const yMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 1, 2);
   const theta2 = constantPolynomialBuffer(field, thetas[2]);
@@ -1245,7 +1255,7 @@ async function buildCopyOpeningsTimed(input: {
   );
   const gMinusF = polynomialSub("prove4.gMinusF", gXY, fXY);
   const term10Scale = field.add(field.mul(state.mixer.rR_X, tMiEval), field.mul(state.mixer.rR_Y, tSMaxEval));
-  const term10 = polynomialScale("prove4.term10", gMinusF, term10Scale);
+  const term10 = await polynomialBatchScale("prove4.term10", gMinusF, term10Scale, field.one);
   const lhsZk1 = (() => {
     const rD1Term9 = polynomialMulSpecial("prove4.LHS_zk1.term9", () =>
       mulByTerm9(rD1, state.mixer.rB_X, state.mixer.rB_Y, tMiEval, tSMaxEval),

@@ -50,7 +50,12 @@ export async function computeCopyQuotientCommitments(input: {
   const omegaMI = field.rootOfUnity(mI);
   const omegaSMax = field.rootOfUnity(sMax);
   const rOmegaX = rXY.scaleCoeffsX(field.inv(omegaMI));
-  const rOmegaXOmegaY = rOmegaX.scaleCoeffsY(field.inv(omegaSMax));
+  const rOmegaXOmegaY = BivariatePolynomialBuffer.fromOwnedBuffer(
+    field,
+    await field.batchApplyKeyBuffer(rOmegaX.coefficients, field.one, field.inv(omegaSMax)),
+    rOmegaX.xSize,
+    rOmegaX.ySize,
+  );
   const xMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 2, 1);
   const yMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 1, 2);
   const theta2 = constantPolynomialBuffer(field, thetas[2]);

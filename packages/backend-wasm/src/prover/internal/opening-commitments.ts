@@ -249,7 +249,12 @@ async function buildCopyOpeningPolynomials(input: {
   const mI = state.setup.l_D - state.setup.l;
   const sMax = state.setup.s_max;
   const rOmegaX = rXY.scaleCoeffsX(omegaMIInv);
-  const rOmegaXOmegaY = rOmegaX.scaleCoeffsY(omegaSMaxInv);
+  const rOmegaXOmegaY = BivariatePolynomialBuffer.fromOwnedBuffer(
+    field,
+    await field.batchApplyKeyBuffer(rOmegaX.coefficients, field.one, omegaSMaxInv),
+    rOmegaX.xSize,
+    rOmegaX.ySize,
+  );
   const xMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 2, 1);
   const yMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 1, 2);
   const theta2 = constantPolynomialBuffer(field, thetas[2]);
@@ -298,7 +303,12 @@ async function buildCopyOpeningPolynomials(input: {
   const rD2Eval = field.sub(smallREval, smallROmegaXOmegaYEval);
   const gMinusF = gXY.sub(fXY);
   const term10Scale = field.add(field.mul(state.mixer.rR_X, tMiEval), field.mul(state.mixer.rR_Y, tSMaxEval));
-  const term10 = gMinusF.scale(term10Scale);
+  const term10 = BivariatePolynomialBuffer.fromOwnedBuffer(
+    field,
+    await field.batchApplyKeyBuffer(gMinusF.coefficients, term10Scale, field.one),
+    gMinusF.xSize,
+    gMinusF.ySize,
+  );
   const rD1Term9 = mulByTerm9(rD1, state.mixer.rB_X, state.mixer.rB_Y, tMiEval, tSMaxEval);
   const rD1Term9PlusTerm10 = rD1Term9.add(term10);
   const lhsZk1 = linearCombinationBuffer(field, [

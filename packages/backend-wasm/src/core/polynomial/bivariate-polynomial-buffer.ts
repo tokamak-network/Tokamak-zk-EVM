@@ -345,11 +345,11 @@ export class BivariatePolynomialBuffer {
   }
 
   scaleAssign(factor: FieldElement): this {
-    for (let index = 0; index < this.xSize * this.ySize; index += 1) {
-      this.field.writeBufferElement(
-        this.coefficients,
-        index,
-        this.field.mul(this.field.readBufferElement(this.coefficients, index), factor),
+    const elementBytes = this.field.byteLength;
+    for (let offset = 0; offset < this.coefficients.byteLength; offset += elementBytes) {
+      this.coefficients.set(
+        this.field.mul(this.coefficients.subarray(offset, offset + elementBytes), factor),
+        offset,
       );
     }
     return this;
@@ -407,14 +407,15 @@ export class BivariatePolynomialBuffer {
   }
 
   scaleCoeffsXAssign(factor: FieldElement): this {
+    const elementBytes = this.field.byteLength;
+    const rowBytes = this.ySize * elementBytes;
     let power = this.field.one;
     for (let x = 0; x < this.xSize; x += 1) {
-      for (let y = 0; y < this.ySize; y += 1) {
-        const index = this.coefficientIndex(x, y);
-        this.field.writeBufferElement(
-          this.coefficients,
-          index,
-          this.field.mul(this.field.readBufferElement(this.coefficients, index), power),
+      const rowEnd = (x + 1) * rowBytes;
+      for (let offset = x * rowBytes; offset < rowEnd; offset += elementBytes) {
+        this.coefficients.set(
+          this.field.mul(this.coefficients.subarray(offset, offset + elementBytes), power),
+          offset,
         );
       }
       power = this.field.mul(power, factor);
@@ -423,6 +424,7 @@ export class BivariatePolynomialBuffer {
   }
 
   scaleCoeffsYAssign(factor: FieldElement): this {
+    const elementBytes = this.field.byteLength;
     const powers: FieldElement[] = [];
     let power = this.field.one;
     for (let y = 0; y < this.ySize; y += 1) {
@@ -431,12 +433,12 @@ export class BivariatePolynomialBuffer {
     }
 
     for (let x = 0; x < this.xSize; x += 1) {
+      const rowOffset = x * this.ySize * elementBytes;
       for (let y = 0; y < this.ySize; y += 1) {
-        const index = this.coefficientIndex(x, y);
-        this.field.writeBufferElement(
-          this.coefficients,
-          index,
-          this.field.mul(this.field.readBufferElement(this.coefficients, index), powers[y]),
+        const offset = rowOffset + y * elementBytes;
+        this.coefficients.set(
+          this.field.mul(this.coefficients.subarray(offset, offset + elementBytes), powers[y]),
+          offset,
         );
       }
     }
