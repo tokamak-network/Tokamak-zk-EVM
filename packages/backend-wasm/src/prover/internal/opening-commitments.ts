@@ -6,7 +6,7 @@ import {
   constantPolynomialBuffer,
   evaluateAtScaledChallengeSet,
   evaluateLagrangeK0At,
-  linearCombinationBuffer,
+  linearCombinationBufferBatch,
   mulByOneMinusX,
   mulByTerm9,
   multiplyByLagrangeK0,
@@ -91,12 +91,12 @@ export async function computeOpeningCommitments(input: {
   const smallVEval = state.witness.vXY.eval(chi, zeta);
   const rW_X = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_X, state.mixer.rW_X.length, 1);
   const rW_Y = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_Y, 1, state.mixer.rW_Y.length);
-  const VXY = linearCombinationBuffer(field, [
+  const VXY = await linearCombinationBufferBatch(field, [
     [field.one, state.witnessBuffers.vXY],
     [state.mixer.rV_X, state.instanceBuffers.tN],
     [state.mixer.rV_Y, state.instanceBuffers.tSMax],
   ]);
-  const pAXY = linearCombinationBuffer(field, [
+  const pAXY = await linearCombinationBufferBatch(field, [
     [kappa1, VXY],
     [smallVEval, state.witnessBuffers.uXY],
     [field.neg(field.one), state.witnessBuffers.wXY],
@@ -118,7 +118,7 @@ export async function computeOpeningCommitments(input: {
     zeta,
     field.mul(kappa1, evaluations.V_eval),
   );
-  const RXY = linearCombinationBuffer(field, [
+  const RXY = await linearCombinationBufferBatch(field, [
     [field.one, rXY],
     [state.mixer.rR_X, state.instanceBuffers.tMi],
     [state.mixer.rR_Y, state.instanceBuffers.tSMax],
@@ -248,7 +248,7 @@ async function buildCopyOpeningPolynomials(input: {
   const field = runtime.Fr;
   const mI = state.setup.l_D - state.setup.l;
   const sMax = state.setup.s_max;
-  const rOmegaX = rXY.scaleCoeffsX(omegaMIInv);
+  const rOmegaX = await rXY.scaleCoeffsXBatch(omegaMIInv);
   const rOmegaXOmegaY = BivariatePolynomialBuffer.fromOwnedBuffer(
     field,
     await field.batchApplyKeyBuffer(rOmegaX.coefficients, field.one, omegaSMaxInv),
@@ -258,13 +258,13 @@ async function buildCopyOpeningPolynomials(input: {
   const xMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 2, 1);
   const yMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 1, 2);
   const theta2 = constantPolynomialBuffer(field, thetas[2]);
-  const fXY = linearCombinationBuffer(field, [
+  const fXY = await linearCombinationBufferBatch(field, [
     [field.one, state.witnessBuffers.bXY],
     [thetas[0], state.instanceBuffers.s0XY],
     [thetas[1], state.instanceBuffers.s1XY],
     [field.one, theta2],
   ]);
-  const gXY = linearCombinationBuffer(field, [
+  const gXY = await linearCombinationBufferBatch(field, [
     [field.one, state.witnessBuffers.bXY],
     [thetas[0], xMonomial],
     [thetas[1], yMonomial],
@@ -290,18 +290,18 @@ async function buildCopyOpeningPolynomials(input: {
       field.mul(term6Scale, smallROmegaXOmegaYEval),
     ),
   );
-  const pCXY = linearCombinationBuffer(field, [
+  const pCXY = await linearCombinationBufferBatch(field, [
     [field.sub(smallREval, field.one), copyQuotient.lagrangeKlXY],
     [gScale, gXY],
     [fScale, fXY],
     [field.neg(tMiEval), copyQuotient.q2XY],
     [field.neg(tSMaxEval), copyQuotient.q3XY],
   ]);
-  const rD1 = rXY.sub(rOmegaX);
-  const rD2 = rXY.sub(rOmegaXOmegaY);
+  const rD1 = await rXY.subBatch(rOmegaX);
+  const rD2 = await rXY.subBatch(rOmegaXOmegaY);
   const rD1Eval = field.sub(smallREval, smallROmegaXEval);
   const rD2Eval = field.sub(smallREval, smallROmegaXOmegaYEval);
-  const gMinusF = gXY.sub(fXY);
+  const gMinusF = await gXY.subBatch(fXY);
   const term10Scale = field.add(field.mul(state.mixer.rR_X, tMiEval), field.mul(state.mixer.rR_Y, tSMaxEval));
   const term10 = BivariatePolynomialBuffer.fromOwnedBuffer(
     field,
@@ -310,21 +310,27 @@ async function buildCopyOpeningPolynomials(input: {
     gMinusF.ySize,
   );
   const rD1Term9 = mulByTerm9(rD1, state.mixer.rB_X, state.mixer.rB_Y, tMiEval, tSMaxEval);
-  const rD1Term9PlusTerm10 = rD1Term9.add(term10);
-  const lhsZk1 = linearCombinationBuffer(field, [
+  const rD1Term9PlusTerm10 = await linearCombinationBufferBatch(field, [
+    [field.one, rD1Term9],
+    [field.one, term10],
+  ]);
+  const lhsZk1 = await linearCombinationBufferBatch(field, [
     [field.mul(field.sub(chi, field.one), rD1Eval), initialRelation.termBZk],
     [field.one, mulByOneMinusX(rD1Term9PlusTerm10)],
     [field.sub(chi, field.one), term10],
   ]);
   const rD2Term9 = mulByTerm9(rD2, state.mixer.rB_X, state.mixer.rB_Y, tMiEval, tSMaxEval);
-  const rD2Term9PlusTerm10 = rD2Term9.add(term10);
+  const rD2Term9PlusTerm10 = await linearCombinationBufferBatch(field, [
+    [field.one, rD2Term9],
+    [field.one, term10],
+  ]);
   const lhsZk2Product = await multiplyByLagrangeK0(rD2Term9PlusTerm10, mI);
-  const lhsZk2 = linearCombinationBuffer(field, [
+  const lhsZk2 = await linearCombinationBufferBatch(field, [
     [field.mul(lagrangeK0Eval, rD2Eval), initialRelation.termBZk],
     [lagrangeK0Eval, term10],
     [field.neg(field.one), lhsZk2Product],
   ]);
-  const lhsForCopy = linearCombinationBuffer(field, [
+  const lhsForCopy = await linearCombinationBufferBatch(field, [
     [kappa1Sq, pCXY],
     [field.mul(kappa1Sq, kappa0), lhsZk1],
     [field.mul(field.mul(kappa1Sq, kappa0Sq), field.one), lhsZk2],

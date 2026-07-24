@@ -92,13 +92,13 @@ export class BivariatePolynomialBuffer {
     cosetY?: FieldElement,
   ): Promise<BivariatePolynomialBuffer> {
     const coefficients = await biNttBuffer(field, evals, xSize, ySize, "inverse");
-    const polynomial = new BivariatePolynomialBuffer(field, coefficients, { xSize, ySize });
+    let polynomial = new BivariatePolynomialBuffer(field, coefficients, { xSize, ySize });
 
     if (cosetX !== undefined) {
-      polynomial.scaleCoeffsXAssign(field.inv(cosetX));
+      polynomial = await polynomial.scaleCoeffsXBatch(field.inv(cosetX));
     }
     if (cosetY !== undefined) {
-      polynomial.scaleCoeffsYAssign(field.inv(cosetY));
+      polynomial = await polynomial.scaleCoeffsYBatch(field.inv(cosetY));
     }
 
     return polynomial;
@@ -165,6 +165,76 @@ export class BivariatePolynomialBuffer {
 
   scaleCoeffsY(factor: FieldElement): BivariatePolynomialBuffer {
     return this.clone().scaleCoeffsYAssign(factor);
+  }
+
+  async addBatch(other: BivariatePolynomialBuffer): Promise<BivariatePolynomialBuffer> {
+    this.assertSameShape(other);
+    return BivariatePolynomialBuffer.fromOwnedBuffer(
+      this.field,
+      await this.field.batchAddBuffer(this.coefficients, other.coefficients),
+      this.xSize,
+      this.ySize,
+    );
+  }
+
+  async subBatch(other: BivariatePolynomialBuffer): Promise<BivariatePolynomialBuffer> {
+    this.assertSameShape(other);
+    return BivariatePolynomialBuffer.fromOwnedBuffer(
+      this.field,
+      await this.field.batchSubBuffer(this.coefficients, other.coefficients),
+      this.xSize,
+      this.ySize,
+    );
+  }
+
+  async scaleBatch(factor: FieldElement): Promise<BivariatePolynomialBuffer> {
+    return BivariatePolynomialBuffer.fromOwnedBuffer(
+      this.field,
+      await this.field.batchScaleBuffer(this.coefficients, factor),
+      this.xSize,
+      this.ySize,
+    );
+  }
+
+  async addScaledPrefixBatch(
+    other: BivariatePolynomialBuffer,
+    factor: FieldElement,
+  ): Promise<BivariatePolynomialBuffer> {
+    if (this.field !== other.field) {
+      throw new Error("Bivariate polynomial buffers must have the same field.");
+    }
+    return BivariatePolynomialBuffer.fromOwnedBuffer(
+      this.field,
+      await this.field.batchAddScaledPrefixBuffer(
+        this.coefficients,
+        this.xSize,
+        this.ySize,
+        other.coefficients,
+        other.xSize,
+        other.ySize,
+        factor,
+      ),
+      this.xSize,
+      this.ySize,
+    );
+  }
+
+  async scaleCoeffsXBatch(factor: FieldElement): Promise<BivariatePolynomialBuffer> {
+    return BivariatePolynomialBuffer.fromOwnedBuffer(
+      this.field,
+      await this.field.batchScaleCoeffsXBuffer(this.coefficients, this.xSize, this.ySize, factor),
+      this.xSize,
+      this.ySize,
+    );
+  }
+
+  async scaleCoeffsYBatch(factor: FieldElement): Promise<BivariatePolynomialBuffer> {
+    return BivariatePolynomialBuffer.fromOwnedBuffer(
+      this.field,
+      await this.field.batchScaleCoeffsYBuffer(this.coefficients, this.xSize, this.ySize, factor),
+      this.xSize,
+      this.ySize,
+    );
   }
 
   toDense(): DensePolynomialExt {
@@ -450,12 +520,12 @@ export class BivariatePolynomialBuffer {
       return await biNttBuffer(this.field, this.coefficients, this.xSize, this.ySize, "forward");
     }
 
-    const scaled = this.clone();
+    let scaled = this.clone();
     if (cosetX !== undefined) {
-      scaled.scaleCoeffsXAssign(cosetX);
+      scaled = await scaled.scaleCoeffsXBatch(cosetX);
     }
     if (cosetY !== undefined) {
-      scaled.scaleCoeffsYAssign(cosetY);
+      scaled = await scaled.scaleCoeffsYBatch(cosetY);
     }
 
     return await biNttBuffer(this.field, scaled.coefficients, this.xSize, this.ySize, "forward");

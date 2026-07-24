@@ -6,7 +6,7 @@ import { encodePolynomialBufferWithSigma1, type ProverOperationOptions } from ".
 import {
   computeRecursionEvalsBuffer,
   constantPolynomialBuffer,
-  linearCombinationBuffer,
+  linearCombinationBufferBatch,
 } from "./polynomial-ops.js";
 import type { ProverState } from "./state.js";
 
@@ -36,13 +36,13 @@ export async function computeRecursionCommitment(
   const xMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 2, 1);
   const yMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 1, 2);
   const theta2 = constantPolynomialBuffer(field, thetas[2]);
-  const fXY = linearCombinationBuffer(field, [
+  const fXY = await linearCombinationBufferBatch(field, [
     [field.one, state.witnessBuffers.bXY],
     [thetas[0], state.instanceBuffers.s0XY],
     [thetas[1], state.instanceBuffers.s1XY],
     [field.one, theta2],
   ]);
-  const gXY = linearCombinationBuffer(field, [
+  const gXY = await linearCombinationBufferBatch(field, [
     [field.one, state.witnessBuffers.bXY],
     [thetas[0], xMonomial],
     [thetas[1], yMonomial],
@@ -52,7 +52,7 @@ export async function computeRecursionCommitment(
   const gXYEvals = await gXY.resize(mI, sMax).toRouEvals();
   const rXYEvals = await computeRecursionEvalsBuffer(field, gXYEvals, fXYEvals, mI, sMax);
   const rXY = await BivariatePolynomialBuffer.fromRouEvals(field, rXYEvals, mI, sMax);
-  const RXY = linearCombinationBuffer(field, [
+  const RXY = await linearCombinationBufferBatch(field, [
     [field.one, rXY],
     [state.mixer.rR_X, state.instanceBuffers.tMi],
     [state.mixer.rR_Y, state.instanceBuffers.tSMax],

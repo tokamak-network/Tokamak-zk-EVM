@@ -3,7 +3,7 @@ import type { CurveRuntime } from "../../core/curve/curve.js";
 import type { FieldElement } from "../../core/field/field.js";
 import {
   evaluateAtScaledChallengeSet,
-  linearCombinationBuffer,
+  linearCombinationBufferBatch,
 } from "./polynomial-ops.js";
 import type { ProverState } from "./state.js";
 
@@ -14,24 +14,24 @@ export interface ChallengeEvaluations {
   readonly R_omegaX_omegaY_eval: FieldElement;
 }
 
-export function evaluateChallengePoints(input: {
+export async function evaluateChallengePoints(input: {
   readonly runtime: CurveRuntime;
   readonly state: ProverState;
   readonly rXY: BivariatePolynomialBuffer;
   readonly chi: FieldElement;
   readonly zeta: FieldElement;
-}): ChallengeEvaluations {
+}): Promise<ChallengeEvaluations> {
   const { runtime, state, rXY, chi, zeta } = input;
   const field = runtime.Fr;
   const mI = state.setup.l_D - state.setup.l;
   const omegaMI = field.rootOfUnity(mI);
   const omegaSMax = field.rootOfUnity(state.setup.s_max);
-  const VXY = linearCombinationBuffer(field, [
+  const VXY = await linearCombinationBufferBatch(field, [
     [field.one, state.witnessBuffers.vXY],
     [state.mixer.rV_X, state.instanceBuffers.tN],
     [state.mixer.rV_Y, state.instanceBuffers.tSMax],
   ]);
-  const RXY = linearCombinationBuffer(field, [
+  const RXY = await linearCombinationBufferBatch(field, [
     [field.one, rXY],
     [state.mixer.rR_X, state.instanceBuffers.tMi],
     [state.mixer.rR_Y, state.instanceBuffers.tSMax],

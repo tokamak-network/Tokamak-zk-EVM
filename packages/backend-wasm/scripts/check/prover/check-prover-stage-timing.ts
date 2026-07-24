@@ -44,6 +44,7 @@ import {
   computeRecursionEvalsBuffer,
   evaluateAtScaledChallengeSet,
   evaluateLagrangeK0At,
+  linearCombinationBufferBatch,
   lowDegreeXTimesVanishingBuffer,
   lowDegreeYTimesVanishingBuffer,
   mulByOneMinusX,
@@ -218,34 +219,43 @@ function polynomialOperationSync<T>(
   return timing.spanSync(label, operation, callback, sizes);
 }
 
-function polynomialAdd(
+async function polynomialAdd(
   label: string,
   left: BivariatePolynomialBuffer,
   right: BivariatePolynomialBuffer,
-): BivariatePolynomialBuffer {
-  return polynomialOperationSync("polynomial.combination_without_multiplication", label, () => left.add(right), [
+): Promise<BivariatePolynomialBuffer> {
+  return polynomialOperation("polynomial.combination_without_multiplication", label, () =>
+    linearCombinationBufferBatch(left.field, [
+      [left.field.one, left],
+      [left.field.one, right],
+    ]), [
     shapeSize("left", left.xSize, left.ySize),
     shapeSize("right", right.xSize, right.ySize),
   ]);
 }
 
-function polynomialSub(
+async function polynomialSub(
   label: string,
   left: BivariatePolynomialBuffer,
   right: BivariatePolynomialBuffer,
-): BivariatePolynomialBuffer {
-  return polynomialOperationSync("polynomial.combination_without_multiplication", label, () => left.sub(right), [
+): Promise<BivariatePolynomialBuffer> {
+  return polynomialOperation("polynomial.combination_without_multiplication", label, () =>
+    linearCombinationBufferBatch(left.field, [
+      [left.field.one, left],
+      [left.field.neg(left.field.one), right],
+    ]), [
     shapeSize("left", left.xSize, left.ySize),
     shapeSize("right", right.xSize, right.ySize),
   ]);
 }
 
-function polynomialScaleX(
+async function polynomialScaleX(
   label: string,
   polynomial: BivariatePolynomialBuffer,
   scalar: FieldElement,
-): BivariatePolynomialBuffer {
-  return polynomialOperationSync("polynomial.combination_without_multiplication", label, () => polynomial.scaleCoeffsX(scalar), [
+): Promise<BivariatePolynomialBuffer> {
+  return polynomialOperation("polynomial.combination_without_multiplication", label, () =>
+    polynomial.scaleCoeffsXBatch(scalar), [
     shapeSize("polynomial", polynomial.xSize, polynomial.ySize),
   ]);
 }
@@ -421,73 +431,17 @@ function polynomialDivRuffiniAfterSubtractingConstantSync(
   }, [shapeSize("polynomial", polynomial.xSize, polynomial.ySize)]);
 }
 
-function polynomialLinearCombination(
+async function polynomialLinearCombination(
   label: string,
   field: CurveRuntime["Fr"],
   terms: readonly (readonly [FieldElement, BivariatePolynomialBuffer])[],
-): BivariatePolynomialBuffer {
-  return polynomialOperationSync("polynomial.combination_without_multiplication", label, () => {
-    let xSize = 1;
-    let ySize = 1;
-    let firstNonZeroTerm: number | undefined;
-    for (let index = 0; index < terms.length; index += 1) {
-      const [scalar, polynomial] = terms[index];
-      if (polynomial.field !== field) {
-        throw new Error("Linear combination terms must use the requested field.");
-      }
-      xSize = Math.max(xSize, polynomial.xSize);
-      ySize = Math.max(ySize, polynomial.ySize);
-      if (firstNonZeroTerm === undefined && !field.isZero(scalar)) {
-        firstNonZeroTerm = index;
-      }
-    }
-
-    if (firstNonZeroTerm === undefined) {
-      return BivariatePolynomialBuffer.zero(field).resize(xSize, ySize);
-    }
-
-    const [firstScalar, firstPolynomial] = terms[firstNonZeroTerm];
-    const accumulator = scaleTermIntoShape(field, firstPolynomial, firstScalar, xSize, ySize);
-    for (let index = firstNonZeroTerm + 1; index < terms.length; index += 1) {
-      const [scalar, polynomial] = terms[index];
-      accumulator.addScaledPrefixAssign(polynomial, scalar);
-    }
-
-    return accumulator;
-  });
-}
-
-function scaleTermIntoShape(
-  field: CurveRuntime["Fr"],
-  polynomial: BivariatePolynomialBuffer,
-  scalar: FieldElement,
-  xSize: number,
-  ySize: number,
-): BivariatePolynomialBuffer {
-  const output = field.createZeroBuffer(xSize * ySize);
-  const elementBytes = field.byteLength;
-  const targetRowBytes = ySize * elementBytes;
-  const sourceRowBytes = polynomial.ySize * elementBytes;
-  const isOne = field.eq(scalar, field.one);
-  const isMinusOne = field.eq(scalar, field.neg(field.one));
-
-  for (let x = 0; x < polynomial.xSize; x += 1) {
-    const targetRowOffset = x * targetRowBytes;
-    const sourceRowOffset = x * sourceRowBytes;
-    for (let yOffset = 0; yOffset < sourceRowBytes; yOffset += elementBytes) {
-      const targetOffset = targetRowOffset + yOffset;
-      const source = polynomial.coefficients.subarray(sourceRowOffset + yOffset, sourceRowOffset + yOffset + elementBytes);
-      if (isOne) {
-        output.set(source, targetOffset);
-      } else if (isMinusOne) {
-        output.set(field.neg(source), targetOffset);
-      } else {
-        output.set(field.mul(source, scalar), targetOffset);
-      }
-    }
-  }
-
-  return createPolynomialFromTimingBuffer(field, output, xSize, ySize);
+): Promise<BivariatePolynomialBuffer> {
+  return polynomialOperation(
+    "polynomial.combination_without_multiplication",
+    label,
+    () => linearCombinationBufferBatch(field, terms),
+    terms.map(([, polynomial], index) => shapeSize(`term_${index}`, polynomial.xSize, polynomial.ySize)),
+  );
 }
 
 function createPolynomialFromTimingBuffer(
@@ -608,7 +562,7 @@ async function provePreparedInputWithStrictTimings(runtime: CurveRuntime, input:
     }),
   );
   const { chi, zeta } = collectEvaluationChallenges(runtime, transcript, prove2Output.commitments);
-  const evaluations = timing.spanSync("prove3", "stage", () =>
+  const evaluations = await timing.span("prove3", "stage", () =>
     evaluateChallengePointsTimed({
       runtime,
       state,
@@ -655,10 +609,12 @@ async function prove0Timed(
 ): Promise<InitialRelationComputation> {
   const field = runtime.Fr;
   const p0Product = await polynomialMul("prove0.p0XY.mul", state.witness.uXY, state.witness.vXY);
-  const p0XY = polynomialOperationSync("polynomial.combination_without_multiplication", "prove0.p0XY.sub_w", () => {
-    p0Product.subAssign(state.witness.wXY.resize(p0Product.xSize, p0Product.ySize));
-    return p0Product;
-  }, [shapeSize("product", p0Product.xSize, p0Product.ySize)]);
+  const p0XY = await polynomialOperation(
+    "polynomial.combination_without_multiplication",
+    "prove0.p0XY.sub_w",
+    () => p0Product.subBatch(state.witness.wXY.resize(p0Product.xSize, p0Product.ySize)),
+    [shapeSize("product", p0Product.xSize, p0Product.ySize)],
+  );
   const { quotientX: q0XY, quotientY: q1XY } = await polynomialDivVanishing(
     "prove0.q0q1",
     p0XY,
@@ -668,7 +624,7 @@ async function prove0Timed(
 
   const rW_X = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_X, state.mixer.rW_X.length, 1);
   const rW_Y = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_Y, 1, state.mixer.rW_Y.length);
-  const UXY = polynomialLinearCombination(
+  const UXY = await polynomialLinearCombination(
     "prove0.U",
     field,
     [
@@ -677,7 +633,7 @@ async function prove0Timed(
       [state.mixer.rU_Y, state.instance.tSMax],
     ],
   );
-  const VXY = polynomialLinearCombination(
+  const VXY = await polynomialLinearCombination(
     "prove0.V",
     field,
     [
@@ -692,11 +648,11 @@ async function prove0Timed(
   const wZkY = polynomialMulSpecial("prove0.W_zk.y_vanishing_mul", () =>
     lowDegreeYTimesVanishingBuffer(field, state.mixer.rW_Y, state.setup.s_max),
   );
-  const wZk = polynomialLinearCombination("prove0.W_zk", field, [
+  const wZk = await polynomialLinearCombination("prove0.W_zk", field, [
     [field.one, wZkX],
     [field.one, wZkY],
   ]);
-  const WXY = polynomialLinearCombination(
+  const WXY = await polynomialLinearCombination(
     "prove0.W",
     field,
     [
@@ -704,7 +660,7 @@ async function prove0Timed(
       [field.one, wZk],
     ],
   );
-  const Q_AX_XY = polynomialLinearCombination(
+  const Q_AX_XY = await polynomialLinearCombination(
     "prove0.Q_AX",
     field,
     [
@@ -716,7 +672,7 @@ async function prove0Timed(
       [field.mul(state.mixer.rU_Y, state.mixer.rV_X), state.instance.tSMax],
     ],
   );
-  const Q_AY_XY = polynomialLinearCombination(
+  const Q_AY_XY = await polynomialLinearCombination(
     "prove0.Q_AY",
     field,
     [
@@ -734,11 +690,11 @@ async function prove0Timed(
   const termBZkY = polynomialMulSpecial("prove0.term_B_zk.y_vanishing_mul", () =>
     lowDegreeYTimesVanishingBuffer(field, state.mixer.rB_Y, state.setup.s_max),
   );
-  const termBZk = polynomialLinearCombination("prove0.term_B_zk", field, [
+  const termBZk = await polynomialLinearCombination("prove0.term_B_zk", field, [
     [field.one, termBZkX],
     [field.one, termBZkY],
   ]);
-  const BXY = polynomialLinearCombination(
+  const BXY = await polynomialLinearCombination(
     "prove0.B",
     field,
     [
@@ -779,13 +735,13 @@ async function prove1Timed(
   const xMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 2, 1);
   const yMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 1, 2);
   const theta2 = constantPolynomialBuffer(field, thetas[2]);
-  const fXY = polynomialLinearCombination("prove1.fXY", field, [
+  const fXY = await polynomialLinearCombination("prove1.fXY", field, [
     [field.one, state.witnessBuffers.bXY],
     [thetas[0], state.instanceBuffers.s0XY],
     [thetas[1], state.instanceBuffers.s1XY],
     [field.one, theta2],
   ]);
-  const gXY = polynomialLinearCombination("prove1.gXY", field, [
+  const gXY = await polynomialLinearCombination("prove1.gXY", field, [
     [field.one, state.witnessBuffers.bXY],
     [thetas[0], xMonomial],
     [thetas[1], yMonomial],
@@ -801,7 +757,7 @@ async function prove1Timed(
     },
     [shapeSize("domain", mI, sMax)],
   );
-  const RXY = polynomialLinearCombination("prove1.R", field, [
+  const RXY = await polynomialLinearCombination("prove1.R", field, [
     [field.one, rXY],
     [state.mixer.rR_X, state.instanceBuffers.tMi],
     [state.mixer.rR_Y, state.instanceBuffers.tSMax],
@@ -834,7 +790,7 @@ async function prove2Timed(input: {
   const kappa0Sq = field.square(kappa0);
   const omegaMI = field.rootOfUnity(mI);
   const omegaSMax = field.rootOfUnity(sMax);
-  const rOmegaX = polynomialScaleX("prove2.r_omega_x", rXY, field.inv(omegaMI));
+  const rOmegaX = await polynomialScaleX("prove2.r_omega_x", rXY, field.inv(omegaMI));
   const rOmegaXOmegaY = await polynomialBatchScale(
     "prove2.r_omega_x_omega_y",
     rOmegaX,
@@ -844,7 +800,7 @@ async function prove2Timed(input: {
   const xMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 2, 1);
   const yMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 1, 2);
   const theta2 = constantPolynomialBuffer(field, thetas[2]);
-  const fXY = polynomialLinearCombination(
+  const fXY = await polynomialLinearCombination(
     "prove2.fXY",
     field,
     [
@@ -854,7 +810,7 @@ async function prove2Timed(input: {
       [field.one, theta2],
     ],
   );
-  const gXY = polynomialLinearCombination(
+  const gXY = await polynomialLinearCombination(
     "prove2.gXY",
     field,
     [
@@ -872,15 +828,15 @@ async function prove2Timed(input: {
     "prove2.omega_shifted_products",
     () => multiplyOmegaShiftedProducts(rXY, gXY, fXY, mI, sMax),
   );
-  const p1Numerator = polynomialSub("prove2.p1.sub_one", rXY, constantPolynomialBuffer(field, field.one));
+  const p1Numerator = await polynomialSub("prove2.p1.sub_one", rXY, constantPolynomialBuffer(field, field.one));
   const p1XY = await polynomialMulLagrangeKl("prove2.p1.mul_lagrange_KL", p1Numerator, mI, sMax);
-  const p2Input = polynomialSub("prove2.p2_input", rGXY, rOmegaXFXY);
+  const p2Input = await polynomialSub("prove2.p2_input", rGXY, rOmegaXFXY);
   const p2XY = polynomialMulSpecial("prove2.p2.mul_x_minus_one", () => mulByXMinusOne(p2Input), [
     shapeSize("polynomial", p2Input.xSize, p2Input.ySize),
   ]);
-  const p3Input = polynomialSub("prove2.p3.sub", rGXY, rOmegaXOmegaYFXY);
+  const p3Input = await polynomialSub("prove2.p3.sub", rGXY, rOmegaXOmegaYFXY);
   const p3XY = await polynomialMulLagrangeK0("prove2.p3.mul_lagrange_K0", p3Input, mI);
-  const pCombined = polynomialLinearCombination(
+  const pCombined = await polynomialLinearCombination(
     "prove2.p_comb",
     field,
     [
@@ -890,9 +846,9 @@ async function prove2Timed(input: {
     ],
   );
   const { quotientX: q2XY, quotientY: q3XY } = await polynomialDivVanishing("prove2.qCXqCY", pCombined, mI, sMax);
-  const rD1 = polynomialSub("prove2.rD1", rXY, rOmegaX);
-  const rD2 = polynomialSub("prove2.rD2", rXY, rOmegaXOmegaY);
-  const gD = polynomialSub("prove2.gD", gXY, fXY);
+  const rD1 = await polynomialSub("prove2.rD1", rXY, rOmegaX);
+  const rD2 = await polynomialSub("prove2.rD2", rXY, rOmegaXOmegaY);
+  const gD = await polynomialSub("prove2.gD", gXY, fXY);
   const qCxTerm2Sum = polynomialOperationSync(
     "polynomial.combination_without_multiplication",
     "prove2.Q_CX.term2.fused_inner",
@@ -909,7 +865,7 @@ async function prove2Timed(input: {
     () => combineLinearXWithScaled(rD2, state.mixer.rB_X, gD, state.mixer.rR_X),
   );
   const qCxTerm3 = await polynomialMulLagrangeK0("prove2.Q_CX.term3.mul_lagrange_K0", qCxTerm3Sum, mI);
-  const qCxXY = polynomialLinearCombination(
+  const qCxXY = await polynomialLinearCombination(
     "prove2.Q_CX",
     field,
     [
@@ -935,7 +891,7 @@ async function prove2Timed(input: {
     () => combineLinearYWithScaled(rD2, state.mixer.rB_Y, gD, state.mixer.rR_Y),
   );
   const qCyTerm3 = await polynomialMulLagrangeK0("prove2.Q_CY.term3.mul_lagrange_K0", qCyTerm3Sum, mI);
-  const qCyXY = polynomialLinearCombination(
+  const qCyXY = await polynomialLinearCombination(
     "prove2.Q_CY",
     field,
     [
@@ -1003,7 +959,7 @@ async function prove4Timed(input: {
   const smallVEval = evaluatePolynomialAt("prove4.V_eval", state.witness.vXY, chi, zeta);
   const rW_X = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_X, state.mixer.rW_X.length, 1);
   const rW_Y = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_Y, 1, state.mixer.rW_Y.length);
-  const VXY = polynomialLinearCombination(
+  const VXY = await polynomialLinearCombination(
     "prove4.V",
     field,
     [
@@ -1012,7 +968,7 @@ async function prove4Timed(input: {
       [state.mixer.rV_Y, state.instance.tSMax],
     ],
   );
-  const pAXY = polynomialLinearCombination(
+  const pAXY = await polynomialLinearCombination(
     "prove4.Pi_A",
     field,
     [
@@ -1041,7 +997,7 @@ async function prove4Timed(input: {
   );
   const Pi_AX = await encodePolynomialBufferWithSigma1Timed(runtime, crs, state.setup, piADivision.quotientX, "prove4.Pi_AX");
   const Pi_AY = await encodePolynomialBufferWithSigma1Timed(runtime, crs, state.setup, piADivision.quotientY, "prove4.Pi_AY");
-  const RXY = polynomialLinearCombination(
+  const RXY = await polynomialLinearCombination(
     "prove4.R",
     field,
     [
@@ -1166,7 +1122,7 @@ async function buildCopyOpeningsTimed(input: {
   const field = runtime.Fr;
   const mI = state.setup.l_D - state.setup.l;
   const sMax = state.setup.s_max;
-  const rOmegaX = polynomialScaleX("prove4.r_omega_x", rXY, omegaMIInv);
+  const rOmegaX = await polynomialScaleX("prove4.r_omega_x", rXY, omegaMIInv);
   const rOmegaXOmegaY = await polynomialBatchScale(
     "prove4.r_omega_x_omega_y",
     rOmegaX,
@@ -1176,7 +1132,7 @@ async function buildCopyOpeningsTimed(input: {
   const xMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 2, 1);
   const yMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 1, 2);
   const theta2 = constantPolynomialBuffer(field, thetas[2]);
-  const fXY = polynomialLinearCombination(
+  const fXY = await polynomialLinearCombination(
     "prove4.fXY",
     field,
     [
@@ -1186,7 +1142,7 @@ async function buildCopyOpeningsTimed(input: {
       [field.one, theta2],
     ],
   );
-  const gXY = polynomialLinearCombination(
+  const gXY = await polynomialLinearCombination(
     "prove4.gXY",
     field,
     [
@@ -1229,7 +1185,7 @@ async function buildCopyOpeningsTimed(input: {
       field.mul(term6Scale, smallROmegaXOmegaYEval),
     ),
   );
-  const pCXY = polynomialLinearCombination(
+  const pCXY = await polynomialLinearCombination(
     "prove4.pC",
     field,
     [
@@ -1240,8 +1196,8 @@ async function buildCopyOpeningsTimed(input: {
       [field.neg(tSMaxEval), prove2.q3XY],
     ],
   );
-  const rD1 = polynomialSub("prove4.rD1", rXY, rOmegaX);
-  const rD2 = polynomialSub("prove4.rD2", rXY, rOmegaXOmegaY);
+  const rD1 = await polynomialSub("prove4.rD1", rXY, rOmegaX);
+  const rD2 = await polynomialSub("prove4.rD2", rXY, rOmegaXOmegaY);
   const [rD1Eval, rD2Eval] = polynomialEvaluation(
     "prove4.rD_evaluation_set",
     () => [
@@ -1253,19 +1209,19 @@ async function buildCopyOpeningsTimed(input: {
       shapeSize("rD2", rD2.xSize, rD2.ySize),
     ],
   );
-  const gMinusF = polynomialSub("prove4.gMinusF", gXY, fXY);
+  const gMinusF = await polynomialSub("prove4.gMinusF", gXY, fXY);
   const term10Scale = field.add(field.mul(state.mixer.rR_X, tMiEval), field.mul(state.mixer.rR_Y, tSMaxEval));
   const term10 = await polynomialBatchScale("prove4.term10", gMinusF, term10Scale, field.one);
-  const lhsZk1 = (() => {
+  const lhsZk1 = await (async () => {
     const rD1Term9 = polynomialMulSpecial("prove4.LHS_zk1.term9", () =>
       mulByTerm9(rD1, state.mixer.rB_X, state.mixer.rB_Y, tMiEval, tSMaxEval),
     );
-    const rD1Term9PlusTerm10 = polynomialAdd("prove4.LHS_zk1.term9_plus_term10", rD1Term9, term10);
+    const rD1Term9PlusTerm10 = await polynomialAdd("prove4.LHS_zk1.term9_plus_term10", rD1Term9, term10);
     const oneMinusX = polynomialMulSpecial("prove4.LHS_zk1.one_minus_x", () =>
       mulByOneMinusX(rD1Term9PlusTerm10),
       [shapeSize("polynomial", rD1Term9PlusTerm10.xSize, rD1Term9PlusTerm10.ySize)],
     );
-    return polynomialLinearCombination("prove4.LHS_zk1", field, [
+    return await polynomialLinearCombination("prove4.LHS_zk1", field, [
       [field.mul(field.sub(chi, field.one), rD1Eval), prove0.termBZk],
       [field.one, oneMinusX],
       [field.sub(chi, field.one), term10],
@@ -1275,19 +1231,19 @@ async function buildCopyOpeningsTimed(input: {
     const rD2Term9 = polynomialMulSpecial("prove4.LHS_zk2.term9", () =>
       mulByTerm9(rD2, state.mixer.rB_X, state.mixer.rB_Y, tMiEval, tSMaxEval),
     );
-    const rD2Term9PlusTerm10 = polynomialAdd("prove4.LHS_zk2.term9_plus_term10", rD2Term9, term10);
+    const rD2Term9PlusTerm10 = await polynomialAdd("prove4.LHS_zk2.term9_plus_term10", rD2Term9, term10);
     const lhsZk2Product = await polynomialMulLagrangeK0(
       "prove4.LHS_zk2.mul_lagrange_K0",
       rD2Term9PlusTerm10,
       mI,
     );
-    return polynomialLinearCombination("prove4.LHS_zk2", field, [
+    return await polynomialLinearCombination("prove4.LHS_zk2", field, [
       [field.mul(lagrangeK0Eval, rD2Eval), prove0.termBZk],
       [lagrangeK0Eval, term10],
       [field.neg(field.one), lhsZk2Product],
     ]);
   })();
-  const lhsForCopy = polynomialLinearCombination(
+  const lhsForCopy = await polynomialLinearCombination(
     "prove4.LHS_for_copy",
     field,
     [
@@ -1311,24 +1267,24 @@ async function buildCopyOpeningsTimed(input: {
   };
 }
 
-function evaluateChallengePointsTimed(input: {
+async function evaluateChallengePointsTimed(input: {
   readonly runtime: CurveRuntime;
   readonly state: ProverState;
   readonly rXY: BivariatePolynomialBuffer;
   readonly chi: FieldElement;
   readonly zeta: FieldElement;
-}): ChallengeEvaluations {
+}): Promise<ChallengeEvaluations> {
   const { runtime, state, rXY, chi, zeta } = input;
   const field = runtime.Fr;
   const mI = state.setup.l_D - state.setup.l;
   const omegaMI = field.rootOfUnity(mI);
   const omegaSMax = field.rootOfUnity(state.setup.s_max);
-  const VXY = polynomialLinearCombination("prove3.V", field, [
+  const VXY = await polynomialLinearCombination("prove3.V", field, [
     [field.one, state.witnessBuffers.vXY],
     [state.mixer.rV_X, state.instanceBuffers.tN],
     [state.mixer.rV_Y, state.instanceBuffers.tSMax],
   ]);
-  const RXY = polynomialLinearCombination("prove3.R", field, [
+  const RXY = await polynomialLinearCombination("prove3.R", field, [
     [field.one, rXY],
     [state.mixer.rR_X, state.instanceBuffers.tMi],
     [state.mixer.rR_Y, state.instanceBuffers.tSMax],

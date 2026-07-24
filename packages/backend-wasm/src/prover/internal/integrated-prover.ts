@@ -55,7 +55,7 @@ export async function runIntegratedProver(
     options: operationOptions,
   });
   const { chi, zeta } = collectEvaluationChallenges(runtime, transcript, copyQuotient.commitments);
-  const evaluations = evaluateChallengePoints({
+  const evaluations = await evaluateChallengePoints({
     runtime,
     state,
     rXY: recursion.rXY,

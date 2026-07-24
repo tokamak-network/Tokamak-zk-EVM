@@ -9,7 +9,7 @@ import {
   combineLinearXWithScaled,
   combineLinearYWithScaled,
   constantPolynomialBuffer,
-  linearCombinationBuffer,
+  linearCombinationBufferBatch,
   mulByXMinusOne,
   multiplyByLagrangeK0,
   multiplyByLagrangeKl,
@@ -49,7 +49,7 @@ export async function computeCopyQuotientCommitments(input: {
   const kappa0Sq = field.square(kappa0);
   const omegaMI = field.rootOfUnity(mI);
   const omegaSMax = field.rootOfUnity(sMax);
-  const rOmegaX = rXY.scaleCoeffsX(field.inv(omegaMI));
+  const rOmegaX = await rXY.scaleCoeffsXBatch(field.inv(omegaMI));
   const rOmegaXOmegaY = BivariatePolynomialBuffer.fromOwnedBuffer(
     field,
     await field.batchApplyKeyBuffer(rOmegaX.coefficients, field.one, field.inv(omegaSMax)),
@@ -59,13 +59,13 @@ export async function computeCopyQuotientCommitments(input: {
   const xMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 2, 1);
   const yMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 1, 2);
   const theta2 = constantPolynomialBuffer(field, thetas[2]);
-  const fXY = linearCombinationBuffer(field, [
+  const fXY = await linearCombinationBufferBatch(field, [
     [field.one, state.witnessBuffers.bXY],
     [thetas[0], state.instanceBuffers.s0XY],
     [thetas[1], state.instanceBuffers.s1XY],
     [field.one, theta2],
   ]);
-  const gXY = linearCombinationBuffer(field, [
+  const gXY = await linearCombinationBufferBatch(field, [
     [field.one, state.witnessBuffers.bXY],
     [thetas[0], xMonomial],
     [thetas[1], yMonomial],
@@ -79,23 +79,23 @@ export async function computeCopyQuotientCommitments(input: {
     mI,
     sMax,
   );
-  const p1XY = await multiplyByLagrangeKl(
-    rXY.sub(constantPolynomialBuffer(field, field.one)),
-    mI,
-    sMax,
-  );
-  const p2Input = rGXY.sub(rOmegaXFXY);
+  const p1Input = await linearCombinationBufferBatch(field, [
+    [field.one, rXY],
+    [field.neg(field.one), constantPolynomialBuffer(field, field.one)],
+  ]);
+  const p1XY = await multiplyByLagrangeKl(p1Input, mI, sMax);
+  const p2Input = await rGXY.subBatch(rOmegaXFXY);
   const p2XY = mulByXMinusOne(p2Input);
-  const p3XY = await multiplyByLagrangeK0(rGXY.sub(rOmegaXOmegaYFXY), mI);
-  const pCombined = linearCombinationBuffer(field, [
+  const p3XY = await multiplyByLagrangeK0(await rGXY.subBatch(rOmegaXOmegaYFXY), mI);
+  const pCombined = await linearCombinationBufferBatch(field, [
     [field.one, p1XY],
     [kappa0, p2XY],
     [kappa0Sq, p3XY],
   ]);
   const { quotientX: q2XY, quotientY: q3XY } = pCombined.divByVanishingOpt(mI, sMax);
-  const rD1 = rXY.sub(rOmegaX);
-  const rD2 = rXY.sub(rOmegaXOmegaY);
-  const gD = gXY.sub(fXY);
+  const rD1 = await rXY.subBatch(rOmegaX);
+  const rD2 = await rXY.subBatch(rOmegaXOmegaY);
+  const gD = await gXY.subBatch(fXY);
   const qCxTerm2 = mulByXMinusOne(
     combineLinearXWithScaled(rD1, state.mixer.rB_X, gD, state.mixer.rR_X),
   );
@@ -103,7 +103,7 @@ export async function computeCopyQuotientCommitments(input: {
     combineLinearXWithScaled(rD2, state.mixer.rB_X, gD, state.mixer.rR_X),
     mI,
   );
-  const qCxXY = linearCombinationBuffer(field, [
+  const qCxXY = await linearCombinationBufferBatch(field, [
     [field.one, q2XY],
     [state.mixer.rR_X, lagrangeKlXY],
     [kappa0, qCxTerm2],
@@ -116,7 +116,7 @@ export async function computeCopyQuotientCommitments(input: {
     combineLinearYWithScaled(rD2, state.mixer.rB_Y, gD, state.mixer.rR_Y),
     mI,
   );
-  const qCyXY = linearCombinationBuffer(field, [
+  const qCyXY = await linearCombinationBufferBatch(field, [
     [field.one, q3XY],
     [state.mixer.rR_Y, lagrangeKlXY],
     [kappa0, qCyTerm2],

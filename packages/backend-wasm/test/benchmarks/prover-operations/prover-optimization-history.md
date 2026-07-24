@@ -1255,3 +1255,62 @@ Status:
 | classified operation time | 349.08 s |
 | unclassified prover time | 47.70 s |
 | total wall | 396.78 s |
+
+## Whole-Chunk WASM Linear Operations
+
+Related commit: this commit.
+
+The previous production path invoked scalar ffjavascript field operations once
+per coefficient for general polynomial addition, subtraction, scale,
+add-scaled accumulation, and X/Y coefficient scaling. This change installs a
+backend-owned module plugin through the public
+`getCurveFromName(..., plugins)` hook. No ffjavascript, wasmcurves,
+wasmbuilder, or `node_modules` source was modified.
+
+The accepted runtime boundary is:
+
+- explicitly export wasmcurves' generated `frm_batchAdd` and `frm_batchSub`;
+- add fused add-scaled, strided prefix add-scaled, and layout-aware X/Y scale
+  kernels in backend-wasm source;
+- use ffjavascript's existing `batchApplyKey(buffer, scalar, 1)` for uniform
+  scaling;
+- schedule disjoint chunks through the existing ffjavascript thread manager;
+- validate every required WASM export during curve-runtime creation and fail
+  explicitly when the pinned dependency contract is unavailable;
+- preserve the existing `ffjs-fr-montgomery-le-32` representation and all
+  transcript, artifact, and verifier boundaries.
+
+The benchmark measured complete end-to-end execution, including worker data
+movement and output assembly. All small, `4096x256`, and `8192x512` cases
+passed exact byte parity. At `4096x256`, accepted 14-worker candidates improved
+add by `14.42x`, subtract by `14.63x`, uniform scale by `9.67x`, fused
+add-scaled by `18.33x`, prefix add-scaled by `15.43x`, X scaling by `16.54x`,
+and Y scaling by `18.09x`. The fused add-scaled kernel was faster and required
+less explicit intermediate storage than the rejected two-pass candidate.
+
+Fixed-taxonomy timing comparison:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_without_multiplication` | 53.420 s | 10.300 s | -43.120 s |
+| `field.operations` | 111.487 s | 69.620 s | -41.867 s |
+| prover stage total | 245.206 s | 199.570 s | -45.636 s |
+| total wall | 253.738 s | 207.990 s | -45.748 s |
+
+The first row is the direct optimization target. The total wall reduction is
+similar in magnitude after unrelated field-operation variation, while
+commitment encoding, initialization, I/O, and other prover work remain outside
+that target.
+
+Acceptance results:
+
+- field-buffer, polynomial-buffer, prover polynomial, and commitment parity
+  checks passed;
+- native testing-mode-style arithmetic, recursion, copy quotient, and opening
+  invariants passed;
+- the Node timing runner generated a proof accepted by the verifier;
+- Chromium generated a 2408-byte proof in `177.28 s` and verified it in
+  `19 ms`;
+- type checks, build, and package dry-run passed;
+- package inspection found no `test/`, `scripts/`, or `tmp/` paths in the
+  published file list.

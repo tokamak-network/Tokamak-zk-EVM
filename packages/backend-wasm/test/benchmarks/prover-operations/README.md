@@ -1340,3 +1340,35 @@ copy/opening `omegaSMax^-1` Y rescale and opening `term10`.
 Chromium generated the proof in `236.67 s` and verified it in `19 ms`.
 Type checks, polynomial parity, testing-mode invariants, stage timing and
 generated-proof verification, build, and package-content inspection passed.
+
+## Whole-Chunk WASM Linear Operations
+
+`bench-linear-wasm-batches.ts` compares the existing coefficient-by-coefficient
+JavaScript loops with backend-owned WASM module-plugin kernels. It does not
+fork or modify ffjavascript, wasmcurves, or wasmbuilder. Every candidate
+includes chunk slicing, worker dispatch, WASM execution, result collection,
+and output assembly, and every measured output must pass exact byte parity.
+
+```bash
+npm run bench:linear-wasm -- --shape=4096x256 --prefix-shape=4096x128 --iterations=3 --warmup=1 --workers=1,2,4,8,14 --json=tmp/timing/linear-wasm-4096x256.json
+npm run bench:linear-wasm -- --shape=8192x512 --prefix-shape=8192x256 --iterations=2 --warmup=1 --workers=4,8,14 --json=tmp/timing/linear-wasm-8192x512.json
+```
+
+Representative 14-worker results:
+
+| operation | `4096x256` current | `4096x256` batch | speedup | `8192x512` current | `8192x512` batch | speedup |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| add | 232.192 ms | 16.101 ms | 14.42x | 924.583 ms | 66.257 ms | 13.95x |
+| subtract | 225.077 ms | 15.389 ms | 14.63x | 912.906 ms | 56.236 ms | 16.23x |
+| uniform scale | 273.597 ms | 28.303 ms | 9.67x | 1043.031 ms | 110.671 ms | 9.42x |
+| fused add-scaled | 472.667 ms | 25.792 ms | 18.33x | 1846.801 ms | 101.101 ms | 18.27x |
+| prefix add-scaled | 237.640 ms | 15.403 ms | 15.43x | 917.290 ms | 68.997 ms | 13.29x |
+| X coefficient scale | 270.657 ms | 16.360 ms | 16.54x | 1025.818 ms | 74.264 ms | 13.81x |
+| Y coefficient scale | 506.341 ms | 27.984 ms | 18.09x | 1940.833 ms | 107.243 ms | 18.10x |
+
+The fused add-scaled kernel also beat the two-pass
+`batchApplyKey + batchAdd` composition at both representative shapes, so the
+two-pass candidate was rejected. Production uses the existing public
+`batchApplyKey` for uniform scaling and backend-owned module-plugin kernels
+for add, subtract, fused add-scaled, strided prefix add-scaled, and
+layout-aware X/Y scaling.

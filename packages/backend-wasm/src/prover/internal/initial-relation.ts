@@ -8,7 +8,7 @@ import type {
   ProverSubcircuitInfo,
 } from "./witness.js";
 import {
-  linearCombinationBuffer,
+  linearCombinationBufferBatch,
   lowDegreeXTimesVanishingBuffer,
   lowDegreeYTimesVanishingBuffer,
 } from "./polynomial-ops.js";
@@ -100,10 +100,10 @@ export async function computeInitialRelationCommitments(
   options: ProverOperationOptions = {},
 ): Promise<InitialRelationComputation> {
   const field = runtime.Fr;
-  const p0XY = await state.witnessBuffers.uXY.mul(
+  const p0Product = await state.witnessBuffers.uXY.mul(
     state.witnessBuffers.vXY,
   );
-  p0XY.subAssign(state.witnessBuffers.wXY.resize(p0XY.xSize, p0XY.ySize));
+  const p0XY = await p0Product.subBatch(state.witnessBuffers.wXY.resize(p0Product.xSize, p0Product.ySize));
   const { quotientX: q0XY, quotientY: q1XY } = p0XY.divByVanishingOpt(
     state.setup.n,
     state.setup.s_max,
@@ -111,25 +111,25 @@ export async function computeInitialRelationCommitments(
 
   const rW_X = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_X, state.mixer.rW_X.length, 1);
   const rW_Y = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_Y, 1, state.mixer.rW_Y.length);
-  const UXY = linearCombinationBuffer(field, [
+  const UXY = await linearCombinationBufferBatch(field, [
     [field.one, state.witnessBuffers.uXY],
     [state.mixer.rU_X, state.instanceBuffers.tN],
     [state.mixer.rU_Y, state.instanceBuffers.tSMax],
   ]);
-  const VXY = linearCombinationBuffer(field, [
+  const VXY = await linearCombinationBufferBatch(field, [
     [field.one, state.witnessBuffers.vXY],
     [state.mixer.rV_X, state.instanceBuffers.tN],
     [state.mixer.rV_Y, state.instanceBuffers.tSMax],
   ]);
-  const wZk = linearCombinationBuffer(field, [
+  const wZk = await linearCombinationBufferBatch(field, [
     [field.one, lowDegreeXTimesVanishingBuffer(field, state.mixer.rW_X, state.setup.n)],
     [field.one, lowDegreeYTimesVanishingBuffer(field, state.mixer.rW_Y, state.setup.s_max)],
   ]);
-  const WXY = linearCombinationBuffer(field, [
+  const WXY = await linearCombinationBufferBatch(field, [
     [field.one, state.witnessBuffers.wXY],
     [field.one, wZk],
   ]);
-  const Q_AX_XY = linearCombinationBuffer(field, [
+  const Q_AX_XY = await linearCombinationBufferBatch(field, [
     [field.one, q0XY],
     [state.mixer.rU_X, state.witnessBuffers.vXY],
     [state.mixer.rV_X, state.witnessBuffers.uXY],
@@ -137,7 +137,7 @@ export async function computeInitialRelationCommitments(
     [field.mul(state.mixer.rU_X, state.mixer.rV_X), state.instanceBuffers.tN],
     [field.mul(state.mixer.rU_Y, state.mixer.rV_X), state.instanceBuffers.tSMax],
   ]);
-  const Q_AY_XY = linearCombinationBuffer(field, [
+  const Q_AY_XY = await linearCombinationBufferBatch(field, [
     [field.one, q1XY],
     [state.mixer.rU_Y, state.witnessBuffers.vXY],
     [state.mixer.rV_Y, state.witnessBuffers.uXY],
@@ -145,11 +145,11 @@ export async function computeInitialRelationCommitments(
     [field.mul(state.mixer.rU_X, state.mixer.rV_Y), state.instanceBuffers.tN],
     [field.mul(state.mixer.rU_Y, state.mixer.rV_Y), state.instanceBuffers.tSMax],
   ]);
-  const termBZk = linearCombinationBuffer(field, [
+  const termBZk = await linearCombinationBufferBatch(field, [
     [field.one, lowDegreeXTimesVanishingBuffer(field, state.mixer.rB_X, state.setup.l_D - state.setup.l)],
     [field.one, lowDegreeYTimesVanishingBuffer(field, state.mixer.rB_Y, state.setup.s_max)],
   ]);
-  const BXY = linearCombinationBuffer(field, [
+  const BXY = await linearCombinationBufferBatch(field, [
     [field.one, state.witnessBuffers.bXY],
     [field.one, termBZk],
   ]);

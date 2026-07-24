@@ -105,6 +105,9 @@ async function checkBivariatePolynomialBuffer(field: FieldRuntime): Promise<void
   assertEqual(buffer.add(otherBuffer).toHexCoeffs(), dense.add(otherDense).toHexCoeffs(), "add");
   assertEqual(buffer.sub(otherBuffer).toHexCoeffs(), dense.sub(otherDense).toHexCoeffs(), "sub");
   assertEqual(buffer.scale(scale).toHexCoeffs(), dense.scale(scale).toHexCoeffs(), "scale");
+  assertEqual((await buffer.addBatch(otherBuffer)).toHexCoeffs(), dense.add(otherDense).toHexCoeffs(), "addBatch");
+  assertEqual((await buffer.subBatch(otherBuffer)).toHexCoeffs(), dense.sub(otherDense).toHexCoeffs(), "subBatch");
+  assertEqual((await buffer.scaleBatch(scale)).toHexCoeffs(), dense.scale(scale).toHexCoeffs(), "scaleBatch");
   assertEqual(buffer.toHexCoeffs(), dense.toHexCoeffs(), "non-mutating operations must not alter the source");
   assertEqual(
     buffer.clone().addScaledAssign(otherBuffer, scale).toHexCoeffs(),
@@ -121,11 +124,26 @@ async function checkBivariatePolynomialBuffer(field: FieldRuntime): Promise<void
   );
   assertEqual(buffer.scaleCoeffsX(xScale).toHexCoeffs(), dense.scaleCoeffsX(xScale).toHexCoeffs(), "scaleCoeffsX");
   assertEqual(
+    (await buffer.scaleCoeffsXBatch(xScale)).toHexCoeffs(),
+    dense.scaleCoeffsX(xScale).toHexCoeffs(),
+    "scaleCoeffsXBatch",
+  );
+  assertEqual(
     buffer.clone().scaleCoeffsYAssign(yScale).toHexCoeffs(),
     dense.scaleCoeffsY(yScale).toHexCoeffs(),
     "scaleCoeffsYAssign",
   );
   assertEqual(buffer.scaleCoeffsY(yScale).toHexCoeffs(), dense.scaleCoeffsY(yScale).toHexCoeffs(), "scaleCoeffsY");
+  assertEqual(
+    (await buffer.scaleCoeffsYBatch(yScale)).toHexCoeffs(),
+    dense.scaleCoeffsY(yScale).toHexCoeffs(),
+    "scaleCoeffsYBatch",
+  );
+  assertEqual(
+    (await buffer.resize(8, 4).addScaledPrefixBatch(buffer, scale)).toHexCoeffs(),
+    dense.resize(8, 4).add(dense.scale(scale)).toHexCoeffs(),
+    "addScaledPrefixBatch",
+  );
 
   const xPoint = field.fromBigInt(41n);
   const yPoint = field.fromBigInt(43n);

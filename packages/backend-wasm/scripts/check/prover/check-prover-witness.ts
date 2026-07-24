@@ -212,7 +212,7 @@ async function main(): Promise<void> {
     });
     assertEqual(smallProve2.commitments.Q_CX.byteLength, 144, "prove2 Q_CX byte length");
     assertEqual(smallProve2.commitments.Q_CY.byteLength, 144, "prove2 Q_CY byte length");
-    const smallProve3 = evaluateChallengePoints({
+    const smallProve3 = await evaluateChallengePoints({
       runtime,
       state: smallProverState,
       rXY: smallProve1.rXY,

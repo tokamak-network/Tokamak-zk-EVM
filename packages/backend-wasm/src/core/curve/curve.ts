@@ -1,6 +1,7 @@
 import { getCurveFromName } from "ffjavascript";
 
 import { createFieldRuntime, type FieldRuntime } from "../field/field.js";
+import { installLinearBatchPlugin } from "../field/linear-batch-plugin.js";
 import { createG1Runtime, createG2Runtime, type G1Runtime, type G2Runtime } from "../group/group.js";
 import { createPairingRuntime, type PairingRuntime } from "../pairing/pairing.js";
 import { createRandomScalarSource, type RandomScalarSource } from "../random/random.js";
@@ -12,6 +13,8 @@ export interface FfField {
   readonly p: bigint;
   readonly s: number;
   readonly w: readonly Uint8Array[];
+  readonly prefix: string;
+  readonly tm: FfThreadManager;
   e(value: string | number | bigint | Uint8Array, radix?: number): Uint8Array;
   add(left: Uint8Array, right: Uint8Array): Uint8Array;
   sub(left: Uint8Array, right: Uint8Array): Uint8Array;
@@ -34,6 +37,45 @@ export interface FfField {
   batchFromMontgomery(buffer: Uint8Array): Promise<Uint8Array>;
   batchInverse(buffer: Uint8Array): Promise<Uint8Array>;
 }
+
+export interface FfThreadManager {
+  readonly concurrency: number;
+  readonly instance?: {
+    readonly exports: Readonly<Record<string, unknown>>;
+  };
+  queueAction(actionData: readonly FfWorkerCommand[]): Promise<Uint8Array[]>;
+}
+
+export type FfWorkerCommand =
+  | {
+      readonly cmd: "ALLOCSET";
+      readonly var: number;
+      readonly buff: Uint8Array;
+    }
+  | {
+      readonly cmd: "ALLOC";
+      readonly var: number;
+      readonly len: number;
+    }
+  | {
+      readonly cmd: "CALL";
+      readonly fnName: string;
+      readonly params: readonly FfWorkerCallParam[];
+    }
+  | {
+      readonly cmd: "GET";
+      readonly out: number;
+      readonly var: number;
+      readonly len: number;
+    };
+
+export type FfWorkerCallParam =
+  | {
+      readonly var: number;
+    }
+  | {
+      readonly val: number;
+    };
 
 export interface FfGroup {
   readonly zero: Uint8Array;
@@ -82,7 +124,7 @@ export interface CurveRuntime {
 
 export async function createCurveRuntime(options: CurveRuntimeOptions = {}): Promise<CurveRuntime> {
   const singleThread = options.singleThread ?? false;
-  const raw = (await getCurveFromName("bls12381", singleThread)) as FfCurve;
+  const raw = (await getCurveFromName("bls12381", singleThread, installLinearBatchPlugin)) as FfCurve;
   const Fr = createFieldRuntime(raw.Fr);
   const G1 = createG1Runtime(raw.G1, Fr);
   const G2 = createG2Runtime(raw.G2);

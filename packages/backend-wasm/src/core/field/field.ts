@@ -1,4 +1,12 @@
-import type { FfField } from "../curve/curve.js";
+import type { FfField, FfWorkerCommand } from "../curve/curve.js";
+import {
+  FIELD_BATCH_ADD,
+  FIELD_BATCH_ADD_SCALED,
+  FIELD_BATCH_ADD_SCALED_PREFIX,
+  FIELD_BATCH_SCALE_X,
+  FIELD_BATCH_SCALE_Y,
+  FIELD_BATCH_SUB,
+} from "./linear-batch-plugin.js";
 
 export type FieldElement = Uint8Array;
 
@@ -28,6 +36,31 @@ export interface FieldRuntime {
     direction: "forward" | "inverse",
   ): Promise<Uint8Array>;
   batchApplyKeyBuffer(buffer: Uint8Array, first: FieldElement, increment: FieldElement): Promise<Uint8Array>;
+  batchAddBuffer(left: Uint8Array, right: Uint8Array): Promise<Uint8Array>;
+  batchSubBuffer(left: Uint8Array, right: Uint8Array): Promise<Uint8Array>;
+  batchScaleBuffer(buffer: Uint8Array, factor: FieldElement): Promise<Uint8Array>;
+  batchAddScaledBuffer(target: Uint8Array, source: Uint8Array, factor: FieldElement): Promise<Uint8Array>;
+  batchAddScaledPrefixBuffer(
+    target: Uint8Array,
+    targetXSize: number,
+    targetYSize: number,
+    source: Uint8Array,
+    sourceXSize: number,
+    sourceYSize: number,
+    factor: FieldElement,
+  ): Promise<Uint8Array>;
+  batchScaleCoeffsXBuffer(
+    buffer: Uint8Array,
+    xSize: number,
+    ySize: number,
+    factor: FieldElement,
+  ): Promise<Uint8Array>;
+  batchScaleCoeffsYBuffer(
+    buffer: Uint8Array,
+    xSize: number,
+    ySize: number,
+    factor: FieldElement,
+  ): Promise<Uint8Array>;
   batchFromMontgomeryBuffer(buffer: Uint8Array): Promise<Uint8Array>;
   batchInverseBuffer(buffer: Uint8Array): Promise<Uint8Array>;
   fft(values: readonly FieldElement[]): Promise<FieldElement[]>;
@@ -49,6 +82,7 @@ export function createFieldRuntime(field: FfField): FieldRuntime {
   if (field.zero.byteLength !== field.n8 || field.zero.some((byte) => byte !== 0)) {
     throw new Error("Field runtime requires an all-zero byte representation for the additive identity.");
   }
+  assertLinearBatchExports(field);
 
   return {
     byteLength: field.n8,
@@ -128,6 +162,148 @@ export function createFieldRuntime(field: FfField): FieldRuntime {
       assertFieldBuffer(buffer, field.n8);
       return await field.batchApplyKey(buffer, first, increment);
     },
+    async batchAddBuffer(left, right) {
+      return await batchBinaryBuffer(field, left, right, FIELD_BATCH_ADD);
+    },
+    async batchSubBuffer(left, right) {
+      return await batchBinaryBuffer(field, left, right, FIELD_BATCH_SUB);
+    },
+    async batchScaleBuffer(buffer, factor) {
+      assertFieldBuffer(buffer, field.n8);
+      assertFieldElement(factor, field.n8, "Scale factor");
+      return await field.batchApplyKey(buffer, factor, field.one);
+    },
+    async batchAddScaledBuffer(target, source, factor) {
+      assertMatchingFieldBuffers(target, source, field.n8, "Add-scaled buffers");
+      assertFieldElement(factor, field.n8, "Add-scaled factor");
+      const elementCount = target.byteLength / field.n8;
+      const ranges = splitRanges(elementCount, field.tm.concurrency);
+      const results = await Promise.all(
+        ranges.map(({ start, count }) => {
+          const byteStart = start * field.n8;
+          const byteLength = count * field.n8;
+          return field.tm.queueAction([
+            { cmd: "ALLOCSET", var: 0, buff: target.slice(byteStart, byteStart + byteLength) },
+            { cmd: "ALLOCSET", var: 1, buff: source.slice(byteStart, byteStart + byteLength) },
+            { cmd: "ALLOCSET", var: 2, buff: factor },
+            { cmd: "ALLOC", var: 3, len: byteLength },
+            {
+              cmd: "CALL",
+              fnName: FIELD_BATCH_ADD_SCALED,
+              params: [{ var: 0 }, { var: 1 }, { var: 2 }, { val: count }, { var: 3 }],
+            },
+            { cmd: "GET", out: 0, var: 3, len: byteLength },
+          ]);
+        }),
+      );
+      return assembleTaskOutputs(results, target.byteLength);
+    },
+    async batchAddScaledPrefixBuffer(
+      target,
+      targetXSize,
+      targetYSize,
+      source,
+      sourceXSize,
+      sourceYSize,
+      factor,
+    ) {
+      assertPolynomialBufferShape(target, targetXSize, targetYSize, field.n8, "Target");
+      assertPolynomialBufferShape(source, sourceXSize, sourceYSize, field.n8, "Source");
+      assertFieldElement(factor, field.n8, "Add-scaled prefix factor");
+      if (sourceXSize > targetXSize || sourceYSize > targetYSize) {
+        throw new Error("Source polynomial shape must fit inside the target polynomial shape.");
+      }
+
+      const ranges = splitRanges(sourceXSize, field.tm.concurrency);
+      const output = target.slice();
+      const results = await Promise.all(
+        ranges.map(({ start, count }) => {
+          const targetByteStart = start * targetYSize * field.n8;
+          const targetByteLength = count * targetYSize * field.n8;
+          const sourceByteStart = start * sourceYSize * field.n8;
+          const sourceByteLength = count * sourceYSize * field.n8;
+          return field.tm.queueAction([
+            { cmd: "ALLOCSET", var: 0, buff: target.slice(targetByteStart, targetByteStart + targetByteLength) },
+            { cmd: "ALLOCSET", var: 1, buff: source.slice(sourceByteStart, sourceByteStart + sourceByteLength) },
+            { cmd: "ALLOCSET", var: 2, buff: factor },
+            {
+              cmd: "CALL",
+              fnName: FIELD_BATCH_ADD_SCALED_PREFIX,
+              params: [
+                { var: 0 },
+                { var: 1 },
+                { var: 2 },
+                { val: count },
+                { val: targetYSize },
+                { val: sourceYSize },
+              ],
+            },
+            { cmd: "GET", out: 0, var: 0, len: targetByteLength },
+          ]);
+        }),
+      );
+      for (let index = 0; index < ranges.length; index += 1) {
+        output.set(results[index][0], ranges[index].start * targetYSize * field.n8);
+      }
+      return output;
+    },
+    async batchScaleCoeffsXBuffer(buffer, xSize, ySize, factor) {
+      assertPolynomialBufferShape(buffer, xSize, ySize, field.n8, "X-scaled");
+      assertFieldElement(factor, field.n8, "X scale factor");
+      const ranges = splitRanges(xSize, field.tm.concurrency);
+      const results = await Promise.all(
+        ranges.map(({ start, count }) => {
+          const byteStart = start * ySize * field.n8;
+          const byteLength = count * ySize * field.n8;
+          return field.tm.queueAction([
+            { cmd: "ALLOCSET", var: 0, buff: buffer.slice(byteStart, byteStart + byteLength) },
+            { cmd: "ALLOCSET", var: 1, buff: factor },
+            { cmd: "ALLOCSET", var: 2, buff: field.exp(factor, start) },
+            { cmd: "ALLOC", var: 3, len: byteLength },
+            {
+              cmd: "CALL",
+              fnName: FIELD_BATCH_SCALE_X,
+              params: [{ var: 0 }, { var: 1 }, { var: 2 }, { val: count }, { val: ySize }, { var: 3 }],
+            },
+            { cmd: "GET", out: 0, var: 3, len: byteLength },
+          ]);
+        }),
+      );
+      return assembleTaskOutputs(results, buffer.byteLength);
+    },
+    async batchScaleCoeffsYBuffer(buffer, xSize, ySize, factor) {
+      assertPolynomialBufferShape(buffer, xSize, ySize, field.n8, "Y-scaled");
+      assertFieldElement(factor, field.n8, "Y scale factor");
+      const ranges = splitRanges(xSize, field.tm.concurrency);
+      const results = await Promise.all(
+        ranges.map(({ start, count }) => {
+          const byteStart = start * ySize * field.n8;
+          const byteLength = count * ySize * field.n8;
+          return field.tm.queueAction([
+            { cmd: "ALLOCSET", var: 0, buff: buffer.slice(byteStart, byteStart + byteLength) },
+            { cmd: "ALLOCSET", var: 1, buff: factor },
+            { cmd: "ALLOCSET", var: 2, buff: field.one },
+            { cmd: "ALLOCSET", var: 3, buff: field.one },
+            { cmd: "ALLOC", var: 4, len: byteLength },
+            {
+              cmd: "CALL",
+              fnName: FIELD_BATCH_SCALE_Y,
+              params: [
+                { var: 0 },
+                { var: 1 },
+                { var: 2 },
+                { var: 3 },
+                { val: count },
+                { val: ySize },
+                { var: 4 },
+              ],
+            },
+            { cmd: "GET", out: 0, var: 4, len: byteLength },
+          ]);
+        }),
+      );
+      return assembleTaskOutputs(results, buffer.byteLength);
+    },
     async batchFromMontgomeryBuffer(buffer) {
       assertFieldBuffer(buffer, field.n8);
       return await field.batchFromMontgomery(buffer);
@@ -178,41 +354,9 @@ export function createFieldRuntime(field: FfField): FieldRuntime {
   };
 }
 
-interface FfThreadManager {
-  readonly concurrency: number;
-  queueAction(actionData: readonly FfWorkerCommand[]): Promise<Uint8Array[]>;
-}
-
 interface FfFieldWithWorkerTasks extends FfField {
   readonly prefix: string;
-  readonly tm: FfThreadManager;
 }
-
-type FfWorkerCommand =
-  | {
-      readonly cmd: "ALLOCSET";
-      readonly var: number;
-      readonly buff: Uint8Array;
-    }
-  | {
-      readonly cmd: "CALL";
-      readonly fnName: string;
-      readonly params: readonly FfWorkerCallParam[];
-    }
-  | {
-      readonly cmd: "GET";
-      readonly out: number;
-      readonly var: number;
-      readonly len: number;
-    };
-
-type FfWorkerCallParam =
-  | {
-      readonly var: number;
-    }
-  | {
-      readonly val: number;
-    };
 
 const MAX_FFT_MIX_BITS_PER_BATCH_TASK = 14;
 
@@ -500,5 +644,122 @@ export function formatHex(value: bigint, byteLength: number): string {
 function assertInField(value: bigint, modulus: bigint): void {
   if (value < 0n || value >= modulus) {
     throw new Error("Field value is outside the scalar field modulus.");
+  }
+}
+
+function assertPositiveSafeInteger(value: number, label: string): void {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`${label} must be a positive safe integer.`);
+  }
+}
+
+function assertLinearBatchExports(field: FfField): void {
+  const requiredExports = [
+    FIELD_BATCH_ADD,
+    FIELD_BATCH_SUB,
+    FIELD_BATCH_ADD_SCALED,
+    FIELD_BATCH_ADD_SCALED_PREFIX,
+    FIELD_BATCH_SCALE_X,
+    FIELD_BATCH_SCALE_Y,
+  ];
+  for (const name of requiredExports) {
+    if (typeof field.tm.instance?.exports[name] !== "function") {
+      throw new Error(`Field runtime is missing required WASM batch export: ${name}.`);
+    }
+  }
+}
+
+async function batchBinaryBuffer(
+  field: FfField,
+  left: Uint8Array,
+  right: Uint8Array,
+  functionName: typeof FIELD_BATCH_ADD | typeof FIELD_BATCH_SUB,
+): Promise<Uint8Array> {
+  assertMatchingFieldBuffers(left, right, field.n8, "Binary batch buffers");
+  const elementCount = left.byteLength / field.n8;
+  const ranges = splitRanges(elementCount, field.tm.concurrency);
+  const results = await Promise.all(
+    ranges.map(({ start, count }) => {
+      const byteStart = start * field.n8;
+      const byteLength = count * field.n8;
+      return field.tm.queueAction([
+        { cmd: "ALLOCSET", var: 0, buff: left.slice(byteStart, byteStart + byteLength) },
+        { cmd: "ALLOCSET", var: 1, buff: right.slice(byteStart, byteStart + byteLength) },
+        { cmd: "ALLOC", var: 2, len: byteLength },
+        {
+          cmd: "CALL",
+          fnName: functionName,
+          params: [{ var: 0 }, { var: 1 }, { val: count }, { var: 2 }],
+        },
+        { cmd: "GET", out: 0, var: 2, len: byteLength },
+      ]);
+    }),
+  );
+  return assembleTaskOutputs(results, left.byteLength);
+}
+
+function splitRanges(elementCount: number, requestedTaskCount: number): readonly { start: number; count: number }[] {
+  if (!Number.isSafeInteger(elementCount) || elementCount < 0) {
+    throw new Error("Batch element count must be a non-negative safe integer.");
+  }
+  if (!Number.isSafeInteger(requestedTaskCount) || requestedTaskCount <= 0) {
+    throw new Error("Batch task count must be a positive safe integer.");
+  }
+  if (elementCount === 0) {
+    return [];
+  }
+
+  const taskCount = Math.min(elementCount, requestedTaskCount);
+  const ranges: { start: number; count: number }[] = [];
+  for (let index = 0; index < taskCount; index += 1) {
+    const start = Math.floor((elementCount * index) / taskCount);
+    const end = Math.floor((elementCount * (index + 1)) / taskCount);
+    ranges.push({ start, count: end - start });
+  }
+  return ranges;
+}
+
+function assembleTaskOutputs(results: readonly (readonly Uint8Array[])[], outputByteLength: number): Uint8Array {
+  const output = new Uint8Array(outputByteLength);
+  let offset = 0;
+  for (const result of results) {
+    if (result.length !== 1) {
+      throw new Error("Field batch task must return exactly one output buffer.");
+    }
+    output.set(result[0], offset);
+    offset += result[0].byteLength;
+  }
+  if (offset !== outputByteLength) {
+    throw new Error(`Field batch output byte length mismatch: expected ${outputByteLength}, received ${offset}.`);
+  }
+  return output;
+}
+
+function assertMatchingFieldBuffers(left: Uint8Array, right: Uint8Array, elementBytes: number, label: string): void {
+  assertFieldBuffer(left, elementBytes);
+  assertFieldBuffer(right, elementBytes);
+  if (left.byteLength !== right.byteLength) {
+    throw new Error(`${label} must have equal byte lengths.`);
+  }
+}
+
+function assertFieldElement(value: Uint8Array, elementBytes: number, label: string): void {
+  if (value.byteLength !== elementBytes) {
+    throw new Error(`${label} byte length does not match the runtime field.`);
+  }
+}
+
+function assertPolynomialBufferShape(
+  buffer: Uint8Array,
+  xSize: number,
+  ySize: number,
+  elementBytes: number,
+  label: string,
+): void {
+  assertPositiveSafeInteger(xSize, `${label} polynomial X size`);
+  assertPositiveSafeInteger(ySize, `${label} polynomial Y size`);
+  assertFieldBuffer(buffer, elementBytes);
+  if (buffer.byteLength !== xSize * ySize * elementBytes) {
+    throw new Error(`${label} polynomial shape does not match its buffer byte length.`);
   }
 }

@@ -174,15 +174,13 @@ async function provePreparedInputWithTestingModeChecks(
 
   const { chi, zeta } = collectEvaluationChallenges(runtime, transcript, prove2Output.commitments);
   const evaluations = await timed("prove3", () =>
-    Promise.resolve(
-      evaluateChallengePoints({
-        runtime,
-        state,
-        rXY: prove1Output.rXY,
-        chi,
-        zeta,
-      }),
-    ),
+    evaluateChallengePoints({
+      runtime,
+      state,
+      rXY: prove1Output.rXY,
+      chi,
+      zeta,
+    }),
   );
   const kappa1 = collectKappa1Challenge(transcript, evaluations);
   const prove4Output = await timed("prove4", () =>
