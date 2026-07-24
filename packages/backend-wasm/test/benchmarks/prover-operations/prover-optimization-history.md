@@ -1637,38 +1637,6 @@ proof generation (`150.53 s`) and verification (`19 ms`), and package-content
 inspection passed. The package contains 253 files and no `test/`, `scripts/`,
 `fixtures/`, or `tmp/` paths.
 
-## Whole-Loop WASM Lagrange KL Recurrences
-
-Related commit: `f28a5c7a` (`Parallelize Lagrange KL recurrences`).
-
-Direct KL construction, the accepted weighted recurrence formulas, and final
-batch scaling remain unchanged. The X recurrence now partitions independent
-Y columns through WASM workers. Its row-major intermediate is then partitioned
-into independent X-row shards for the WASM Y recurrence. All compact copies,
-assembly, and scaling are included in the benchmark.
-
-| boundary at `4096x256` | JavaScript production | caller WASM | one worker | workers |
-| --- | ---: | ---: | ---: | ---: |
-| KL multiplication | 2425.599 ms | 1156.151 ms | 683.929 ms | 198.416 ms |
-| KL construction plus multiplication | 2621.620 ms | 1365.213 ms | 906.783 ms | 401.267 ms |
-
-Exact bytes and the independent small-domain dense convolution oracle passed.
-The selected worker path reduced multiplication by `2227.183 ms` (`91.8%`).
-Its explicit temporary bound is approximately `480 MiB`, versus `192 MiB`
-for the retained JavaScript baseline.
-
-| integrated timing row | before | after | delta |
-| --- | ---: | ---: | ---: |
-| `polynomial.combination_with_multiplication` | 23.38 s | 21.71 s | -1.67 s |
-| prover stage total | 143.76 s | 141.18 s | -2.58 s |
-| total wall | 151.46 s | 148.72 s | -2.74 s |
-
-Type checks, polynomial operation parity, native testing-mode-style
-invariants, Node proof generation and verifier acceptance, build, Chromium
-proof generation (`144.49 s`) and verification (`19 ms`), and package-content
-inspection passed. The package contains 253 files and no `test/`, `scripts/`,
-`fixtures/`, or `tmp/` paths.
-
 ## Whole-Loop WASM Lagrange K0 Recurrence
 
 Related commit: `49448d7c` (`Parallelize Lagrange K0 recurrence`).
@@ -1702,5 +1670,37 @@ and recurrence windows; it does not replicate the full input per worker.
 Type checks, polynomial operation parity, native testing-mode-style
 invariants, Node proof generation and verifier acceptance, build, Chromium
 proof generation (`146.82 s`) and verification (`18 ms`), and package-content
+inspection passed. The package contains 253 files and no `test/`, `scripts/`,
+`fixtures/`, or `tmp/` paths.
+
+## Whole-Loop WASM Lagrange KL Recurrences
+
+Related commit: `f28a5c7a` (`Parallelize Lagrange KL recurrences`).
+
+Direct KL construction, the accepted weighted recurrence formulas, and final
+batch scaling remain unchanged. The X recurrence now partitions independent
+Y columns through WASM workers. Its row-major intermediate is then partitioned
+into independent X-row shards for the WASM Y recurrence. All compact copies,
+assembly, and scaling are included in the benchmark.
+
+| boundary at `4096x256` | JavaScript production | caller WASM | one worker | workers |
+| --- | ---: | ---: | ---: | ---: |
+| KL multiplication | 2425.599 ms | 1156.151 ms | 683.929 ms | 198.416 ms |
+| KL construction plus multiplication | 2621.620 ms | 1365.213 ms | 906.783 ms | 401.267 ms |
+
+Exact bytes and the independent small-domain dense convolution oracle passed.
+The selected worker path reduced multiplication by `2227.183 ms` (`91.8%`).
+Its explicit temporary bound is approximately `480 MiB`, versus `192 MiB`
+for the retained JavaScript baseline.
+
+| integrated timing row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_with_multiplication` | 23.38 s | 21.71 s | -1.67 s |
+| prover stage total | 143.76 s | 141.18 s | -2.58 s |
+| total wall | 151.46 s | 148.72 s | -2.74 s |
+
+Type checks, polynomial operation parity, native testing-mode-style
+invariants, Node proof generation and verifier acceptance, build, Chromium
+proof generation (`144.49 s`) and verification (`19 ms`), and package-content
 inspection passed. The package contains 253 files and no `test/`, `scripts/`,
 `fixtures/`, or `tmp/` paths.
