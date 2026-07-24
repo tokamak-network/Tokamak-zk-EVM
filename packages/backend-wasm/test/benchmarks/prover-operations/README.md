@@ -1275,3 +1275,24 @@ All candidate outputs passed exact byte parity. The candidate is rejected:
 reduced accumulator writes do not offset the per-coefficient term loop,
 mixed-shape bounds checks, and scalar dispatch. Production remains on the
 term-oriented accumulator.
+
+## Cross-Stage Polynomial Retention
+
+Candidate 22D tested two independent production-path experiments. Each
+experiment used the prepared full proof fixture, generated a proof accepted by
+the verifier, and recorded process maximum RSS with `/usr/bin/time -l`.
+Experimental source changes were reverted after measurement.
+
+| candidate | explicit retained bytes | removed repeated work | full wall | maximum RSS |
+| --- | ---: | ---: | ---: | ---: |
+| current baseline | 0 | 0 | 251.21 s | 12.391 GB |
+| retain `fXY` from recursion through opening, run 1 | about 32 MiB | two linear combinations, 1.812 s accumulated | 251.11 s | 13.616 GB |
+| retain `fXY` from recursion through opening, run 2 | about 32 MiB | two linear combinations, 1.812 s accumulated | 251.95 s | 12.890 GB |
+| retain both shifted-r polynomials from copy through opening | about 64 MiB | two coefficient rescale traversals, about 0.591 s accumulated | 252.48 s | 13.386 GB |
+
+The fixed-taxonomy `fXY` experiment reduced `field.operations` from
+`113.675 s` to `112.213 s`, but its full wall time did not improve
+repeatably. Both retention variants also raised observed maximum RSS. Neither
+candidate passes the campaign requirement for a repeatable full-prover
+improvement that justifies its longer-lived buffers. Production continues to
+recompute these derived polynomials at their use sites.
