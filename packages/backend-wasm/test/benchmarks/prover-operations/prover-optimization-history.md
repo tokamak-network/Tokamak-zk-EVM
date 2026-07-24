@@ -1600,3 +1600,39 @@ Polynomial parity, native testing-mode-style invariants, and Node proof
 verification passed. Chromium generated a 2408-byte proof in `150.46 s` and
 verified it in `19 ms`. Build and package inspection passed; the 253-file
 package contains no `test/`, `scripts/`, `fixtures/`, or `tmp/` paths.
+
+## Recursion Recurrence WASM Boundary
+
+Related commit: `35bef9cc` (`Move recursion recurrence into WASM`).
+
+The accepted batch inversion remains unchanged. This change moves only the
+dependent post-inversion recurrence from a JavaScript loop with two scalar
+ffjavascript multiplications per element into one backend-owned WASM task.
+The recurrence order and final row-major mapping are unchanged. The work does
+not split the dependency chain across workers.
+
+| recurrence-only candidate | median | min | max |
+| --- | ---: | ---: | ---: |
+| JavaScript after batch inversion | 455.413 ms | 451.528 ms | 496.436 ms |
+| one-worker WASM after batch inversion | 212.279 ms | 207.081 ms | 217.814 ms |
+
+The isolated complete recurrence boundary improved by `243.134 ms` (`53.4%`)
+and passed exact byte parity.
+
+| integrated timing row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.recursion` | 1.78 s | 1.87 s | +0.09 s |
+| prover stage total | 147.40 s | 147.92 s | +0.52 s |
+| total wall | 154.85 s | 155.67 s | +0.82 s |
+
+The integrated run does not establish a full-prover speedup. Its recursion
+category includes the unchanged batch inversion and NTT work, and the observed
+deltas are below the run-to-run variation of complete prover measurements.
+The production promotion is supported by the repeated recurrence-only
+end-to-end result, not by an aggregate timing claim.
+
+Type checks, polynomial operation parity, native testing-mode-style
+invariants, Node proof generation and verifier acceptance, build, Chromium
+proof generation (`150.53 s`) and verification (`19 ms`), and package-content
+inspection passed. The package contains 253 files and no `test/`, `scripts/`,
+`fixtures/`, or `tmp/` paths.

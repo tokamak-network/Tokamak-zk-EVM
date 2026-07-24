@@ -1533,3 +1533,29 @@ two-pass candidate was rejected. Production uses the existing public
 `batchApplyKey` for uniform scaling and backend-owned module-plugin kernels
 for add, subtract, fused add-scaled, strided prefix add-scaled, and
 layout-aware X/Y scaling.
+
+## Recursion Recurrence Execution Boundary
+
+`bench-recursion-recurrence.ts` holds the accepted batch inversion outside the
+measured boundary and compares only recurrence construction. The baseline
+performs two scalar ffjavascript multiplications per recurrence step from
+JavaScript. The candidate preserves the same dependent order in one
+backend-owned WASM task; it does not claim parallelism across the dependency
+chain.
+
+```bash
+npm run bench:recursion-recurrence -- --m-i=4096 --s-max=256 --iterations=3 --warmup=1 --json=tmp/timing/recursion-recurrence.json
+```
+
+| candidate | median | min | max |
+| --- | ---: | ---: | ---: |
+| JavaScript after batch inversion | 455.413 ms | 451.528 ms | 496.436 ms |
+| one-worker WASM after batch inversion | 212.279 ms | 207.081 ms | 217.814 ms |
+
+The WASM boundary reduced the measured recurrence by `243.134 ms` (`53.4%`)
+with exact output bytes. Production commit `35bef9cc` applies that boundary.
+The subsequent complete prover run did not establish an aggregate speedup:
+`polynomial.recursion` changed from `1.78 s` to `1.87 s`, prover stage total
+from `147.40 s` to `147.92 s`, and total wall from `154.85 s` to `155.67 s`.
+Those aggregate deltas are smaller than run-to-run variation and include the
+unchanged batch-inversion and NTT work.
