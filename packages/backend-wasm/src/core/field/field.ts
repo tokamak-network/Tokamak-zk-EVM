@@ -13,6 +13,8 @@ import {
   FIELD_EVAL_ROWS,
   FIELD_EVAL_ROWS_FUSED,
   FIELD_K0_RECURRENCE,
+  FIELD_KL_RECURRENCE_X,
+  FIELD_KL_RECURRENCE_Y,
   FIELD_RUFFINI_X,
   FIELD_RUFFINI_Y,
   FIELD_RECURSION_RECURRENCE,
@@ -131,6 +133,15 @@ export interface FieldRuntime {
     outputXSize: number,
     outputYSize: number,
     mI: number,
+  ): Promise<Uint8Array>;
+  klRecurrenceBuffer(
+    buffer: Uint8Array,
+    inputXSize: number,
+    inputYSize: number,
+    outputXSize: number,
+    outputYSize: number,
+    mI: number,
+    sMax: number,
   ): Promise<Uint8Array>;
   fft(values: readonly FieldElement[]): Promise<FieldElement[]>;
   ifft(values: readonly FieldElement[]): Promise<FieldElement[]>;
@@ -630,6 +641,72 @@ export function createFieldRuntime(field: FfField): FieldRuntime {
         field.n8,
       );
     },
+    async klRecurrenceBuffer(
+      buffer,
+      inputXSize,
+      inputYSize,
+      outputXSize,
+      outputYSize,
+      mI,
+      sMax,
+    ) {
+      assertPolynomialBufferShape(buffer, inputXSize, inputYSize, field.n8, "KL input");
+      assertPositiveSafeInteger(outputXSize, "KL output X size");
+      assertPositiveSafeInteger(outputYSize, "KL output Y size");
+      assertPositiveSafeInteger(mI, "KL X domain size");
+      assertPositiveSafeInteger(sMax, "KL Y domain size");
+      if (outputXSize < inputXSize || outputYSize < inputYSize) {
+        throw new Error("KL output shape is incompatible with its input shape.");
+      }
+
+      const xRanges = splitRanges(inputYSize, field.tm.concurrency);
+      const rootX = field.w[checkedPowerOfTwoLog(mI)];
+      const xResults = await Promise.all(
+        xRanges.map(({ start, count }) => field.tm.queueAction(
+          buildKlXTask(
+            extractPolynomialColumns(
+              buffer,
+              inputXSize,
+              inputYSize,
+              start,
+              count,
+              field.n8,
+            ),
+            inputXSize,
+            count,
+            outputXSize,
+            mI,
+            rootX,
+            field.n8,
+          ),
+        )),
+      );
+      const intermediate = assemblePolynomialColumns(
+        xResults.map((result) => requireTaskOutputs(result, 1, "KL X recurrence")[0]),
+        xRanges,
+        outputXSize,
+        inputYSize,
+        field.n8,
+      );
+
+      const yRanges = splitRanges(outputXSize, field.tm.concurrency);
+      const rootY = field.w[checkedPowerOfTwoLog(sMax)];
+      const inputRowBytes = inputYSize * field.n8;
+      const yResults = await Promise.all(
+        yRanges.map(({ start, count }) => field.tm.queueAction(
+          buildKlYTask(
+            intermediate.slice(start * inputRowBytes, (start + count) * inputRowBytes),
+            count,
+            inputYSize,
+            outputYSize,
+            sMax,
+            rootY,
+            field.n8,
+          ),
+        )),
+      );
+      return assembleTaskOutputs(yResults, outputXSize * outputYSize * field.n8);
+    },
     async fft(values) {
       return splitFieldBuffer(await field.fft(concatFieldElements(values, field.n8)), field.n8);
     },
@@ -986,6 +1063,8 @@ function assertLinearBatchExports(field: FfField): void {
     FIELD_EVAL_ROWS,
     FIELD_EVAL_ROWS_FUSED,
     FIELD_K0_RECURRENCE,
+    FIELD_KL_RECURRENCE_X,
+    FIELD_KL_RECURRENCE_Y,
     FIELD_RUFFINI_X,
     FIELD_RUFFINI_Y,
     FIELD_RECURSION_RECURRENCE,
@@ -1257,6 +1336,68 @@ function buildK0Task(
         { val: localYSize },
         { val: outputXSize },
         { val: mI },
+        { var: 1 },
+        { var: 2 },
+      ],
+    },
+    { cmd: "GET", out: 0, var: 2, len: outputBytes },
+  ];
+}
+
+function buildKlXTask(
+  input: Uint8Array,
+  inputXSize: number,
+  localYSize: number,
+  outputXSize: number,
+  mI: number,
+  rootX: Uint8Array,
+  elementBytes: number,
+): FfWorkerCommand[] {
+  const outputBytes = outputXSize * localYSize * elementBytes;
+  return [
+    { cmd: "ALLOCSET", var: 0, buff: input },
+    { cmd: "ALLOCSET", var: 1, buff: rootX },
+    { cmd: "ALLOC", var: 2, len: outputBytes },
+    {
+      cmd: "CALL",
+      fnName: FIELD_KL_RECURRENCE_X,
+      params: [
+        { var: 0 },
+        { val: inputXSize },
+        { val: localYSize },
+        { val: outputXSize },
+        { val: mI },
+        { var: 1 },
+        { var: 2 },
+      ],
+    },
+    { cmd: "GET", out: 0, var: 2, len: outputBytes },
+  ];
+}
+
+function buildKlYTask(
+  input: Uint8Array,
+  xRows: number,
+  inputYSize: number,
+  outputYSize: number,
+  sMax: number,
+  rootY: Uint8Array,
+  elementBytes: number,
+): FfWorkerCommand[] {
+  const outputBytes = xRows * outputYSize * elementBytes;
+  return [
+    { cmd: "ALLOCSET", var: 0, buff: input },
+    { cmd: "ALLOCSET", var: 1, buff: rootY },
+    { cmd: "ALLOC", var: 2, len: outputBytes },
+    {
+      cmd: "CALL",
+      fnName: FIELD_KL_RECURRENCE_Y,
+      params: [
+        { var: 0 },
+        { val: xRows },
+        { val: inputYSize },
+        { val: outputYSize },
+        { val: sMax },
         { var: 1 },
         { var: 2 },
       ],

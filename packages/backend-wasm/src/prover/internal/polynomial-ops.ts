@@ -453,85 +453,15 @@ export async function multiplyByLagrangeKl(
   const field = polynomial.field;
   const xSize = nextPowerOfTwo(degree.xDegree + mI);
   const ySize = nextPowerOfTwo(degree.yDegree + sMax);
-  const elementBytes = field.byteLength;
-  const intermediate = new Uint8Array(xSize * polynomial.ySize * elementBytes);
-  const intermediateRowBytes = polynomial.ySize * elementBytes;
-  const inputRowBytes = polynomial.ySize * elementBytes;
-  const rootX = field.rootOfUnity(mI);
-
-  for (let x = 0; x < xSize; x += 1) {
-    const outputRowOffset = x * intermediateRowBytes;
-    const previousRowOffset = (x - 1) * intermediateRowBytes;
-    const inputRowOffset = x * inputRowBytes;
-    const removedRowOffset = (x - mI) * inputRowBytes;
-    for (let y = 0; y < polynomial.ySize; y += 1) {
-      const elementOffset = y * elementBytes;
-      let value = x > 0
-        ? field.mul(
-          intermediate.subarray(
-            previousRowOffset + elementOffset,
-            previousRowOffset + elementOffset + elementBytes,
-          ),
-          rootX,
-        )
-        : field.zero;
-      if (x < polynomial.xSize) {
-        value = field.add(
-          value,
-          polynomial.coefficients.subarray(
-            inputRowOffset + elementOffset,
-            inputRowOffset + elementOffset + elementBytes,
-          ),
-        );
-      }
-      if (x >= mI && x - mI < polynomial.xSize) {
-        value = field.sub(
-          value,
-          polynomial.coefficients.subarray(
-            removedRowOffset + elementOffset,
-            removedRowOffset + elementOffset + elementBytes,
-          ),
-        );
-      }
-      intermediate.set(value, outputRowOffset + elementOffset);
-    }
-  }
-
-  const unscaledOutput = new Uint8Array(xSize * ySize * elementBytes);
-  const outputRowBytes = ySize * elementBytes;
-  const rootY = field.rootOfUnity(sMax);
-  for (let x = 0; x < xSize; x += 1) {
-    const intermediateRowOffset = x * intermediateRowBytes;
-    const outputRowOffset = x * outputRowBytes;
-    for (let y = 0; y < ySize; y += 1) {
-      const outputOffset = outputRowOffset + y * elementBytes;
-      let value = y > 0
-        ? field.mul(
-          unscaledOutput.subarray(outputOffset - elementBytes, outputOffset),
-          rootY,
-        )
-        : field.zero;
-      if (y < polynomial.ySize) {
-        value = field.add(
-          value,
-          intermediate.subarray(
-            intermediateRowOffset + y * elementBytes,
-            intermediateRowOffset + (y + 1) * elementBytes,
-          ),
-        );
-      }
-      if (y >= sMax && y - sMax < polynomial.ySize) {
-        value = field.sub(
-          value,
-          intermediate.subarray(
-            intermediateRowOffset + (y - sMax) * elementBytes,
-            intermediateRowOffset + (y - sMax + 1) * elementBytes,
-          ),
-        );
-      }
-      unscaledOutput.set(value, outputOffset);
-    }
-  }
+  const unscaledOutput = await field.klRecurrenceBuffer(
+    polynomial.coefficients,
+    polynomial.xSize,
+    polynomial.ySize,
+    xSize,
+    ySize,
+    mI,
+    sMax,
+  );
 
   const inverseDomain = field.inv(field.fromBigInt(BigInt(domainSize)));
   const output = await field.batchApplyKeyBuffer(unscaledOutput, inverseDomain, field.one);
