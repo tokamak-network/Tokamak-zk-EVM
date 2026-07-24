@@ -1738,6 +1738,41 @@ invariants, build, Chromium proof generation (`141.14 s`) and verification
 (`19 ms`), and package-content inspection passed. The package contains 253
 files and no `test/`, `scripts/`, or `tmp/` paths.
 
+## Sparse Witness Row-Dot WASM Kernel
+
+Related commit: `2d45a0e7` (`Move sparse witness accumulation into WASM`).
+
+Witness construction retains the existing sparse R1CS representation,
+active-wire mapping, row order, and validation. Each matrix is packed into
+CSR row offsets, columns, coefficients, and active-variable buffers. One
+backend-owned WASM task evaluates all rows in that matrix in original entry
+order. The rejected row-sharded alternative is not used in production.
+
+| real-fixture boundary | current JavaScript | caller WASM | one worker | 14 row-sharded workers |
+| --- | ---: | ---: | ---: | ---: |
+| sparse accumulation | 822.279 ms | 323.193 ms | 328.331 ms | 529.133 ms |
+| complete witness | 2.76 s | 2.27 s | 2.16 s | 2.55 s |
+
+The measured sparse boundary includes active-wire and CSR packing, worker
+input transfer, kernel execution, result transfer, and output assembly.
+All candidates produced exact `b`, `u`, `v`, `w`, and `r` polynomial bytes.
+The one-worker production shape reduces the isolated sparse accumulation by
+`493.948 ms` (`60.1%`). Row sharding is slower because these matrices do not
+contain enough work per shard to amortize repeated task and transfer overhead.
+
+| integrated timing row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| prover stage total | 134.99 s | 135.07 s | +0.08 s |
+| total wall | 143.06 s | 142.30 s | -0.76 s |
+
+The integrated delta is within full-run variation and is not claimed as an
+aggregate prover speedup. Type checks, exact real-fixture witness parity,
+native testing-mode-style witness/copy and stage invariants, Node proof
+generation and verifier acceptance, build, Chromium proof generation
+(`137.02 s`) and verification (`19 ms`), and package inspection passed. The
+package contains 253 files and no `test/`, `scripts/`, `fixtures/`, or `tmp/`
+paths.
+
 ## Whole-Loop WASM Fused Linear-Plus-Scaled Terms
 
 Related commit: `a3773077` (`Parallelize fused linear polynomial terms`).
