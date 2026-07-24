@@ -1034,6 +1034,51 @@ Verification:
 - `npm pack --dry-run --json` passed with 249 files and no test, script,
   temporary, benchmark, or diagnostics paths.
 
+## Zero-Buffer Initialization Removal
+
+Production commit: `217becb8` (`Remove redundant field zero initialization`).
+
+Production change:
+
+- `createFieldRuntime(...)` now rejects a field whose additive identity is not
+  represented by all-zero bytes.
+- `FieldRuntime.createZeroBuffer(...)` returns the already zero-initialized
+  `Uint8Array` directly instead of rewriting every field-element slot.
+- The field-buffer parity check covers both the field-zero representation and
+  the complete raw zero-buffer bytes.
+
+Standalone stage-timing comparison:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_without_multiplication` | 56.11 s | 55.63 s | -0.48 s |
+| `polynomial.combination_with_multiplication` | 37.49 s | 37.84 s | +0.35 s |
+| `field.operations` | 117.84 s | 117.65 s | -0.19 s |
+| encode | 134.03 s | 134.47 s | +0.44 s |
+| prover stage total | 249.75 s | 249.98 s | +0.23 s |
+| total wall | 258.28 s | 258.94 s | +0.66 s |
+
+Interpretation:
+
+- The full-run changes are within the observed run-to-run range. This rewrite
+  is retained because it removes semantically redundant writes and adds an
+  explicit representation invariant, not because a standalone full-prover
+  speedup was measurable.
+- Chromium proof generation completed in `242.81 s`, and verification
+  completed in `52 ms`.
+
+Verification:
+
+- `npm run prover:ops:field` passed.
+- `npm run typecheck` passed.
+- `npm run prover:ops:check` passed.
+- `npm run prover:testing-mode:check` passed.
+- `npm run prover:stage-timing:check` passed and verified the generated proof.
+- `npm run build` passed.
+- `npm run prover:browser:check` passed.
+- `npm pack --dry-run --json` passed with 249 files and no test, script,
+  temporary, benchmark, or diagnostics paths.
+
 ## Superseded Old-Taxonomy Comparison
 
 The old comparison below is preserved only as historical context. It must not be used as the active timing table because it used add/sub/mul/scale rows that are no longer part of the accepted taxonomy.

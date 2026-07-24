@@ -1191,3 +1191,12 @@ run had unrelated multiplication and encode increases, so its total wall-time
 regression is not attributed to this rewrite. Exact polynomial parity,
 testing-mode invariants, generated-proof verification, build, Chromium proof
 generation and verification, and package-content inspection passed.
+
+## Zero-Buffer Initialization
+
+Production commit `217becb8` makes the all-zero ffjavascript field
+representation an explicit `FieldRuntime` invariant and removes the redundant
+element-by-element writes from `createZeroBuffer(...)`. Field-buffer parity
+checks cover the raw representation. Full-prover timing remained within
+run-to-run variation (`258.28 s` before and `258.94 s` after), while all Node,
+Chromium, build, and package-content gates passed.
