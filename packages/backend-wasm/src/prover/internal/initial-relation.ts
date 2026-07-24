@@ -201,7 +201,8 @@ export async function encodePolynomialBufferWithSigma1(
   setup: ProverSetupParams,
   polynomial: BivariatePolynomialBuffer,
 ): Promise<Uint8Array> {
-  const { xDegree, yDegree } = polynomial.findDegree();
+  const coefficientWords = fieldBufferWords(polynomial.coefficients);
+  const { xDegree, yDegree } = findCoefficientDegree(polynomial, coefficientWords);
   if (xDegree < 0 || yDegree < 0) {
     return runtime.G1.zero;
   }
@@ -214,7 +215,7 @@ export async function encodePolynomialBufferWithSigma1(
     throw new Error("Insufficient prover CRS sigma1.xy-powers length for polynomial encoding.");
   }
 
-  const nonzeroCount = countNonzeroCoefficients(runtime, polynomial, xSize, ySize);
+  const nonzeroCount = countNonzeroCoefficients(polynomial, coefficientWords, xSize, ySize);
   if (nonzeroCount === 0) {
     return runtime.G1.zero;
   }
@@ -224,23 +225,30 @@ export async function encodePolynomialBufferWithSigma1(
     return encodeSigma1DenseChunks(runtime, crs, referenceStringYSize, polynomial, xSize, ySize);
   }
 
-  return encodeSigma1Sparse(runtime, crs, referenceStringYSize, polynomial, xSize, ySize, nonzeroCount);
+  return encodeSigma1Sparse(
+    runtime,
+    crs,
+    referenceStringYSize,
+    polynomial,
+    coefficientWords,
+    xSize,
+    ySize,
+    nonzeroCount,
+  );
 }
 
 function countNonzeroCoefficients(
-  runtime: CurveRuntime,
   polynomial: BivariatePolynomialBuffer,
+  coefficientWords: Uint32Array,
   xSize: number,
   ySize: number,
 ): number {
   let count = 0;
   for (let x = 0; x < xSize; x += 1) {
     for (let y = 0; y < ySize; y += 1) {
-      const scalar = polynomial.getCoeff(x, y);
-      if (runtime.Fr.isZero(scalar)) {
-        continue;
+      if (!isZeroCoefficient(coefficientWords, x * polynomial.ySize + y)) {
+        count += 1;
       }
-      count += 1;
     }
   }
 
@@ -259,6 +267,7 @@ async function encodeSigma1Sparse(
   crs: ProverCrsRuntime,
   referenceStringYSize: number,
   polynomial: BivariatePolynomialBuffer,
+  coefficientWords: Uint32Array,
   xSize: number,
   ySize: number,
   nonzeroCount: number,
@@ -268,8 +277,8 @@ async function encodeSigma1Sparse(
   let outputIndex = 0;
   for (let x = 0; x < xSize; x += 1) {
     for (let y = 0; y < ySize; y += 1) {
-      const scalar = polynomial.getCoeff(x, y);
-      if (runtime.Fr.isZero(scalar)) {
+      const polynomialIndex = x * polynomial.ySize + y;
+      if (isZeroCoefficient(coefficientWords, polynomialIndex)) {
         continue;
       }
       const base = crs.sigma1.xyPowers[referenceStringYSize * x + y];
@@ -278,13 +287,59 @@ async function encodeSigma1Sparse(
       }
 
       bases.set(base, outputIndex * G1_AFFINE_BYTES);
-      montgomeryScalars.set(scalar, outputIndex * runtime.Fr.byteLength);
+      montgomeryScalars.set(
+        polynomial.coefficients.subarray(
+          polynomialIndex * runtime.Fr.byteLength,
+          (polynomialIndex + 1) * runtime.Fr.byteLength,
+        ),
+        outputIndex * runtime.Fr.byteLength,
+      );
       outputIndex += 1;
     }
   }
 
   const rawScalars = await runtime.Fr.batchFromMontgomeryBuffer(montgomeryScalars);
   return runtime.G1.msmAffineRaw(bases, rawScalars);
+}
+
+function findCoefficientDegree(
+  polynomial: BivariatePolynomialBuffer,
+  coefficientWords: Uint32Array,
+): { readonly xDegree: number; readonly yDegree: number } {
+  let xDegree = -1;
+  let yDegree = -1;
+  for (let x = polynomial.xSize - 1; x >= 0 && xDegree < 0; x -= 1) {
+    for (let y = 0; y < polynomial.ySize; y += 1) {
+      if (!isZeroCoefficient(coefficientWords, x * polynomial.ySize + y)) {
+        xDegree = x;
+        break;
+      }
+    }
+  }
+  for (let y = polynomial.ySize - 1; y >= 0 && yDegree < 0; y -= 1) {
+    for (let x = 0; x < polynomial.xSize; x += 1) {
+      if (!isZeroCoefficient(coefficientWords, x * polynomial.ySize + y)) {
+        yDegree = y;
+        break;
+      }
+    }
+  }
+  return { xDegree, yDegree };
+}
+
+function fieldBufferWords(buffer: Uint8Array): Uint32Array {
+  if (buffer.byteOffset % 4 !== 0 || buffer.byteLength % 4 !== 0) {
+    throw new Error("Prover field coefficient buffers must be four-byte aligned.");
+  }
+  return new Uint32Array(buffer.buffer, buffer.byteOffset, buffer.byteLength / 4);
+}
+
+function isZeroCoefficient(words: Uint32Array, coefficientIndex: number): boolean {
+  const offset = coefficientIndex * 8;
+  return (
+    words[offset] | words[offset + 1] | words[offset + 2] | words[offset + 3]
+    | words[offset + 4] | words[offset + 5] | words[offset + 6] | words[offset + 7]
+  ) === 0;
 }
 
 async function encodeSigma1DenseChunks(

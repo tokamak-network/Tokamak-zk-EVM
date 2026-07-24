@@ -155,84 +155,87 @@ These files are retained only as historical diagnostics for the discarded backen
 
 ## Commitment Density Benchmark
 
-Audience: backend-wasm developers deciding whether prover commitments should use sparse nonzero extraction or compact rectangular MSM input construction.
+Audience: backend-wasm developers evaluating Sigma1 commitment input preparation.
 
-This benchmark compares two commitment input layouts for a synthetic one-row polynomial:
+The benchmark models the complete production boundary for a rectangular
+bivariate polynomial: degree discovery, active-rectangle selection, nonzero
+counting, sparse/dense routing, input preparation, Montgomery conversion, MSM,
+and partial-point accumulation. It retains the production dense threshold
+(`0.75`) and chunk size (`262144` points).
 
-- sparse: scan coefficients, skip zeros, copy only matching bases and nonzero scalars, then call `G1.msmAffineRaw()`.
-- compact: keep the full base buffer, batch-convert the full coefficient buffer with `Fr.batchFromMontgomeryBuffer()`, then call `G1.msmAffineRaw()` with zero scalars included.
+Candidates:
+
+- `current-production`: scalar field zero tests in the original two-scan path.
+- `raw-byte-two-scan`: direct zero tests over the validated all-zero Montgomery
+  representation.
+- `single-scan`: one caller-thread scan with maximum-size compact buffers.
+- `wasm-single-scan`: one backend-owned WASM compaction task.
+- `wasm-worker-scan`: ffjavascript-worker-sharded WASM compaction.
 
 Usage:
 
 ```bash
-npm run bench:commitment-density -- --lengths=1024,4096,16384 --densities=0.1,0.25,0.5,0.75,1 --iterations=1 --warmup=0
+npm run bench:commitment-density -- --shapes=4096x256 --densities=0,0.1,0.25,0.5,0.75,1 --iterations=2 --warmup=1
 ```
 
 Useful options:
 
-- `--lengths=1024,4096`: comma-separated vector lengths.
-- `--densities=0.1,0.5,1`: comma-separated nonzero coefficient probabilities.
-- `--iterations=1`: measured iterations.
-- `--warmup=0`: warmup iterations.
+- `--shapes=1024x256,4096x256`: comma-separated `xSize` by `ySize` rectangles.
+- `--densities=0,0.1,0.25,0.5,0.75,1`: nonzero probabilities.
+- `--candidates=current-production,raw-byte-two-scan`: selected candidates;
+  `current-production` is mandatory for parity.
+- `--iterations=2`: measured iterations.
+- `--warmup=1`: warmup iterations.
 - `--seed=0x544f4b414d414b`: deterministic pseudo-random scalar seed.
-- `--multi-thread`: use ffjavascript primitive-level parallelism.
+- `--single-thread`: disable ffjavascript primitive-level parallelism.
 - `--json=tmp/timing/commitment-density.json`: write a JSON report to an ignored diagnostics path.
 
-### Latest Density Result
+### Priority 24B Result
 
 Command:
 
 ```bash
-npm run bench:commitment-density -- --lengths=1024,4096,16384 --densities=0.1,0.25,0.5,0.75,1 --iterations=1 --warmup=0 --json=tmp/timing/commitment-density.json
+npm run bench:commitment-density -- --shapes=4096x256 --densities=0,0.1,0.25,0.5,0.75,1 --iterations=2 --warmup=1 --json=tmp/timing/priority24b-density.json
 ```
 
-Environment: local Node.js run, backend-wasm single-thread curve runtime.
+Environment: local Node.js, 14 ffjavascript workers, median of two
+alternating-order iterations after one warmup.
 
-| length | density | nonzero | sparse total ms | compact total ms | compact speedup |
-| ---: | ---: | ---: | ---: | ---: | ---: |
-| 1024 | 0.10 | 102 | 13.008 | 14.593 | 0.89x |
-| 1024 | 0.25 | 250 | 25.662 | 26.304 | 0.98x |
-| 1024 | 0.50 | 532 | 44.478 | 45.606 | 0.98x |
-| 1024 | 0.75 | 763 | 59.080 | 59.012 | 1.00x |
-| 1024 | 1.00 | 1024 | 76.709 | 75.922 | 1.01x |
-| 4096 | 0.10 | 416 | 36.915 | 44.302 | 0.83x |
-| 4096 | 0.25 | 1053 | 77.123 | 83.486 | 0.92x |
-| 4096 | 0.50 | 2059 | 134.404 | 144.117 | 0.93x |
-| 4096 | 0.75 | 3050 | 188.394 | 186.121 | 1.01x |
-| 4096 | 1.00 | 4096 | 246.818 | 237.663 | 1.04x |
-| 16384 | 0.10 | 1650 | 116.186 | 143.345 | 0.81x |
-| 16384 | 0.25 | 4046 | 243.455 | 268.565 | 0.91x |
-| 16384 | 0.50 | 8140 | 438.801 | 448.858 | 0.98x |
-| 16384 | 0.75 | 12239 | 609.762 | 617.992 | 0.99x |
-| 16384 | 1.00 | 16384 | 783.659 | 783.247 | 1.00x |
+| density | path | original prep ms | raw prep ms | original total ms | raw total ms | total reduction |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| 0.00 | zero | 170.80 | 16.70 | 170.80 | 16.71 | 90.2% |
+| 0.10 | sparse | 140.13 | 37.20 | 592.38 | 494.89 | 16.5% |
+| 0.25 | sparse | 157.79 | 45.27 | 1304.97 | 1187.76 | 9.0% |
+| 0.50 | sparse | 167.97 | 57.49 | 2437.98 | 2293.88 | 5.9% |
+| 0.75 | dense | 78.17 | 5.28 | 3505.85 | 3434.71 | 2.0% |
+| 1.00 | dense | 75.41 | 2.98 | 4602.13 | 4530.95 | 1.5% |
 
-Interpretation:
+The raw-byte two-scan candidate won every density without increasing explicit
+temporary storage. Single-scan JavaScript over-allocated 128 MiB. WASM
+compaction used 397-512 MiB because the existing ffjavascript worker model
+copies inputs and maximum-size outputs. Those alternatives were rejected.
 
-- Compact rectangular input construction is not a safe global replacement for sparse extraction.
-- Compact only becomes competitive near fully dense inputs, and the measured win is small or inconsistent.
-- Production commitment optimization should focus on real raw-buffer reuse, reducing the number of MSMs, or worker scheduling rather than replacing every commitment with compact rectangular input.
+## Binding Scalar Conversion Benchmark
 
-### Latest Multi-Thread Density Result
+Audience: backend-wasm developers evaluating scalar preparation for
+`O_pub_free`, `O_mid`, and `O_prv`.
 
-Command:
+The benchmark loads the existing prepared witness fixture, extracts the exact
+three binding scalar sets, and compares production per-scalar conversion with
+one contiguous Montgomery buffer followed by
+`Fr.batchFromMontgomeryBuffer(...)`. Both candidates include base
+concatenation, scalar preparation, MSM, and exact G1 parity.
 
 ```bash
-npm run bench:commitment-density -- --multi-thread --lengths=262144 --densities=0.1,0.25,0.5,0.75,1 --iterations=2 --warmup=0 --json=tmp/timing/commitment-density-sparse-batch-multi-thread-2pow18-iter2.json
+npm run bench:binding-scalar-conversion -- --iterations=3 --warmup=1 --json=tmp/timing/priority24b-binding.json
 ```
 
-Environment: local Node.js run, backend-wasm multi-thread curve runtime. Length `262144` matches the current dense Sigma1 MSM chunk size.
+| binding | scalars | per-scalar prep ms | batch prep ms | per-scalar total ms | batch total ms | total reduction |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `O_pub_free` | 109 | 0.04 | 0.12 | 1.53 | 1.54 | -0.7% |
+| `O_mid` | 6,820 | 1.07 | 0.37 | 12.57 | 11.03 | 12.3% |
+| `O_prv` | 650,925 | 160.92 | 12.69 | 1705.12 | 1573.26 | 7.7% |
 
-| density | nonzero | sparse total ms | sparse-batch total ms | sparse-batch speedup | compact total ms | compact speedup |
-| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 0.10 | 26604 | 163.191 | 154.173 | 1.06x | 237.471 | 0.69x |
-| 0.25 | 65630 | 363.380 | 355.334 | 1.02x | 412.980 | 0.88x |
-| 0.50 | 131007 | 667.983 | 652.061 | 1.02x | 702.898 | 0.95x |
-| 0.75 | 196809 | 962.074 | 937.015 | 1.03x | 959.706 | 1.00x |
-| 1.00 | 262144 | 1305.060 | 1262.759 | 1.03x | 1240.205 | 1.05x |
-
-Interpretation:
-
-- Sparse prep is much more expensive than compact prep because it scans coefficients, skips zeros, copies selected bases, and converts nonzero scalars one by one with `Fr.toRawLittleEndian(...)`.
-- `sparse-batch` keeps the same sparse scan and selected-base copy, but writes selected Montgomery scalars into one compact scalar buffer and converts that buffer with `Fr.batchFromMontgomeryBuffer(...)`.
-- In this run, `sparse-batch` beat the current sparse path by `1.02x` to `1.06x` end-to-end across the measured densities.
-- At low density, both sparse paths still beat compact because the shorter MSM input dominates. At full density, compact remains best because sparse paths do the same MSM work plus extra scan and copy work.
+Batch conversion is accepted as the common binding path. Its sub-millisecond
+small-input cost is outweighed by the representative `O_mid` and `O_prv`
+reductions, and it preserves the G1 result for every fixture-derived input.
