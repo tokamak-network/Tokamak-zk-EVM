@@ -591,7 +591,8 @@ async function msmG1(
     return runtime.G1.zero;
   }
 
-  return runtime.G1.msmAffineRaw(concatBytes(bases), concatBytes(scalars.map((scalar) => runtime.Fr.toRawLittleEndian(scalar))));
+  const rawScalars = await runtime.Fr.batchFromMontgomeryBuffer(concatBytes(scalars));
+  return runtime.G1.msmAffineRaw(concatBytes(bases), rawScalars);
 }
 
 function addG1Terms(runtime: CurveRuntime, terms: readonly Uint8Array[]): Uint8Array {
