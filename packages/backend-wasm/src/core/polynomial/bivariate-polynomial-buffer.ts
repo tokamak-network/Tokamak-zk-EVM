@@ -752,6 +752,50 @@ export class BivariatePolynomialBuffer {
     };
   }
 
+  async divByVanishingOptBatch(
+    xDegree: number,
+    yDegree: number,
+  ): Promise<BivariateBufferVanishingQuotientResult> {
+    if (!isPowerOfTwo(xDegree) || !isPowerOfTwo(yDegree)) {
+      throw new Error("Vanishing polynomial degrees must be powers of two.");
+    }
+    const optimized = this.optimizeSize();
+    const { xDegree: numeratorXDegree, yDegree: numeratorYDegree } = optimized.findDegree();
+    if (numeratorXDegree < 0 || numeratorYDegree < 0) {
+      return {
+        quotientX: BivariatePolynomialBuffer.zero(this.field),
+        quotientY: BivariatePolynomialBuffer.zero(this.field),
+      };
+    }
+    if (numeratorXDegree < xDegree || numeratorYDegree < yDegree) {
+      throw new Error("The numerator degrees must be at least the vanishing polynomial degrees.");
+    }
+    if (optimized.xSize % xDegree !== 0 || optimized.ySize % yDegree !== 0) {
+      throw new Error("Optimized numerator shape must be divisible by the vanishing degrees.");
+    }
+    const result = await this.field.divideByVanishingBuffer(
+      optimized.coefficients,
+      optimized.xSize,
+      optimized.ySize,
+      xDegree,
+      yDegree,
+    );
+    return {
+      quotientX: BivariatePolynomialBuffer.fromOwnedBuffer(
+        this.field,
+        result.quotientX,
+        optimized.xSize,
+        optimized.ySize,
+      ),
+      quotientY: BivariatePolynomialBuffer.fromOwnedBuffer(
+        this.field,
+        result.quotientY,
+        xDegree,
+        optimized.ySize,
+      ),
+    };
+  }
+
   private coefficientIndex(xIndex: number, yIndex: number): number {
     validateIndex(xIndex, this.xSize, "x");
     validateIndex(yIndex, this.ySize, "y");

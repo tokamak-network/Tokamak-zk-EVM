@@ -401,6 +401,15 @@ async function recordVanishingDivisionOperation(field: FieldRuntime, records: Op
     () => formatVanishingDivision(numerator.divByVanishingOpt(vanishingXDegree, vanishingYDegree)),
     () => formatBufferVanishingDivision(buffer.divByVanishingOpt(vanishingXDegree, vanishingYDegree)),
   );
+  await recordOperation(
+    records,
+    "divByVanishingOptBatch",
+    `${numerator.xSize}x${numerator.ySize}`,
+    () => formatVanishingDivision(numerator.divByVanishingOpt(vanishingXDegree, vanishingYDegree)),
+    async () => formatBufferVanishingDivision(
+      await buffer.divByVanishingOptBatch(vanishingXDegree, vanishingYDegree),
+    ),
+  );
 }
 
 async function recordLowDegreeVanishingOperations(field: FieldRuntime, records: OperationParityRecord[]): Promise<void> {

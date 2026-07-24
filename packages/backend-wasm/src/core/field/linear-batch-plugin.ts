@@ -12,6 +12,8 @@ export const FIELD_EVAL_ROWS = "tokamak_frm_evalRows";
 export const FIELD_EVAL_ROWS_FUSED = "tokamak_frm_evalRowsFused";
 export const FIELD_EVAL_REDUCE = "tokamak_frm_evalReduce";
 export const FIELD_EVAL_REDUCE_FUSED = "tokamak_frm_evalReduceFused";
+export const FIELD_VANISHING_Y = "tokamak_frm_vanishingY";
+export const FIELD_VANISHING_X = "tokamak_frm_vanishingX";
 
 interface WasmCodeBuilder {
   i32_const(value: number): unknown;
@@ -57,6 +59,8 @@ export function installLinearBatchPlugin(module: WasmModuleBuilder): void {
   buildEvalRowsFusedKernel(module);
   buildEvalReduceKernel(module);
   buildEvalReduceFusedKernel(module);
+  buildVanishingYKernel(module);
+  buildVanishingXKernel(module);
 }
 
 function buildAddScaledKernel(module: WasmModuleBuilder): void {
@@ -607,5 +611,263 @@ function evalRowPointer(code: WasmCodeBuilder, base: string): unknown {
   return code.i32_add(
     code.getLocal(base),
     code.i32_mul(code.getLocal("x"), code.i32_const(32)),
+  );
+}
+
+function buildVanishingYKernel(module: WasmModuleBuilder): void {
+  const fn = module.addFunction(FIELD_VANISHING_Y);
+  fn.addParam("pInput", "i32");
+  fn.addParam("xBlockCount", "i32");
+  fn.addParam("xRows", "i32");
+  fn.addParam("ySize", "i32");
+  fn.addParam("yDegree", "i32");
+  fn.addParam("pAccumulated", "i32");
+  fn.addParam("pQuotient", "i32");
+  fn.addParam("pCorrected", "i32");
+  fn.addLocal("block", "i32");
+  fn.addLocal("x", "i32");
+  fn.addLocal("y", "i32");
+  const code = fn.getCodeBuilder();
+  const zero = code.i32_const(module.alloc(32));
+  fn.addCode(
+    code.call("frm_zero", zero),
+    code.setLocal("x", code.i32_const(0)),
+    code.block(code.loop(
+      code.br_if(1, code.i32_eq(code.getLocal("x"), code.getLocal("xRows"))),
+      code.setLocal("y", code.i32_const(0)),
+      code.block(code.loop(
+        code.br_if(1, code.i32_eq(code.getLocal("y"), code.getLocal("ySize"))),
+        code.call("frm_zero", vanishingYPointer(code, "pAccumulated")),
+        code.setLocal("block", code.i32_const(0)),
+        code.block(code.loop(
+          code.br_if(1, code.i32_eq(code.getLocal("block"), code.getLocal("xBlockCount"))),
+          code.call(
+            "frm_add",
+            vanishingYPointer(code, "pAccumulated"),
+            vanishingBlockPointer(code, "pInput"),
+            vanishingYPointer(code, "pAccumulated"),
+          ),
+          code.setLocal("block", code.i32_add(code.getLocal("block"), code.i32_const(1))),
+          code.br(0),
+        )),
+        code.setLocal("y", code.i32_add(code.getLocal("y"), code.i32_const(1))),
+        code.br(0),
+      )),
+      code.setLocal("block", code.i32_const(0)),
+      code.setLocal("y", code.i32_const(0)),
+      code.block(code.loop(
+        code.br_if(1, code.i32_eq(code.getLocal("y"), code.getLocal("yDegree"))),
+        code.call(
+          "frm_sub",
+          zero,
+          vanishingYPointer(code, "pAccumulated"),
+          vanishingYPointer(code, "pQuotient"),
+        ),
+        code.setLocal("y", code.i32_add(code.getLocal("y"), code.i32_const(1))),
+        code.br(0),
+      )),
+      code.setLocal("y", code.getLocal("yDegree")),
+      code.block(code.loop(
+        code.br_if(
+          1,
+          code.i32_eq(
+            code.getLocal("y"),
+            code.i32_sub(code.getLocal("ySize"), code.getLocal("yDegree")),
+          ),
+        ),
+        code.call(
+          "frm_sub",
+          vanishingPreviousYPointer(code),
+          vanishingYPointer(code, "pAccumulated"),
+          vanishingYPointer(code, "pQuotient"),
+        ),
+        code.setLocal("y", code.i32_add(code.getLocal("y"), code.i32_const(1))),
+        code.br(0),
+      )),
+      code.setLocal("y", code.i32_const(0)),
+      code.block(code.loop(
+        code.br_if(1, code.i32_eq(code.getLocal("y"), code.getLocal("ySize"))),
+        code.call(
+          "frm_copy",
+          vanishingBlockPointer(code, "pInput"),
+          vanishingYPointer(code, "pCorrected"),
+        ),
+        code.setLocal("y", code.i32_add(code.getLocal("y"), code.i32_const(1))),
+        code.br(0),
+      )),
+      code.setLocal("y", code.i32_const(0)),
+      code.block(code.loop(
+        code.br_if(
+          1,
+          code.i32_eq(
+            code.getLocal("y"),
+            code.i32_sub(code.getLocal("ySize"), code.getLocal("yDegree")),
+          ),
+        ),
+        code.call(
+          "frm_add",
+          vanishingYPointer(code, "pCorrected"),
+          vanishingYPointer(code, "pQuotient"),
+          vanishingYPointer(code, "pCorrected"),
+        ),
+        code.call(
+          "frm_sub",
+          vanishingShiftedYPointer(code),
+          vanishingYPointer(code, "pQuotient"),
+          vanishingShiftedYPointer(code),
+        ),
+        code.setLocal("y", code.i32_add(code.getLocal("y"), code.i32_const(1))),
+        code.br(0),
+      )),
+      code.setLocal("x", code.i32_add(code.getLocal("x"), code.i32_const(1))),
+      code.br(0),
+    )),
+  );
+  module.exportFunction(FIELD_VANISHING_Y);
+}
+
+function buildVanishingXKernel(module: WasmModuleBuilder): void {
+  const fn = module.addFunction(FIELD_VANISHING_X);
+  fn.addParam("pInput", "i32");
+  fn.addParam("xSize", "i32");
+  fn.addParam("yCols", "i32");
+  fn.addParam("xDegree", "i32");
+  fn.addParam("pQuotient", "i32");
+  fn.addLocal("x", "i32");
+  fn.addLocal("y", "i32");
+  const code = fn.getCodeBuilder();
+  const zero = code.i32_const(module.alloc(32));
+  fn.addCode(
+    code.call("frm_zero", zero),
+    code.setLocal("x", code.i32_const(0)),
+    code.block(code.loop(
+      code.br_if(1, code.i32_eq(code.getLocal("x"), code.getLocal("xDegree"))),
+      code.setLocal("y", code.i32_const(0)),
+      code.block(code.loop(
+        code.br_if(1, code.i32_eq(code.getLocal("y"), code.getLocal("yCols"))),
+        code.call(
+          "frm_sub",
+          zero,
+          vanishingXPointer(code, "pInput"),
+          vanishingXPointer(code, "pQuotient"),
+        ),
+        code.setLocal("y", code.i32_add(code.getLocal("y"), code.i32_const(1))),
+        code.br(0),
+      )),
+      code.setLocal("x", code.i32_add(code.getLocal("x"), code.i32_const(1))),
+      code.br(0),
+    )),
+    code.setLocal("x", code.getLocal("xDegree")),
+    code.block(code.loop(
+      code.br_if(
+        1,
+        code.i32_eq(
+          code.getLocal("x"),
+          code.i32_sub(code.getLocal("xSize"), code.getLocal("xDegree")),
+        ),
+      ),
+      code.setLocal("y", code.i32_const(0)),
+      code.block(code.loop(
+        code.br_if(1, code.i32_eq(code.getLocal("y"), code.getLocal("yCols"))),
+        code.call(
+          "frm_sub",
+          vanishingPreviousXPointer(code),
+          vanishingXPointer(code, "pInput"),
+          vanishingXPointer(code, "pQuotient"),
+        ),
+        code.setLocal("y", code.i32_add(code.getLocal("y"), code.i32_const(1))),
+        code.br(0),
+      )),
+      code.setLocal("x", code.i32_add(code.getLocal("x"), code.i32_const(1))),
+      code.br(0),
+    )),
+  );
+  module.exportFunction(FIELD_VANISHING_X);
+}
+
+function vanishingYPointer(code: WasmCodeBuilder, base: string): unknown {
+  return code.i32_add(
+    code.getLocal(base),
+    code.i32_mul(
+      code.i32_add(
+        code.i32_mul(code.getLocal("x"), code.getLocal("ySize")),
+        code.getLocal("y"),
+      ),
+      code.i32_const(32),
+    ),
+  );
+}
+
+function vanishingBlockPointer(code: WasmCodeBuilder, base: string): unknown {
+  return code.i32_add(
+    code.getLocal(base),
+    code.i32_mul(
+      code.i32_add(
+        code.i32_mul(
+          code.i32_add(
+            code.i32_mul(code.getLocal("block"), code.getLocal("xRows")),
+            code.getLocal("x"),
+          ),
+          code.getLocal("ySize"),
+        ),
+        code.getLocal("y"),
+      ),
+      code.i32_const(32),
+    ),
+  );
+}
+
+function vanishingPreviousYPointer(code: WasmCodeBuilder): unknown {
+  return code.i32_add(
+    code.getLocal("pQuotient"),
+    code.i32_mul(
+      code.i32_add(
+        code.i32_mul(code.getLocal("x"), code.getLocal("ySize")),
+        code.i32_sub(code.getLocal("y"), code.getLocal("yDegree")),
+      ),
+      code.i32_const(32),
+    ),
+  );
+}
+
+function vanishingShiftedYPointer(code: WasmCodeBuilder): unknown {
+  return code.i32_add(
+    code.getLocal("pCorrected"),
+    code.i32_mul(
+      code.i32_add(
+        code.i32_mul(code.getLocal("x"), code.getLocal("ySize")),
+        code.i32_add(code.getLocal("y"), code.getLocal("yDegree")),
+      ),
+      code.i32_const(32),
+    ),
+  );
+}
+
+function vanishingXPointer(code: WasmCodeBuilder, base: string): unknown {
+  return code.i32_add(
+    code.getLocal(base),
+    code.i32_mul(
+      code.i32_add(
+        code.i32_mul(code.getLocal("x"), code.getLocal("yCols")),
+        code.getLocal("y"),
+      ),
+      code.i32_const(32),
+    ),
+  );
+}
+
+function vanishingPreviousXPointer(code: WasmCodeBuilder): unknown {
+  return code.i32_add(
+    code.getLocal("pQuotient"),
+    code.i32_mul(
+      code.i32_add(
+        code.i32_mul(
+          code.i32_sub(code.getLocal("x"), code.getLocal("xDegree")),
+          code.getLocal("yCols"),
+        ),
+        code.getLocal("y"),
+      ),
+      code.i32_const(32),
+    ),
   );
 }

@@ -104,7 +104,7 @@ export async function computeInitialRelationCommitments(
     state.witnessBuffers.vXY,
   );
   const p0XY = await p0Product.subBatch(state.witnessBuffers.wXY.resize(p0Product.xSize, p0Product.ySize));
-  const { quotientX: q0XY, quotientY: q1XY } = p0XY.divByVanishingOpt(
+  const { quotientX: q0XY, quotientY: q1XY } = await p0XY.divByVanishingOptBatch(
     state.setup.n,
     state.setup.s_max,
   );

@@ -14,6 +14,8 @@ import {
   FIELD_EVAL_ROWS_FUSED,
   FIELD_RUFFINI_X,
   FIELD_RUFFINI_Y,
+  FIELD_VANISHING_X,
+  FIELD_VANISHING_Y,
 } from "./linear-batch-plugin.js";
 
 export type FieldElement = Uint8Array;
@@ -107,6 +109,13 @@ export interface FieldRuntime {
     yPoint: FieldElement,
     scaledYPoint: FieldElement,
   ): Promise<readonly [FieldElement, FieldElement, FieldElement]>;
+  divideByVanishingBuffer(
+    buffer: Uint8Array,
+    xSize: number,
+    ySize: number,
+    xDegree: number,
+    yDegree: number,
+  ): Promise<{ readonly quotientX: Uint8Array; readonly quotientY: Uint8Array }>;
   fft(values: readonly FieldElement[]): Promise<FieldElement[]>;
   ifft(values: readonly FieldElement[]): Promise<FieldElement[]>;
   add(left: FieldElement, right: FieldElement): FieldElement;
@@ -476,6 +485,60 @@ export function createFieldRuntime(field: FfField): FieldRuntime {
       );
       return [result[0], result[1], result[2]];
     },
+    async divideByVanishingBuffer(buffer, xSize, ySize, xDegree, yDegree) {
+      assertPolynomialBufferShape(buffer, xSize, ySize, field.n8, "Vanishing division input");
+      if (xSize < xDegree * 2 || ySize < yDegree * 2) {
+        throw new Error("Vanishing division input must contain at least two blocks on each axis.");
+      }
+      if (xSize % xDegree !== 0 || ySize % yDegree !== 0) {
+        throw new Error("Vanishing division shape must be divisible by both vanishing degrees.");
+      }
+      const xRanges = splitRanges(xDegree, field.tm.concurrency);
+      const xBlockCount = xSize / xDegree;
+      const yResults = await Promise.all(
+        xRanges.map(({ start, count }) => field.tm.queueAction(
+          buildVanishingYTask(
+            extractPolynomialBlockRows(buffer, xSize, ySize, xDegree, start, count, field.n8),
+            xBlockCount,
+            count,
+            ySize,
+            yDegree,
+            field.n8,
+          ),
+        )),
+      );
+      const quotientY = new Uint8Array(xDegree * ySize * field.n8);
+      const corrected = buffer.slice();
+      for (let index = 0; index < xRanges.length; index += 1) {
+        const outputs = requireTaskOutputs(yResults[index], 2, "Vanishing Y");
+        const offset = xRanges[index].start * ySize * field.n8;
+        quotientY.set(outputs[0], offset);
+        corrected.set(outputs[1], offset);
+      }
+
+      const yRanges = splitRanges(ySize, field.tm.concurrency);
+      const xResults = await Promise.all(
+        yRanges.map(({ start, count }) => field.tm.queueAction(
+          buildVanishingXTask(
+            extractPolynomialColumns(corrected, xSize, ySize, start, count, field.n8),
+            xSize,
+            count,
+            xDegree,
+            field.n8,
+          ),
+        )),
+      );
+      return {
+        quotientX: assemblePolynomialColumns(
+          xResults.map((result) => requireTaskOutputs(result, 1, "Vanishing X")[0]),
+          yRanges,
+          xSize,
+          ySize,
+          field.n8,
+        ),
+        quotientY,
+      };
+    },
     async fft(values) {
       return splitFieldBuffer(await field.fft(concatFieldElements(values, field.n8)), field.n8);
     },
@@ -833,6 +896,8 @@ function assertLinearBatchExports(field: FfField): void {
     FIELD_EVAL_ROWS_FUSED,
     FIELD_RUFFINI_X,
     FIELD_RUFFINI_Y,
+    FIELD_VANISHING_X,
+    FIELD_VANISHING_Y,
   ];
   for (const name of requiredExports) {
     if (typeof field.tm.instance?.exports[name] !== "function") {
@@ -1075,6 +1140,80 @@ function buildEvalReduceFusedTask(
     { cmd: "GET", out: 1, var: 5, len: elementBytes },
     { cmd: "GET", out: 2, var: 6, len: elementBytes },
   ];
+}
+
+function buildVanishingYTask(
+  input: Uint8Array,
+  xBlockCount: number,
+  xRows: number,
+  ySize: number,
+  yDegree: number,
+  elementBytes: number,
+): FfWorkerCommand[] {
+  const outputBytes = xRows * ySize * elementBytes;
+  return [
+    { cmd: "ALLOCSET", var: 0, buff: input },
+    { cmd: "ALLOC", var: 1, len: outputBytes },
+    { cmd: "ALLOCSET", var: 2, buff: new Uint8Array(outputBytes) },
+    { cmd: "ALLOC", var: 3, len: outputBytes },
+    {
+      cmd: "CALL",
+      fnName: FIELD_VANISHING_Y,
+      params: [
+        { var: 0 },
+        { val: xBlockCount },
+        { val: xRows },
+        { val: ySize },
+        { val: yDegree },
+        { var: 1 },
+        { var: 2 },
+        { var: 3 },
+      ],
+    },
+    { cmd: "GET", out: 0, var: 2, len: outputBytes },
+    { cmd: "GET", out: 1, var: 3, len: outputBytes },
+  ];
+}
+
+function buildVanishingXTask(
+  input: Uint8Array,
+  xSize: number,
+  yColumns: number,
+  xDegree: number,
+  elementBytes: number,
+): FfWorkerCommand[] {
+  return [
+    { cmd: "ALLOCSET", var: 0, buff: input },
+    { cmd: "ALLOCSET", var: 1, buff: new Uint8Array(input.byteLength) },
+    {
+      cmd: "CALL",
+      fnName: FIELD_VANISHING_X,
+      params: [{ var: 0 }, { val: xSize }, { val: yColumns }, { val: xDegree }, { var: 1 }],
+    },
+    { cmd: "GET", out: 0, var: 1, len: input.byteLength },
+  ];
+}
+
+function extractPolynomialBlockRows(
+  source: Uint8Array,
+  xSize: number,
+  ySize: number,
+  xDegree: number,
+  localStart: number,
+  localCount: number,
+  elementBytes: number,
+): Uint8Array {
+  const blockCount = xSize / xDegree;
+  const rowBytes = ySize * elementBytes;
+  const output = new Uint8Array(blockCount * localCount * rowBytes);
+  for (let block = 0; block < blockCount; block += 1) {
+    const sourceStart = (block * xDegree + localStart) * rowBytes;
+    output.set(
+      source.subarray(sourceStart, sourceStart + localCount * rowBytes),
+      block * localCount * rowBytes,
+    );
+  }
+  return output;
 }
 
 function extractPolynomialColumns(

@@ -383,7 +383,7 @@ async function polynomialDivVanishing(
   return polynomialOperation(
     "polynomial.div_vanishing",
     label,
-    async () => Promise.resolve(polynomial.divByVanishingOpt(xDegree, yDegree)),
+    () => polynomial.divByVanishingOptBatch(xDegree, yDegree),
     [shapeSize("vanishing", xDegree, yDegree)],
   );
 }

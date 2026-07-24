@@ -92,7 +92,7 @@ export async function computeCopyQuotientCommitments(input: {
     [kappa0, p2XY],
     [kappa0Sq, p3XY],
   ]);
-  const { quotientX: q2XY, quotientY: q3XY } = pCombined.divByVanishingOpt(mI, sMax);
+  const { quotientX: q2XY, quotientY: q3XY } = await pCombined.divByVanishingOptBatch(mI, sMax);
   const rD1 = await rXY.subBatch(rOmegaX);
   const rD2 = await rXY.subBatch(rOmegaXOmegaY);
   const gD = await gXY.subBatch(fXY);
