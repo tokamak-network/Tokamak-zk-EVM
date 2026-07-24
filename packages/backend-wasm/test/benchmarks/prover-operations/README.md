@@ -1197,6 +1197,57 @@ Interpretation:
 - The candidate should not be blindly applied to paths that also need the scaled polynomial object for later polynomial arithmetic. In those cases the materialized scaled polynomial may still be required.
 - Production promotion has been accepted for challenge evaluation only. Opening-commitment scaled-polynomial paths remain unchanged because they reuse the scaled polynomial objects in later arithmetic.
 
+## Whole-Loop WASM Polynomial Evaluation
+
+`bench-polynomial-evaluation.ts` measures the complete caller boundary for
+single-point and fused base/scaled-X/scaled-XY Horner evaluation. It compares
+the retained scalar JavaScript implementation, one caller-thread WASM task,
+and row-sharded worker execution followed by one ordered X reduction.
+
+Pre-promotion command:
+
+```bash
+npm run bench:evaluation -- --shapes=4096x256,8192x512,16384x512 --iterations=3 --warmup=1 --json=tmp/timing/polynomial-evaluation-representative.json
+```
+
+Representative medians:
+
+| workload | shape | scalar JS | caller-thread WASM | row workers | worker reduction |
+| --- | --- | ---: | ---: | ---: | ---: |
+| single | `4096x256` | 334.796 ms | 76.588 ms | 15.496 ms | 95.4% |
+| single | `8192x512` | 1330.758 ms | 310.753 ms | 55.205 ms | 95.9% |
+| single | `16384x512` | 2702.805 ms | 623.114 ms | 105.439 ms | 96.1% |
+| fused | `4096x256` | 642.013 ms | 150.808 ms | 26.977 ms | 95.8% |
+| fused | `8192x512` | 2550.235 ms | 606.148 ms | 93.428 ms | 96.3% |
+| fused | `16384x512` | 5170.854 ms | 1229.728 ms | 173.258 ms | 96.6% |
+
+The benchmark includes polynomial-buffer copying into ffjavascript tasks,
+worker result assembly, and final X reduction. All candidates pass exact field
+parity at edge and representative shapes. After promotion, the script names
+the worker implementation `current-production`, retains the old paths as
+`scalar-js-baseline` and `wasm-single-task`, and keeps an independent
+`worker-kernel-mirror`.
+
+Related commit: `19e46791` (`Parallelize prover polynomial evaluation`).
+
+Production adds `evalBatch(...)` and a fused scaled-challenge batch helper.
+Workers reduce independent coefficient rows at the requested Y points; one
+ordered WASM Horner recurrence then combines the rows in X. Adjusted-point
+formulas remain unchanged and no scaled polynomial is materialized.
+
+Integrated fixed-taxonomy timing:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.evaluation` | 5.272 s | 0.228 s | -5.044 s (-95.7%) |
+| prover stage total | 156.511 s | 152.070 s | -4.441 s |
+| total wall | 164.651 s | 159.890 s | -4.761 s |
+
+Operation parity, native testing-mode-style invariants, and Node proof
+verification passed. Chromium generated a 2408-byte proof in `155.02 s` and
+verified it in `20 ms`. Build and package inspection passed; the 253-file
+package contains no `test/`, `scripts/`, `fixtures/`, or `tmp/` paths.
+
 ## Accepted Scaled-Add Fast Path
 
 `linearCombinationBuffer()` ultimately uses `BivariatePolynomialBuffer.addScaledPrefixAssign()`. Many integrated prover terms use scale factors equal to `0`, `1`, or `-1`, but the previous implementation still routed every source coefficient through a field multiplication.

@@ -1535,3 +1535,39 @@ Native testing-mode-style invariants and Node proof verification passed.
 Chromium generated a 2408-byte proof in `160.48 s` and verified it in `19 ms`.
 Build and package inspection passed; the 253-file package contains no
 `test/`, `scripts/`, `fixtures/`, or `tmp/` paths.
+
+## Whole-Loop WASM Polynomial Evaluation
+
+Related commit: `19e46791`.
+
+The previous nested Horner paths called scalar ffjavascript field operations
+from JavaScript for every coefficient. The accepted implementation moves each
+row reduction into backend-owned WASM, shards independent rows through the
+existing ffjavascript worker queue, and performs the dependent X reduction
+once in WASM. The fused path shares base-Y row reductions between base and
+scaled-X evaluations and computes scaled-Y rows for scaled-XY evaluation.
+
+Representative pre-promotion medians:
+
+| workload | shape | scalar JS | caller-thread WASM | row workers |
+| --- | --- | ---: | ---: | ---: |
+| single | `4096x256` | 334.796 ms | 76.588 ms | 15.496 ms |
+| single | `8192x512` | 1330.758 ms | 310.753 ms | 55.205 ms |
+| single | `16384x512` | 2702.805 ms | 623.114 ms | 105.439 ms |
+| fused | `4096x256` | 642.013 ms | 150.808 ms | 26.977 ms |
+| fused | `8192x512` | 2550.235 ms | 606.148 ms | 93.428 ms |
+| fused | `16384x512` | 5170.854 ms | 1229.728 ms | 173.258 ms |
+
+Exact parity passed for single and fused output sets. Integrated
+fixed-taxonomy timing:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.evaluation` | 5.272 s | 0.228 s | -5.044 s (-95.7%) |
+| prover stage total | 156.511 s | 152.070 s | -4.441 s |
+| total wall | 164.651 s | 159.890 s | -4.761 s |
+
+Operation parity, native testing-mode-style invariants, and Node proof
+verification passed. Chromium generated a 2408-byte proof in `155.02 s` and
+verified it in `20 ms`. Build and package inspection passed; the 253-file
+package contains no `test/`, `scripts/`, `fixtures/`, or `tmp/` paths.
