@@ -1399,3 +1399,59 @@ Verification:
 - type checks and build passed;
 - package dry-run contained 253 files and no `test/`, `scripts/`, or `tmp/`
   paths.
+
+## Raw-Byte Commitment Input Scan
+
+Related commit: `c06f8844`.
+
+The previous Sigma1 commitment boundary called scalar ffjavascript
+`isZero(...)` once per coefficient while discovering the active rectangle,
+counting nonzero coefficients, and compacting sparse inputs. The accepted path
+interprets the existing validated `ffjs-fr-montgomery-le-32` coefficient
+buffer as aligned 32-bit words and detects zero by OR-reducing the eight words
+of each field element. It preserves the two-scan sparse allocation policy,
+dense threshold, `262144`-point chunk size, raw conversion, and ffjavascript
+MSM implementation.
+
+The corrected diagnostics benchmark included degree discovery, initial
+nonzero counting, sparse/dense routing, input preparation, Montgomery
+conversion, MSM, and partial-point accumulation. At `4096x256`, 14 workers,
+one warmup, and two alternating-order measured iterations:
+
+| density | path | previous total | raw-byte total | reduction |
+| ---: | --- | ---: | ---: | ---: |
+| 0.00 | zero | 170.80 ms | 16.71 ms | 90.2% |
+| 0.10 | sparse | 592.38 ms | 494.89 ms | 16.5% |
+| 0.25 | sparse | 1304.97 ms | 1187.76 ms | 9.0% |
+| 0.50 | sparse | 2437.98 ms | 2293.88 ms | 5.9% |
+| 0.75 | dense | 3505.85 ms | 3434.71 ms | 2.0% |
+| 1.00 | dense | 4602.13 ms | 4530.95 ms | 1.5% |
+
+The accepted candidate used the same explicit temporary storage as the
+previous path. JavaScript single-scan over-allocation and WASM compaction were
+rejected because they used 128 MiB and 397-512 MiB respectively without
+beating raw-byte two-scan end to end.
+
+Integrated fixed-taxonomy comparison:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| encode | 116.254 s | 109.702 s | -6.552 s (-5.6%) |
+| prover stage total | 171.893 s | 164.973 s | -6.920 s (-4.0%) |
+| total wall | 179.505 s | 172.942 s | -6.563 s (-3.7%) |
+
+The new lowest-layer `polynomial.encode` value is `107.719 s`; the exact
+pre-change lowest-layer value was not retained separately, so it is not
+reconstructed from the aggregate encode row.
+
+Verification:
+
+- type checks and field, polynomial, and commitment parity checks passed;
+- native testing-mode-style witness, arithmetic, recursion, copy quotient, and
+  opening invariants passed;
+- Node stage timing generated a proof accepted by the verifier;
+- Chromium generated a 2408-byte proof in `167.04 s` and verified it in
+  `19 ms`;
+- build and package dry-run passed;
+- package inspection found 253 files and no `test/`, `scripts/`, `fixtures/`,
+  or `tmp/` paths.
