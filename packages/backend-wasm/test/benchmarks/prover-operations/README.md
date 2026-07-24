@@ -1219,4 +1219,10 @@ npm run bench:opening-pc-fusion -- --base-shape=4096x256 --iterations=1 --warmup
 | fused `pC` | `4096x256` | `8192x512` | 4156.551 |
 
 The fused equation passed exact output-buffer parity and reduced representative
-time by `1320.581 ms` (`24.1%`). It is eligible for production promotion.
+time by `1320.581 ms` (`24.1%`).
+
+Production commit `3930b3f0` applies the fused equation. The integrated target
+decreased from `7.043 s` for `term5 + term6 + pC` to `5.510 s` for fused `pC`,
+a `1.533 s` (`21.8%`) reduction. Total wall time decreased from `258.94 s` to
+`256.76 s`. Node and Chromium proof generation and verification, testing-mode
+invariants, build, and package-content inspection passed.

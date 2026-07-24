@@ -1079,6 +1079,63 @@ Verification:
 - `npm pack --dry-run --json` passed with 249 files and no test, script,
   temporary, benchmark, or diagnostics paths.
 
+## Opening pC Term Fusion
+
+Benchmark commit: `55bfacae` (`Benchmark opening polynomial term fusion`).
+
+Production commit: `3930b3f0` (`Fuse opening polynomial terms`).
+
+Candidate result:
+
+- The complete current path materialized
+  `term5 = rEval*g - rOmegaXEval*f` and
+  `term6 = rEval*g - rOmegaXYEval*f` before constructing `pC`.
+- The fused candidate applies
+  `a*term5 + b*term6 = rEval*(a+b)*g -
+  (a*rOmegaXEval + b*rOmegaXYEval)*f`.
+- Exact output-buffer parity passed at smoke and representative shapes.
+- At base shape `4096x256` and output shape `8192x512`, the complete current
+  path measured `5477.132 ms` and the fused path measured `4156.551 ms`, a
+  `1320.581 ms` (`24.1%`) reduction.
+
+Production change:
+
+- Opening `pC` now computes the final `gXY` and `fXY` scalars directly.
+- The two temporary polynomial objects are removed.
+- The timing mirror uses the same fused equation and no longer reports
+  separate `prove4.term5` and `prove4.term6` events.
+
+Integrated target comparison:
+
+| target event set | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `term5 + term6 + pC` / fused `pC` | 7.043 s | 5.510 s | -1.533 s (-21.8%) |
+
+Standalone stage-timing comparison:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_without_multiplication` | 55.63 s | 53.78 s | -1.85 s |
+| `polynomial.combination_with_multiplication` | 37.84 s | 37.68 s | -0.16 s |
+| `field.operations` | 117.65 s | 115.56 s | -2.09 s |
+| encode | 134.47 s | 135.08 s | +0.61 s |
+| prover stage total | 249.98 s | 248.38 s | -1.60 s |
+| total wall | 258.94 s | 256.76 s | -2.18 s |
+
+Chromium proof generation completed in `242.78 s`, and verification completed
+in `22 ms`.
+
+Verification:
+
+- `npm run typecheck` passed.
+- `npm run typecheck:scripts` passed.
+- `npm run prover:testing-mode:check` passed.
+- `npm run prover:stage-timing:check` passed and verified the generated proof.
+- `npm run build` passed.
+- `npm run prover:browser:check` passed.
+- `npm pack --dry-run --json` passed with 249 files and no test, script,
+  temporary, benchmark, or diagnostics paths.
+
 ## Superseded Old-Taxonomy Comparison
 
 The old comparison below is preserved only as historical context. It must not be used as the active timing table because it used add/sub/mul/scale rows that are no longer part of the accepted taxonomy.
