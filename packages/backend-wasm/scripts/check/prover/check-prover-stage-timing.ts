@@ -38,14 +38,14 @@ import {
 } from "../../../src/prover/internal/opening-commitments.js";
 import {
   buildLagrangeKl,
+  combineLinearXWithScaled,
+  combineLinearYWithScaled,
   constantPolynomialBuffer,
   computeRecursionEvalsBuffer,
   evaluateAtScaledChallengeSet,
   evaluateLagrangeK0At,
   lowDegreeXTimesVanishingBuffer,
   lowDegreeYTimesVanishingBuffer,
-  mulByLinearX,
-  mulByLinearY,
   mulByOneMinusX,
   mulByTerm9,
   mulByXMinusOne,
@@ -888,17 +888,21 @@ async function prove2Timed(input: {
   const rD1 = polynomialSub("prove2.rD1", rXY, rOmegaX);
   const rD2 = polynomialSub("prove2.rD2", rXY, rOmegaXOmegaY);
   const gD = polynomialSub("prove2.gD", gXY, fXY);
-  const qCxTerm2Linear = polynomialMulSpecial("prove2.Q_CX.term2.linear_x", () => mulByLinearX(rD1, state.mixer.rB_X));
-  const qCxTerm2Scale = polynomialScale("prove2.Q_CX.term2.scale_gD", gD, state.mixer.rR_X);
-  const qCxTerm2Sum = polynomialAdd("prove2.Q_CX.term2.add", qCxTerm2Linear, qCxTerm2Scale);
+  const qCxTerm2Sum = polynomialOperationSync(
+    "polynomial.combination_without_multiplication",
+    "prove2.Q_CX.term2.fused_inner",
+    () => combineLinearXWithScaled(rD1, state.mixer.rB_X, gD, state.mixer.rR_X),
+  );
   const qCxTerm2 = polynomialMulSpecial(
     "prove2.Q_CX.term2.mul_x_minus_one",
     () => mulByXMinusOne(qCxTerm2Sum),
     [shapeSize("polynomial", qCxTerm2Sum.xSize, qCxTerm2Sum.ySize)],
   );
-  const qCxTerm3Linear = polynomialMulSpecial("prove2.Q_CX.term3.linear_x", () => mulByLinearX(rD2, state.mixer.rB_X));
-  const qCxTerm3Scale = polynomialScale("prove2.Q_CX.term3.scale_gD", gD, state.mixer.rR_X);
-  const qCxTerm3Sum = polynomialAdd("prove2.Q_CX.term3.add", qCxTerm3Linear, qCxTerm3Scale);
+  const qCxTerm3Sum = polynomialOperationSync(
+    "polynomial.combination_without_multiplication",
+    "prove2.Q_CX.term3.fused_inner",
+    () => combineLinearXWithScaled(rD2, state.mixer.rB_X, gD, state.mixer.rR_X),
+  );
   const qCxTerm3 = await polynomialMulLagrangeK0("prove2.Q_CX.term3.mul_lagrange_K0", qCxTerm3Sum, mI);
   const qCxXY = polynomialLinearCombination(
     "prove2.Q_CX",
@@ -910,17 +914,21 @@ async function prove2Timed(input: {
       [kappa0Sq, qCxTerm3],
     ],
   );
-  const qCyTerm2Linear = polynomialMulSpecial("prove2.Q_CY.term2.linear_y", () => mulByLinearY(rD1, state.mixer.rB_Y));
-  const qCyTerm2Scale = polynomialScale("prove2.Q_CY.term2.scale_gD", gD, state.mixer.rR_Y);
-  const qCyTerm2Sum = polynomialAdd("prove2.Q_CY.term2.add", qCyTerm2Linear, qCyTerm2Scale);
+  const qCyTerm2Sum = polynomialOperationSync(
+    "polynomial.combination_without_multiplication",
+    "prove2.Q_CY.term2.fused_inner",
+    () => combineLinearYWithScaled(rD1, state.mixer.rB_Y, gD, state.mixer.rR_Y),
+  );
   const qCyTerm2 = polynomialMulSpecial(
     "prove2.Q_CY.term2.mul_x_minus_one",
     () => mulByXMinusOne(qCyTerm2Sum),
     [shapeSize("polynomial", qCyTerm2Sum.xSize, qCyTerm2Sum.ySize)],
   );
-  const qCyTerm3Linear = polynomialMulSpecial("prove2.Q_CY.term3.linear_y", () => mulByLinearY(rD2, state.mixer.rB_Y));
-  const qCyTerm3Scale = polynomialScale("prove2.Q_CY.term3.scale_gD", gD, state.mixer.rR_Y);
-  const qCyTerm3Sum = polynomialAdd("prove2.Q_CY.term3.add", qCyTerm3Linear, qCyTerm3Scale);
+  const qCyTerm3Sum = polynomialOperationSync(
+    "polynomial.combination_without_multiplication",
+    "prove2.Q_CY.term3.fused_inner",
+    () => combineLinearYWithScaled(rD2, state.mixer.rB_Y, gD, state.mixer.rR_Y),
+  );
   const qCyTerm3 = await polynomialMulLagrangeK0("prove2.Q_CY.term3.mul_lagrange_K0", qCyTerm3Sum, mI);
   const qCyXY = polynomialLinearCombination(
     "prove2.Q_CY",

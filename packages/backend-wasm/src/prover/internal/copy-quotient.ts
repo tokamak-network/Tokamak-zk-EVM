@@ -6,10 +6,10 @@ import { encodePolynomialBufferWithSigma1, type ProverOperationOptions } from ".
 import { encodeSigma1CommitmentBarrier, requireCommitment } from "./commitment-encoder.js";
 import {
   buildLagrangeKl,
+  combineLinearXWithScaled,
+  combineLinearYWithScaled,
   constantPolynomialBuffer,
   linearCombinationBuffer,
-  mulByLinearX,
-  mulByLinearY,
   mulByXMinusOne,
   multiplyByLagrangeK0,
   multiplyByLagrangeKl,
@@ -92,10 +92,10 @@ export async function computeCopyQuotientCommitments(input: {
   const rD2 = rXY.sub(rOmegaXOmegaY);
   const gD = gXY.sub(fXY);
   const qCxTerm2 = mulByXMinusOne(
-    mulByLinearX(rD1, state.mixer.rB_X).add(gD.scale(state.mixer.rR_X)),
+    combineLinearXWithScaled(rD1, state.mixer.rB_X, gD, state.mixer.rR_X),
   );
   const qCxTerm3 = await multiplyByLagrangeK0(
-    mulByLinearX(rD2, state.mixer.rB_X).add(gD.scale(state.mixer.rR_X)),
+    combineLinearXWithScaled(rD2, state.mixer.rB_X, gD, state.mixer.rR_X),
     mI,
   );
   const qCxXY = linearCombinationBuffer(field, [
@@ -105,10 +105,10 @@ export async function computeCopyQuotientCommitments(input: {
     [kappa0Sq, qCxTerm3],
   ]);
   const qCyTerm2 = mulByXMinusOne(
-    mulByLinearY(rD1, state.mixer.rB_Y).add(gD.scale(state.mixer.rR_Y)),
+    combineLinearYWithScaled(rD1, state.mixer.rB_Y, gD, state.mixer.rR_Y),
   );
   const qCyTerm3 = await multiplyByLagrangeK0(
-    mulByLinearY(rD2, state.mixer.rB_Y).add(gD.scale(state.mixer.rR_Y)),
+    combineLinearYWithScaled(rD2, state.mixer.rB_Y, gD, state.mixer.rR_Y),
     mI,
   );
   const qCyXY = linearCombinationBuffer(field, [

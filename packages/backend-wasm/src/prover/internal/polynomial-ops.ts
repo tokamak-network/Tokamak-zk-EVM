@@ -505,6 +505,24 @@ export function mulByLinearY(
   return multiplyByLinearYFactor(polynomial, coefficients[0], coefficients[1]);
 }
 
+export function combineLinearXWithScaled(
+  polynomial: BivariatePolynomialBuffer,
+  coefficients: readonly FieldElement[],
+  addend: BivariatePolynomialBuffer,
+  addendScale: FieldElement,
+): BivariatePolynomialBuffer {
+  return combineLinearWithScaled(polynomial, coefficients, addend, addendScale, "x");
+}
+
+export function combineLinearYWithScaled(
+  polynomial: BivariatePolynomialBuffer,
+  coefficients: readonly FieldElement[],
+  addend: BivariatePolynomialBuffer,
+  addendScale: FieldElement,
+): BivariatePolynomialBuffer {
+  return combineLinearWithScaled(polynomial, coefficients, addend, addendScale, "y");
+}
+
 export function mulByTerm9(
   polynomial: BivariatePolynomialBuffer,
   rB_X: readonly FieldElement[],
@@ -657,6 +675,80 @@ function multiplyByLinearYFactor(
           yCoefficient,
         );
         value = y <= degree.yDegree ? field.add(value, shifted) : shifted;
+      }
+      output.set(value, outputRowOffset + y * field.byteLength);
+    }
+  }
+
+  return BivariatePolynomialBuffer.fromOwnedBuffer(field, output, xSize, ySize);
+}
+
+function combineLinearWithScaled(
+  polynomial: BivariatePolynomialBuffer,
+  coefficients: readonly FieldElement[],
+  addend: BivariatePolynomialBuffer,
+  addendScale: FieldElement,
+  axis: "x" | "y",
+): BivariatePolynomialBuffer {
+  if (polynomial.field !== addend.field || coefficients.length !== 2) {
+    throw new Error("Fused linear inputs must use one field and two linear coefficients.");
+  }
+  const degree = polynomial.findDegree();
+  if (degree.xDegree < 0 || degree.yDegree < 0) {
+    return addend.scale(addendScale);
+  }
+
+  const field = polynomial.field;
+  const xSize = axis === "x"
+    ? Math.max(polynomial.xSize, nextPowerOfTwo(degree.xDegree + 2))
+    : polynomial.xSize;
+  const ySize = axis === "y"
+    ? Math.max(polynomial.ySize, nextPowerOfTwo(degree.yDegree + 2))
+    : polynomial.ySize;
+  if (addend.xSize > xSize || addend.ySize > ySize) {
+    throw new Error("Fused linear addend shape must fit inside the output shape.");
+  }
+
+  const output = new Uint8Array(xSize * ySize * field.byteLength);
+  const outputRowBytes = ySize * field.byteLength;
+  const sourceRowBytes = polynomial.ySize * field.byteLength;
+  const addendRowBytes = addend.ySize * field.byteLength;
+  const addendIsZero = field.isZero(addendScale);
+
+  for (let x = 0; x < xSize; x += 1) {
+    const outputRowOffset = x * outputRowBytes;
+    for (let y = 0; y < ySize; y += 1) {
+      let value = field.zero;
+      if (x <= degree.xDegree && y <= degree.yDegree) {
+        const offset = x * sourceRowBytes + y * field.byteLength;
+        value = field.mul(
+          polynomial.coefficients.subarray(offset, offset + field.byteLength),
+          coefficients[0],
+        );
+      }
+      const shiftedX = axis === "x" ? x - 1 : x;
+      const shiftedY = axis === "y" ? y - 1 : y;
+      if (
+        shiftedX >= 0 &&
+        shiftedX <= degree.xDegree &&
+        shiftedY >= 0 &&
+        shiftedY <= degree.yDegree
+      ) {
+        const offset = shiftedX * sourceRowBytes + shiftedY * field.byteLength;
+        value = field.add(
+          value,
+          field.mul(
+            polynomial.coefficients.subarray(offset, offset + field.byteLength),
+            coefficients[1],
+          ),
+        );
+      }
+      if (!addendIsZero && x < addend.xSize && y < addend.ySize) {
+        const offset = x * addendRowBytes + y * field.byteLength;
+        value = field.add(
+          value,
+          field.mul(addend.coefficients.subarray(offset, offset + field.byteLength), addendScale),
+        );
       }
       output.set(value, outputRowOffset + y * field.byteLength);
     }
