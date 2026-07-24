@@ -1296,3 +1296,31 @@ repeatably. Both retention variants also raised observed maximum RSS. Neither
 candidate passes the campaign requirement for a repeatable full-prover
 improvement that justifies its longer-lived buffers. Production continues to
 recompute these derived polynomials at their use sites.
+
+## Coefficient Rescale Access
+
+`bench-coefficient-rescale.ts` compares complete output construction for the
+current validated read/write loops, validated-once direct subarray loops, and
+supported public ffjavascript batch-key operations.
+
+```bash
+npm run bench:coefficient-rescale -- --shape=4096x256 --iterations=2 --warmup=1 --json=tmp/timing/coefficient-rescale-4096x256.json
+npm run bench:coefficient-rescale -- --shape=8192x512 --iterations=2 --warmup=1 --json=tmp/timing/coefficient-rescale-8192x512.json
+```
+
+| operation | candidate | `4096x256` | `8192x512` |
+| --- | --- | ---: | ---: |
+| uniform scale | current read/write | 241.018 ms | 958.383 ms |
+| uniform scale | direct subarray | 229.631 ms | 902.081 ms |
+| uniform scale | public batch key | 25.897 ms | 93.484 ms |
+| X coefficient rescale | current read/write | 259.422 ms | 973.058 ms |
+| X coefficient rescale | direct subarray | 228.441 ms | 894.262 ms |
+| Y coefficient rescale | current read/write | 245.828 ms | 972.202 ms |
+| Y coefficient rescale | direct subarray | 229.111 ms | 912.387 ms |
+| Y coefficient rescale | public batch key with root cycle | 26.669 ms | 97.400 ms |
+
+All candidates pass exact byte parity. The Y batch candidate is valid only
+when the increment has order dividing `ySize`; then its powers restart at each
+row in the row-major coefficient buffer. This holds for the prover's
+`omegaSMax^-1` rescale. It is not a generic replacement for arbitrary Y
+factors. No corresponding single batch-key sequence represents X rescaling.
