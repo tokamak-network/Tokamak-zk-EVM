@@ -6,6 +6,8 @@ export const FIELD_BATCH_ADD_SCALED_PREFIX = "tokamak_frm_batchAddScaledPrefix";
 export const FIELD_BATCH_SCALE_X = "tokamak_frm_batchScaleX";
 export const FIELD_BATCH_SCALE_Y = "tokamak_frm_batchScaleY";
 export const FIELD_BATCH_MUL_SHIFTED = "tokamak_frm_batchMulShifted";
+export const FIELD_RUFFINI_X = "tokamak_frm_ruffiniX";
+export const FIELD_RUFFINI_Y = "tokamak_frm_ruffiniY";
 
 interface WasmCodeBuilder {
   i32_const(value: number): unknown;
@@ -45,6 +47,8 @@ export function installLinearBatchPlugin(module: WasmModuleBuilder): void {
   buildScaleXKernel(module);
   buildScaleYKernel(module);
   buildShiftedMultiplyKernel(module);
+  buildRuffiniXKernel(module);
+  buildRuffiniYKernel(module);
 }
 
 function buildAddScaledKernel(module: WasmModuleBuilder): void {
@@ -285,4 +289,144 @@ function buildShiftedMultiplyKernel(module: WasmModuleBuilder): void {
     ),
   );
   module.exportFunction(FIELD_BATCH_MUL_SHIFTED);
+}
+
+function buildRuffiniXKernel(module: WasmModuleBuilder): void {
+  const fn = module.addFunction(FIELD_RUFFINI_X);
+  fn.addParam("pInput", "i32");
+  fn.addParam("xSize", "i32");
+  fn.addParam("ySize", "i32");
+  fn.addParam("pPoint", "i32");
+  fn.addParam("pQuotient", "i32");
+  fn.addParam("pRemainder", "i32");
+  fn.addLocal("x", "i32");
+  fn.addLocal("y", "i32");
+  const code = fn.getCodeBuilder();
+  const temporary = code.i32_const(module.alloc(32));
+  const elementPointer = (base: string, index: unknown) =>
+    code.i32_add(code.getLocal(base), code.i32_mul(index, code.i32_const(32)));
+  const index = (x: unknown, y: unknown) =>
+    code.i32_add(code.i32_mul(x, code.getLocal("ySize")), y);
+
+  fn.addCode(
+    code.setLocal("y", code.i32_const(0)),
+    code.block(
+      code.loop(
+        code.br_if(1, code.i32_eq(code.getLocal("y"), code.getLocal("ySize"))),
+        code.call(
+          "frm_copy",
+          elementPointer(
+            "pInput",
+            index(code.i32_sub(code.getLocal("xSize"), code.i32_const(1)), code.getLocal("y")),
+          ),
+          elementPointer(
+            "pQuotient",
+            index(code.i32_sub(code.getLocal("xSize"), code.i32_const(2)), code.getLocal("y")),
+          ),
+        ),
+        code.setLocal("y", code.i32_add(code.getLocal("y"), code.i32_const(1))),
+        code.br(0),
+      ),
+    ),
+    code.setLocal("x", code.i32_sub(code.getLocal("xSize"), code.i32_const(2))),
+    code.block(
+      code.loop(
+        code.br_if(1, code.i32_eq(code.getLocal("x"), code.i32_const(0))),
+        code.setLocal("x", code.i32_sub(code.getLocal("x"), code.i32_const(1))),
+        code.setLocal("y", code.i32_const(0)),
+        code.block(
+          code.loop(
+            code.br_if(1, code.i32_eq(code.getLocal("y"), code.getLocal("ySize"))),
+            code.call(
+              "frm_mul",
+              code.getLocal("pPoint"),
+              elementPointer(
+                "pQuotient",
+                index(code.i32_add(code.getLocal("x"), code.i32_const(1)), code.getLocal("y")),
+              ),
+              temporary,
+            ),
+            code.call(
+              "frm_add",
+              elementPointer(
+                "pInput",
+                index(code.i32_add(code.getLocal("x"), code.i32_const(1)), code.getLocal("y")),
+              ),
+              temporary,
+              elementPointer("pQuotient", index(code.getLocal("x"), code.getLocal("y"))),
+            ),
+            code.setLocal("y", code.i32_add(code.getLocal("y"), code.i32_const(1))),
+            code.br(0),
+          ),
+        ),
+        code.br(0),
+      ),
+    ),
+    code.setLocal("y", code.i32_const(0)),
+    code.block(
+      code.loop(
+        code.br_if(1, code.i32_eq(code.getLocal("y"), code.getLocal("ySize"))),
+        code.call(
+          "frm_mul",
+          code.getLocal("pPoint"),
+          elementPointer("pQuotient", code.getLocal("y")),
+          temporary,
+        ),
+        code.call(
+          "frm_add",
+          elementPointer("pInput", code.getLocal("y")),
+          temporary,
+          elementPointer("pRemainder", code.getLocal("y")),
+        ),
+        code.setLocal("y", code.i32_add(code.getLocal("y"), code.i32_const(1))),
+        code.br(0),
+      ),
+    ),
+  );
+  module.exportFunction(FIELD_RUFFINI_X);
+}
+
+function buildRuffiniYKernel(module: WasmModuleBuilder): void {
+  const fn = module.addFunction(FIELD_RUFFINI_Y);
+  fn.addParam("pInput", "i32");
+  fn.addParam("ySize", "i32");
+  fn.addParam("pPoint", "i32");
+  fn.addParam("pQuotient", "i32");
+  fn.addParam("pRemainder", "i32");
+  fn.addLocal("y", "i32");
+  const code = fn.getCodeBuilder();
+  const temporary = code.i32_const(module.alloc(32));
+  const elementPointer = (base: string, index: unknown) =>
+    code.i32_add(code.getLocal(base), code.i32_mul(index, code.i32_const(32)));
+
+  fn.addCode(
+    code.call(
+      "frm_copy",
+      elementPointer("pInput", code.i32_sub(code.getLocal("ySize"), code.i32_const(1))),
+      elementPointer("pQuotient", code.i32_sub(code.getLocal("ySize"), code.i32_const(2))),
+    ),
+    code.setLocal("y", code.i32_sub(code.getLocal("ySize"), code.i32_const(2))),
+    code.block(
+      code.loop(
+        code.br_if(1, code.i32_eq(code.getLocal("y"), code.i32_const(0))),
+        code.setLocal("y", code.i32_sub(code.getLocal("y"), code.i32_const(1))),
+        code.call(
+          "frm_mul",
+          code.getLocal("pPoint"),
+          elementPointer("pQuotient", code.i32_add(code.getLocal("y"), code.i32_const(1))),
+          temporary,
+        ),
+        code.call(
+          "frm_add",
+          elementPointer("pInput", code.i32_add(code.getLocal("y"), code.i32_const(1))),
+          temporary,
+          elementPointer("pQuotient", code.getLocal("y")),
+        ),
+        code.br(0),
+      ),
+    ),
+    code.call("frm_mul", code.getLocal("pPoint"), code.getLocal("pQuotient"), temporary),
+    code.call("frm_add", code.getLocal("pInput"), temporary, code.getLocal("pRemainder")),
+  );
+  module.exportFunction(FIELD_RUFFINI_Y);
 }

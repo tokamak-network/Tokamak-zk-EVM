@@ -167,7 +167,7 @@ async function checkBivariatePolynomialBuffer(field: FieldRuntime): Promise<void
 
   await assertRouParity(field, dense, buffer, undefined, undefined, "rou");
   await assertRouParity(field, dense, buffer, xScale, yScale, "coset rou");
-  checkRuffiniDivision(field);
+  await checkRuffiniDivision(field);
   checkVanishingDivision(field);
 }
 
@@ -345,6 +345,13 @@ async function checkOperationParityMatrix(field: FieldRuntime): Promise<readonly
       () => formatRuffiniDivision(field, dense.divByRuffini(xPoint, yPoint)),
       () => formatBufferRuffiniDivision(field, buffer.divByRuffini(xPoint, yPoint)),
     );
+    await recordOperation(
+      records,
+      "divByRuffiniBatch",
+      testCase.label,
+      () => formatRuffiniDivision(field, dense.divByRuffini(xPoint, yPoint)),
+      async () => formatBufferRuffiniDivision(field, await buffer.divByRuffiniBatch(xPoint, yPoint)),
+    );
   }
 
   await recordVanishingDivisionOperation(field, records);
@@ -486,7 +493,7 @@ async function assertRouParity(
   assertEqual(recoveredBuffer.toHexCoeffs(), dense.toHexCoeffs(), `${label} fromRouEvals`);
 }
 
-function checkRuffiniDivision(field: FieldRuntime): void {
+async function checkRuffiniDivision(field: FieldRuntime): Promise<void> {
   const polynomial = DensePolynomialExt.fromCoeffs(
     field,
     [
@@ -505,7 +512,9 @@ function checkRuffiniDivision(field: FieldRuntime): void {
   const xPoint = field.fromBigInt(29n);
   const yPoint = field.fromBigInt(31n);
   const denseDivision = polynomial.divByRuffini(xPoint, yPoint);
-  const bufferDivision = BivariatePolynomialBuffer.fromDense(polynomial).divByRuffini(xPoint, yPoint);
+  const buffer = BivariatePolynomialBuffer.fromDense(polynomial);
+  const bufferDivision = buffer.divByRuffini(xPoint, yPoint);
+  const batchDivision = await buffer.divByRuffiniBatch(xPoint, yPoint);
 
   assertDenseEqual(
     bufferDivision.quotientX.toDense(),
@@ -518,6 +527,9 @@ function checkRuffiniDivision(field: FieldRuntime): void {
     "ruffini quotientY",
   );
   assertEqual(field.toHex(bufferDivision.remainder), field.toHex(denseDivision.remainder), "ruffini remainder");
+  assertDenseEqual(batchDivision.quotientX.toDense(), denseDivision.quotientX, "batch ruffini quotientX");
+  assertDenseEqual(batchDivision.quotientY.toDense(), denseDivision.quotientY, "batch ruffini quotientY");
+  assertEqual(field.toHex(batchDivision.remainder), field.toHex(denseDivision.remainder), "batch ruffini remainder");
 }
 
 function checkVanishingDivision(field: FieldRuntime): void {

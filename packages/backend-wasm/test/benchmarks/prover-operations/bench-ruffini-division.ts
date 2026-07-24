@@ -4,12 +4,19 @@ import path from "node:path";
 
 import {
   BivariatePolynomialBuffer,
-  createCurveRuntime,
   type BivariateBufferRuffiniDivisionResult,
   type FieldElement,
   type FieldRuntime,
 } from "../../../src/index.js";
 import { divideRuffiniRowMajorRawBuffer } from "./ruffini-combined-candidate.js";
+import {
+  createRuffiniBenchmarkRuntimes,
+  divideRuffiniWasmSingleTask,
+  divideRuffiniWasmWorkerShards,
+  singleTaskTemporaryBytes,
+  workerShardTemporaryBytes,
+  type RuffiniBenchmarkRuntimes,
+} from "./ruffini-wasm-benchmark-support.js";
 
 interface Shape {
   readonly xSize: number;
@@ -56,33 +63,55 @@ interface BenchmarkReport {
 interface BenchmarkCandidate {
   readonly name: string;
   readonly run: (
+    runtime: RuffiniBenchmarkRuntimes,
     polynomial: BivariatePolynomialBuffer,
     xPoint: FieldElement,
     yPoint: FieldElement,
-  ) => BivariateBufferRuffiniDivisionResult;
+  ) => Promise<BivariateBufferRuffiniDivisionResult>;
+  readonly temporaryBytes: (shape: Shape, elementBytes: number) => number;
   readonly notes: string;
 }
 
 const CANDIDATES: readonly BenchmarkCandidate[] = [
   {
     name: "current-production",
-    run: (polynomial, xPoint, yPoint) => polynomial.divByRuffini(xPoint, yPoint),
+    run: async (_runtime, polynomial, xPoint, yPoint) => polynomial.divByRuffini(xPoint, yPoint),
+    temporaryBytes: (shape, elementBytes) => shape.ySize * elementBytes,
     notes: "Current production traversal: fixed Y column with reverse X recurrence.",
   },
   {
     name: "candidate-a-row-major-x",
-    run: divideRuffiniRowMajorX,
+    run: async (_runtime, polynomial, xPoint, yPoint) => divideRuffiniRowMajorX(polynomial, xPoint, yPoint),
+    temporaryBytes: (shape, elementBytes) => shape.ySize * elementBytes,
     notes: "Benchmark-only Candidate A: reverse X recurrence with contiguous Y-row processing.",
   },
   {
     name: "candidate-b-raw-buffer",
-    run: divideRuffiniRawBufferCurrentOrder,
+    run: async (_runtime, polynomial, xPoint, yPoint) =>
+      divideRuffiniRawBufferCurrentOrder(polynomial, xPoint, yPoint),
+    temporaryBytes: (shape, elementBytes) => shape.ySize * elementBytes,
     notes: "Benchmark-only Candidate B: current traversal with validation once and direct raw-buffer offsets.",
   },
   {
     name: "candidate-ab-row-major-raw-buffer",
-    run: divideRuffiniRowMajorRawBuffer,
+    run: async (_runtime, polynomial, xPoint, yPoint) =>
+      divideRuffiniRowMajorRawBuffer(polynomial, xPoint, yPoint),
+    temporaryBytes: (shape, elementBytes) => shape.ySize * elementBytes,
     notes: "Benchmark-only combination: Candidate A row order plus Candidate B raw-buffer access.",
+  },
+  {
+    name: "candidate-wasm-single-task",
+    run: divideRuffiniWasmSingleTask,
+    temporaryBytes: (shape, elementBytes) =>
+      singleTaskTemporaryBytes(shape.xSize, shape.ySize, elementBytes),
+    notes: "Benchmark-only whole-loop WASM X and dependent Y recurrences on the single-thread runtime.",
+  },
+  {
+    name: "candidate-wasm-worker-x",
+    run: divideRuffiniWasmWorkerShards,
+    temporaryBytes: (shape, elementBytes) =>
+      workerShardTemporaryBytes(shape.xSize, shape.ySize, elementBytes),
+    notes: "Benchmark-only Y-column-sharded WASM X recurrence plus one dependent Y recurrence.",
   },
 ];
 
@@ -90,17 +119,17 @@ let resultSink = 0;
 
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2));
-  const runtime = await createCurveRuntime({ singleThread: true });
+  const runtime = await createRuffiniBenchmarkRuntimes();
 
   try {
     const candidates = CANDIDATES.filter((candidate) => options.candidateNames.has(candidate.name));
-    runEdgeCaseParity(runtime.Fr, candidates);
+    await runEdgeCaseParity(runtime, candidates);
 
     const records: BenchmarkRecord[] = [];
     for (const shape of options.shapes) {
-      records.push(...await benchmarkShape(runtime.Fr, shape, options, candidates));
+      records.push(...await benchmarkShape(runtime, shape, options, candidates));
     }
-    records.push(...buildWeightedWorkloadRecords(records, runtime.Fr.byteLength, candidates));
+    records.push(...buildWeightedWorkloadRecords(records, runtime.field.byteLength, candidates));
 
     printRecords(records);
     await writeReport(options, records);
@@ -110,39 +139,40 @@ async function main(): Promise<void> {
 }
 
 async function benchmarkShape(
-  field: FieldRuntime,
+  runtime: RuffiniBenchmarkRuntimes,
   shape: Shape,
   options: BenchmarkOptions,
   candidates: readonly BenchmarkCandidate[],
 ): Promise<BenchmarkRecord[]> {
+  const field = runtime.field;
   const polynomial = deterministicPolynomial(field, shape, options.seed);
   const xPoint = field.fromBigInt(11n);
   const yPoint = field.fromBigInt(13n);
-  const baseline = CANDIDATES[0].run(polynomial, xPoint, yPoint);
+  const baseline = await CANDIDATES[0].run(runtime, polynomial, xPoint, yPoint);
 
   assertReconstruction(field, polynomial, baseline, xPoint, yPoint, `${formatShape(shape)} baseline`);
   for (const candidate of candidates.filter((candidate) => candidate.name !== "current-production")) {
-    const actual = candidate.run(polynomial, xPoint, yPoint);
+    const actual = await candidate.run(runtime, polynomial, xPoint, yPoint);
     assertDivisionEqual(actual, baseline, `${formatShape(shape)} ${candidate.name}`);
   }
 
-  const timings = await measureCandidates(candidates, polynomial, xPoint, yPoint, options);
+  const timings = await measureCandidates(runtime, candidates, polynomial, xPoint, yPoint, options);
   const inputBytes = shape.xSize * shape.ySize * field.byteLength;
   const outputBytes = (shape.xSize * shape.ySize + shape.ySize + 1) * field.byteLength;
-  const temporaryBytes = shape.ySize * field.byteLength;
 
   return candidates.map((candidate) => ({
     candidate: candidate.name,
     shape: formatShape(shape),
     inputBytes,
     outputBytes,
-    temporaryBytes,
+    temporaryBytes: candidate.temporaryBytes(shape, field.byteLength),
     notes: candidate.notes,
     ...timings.get(candidate.name)!,
   }));
 }
 
 async function measureCandidates(
+  runtime: RuffiniBenchmarkRuntimes,
   candidates: readonly BenchmarkCandidate[],
   polynomial: BivariatePolynomialBuffer,
   xPoint: FieldElement,
@@ -151,7 +181,7 @@ async function measureCandidates(
 ): Promise<ReadonlyMap<string, TimingSummary>> {
   for (let iteration = 0; iteration < options.warmup; iteration += 1) {
     for (const candidate of candidates) {
-      consumeResult(candidate.run(polynomial, xPoint, yPoint));
+      consumeResult(await candidate.run(runtime, polynomial, xPoint, yPoint));
     }
   }
 
@@ -160,7 +190,7 @@ async function measureCandidates(
     const ordered = iteration % 2 === 0 ? candidates : [...candidates].reverse();
     for (const candidate of ordered) {
       const start = performance.now();
-      const result = candidate.run(polynomial, xPoint, yPoint);
+      const result = await candidate.run(runtime, polynomial, xPoint, yPoint);
       const durationMs = performance.now() - start;
       consumeResult(result);
       samples.get(candidate.name)!.push(durationMs);
@@ -343,7 +373,11 @@ function divideRuffiniRawBufferCurrentOrder(
   }
 }
 
-function runEdgeCaseParity(field: FieldRuntime, candidates: readonly BenchmarkCandidate[]): void {
+async function runEdgeCaseParity(
+  runtime: RuffiniBenchmarkRuntimes,
+  candidates: readonly BenchmarkCandidate[],
+): Promise<void> {
+  const field = runtime.field;
   const xPoint = field.fromBigInt(11n);
   const yPoint = field.fromBigInt(13n);
   const cases: readonly { readonly label: string; readonly polynomial: BivariatePolynomialBuffer }[] = [
@@ -377,7 +411,7 @@ function runEdgeCaseParity(field: FieldRuntime, candidates: readonly BenchmarkCa
   for (const testCase of cases) {
     const baseline = testCase.polynomial.divByRuffini(xPoint, yPoint);
     for (const candidate of candidates.filter((candidate) => candidate.name !== "current-production")) {
-      const actual = candidate.run(testCase.polynomial, xPoint, yPoint);
+      const actual = await candidate.run(runtime, testCase.polynomial, xPoint, yPoint);
       assertDivisionEqual(actual, baseline, `${testCase.label} ${candidate.name}`);
       assertReconstruction(field, testCase.polynomial, actual, xPoint, yPoint, `${testCase.label} ${candidate.name}`);
     }

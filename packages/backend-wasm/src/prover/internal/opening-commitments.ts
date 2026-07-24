@@ -112,7 +112,7 @@ export async function computeOpeningCommitments(input: {
     [tSMaxEval, rW_Y],
     [field.neg(field.one), initialRelation.wZk],
   ]);
-  const piADivision = divideAfterSubtractingConstant(
+  const piADivision = await divideAfterSubtractingConstant(
     pAXY,
     chi,
     zeta,
@@ -123,13 +123,13 @@ export async function computeOpeningCommitments(input: {
     [state.mixer.rR_X, state.instanceBuffers.tMi],
     [state.mixer.rR_Y, state.instanceBuffers.tSMax],
   ]);
-  const mDivision = divideAfterSubtractingConstant(
+  const mDivision = await divideAfterSubtractingConstant(
     RXY,
     field.mul(omegaMIInv, chi),
     zeta,
     evaluations.R_omegaX_eval,
   );
-  const nDivision = divideAfterSubtractingConstant(
+  const nDivision = await divideAfterSubtractingConstant(
     RXY,
     field.mul(omegaMIInv, chi),
     field.mul(omegaSMaxInv, zeta),
@@ -154,7 +154,12 @@ export async function computeOpeningCommitments(input: {
     omegaSMaxInv,
   });
   const aEval = state.instance.aFreeX.eval(chi, zeta);
-  const piBDivision = divideAfterSubtractingConstant(state.instanceBuffers.aFreeX, chi, zeta, aEval);
+  const piBDivision = await divideAfterSubtractingConstant(
+    state.instanceBuffers.aFreeX,
+    chi,
+    zeta,
+    aEval,
+  );
   const commitments = await encodeSigma1CommitmentBarrier(
     options.commitmentEncoder ?? {
       parallelSafe: false,
@@ -336,7 +341,7 @@ async function buildCopyOpeningPolynomials(input: {
     [field.mul(field.mul(kappa1Sq, kappa0Sq), field.one), lhsZk2],
     [kappa1Cube, RXY],
   ]);
-  const division = divideAfterSubtractingConstant(
+  const division = await divideAfterSubtractingConstant(
     lhsForCopy,
     chi,
     zeta,
@@ -349,13 +354,13 @@ async function buildCopyOpeningPolynomials(input: {
   };
 }
 
-function divideAfterSubtractingConstant(
+async function divideAfterSubtractingConstant(
   polynomial: BivariatePolynomialBuffer,
   xPoint: FieldElement,
   yPoint: FieldElement,
   constant: FieldElement,
-): ReturnType<BivariatePolynomialBuffer["divByRuffini"]> {
-  const division = polynomial.divByRuffini(xPoint, yPoint);
+): Promise<ReturnType<BivariatePolynomialBuffer["divByRuffini"]>> {
+  const division = await polynomial.divByRuffiniBatch(xPoint, yPoint);
   return {
     quotientX: division.quotientX,
     quotientY: division.quotientY,

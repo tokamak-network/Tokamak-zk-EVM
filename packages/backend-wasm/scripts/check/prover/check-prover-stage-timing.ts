@@ -382,7 +382,7 @@ async function polynomialDivRuffini(
   return polynomialOperation(
     "polynomial.div_ruffini",
     label,
-    async () => Promise.resolve(polynomial.divByRuffini(xPoint, yPoint)),
+    () => polynomial.divByRuffiniBatch(xPoint, yPoint),
     [shapeSize("polynomial", polynomial.xSize, polynomial.ySize)],
   );
 }
@@ -398,37 +398,12 @@ async function polynomialDivRuffiniAfterSubtractingConstant(
     "polynomial.div_ruffini",
     label,
     async () => {
-      const division = polynomial.divByRuffini(xPoint, yPoint);
+      const division = await polynomial.divByRuffiniBatch(xPoint, yPoint);
       polynomial.field.sub(division.remainder, constant);
       return division;
     },
     [shapeSize("polynomial", polynomial.xSize, polynomial.ySize)],
   );
-}
-
-function polynomialDivRuffiniSync(
-  label: string,
-  polynomial: BivariatePolynomialBuffer,
-  xPoint: FieldElement,
-  yPoint: FieldElement,
-): { readonly quotientX: BivariatePolynomialBuffer; readonly quotientY: BivariatePolynomialBuffer } {
-  return polynomialOperationSync("polynomial.div_ruffini", label, () => polynomial.divByRuffini(xPoint, yPoint), [
-    shapeSize("polynomial", polynomial.xSize, polynomial.ySize),
-  ]);
-}
-
-function polynomialDivRuffiniAfterSubtractingConstantSync(
-  label: string,
-  polynomial: BivariatePolynomialBuffer,
-  xPoint: FieldElement,
-  yPoint: FieldElement,
-  constant: FieldElement,
-): { readonly quotientX: BivariatePolynomialBuffer; readonly quotientY: BivariatePolynomialBuffer } {
-  return polynomialOperationSync("polynomial.div_ruffini", label, () => {
-    const division = polynomial.divByRuffini(xPoint, yPoint);
-    polynomial.field.sub(division.remainder, constant);
-    return division;
-  }, [shapeSize("polynomial", polynomial.xSize, polynomial.ySize)]);
 }
 
 async function polynomialLinearCombination(
@@ -1044,7 +1019,7 @@ async function prove4Timed(input: {
     omegaSMaxInv,
   });
   const aEval = evaluatePolynomialAt("prove4.A_free_eval", state.instance.aFreeX, chi, zeta);
-  const piBDivision = polynomialDivRuffiniAfterSubtractingConstantSync(
+  const piBDivision = await polynomialDivRuffiniAfterSubtractingConstant(
     "prove4.Pi_B",
     state.instance.aFreeX,
     chi,

@@ -609,6 +609,34 @@ export class BivariatePolynomialBuffer {
     };
   }
 
+  async divByRuffiniBatch(
+    xPoint: FieldElement,
+    yPoint: FieldElement,
+  ): Promise<BivariateBufferRuffiniDivisionResult> {
+    const xDivision = await this.field.ruffiniXBuffer(
+      this.coefficients,
+      this.xSize,
+      this.ySize,
+      xPoint,
+    );
+    const yDivision = await this.field.ruffiniYBuffer(xDivision.remainder, this.ySize, yPoint);
+    return {
+      quotientX: BivariatePolynomialBuffer.fromOwnedBuffer(
+        this.field,
+        xDivision.quotient,
+        this.xSize,
+        this.ySize,
+      ),
+      quotientY: BivariatePolynomialBuffer.fromOwnedBuffer(
+        this.field,
+        yDivision.quotient,
+        1,
+        this.ySize,
+      ),
+      remainder: yDivision.remainder,
+    };
+  }
+
   divByVanishingOpt(xDegree: number, yDegree: number): BivariateBufferVanishingQuotientResult {
     if (!isPowerOfTwo(xDegree) || !isPowerOfTwo(yDegree)) {
       throw new Error("Vanishing polynomial degrees must be powers of two.");

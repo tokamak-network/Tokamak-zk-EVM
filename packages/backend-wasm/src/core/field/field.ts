@@ -8,6 +8,8 @@ import {
   FIELD_BATCH_SCALE_X,
   FIELD_BATCH_SCALE_Y,
   FIELD_BATCH_SUB,
+  FIELD_RUFFINI_X,
+  FIELD_RUFFINI_Y,
 } from "./linear-batch-plugin.js";
 
 export type FieldElement = Uint8Array;
@@ -74,6 +76,17 @@ export interface FieldRuntime {
   ): Promise<Uint8Array>;
   batchFromMontgomeryBuffer(buffer: Uint8Array): Promise<Uint8Array>;
   batchInverseBuffer(buffer: Uint8Array): Promise<Uint8Array>;
+  ruffiniXBuffer(
+    buffer: Uint8Array,
+    xSize: number,
+    ySize: number,
+    point: FieldElement,
+  ): Promise<{ readonly quotient: Uint8Array; readonly remainder: Uint8Array }>;
+  ruffiniYBuffer(
+    buffer: Uint8Array,
+    ySize: number,
+    point: FieldElement,
+  ): Promise<{ readonly quotient: Uint8Array; readonly remainder: FieldElement }>;
   fft(values: readonly FieldElement[]): Promise<FieldElement[]>;
   ifft(values: readonly FieldElement[]): Promise<FieldElement[]>;
   add(left: FieldElement, right: FieldElement): FieldElement;
@@ -350,6 +363,48 @@ export function createFieldRuntime(field: FfField): FieldRuntime {
     async batchInverseBuffer(buffer) {
       assertFieldBuffer(buffer, field.n8);
       return await field.batchInverse(buffer);
+    },
+    async ruffiniXBuffer(buffer, xSize, ySize, point) {
+      assertPolynomialBufferShape(buffer, xSize, ySize, field.n8, "Ruffini X input");
+      assertFieldElement(point, field.n8, "Ruffini X point");
+      if (xSize === 1) {
+        return {
+          quotient: new Uint8Array(ySize * field.n8),
+          remainder: buffer.slice(),
+        };
+      }
+
+      const ranges = splitRanges(ySize, field.tm.concurrency);
+      const results = await Promise.all(
+        ranges.map(({ start, count }) => {
+          const input = extractPolynomialColumns(buffer, xSize, ySize, start, count, field.n8);
+          return field.tm.queueAction(buildRuffiniXTask(field, input, xSize, count, point));
+        }),
+      );
+      const quotientShards = results.map((result) => requireTaskOutputs(result, 2, "Ruffini X")[0]);
+      const quotient = assemblePolynomialColumns(quotientShards, ranges, xSize, ySize, field.n8);
+      const remainder = new Uint8Array(ySize * field.n8);
+      for (let index = 0; index < ranges.length; index += 1) {
+        const taskOutputs = requireTaskOutputs(results[index], 2, "Ruffini X");
+        remainder.set(taskOutputs[1], ranges[index].start * field.n8);
+      }
+      return { quotient, remainder };
+    },
+    async ruffiniYBuffer(buffer, ySize, point) {
+      assertPolynomialBufferShape(buffer, 1, ySize, field.n8, "Ruffini Y input");
+      assertFieldElement(point, field.n8, "Ruffini Y point");
+      if (ySize === 1) {
+        return {
+          quotient: new Uint8Array(field.n8),
+          remainder: buffer.slice(0, field.n8),
+        };
+      }
+      const result = requireTaskOutputs(
+        await field.tm.queueAction(buildRuffiniYTask(field, buffer, ySize, point)),
+        2,
+        "Ruffini Y",
+      );
+      return { quotient: result[0], remainder: result[1] };
     },
     async fft(values) {
       return splitFieldBuffer(await field.fft(concatFieldElements(values, field.n8)), field.n8);
@@ -702,6 +757,8 @@ function assertLinearBatchExports(field: FfField): void {
     FIELD_BATCH_MUL_SHIFTED,
     FIELD_BATCH_SCALE_X,
     FIELD_BATCH_SCALE_Y,
+    FIELD_RUFFINI_X,
+    FIELD_RUFFINI_Y,
   ];
   for (const name of requiredExports) {
     if (typeof field.tm.instance?.exports[name] !== "function") {
@@ -767,6 +824,110 @@ function buildShiftedMultiplyTask(
     },
     { cmd: "GET", out: 0, var: 2, len: outputBytes },
   ];
+}
+
+function buildRuffiniXTask(
+  field: FfField,
+  input: Uint8Array,
+  xSize: number,
+  ySize: number,
+  point: FieldElement,
+): FfWorkerCommand[] {
+  const quotientBytes = input.byteLength;
+  const remainderBytes = ySize * field.n8;
+  return [
+    { cmd: "ALLOCSET", var: 0, buff: input },
+    { cmd: "ALLOCSET", var: 1, buff: point },
+    { cmd: "ALLOCSET", var: 2, buff: new Uint8Array(quotientBytes) },
+    { cmd: "ALLOC", var: 3, len: remainderBytes },
+    {
+      cmd: "CALL",
+      fnName: FIELD_RUFFINI_X,
+      params: [
+        { var: 0 },
+        { val: xSize },
+        { val: ySize },
+        { var: 1 },
+        { var: 2 },
+        { var: 3 },
+      ],
+    },
+    { cmd: "GET", out: 0, var: 2, len: quotientBytes },
+    { cmd: "GET", out: 1, var: 3, len: remainderBytes },
+  ];
+}
+
+function buildRuffiniYTask(
+  field: FfField,
+  input: Uint8Array,
+  ySize: number,
+  point: FieldElement,
+): FfWorkerCommand[] {
+  const quotientBytes = ySize * field.n8;
+  return [
+    { cmd: "ALLOCSET", var: 0, buff: input },
+    { cmd: "ALLOCSET", var: 1, buff: point },
+    { cmd: "ALLOCSET", var: 2, buff: new Uint8Array(quotientBytes) },
+    { cmd: "ALLOC", var: 3, len: field.n8 },
+    {
+      cmd: "CALL",
+      fnName: FIELD_RUFFINI_Y,
+      params: [{ var: 0 }, { val: ySize }, { var: 1 }, { var: 2 }, { var: 3 }],
+    },
+    { cmd: "GET", out: 0, var: 2, len: quotientBytes },
+    { cmd: "GET", out: 1, var: 3, len: field.n8 },
+  ];
+}
+
+function extractPolynomialColumns(
+  source: Uint8Array,
+  xSize: number,
+  sourceYSize: number,
+  yStart: number,
+  yCount: number,
+  elementBytes: number,
+): Uint8Array {
+  const output = new Uint8Array(xSize * yCount * elementBytes);
+  for (let x = 0; x < xSize; x += 1) {
+    const sourceStart = (x * sourceYSize + yStart) * elementBytes;
+    output.set(
+      source.subarray(sourceStart, sourceStart + yCount * elementBytes),
+      x * yCount * elementBytes,
+    );
+  }
+  return output;
+}
+
+function assemblePolynomialColumns(
+  shards: readonly Uint8Array[],
+  ranges: readonly { start: number; count: number }[],
+  xSize: number,
+  ySize: number,
+  elementBytes: number,
+): Uint8Array {
+  const output = new Uint8Array(xSize * ySize * elementBytes);
+  for (let shardIndex = 0; shardIndex < shards.length; shardIndex += 1) {
+    const shard = shards[shardIndex];
+    const { start, count } = ranges[shardIndex];
+    for (let x = 0; x < xSize; x += 1) {
+      output.set(
+        shard.subarray(x * count * elementBytes, (x + 1) * count * elementBytes),
+        (x * ySize + start) * elementBytes,
+      );
+    }
+  }
+  return output;
+}
+
+function requireTaskOutputs(
+  result: readonly Uint8Array[],
+  expectedCount: number,
+  label: string,
+): readonly Uint8Array[] {
+  if (result.length !== expectedCount) {
+    throw new Error(`${label} task returned ${result.length} outputs; expected ${expectedCount}.`);
+  }
+  return result;
 }
 
 function splitRanges(elementCount: number, requestedTaskCount: number): readonly { start: number; count: number }[] {
