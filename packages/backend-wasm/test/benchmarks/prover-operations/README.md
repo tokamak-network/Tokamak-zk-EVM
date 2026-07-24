@@ -1226,3 +1226,21 @@ decreased from `7.043 s` for `term5 + term6 + pC` to `5.510 s` for fused `pC`,
 a `1.533 s` (`21.8%`) reduction. Total wall time decreased from `258.94 s` to
 `256.76 s`. Node and Chromium proof generation and verification, testing-mode
 invariants, build, and package-content inspection passed.
+
+## Copy Linear-Term Fusion
+
+`bench-copy-linear-fusion.ts` compares the current
+`linearFactor(rD) + rR*gD` materialization sequence with a single output
+kernel. It checks X/Y axes, zero/unit/non-unit scales, and complete term2 and
+Lagrange-K0 term3 paths.
+
+| path | current | fused | reduction |
+| --- | ---: | ---: | ---: |
+| term2 X | 1619.411 ms | 1435.486 ms | 11.4% |
+| term2 Y | 1692.354 ms | 1315.259 ms | 22.3% |
+| term3 X | 2426.903 ms | 1886.317 ms | 22.3% |
+| term3 Y | 3034.606 ms | 2553.877 ms | 15.8% |
+| four-path total | 8773.274 ms | 7190.939 ms | 18.0% |
+
+All output buffers passed exact parity at smoke and representative
+`4096x256` input shape. The candidate is eligible for production promotion.
