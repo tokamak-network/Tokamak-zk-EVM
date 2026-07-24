@@ -98,3 +98,30 @@ memory jump over the smaller active candidates. The 262,144-point row did not
 increase peak RSS over the 131,072-point row in this rerun, which should be
 treated as normal process-level RSS noise rather than proof that larger chunks
 always reduce memory.
+
+## Final Optimized-Prover Rerun
+
+After completing the currently executable prover hot-path campaign through
+Priority 24I, the same active chunk range was remeasured. Chromium RSS was
+sampled every two seconds. Every row generated a 2408-byte proof and passed
+in-browser verifier acceptance. One initial 16,384-point run was excluded
+because the measurement wrapper failed after proof completion before
+preserving its peak values; the row below is the clean rerun.
+
+| chunk points | prove binary time | peak total RSS | peak single RSS | verifier result |
+| ---: | ---: | ---: | ---: | --- |
+| 16,384 | 156.55 s | 13.35 GiB | 13.15 GiB | passed |
+| 32,768 | 146.13 s | 13.03 GiB | 12.83 GiB | passed |
+| 65,536 | 142.62 s | 12.61 GiB | 12.41 GiB | passed |
+| 131,072 | 140.54 s | 12.45 GiB | 12.25 GiB | passed |
+| 262,144 | 137.32 s | 13.50 GiB | 13.30 GiB | passed |
+| 524,288 | 137.51 s | 14.46 GiB | 14.26 GiB | passed |
+
+The process-level RSS values are noisy across sequential runs, especially
+below 262,144 points, and must not be interpreted as a monotonic allocation
+curve. The high-end decision is nevertheless clear on this machine:
+524,288 points provides no time improvement over 262,144 points and adds
+approximately 0.96 GiB of observed peak total RSS. Retaining 262,144 points is
+the technical recommendation. The production constant remains unchanged while
+the project owner decides whether to accept that recommendation as the final
+default for unknown user hardware.
