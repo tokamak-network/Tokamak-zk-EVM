@@ -47,7 +47,7 @@ Fixture: `fixtures/small/runtime`.
 | flat-buffer candidate | 15.79 s | parity passed; small positive signal |
 | direct-sparse candidate | 16.15 s | parity passed; not a clear improvement |
 | row-major UVW candidate | 16.06 s | parity passed; not a clear improvement |
-| parallel ROU candidate | 15.64 s | parity passed; best diagnostic result |
+| parallel ROU candidate | 15.64 s | parity passed; best diagnostic result; discarded |
 
 Interpretation:
 
@@ -55,4 +55,4 @@ Interpretation:
 - Allocation, validation, sparse R1CS indexing, vanishing polynomial construction, and mixer construction are not current init bottlenecks.
 - Flat buffers help allocation and materialization, but the observed win is small and noisy.
 - Direct sparse active-wire access and row-major UVW writes are not sufficient standalone production candidates.
-- Parallel scheduling of independent ROU conversions is the strongest candidate from this run, but it has not been promoted to production. A production change requires separate approval and full acceptance checks.
+- Parallel scheduling of independent ROU conversions was the strongest candidate in this diagnostic run, but the project owner discarded its production promotion. Retain this result only as historical benchmark evidence.
