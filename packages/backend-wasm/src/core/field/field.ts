@@ -12,6 +12,7 @@ import {
   FIELD_EVAL_REDUCE_FUSED,
   FIELD_EVAL_ROWS,
   FIELD_EVAL_ROWS_FUSED,
+  FIELD_K0_RECURRENCE,
   FIELD_RUFFINI_X,
   FIELD_RUFFINI_Y,
   FIELD_RECURSION_RECURRENCE,
@@ -122,6 +123,14 @@ export interface FieldRuntime {
     inverseFEvals: Uint8Array,
     mI: number,
     sMax: number,
+  ): Promise<Uint8Array>;
+  k0RecurrenceBuffer(
+    buffer: Uint8Array,
+    inputXSize: number,
+    inputYSize: number,
+    outputXSize: number,
+    outputYSize: number,
+    mI: number,
   ): Promise<Uint8Array>;
   fft(values: readonly FieldElement[]): Promise<FieldElement[]>;
   ifft(values: readonly FieldElement[]): Promise<FieldElement[]>;
@@ -578,6 +587,49 @@ export function createFieldRuntime(field: FfField): FieldRuntime {
       );
       return result[0];
     },
+    async k0RecurrenceBuffer(
+      buffer,
+      inputXSize,
+      inputYSize,
+      outputXSize,
+      outputYSize,
+      mI,
+    ) {
+      assertPolynomialBufferShape(buffer, inputXSize, inputYSize, field.n8, "K0 input");
+      assertPositiveSafeInteger(outputXSize, "K0 output X size");
+      assertPositiveSafeInteger(outputYSize, "K0 output Y size");
+      assertPositiveSafeInteger(mI, "K0 domain size");
+      if (outputYSize > inputYSize || outputXSize < inputXSize) {
+        throw new Error("K0 output shape is incompatible with its input shape.");
+      }
+      const ranges = splitRanges(outputYSize, field.tm.concurrency);
+      const results = await Promise.all(
+        ranges.map(({ start, count }) => field.tm.queueAction(
+          buildK0Task(
+            extractPolynomialColumns(
+              buffer,
+              inputXSize,
+              inputYSize,
+              start,
+              count,
+              field.n8,
+            ),
+            inputXSize,
+            count,
+            outputXSize,
+            mI,
+            field.n8,
+          ),
+        )),
+      );
+      return assemblePolynomialColumns(
+        results.map((result) => requireTaskOutputs(result, 1, "K0 recurrence")[0]),
+        ranges,
+        outputXSize,
+        outputYSize,
+        field.n8,
+      );
+    },
     async fft(values) {
       return splitFieldBuffer(await field.fft(concatFieldElements(values, field.n8)), field.n8);
     },
@@ -933,6 +985,7 @@ function assertLinearBatchExports(field: FfField): void {
     FIELD_EVAL_REDUCE_FUSED,
     FIELD_EVAL_ROWS,
     FIELD_EVAL_ROWS_FUSED,
+    FIELD_K0_RECURRENCE,
     FIELD_RUFFINI_X,
     FIELD_RUFFINI_Y,
     FIELD_RECURSION_RECURRENCE,
@@ -1179,6 +1232,36 @@ function buildEvalReduceFusedTask(
     { cmd: "GET", out: 0, var: 4, len: elementBytes },
     { cmd: "GET", out: 1, var: 5, len: elementBytes },
     { cmd: "GET", out: 2, var: 6, len: elementBytes },
+  ];
+}
+
+function buildK0Task(
+  input: Uint8Array,
+  inputXSize: number,
+  localYSize: number,
+  outputXSize: number,
+  mI: number,
+  elementBytes: number,
+): FfWorkerCommand[] {
+  const outputBytes = outputXSize * localYSize * elementBytes;
+  return [
+    { cmd: "ALLOCSET", var: 0, buff: input },
+    { cmd: "ALLOC", var: 1, len: localYSize * elementBytes },
+    { cmd: "ALLOC", var: 2, len: outputBytes },
+    {
+      cmd: "CALL",
+      fnName: FIELD_K0_RECURRENCE,
+      params: [
+        { var: 0 },
+        { val: inputXSize },
+        { val: localYSize },
+        { val: outputXSize },
+        { val: mI },
+        { var: 1 },
+        { var: 2 },
+      ],
+    },
+    { cmd: "GET", out: 0, var: 2, len: outputBytes },
   ];
 }
 

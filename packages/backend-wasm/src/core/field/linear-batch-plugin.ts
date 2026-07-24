@@ -15,6 +15,7 @@ export const FIELD_EVAL_REDUCE_FUSED = "tokamak_frm_evalReduceFused";
 export const FIELD_VANISHING_Y = "tokamak_frm_vanishingY";
 export const FIELD_VANISHING_X = "tokamak_frm_vanishingX";
 export const FIELD_RECURSION_RECURRENCE = "tokamak_frm_recursionRecurrence";
+export const FIELD_K0_RECURRENCE = "tokamak_frm_k0Recurrence";
 
 interface WasmCodeBuilder {
   i32_const(value: number): unknown;
@@ -25,11 +26,14 @@ interface WasmCodeBuilder {
   i32_mul(left: unknown, right: unknown): unknown;
   i32_rem_u(left: unknown, right: unknown): unknown;
   i32_eq(left: unknown, right: unknown): unknown;
+  i32_ge_u(left: unknown, right: unknown): unknown;
+  i32_lt_u(left: unknown, right: unknown): unknown;
   call(name: string, ...params: unknown[]): unknown;
   br(depth: number): unknown;
   br_if(depth: number, condition: unknown): unknown;
   block(code: unknown): unknown;
   loop(...code: unknown[]): unknown;
+  if(condition: unknown, thenCode: unknown): unknown;
 }
 
 interface ModuleFunctionBuilder {
@@ -63,6 +67,7 @@ export function installLinearBatchPlugin(module: WasmModuleBuilder): void {
   buildVanishingYKernel(module);
   buildVanishingXKernel(module);
   buildRecursionRecurrenceKernel(module);
+  buildK0RecurrenceKernel(module);
 }
 
 function buildAddScaledKernel(module: WasmModuleBuilder): void {
@@ -928,4 +933,80 @@ function buildRecursionRecurrenceKernel(module: WasmModuleBuilder): void {
     )),
   );
   module.exportFunction(FIELD_RECURSION_RECURRENCE);
+}
+
+function buildK0RecurrenceKernel(module: WasmModuleBuilder): void {
+  const fn = module.addFunction(FIELD_K0_RECURRENCE);
+  fn.addParam("pInput", "i32");
+  fn.addParam("inputX", "i32");
+  fn.addParam("localY", "i32");
+  fn.addParam("outputX", "i32");
+  fn.addParam("mI", "i32");
+  fn.addParam("pWindow", "i32");
+  fn.addParam("pOutput", "i32");
+  fn.addLocal("x", "i32");
+  fn.addLocal("y", "i32");
+  const code = fn.getCodeBuilder();
+  const current = code.i32_const(module.alloc(32));
+  fn.addCode(
+    code.setLocal("y", code.i32_const(0)),
+    code.block(code.loop(
+      code.br_if(1, code.i32_eq(code.getLocal("y"), code.getLocal("localY"))),
+      code.call("frm_zero", k0Pointer(code, "pWindow", code.i32_const(0))),
+      code.setLocal("y", code.i32_add(code.getLocal("y"), code.i32_const(1))),
+      code.br(0),
+    )),
+    code.setLocal("x", code.i32_const(0)),
+    code.block(code.loop(
+      code.br_if(1, code.i32_eq(code.getLocal("x"), code.getLocal("outputX"))),
+      code.setLocal("y", code.i32_const(0)),
+      code.block(code.loop(
+        code.br_if(1, code.i32_eq(code.getLocal("y"), code.getLocal("localY"))),
+        code.call("frm_copy", k0Pointer(code, "pWindow", code.i32_const(0)), current),
+        code.if(
+          code.i32_lt_u(code.getLocal("x"), code.getLocal("inputX")),
+          code.call("frm_add", current, k0Pointer(code, "pInput", code.getLocal("x")), current),
+        ),
+        code.if(
+          code.i32_ge_u(code.getLocal("x"), code.getLocal("mI")),
+          code.if(
+            code.i32_lt_u(
+              code.i32_sub(code.getLocal("x"), code.getLocal("mI")),
+              code.getLocal("inputX"),
+            ),
+            code.call(
+              "frm_sub",
+              current,
+              k0Pointer(
+                code,
+                "pInput",
+                code.i32_sub(code.getLocal("x"), code.getLocal("mI")),
+              ),
+              current,
+            ),
+          ),
+        ),
+        code.call("frm_copy", current, k0Pointer(code, "pWindow", code.i32_const(0))),
+        code.call("frm_copy", current, k0Pointer(code, "pOutput", code.getLocal("x"))),
+        code.setLocal("y", code.i32_add(code.getLocal("y"), code.i32_const(1))),
+        code.br(0),
+      )),
+      code.setLocal("x", code.i32_add(code.getLocal("x"), code.i32_const(1))),
+      code.br(0),
+    )),
+  );
+  module.exportFunction(FIELD_K0_RECURRENCE);
+}
+
+function k0Pointer(code: WasmCodeBuilder, base: string, row: unknown): unknown {
+  return code.i32_add(
+    code.getLocal(base),
+    code.i32_mul(
+      code.i32_add(
+        code.i32_mul(row, code.getLocal("localY")),
+        code.getLocal("y"),
+      ),
+      code.i32_const(32),
+    ),
+  );
 }

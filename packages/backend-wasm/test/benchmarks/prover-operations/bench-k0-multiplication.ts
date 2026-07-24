@@ -4,11 +4,21 @@ import path from "node:path";
 
 import {
   BivariatePolynomialBuffer,
-  createCurveRuntime,
   type FieldElement,
   type FieldRuntime,
 } from "../../../src/index.js";
-import { buildLagrangeK0 } from "../../../src/prover/internal/polynomial-ops.js";
+import {
+  buildLagrangeK0,
+  multiplyByLagrangeK0,
+} from "../../../src/prover/internal/polynomial-ops.js";
+import {
+  createStructuredBenchmarkRuntimes,
+  k0TemporaryBytes,
+  multiplyK0WasmOneWorker,
+  multiplyK0WasmSingle,
+  multiplyK0WasmWorkers,
+  type StructuredBenchmarkRuntimes,
+} from "./structured-wasm-benchmark-support.js";
 
 interface Shape {
   readonly mI: number;
@@ -60,19 +70,40 @@ interface BenchmarkCase {
 
 interface BenchmarkCandidate {
   readonly name: string;
-  readonly run: (testCase: BenchmarkCase) => Promise<BivariatePolynomialBuffer>;
-  readonly temporaryBytes: (testCase: BenchmarkCase, output: BivariatePolynomialBuffer) => number;
+  readonly run: (
+    testCase: BenchmarkCase,
+    runtime: StructuredBenchmarkRuntimes,
+  ) => Promise<BivariatePolynomialBuffer>;
+  readonly temporaryBytes: (
+    testCase: BenchmarkCase,
+    output: BivariatePolynomialBuffer,
+    runtime: StructuredBenchmarkRuntimes,
+  ) => number;
   readonly notes: string;
 }
 
 const CANDIDATES: readonly BenchmarkCandidate[] = [
   {
     name: "current-production",
+    run: async ({ factor, input }) =>
+      multiplyByLagrangeK0(input, factor.findDegree().xDegree + 1),
+    temporaryBytes: (testCase, output, runtime) =>
+      k0TemporaryBytes(
+        testCase.input.xSize,
+        testCase.input.ySize,
+        output.xSize,
+        testCase.input.field.byteLength,
+        runtime.workerCount,
+      ),
+    notes: "Current Y-column-sharded WASM recurrence followed by one primitive-parallel scaling pass.",
+  },
+  {
+    name: "legacy-generic-fft",
     run: async ({ factor, input }) => await factor.mul(input),
     temporaryBytes: (testCase, output) =>
       output.coefficients.byteLength
       + output.xSize * testCase.input.field.byteLength * 4,
-    notes: "Current per-Y-column FFT/IFFT path with accessor-based gather/scatter and cloned output.",
+    notes: "Legacy per-Y-column FFT/IFFT path with accessor-based gather/scatter and cloned output.",
   },
   {
     name: "candidate-a-sequential-raw-owned",
@@ -105,12 +136,54 @@ const CANDIDATES: readonly BenchmarkCandidate[] = [
     notes: "C+A combination: K0 sliding sums with direct byte views, per-output scaling, and owned output.",
   },
   {
-    name: "candidate-cab-k0-sliding-raw-owned-batch-scale",
+    name: "scalar-production-baseline",
     run: multiplyK0SlidingRawOwnedBatchScale,
     temporaryBytes: (testCase, output) =>
       output.coefficients.byteLength
       + output.ySize * testCase.input.field.byteLength,
-    notes: "C+A plus one primitive-parallel whole-output scaling pass after unscaled sliding sums.",
+    notes: "Retained pre-promotion JavaScript sliding recurrence plus primitive-parallel scaling.",
+  },
+  {
+    name: "candidate-wasm-single-task",
+    run: async ({ factor, input }, runtime) =>
+      multiplyK0WasmSingle(runtime, input, factor.findDegree().xDegree + 1),
+    temporaryBytes: (testCase, output) =>
+      k0TemporaryBytes(
+        testCase.input.xSize,
+        testCase.input.ySize,
+        output.xSize,
+        testCase.input.field.byteLength,
+        1,
+      ),
+    notes: "Diagnostics-only whole-loop K0 recurrence on a single-thread runtime, including the scaling pass.",
+  },
+  {
+    name: "candidate-wasm-one-worker",
+    run: async ({ factor, input }, runtime) =>
+      multiplyK0WasmOneWorker(runtime, input, factor.findDegree().xDegree + 1),
+    temporaryBytes: (testCase, output) =>
+      k0TemporaryBytes(
+        testCase.input.xSize,
+        testCase.input.ySize,
+        output.xSize,
+        testCase.input.field.byteLength,
+        1,
+      ),
+    notes: "Whole-loop K0 recurrence through one ffjavascript worker, including task copies and scaling.",
+  },
+  {
+    name: "worker-kernel-mirror",
+    run: async ({ factor, input }, runtime) =>
+      multiplyK0WasmWorkers(runtime, input, factor.findDegree().xDegree + 1),
+    temporaryBytes: (testCase, output, runtime) =>
+      k0TemporaryBytes(
+        testCase.input.xSize,
+        runtime.workerCount,
+        output.xSize,
+        testCase.input.field.byteLength,
+        testCase.input.ySize,
+      ),
+    notes: "Y-column-sharded K0 recurrence including compact shard copies, output assembly, and scaling.",
   },
 ];
 
@@ -118,15 +191,15 @@ let resultSink = 0;
 
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2));
-  const runtime = await createCurveRuntime();
+  const runtime = await createStructuredBenchmarkRuntimes();
 
   try {
     const candidates = CANDIDATES.filter((candidate) => options.candidateNames.has(candidate.name));
-    await runSmallParity(runtime.Fr, candidates);
+    await runSmallParity(runtime, candidates);
 
     const records: BenchmarkRecord[] = [];
     for (const shape of options.shapes) {
-      records.push(...await benchmarkShape(runtime.Fr, shape, options, candidates));
+      records.push(...await benchmarkShape(runtime, shape, options, candidates));
     }
 
     printRecords(records);
@@ -137,40 +210,41 @@ async function main(): Promise<void> {
 }
 
 async function benchmarkShape(
-  field: FieldRuntime,
+  runtime: StructuredBenchmarkRuntimes,
   shape: Shape,
   options: BenchmarkOptions,
   candidates: readonly BenchmarkCandidate[],
 ): Promise<BenchmarkRecord[]> {
-  const testCase = await createBenchmarkCase(field, shape, options.seed);
-  const baseline = await CANDIDATES[0].run(testCase);
+  const testCase = await createBenchmarkCase(runtime.field, shape, options.seed);
+  const baseline = await CANDIDATES[0].run(testCase, runtime);
   const outputBytes = baseline.coefficients.byteLength;
 
   for (const candidate of candidates.filter((candidate) => candidate.name !== CANDIDATES[0].name)) {
-    const actual = await candidate.run(testCase);
+    const actual = await candidate.run(testCase, runtime);
     assertPolynomialEqual(actual, baseline, `${formatShape(shape)} ${candidate.name}`);
   }
 
-  const timings = await measureCandidates(testCase, options, candidates);
+  const timings = await measureCandidates(runtime, testCase, options, candidates);
   return candidates.map((candidate) => ({
     candidate: candidate.name,
     shape: formatShape(shape),
     inputBytes: testCase.input.coefficients.byteLength + testCase.factor.coefficients.byteLength,
     outputBytes,
-    temporaryBytes: candidate.temporaryBytes(testCase, baseline),
+    temporaryBytes: candidate.temporaryBytes(testCase, baseline, runtime),
     notes: candidate.notes,
     ...timings.get(candidate.name)!,
   }));
 }
 
 async function measureCandidates(
+  runtime: StructuredBenchmarkRuntimes,
   testCase: BenchmarkCase,
   options: BenchmarkOptions,
   candidates: readonly BenchmarkCandidate[],
 ): Promise<ReadonlyMap<string, TimingSummary>> {
   for (let iteration = 0; iteration < options.warmup; iteration += 1) {
     for (const candidate of candidates) {
-      consumeResult(await candidate.run(testCase));
+      consumeResult(await candidate.run(testCase, runtime));
     }
   }
 
@@ -179,7 +253,7 @@ async function measureCandidates(
     const ordered = iteration % 2 === 0 ? candidates : [...candidates].reverse();
     for (const candidate of ordered) {
       const start = performance.now();
-      const result = await candidate.run(testCase);
+      const result = await candidate.run(testCase, runtime);
       samples.get(candidate.name)!.push(performance.now() - start);
       consumeResult(result);
     }
@@ -434,9 +508,10 @@ async function multiplyK0SlidingRawOwnedBatchScale(
 }
 
 async function runSmallParity(
-  field: FieldRuntime,
+  runtime: StructuredBenchmarkRuntimes,
   candidates: readonly BenchmarkCandidate[],
 ): Promise<void> {
+  const field = runtime.field;
   const shapes: readonly Shape[] = [
     { mI: 1, inputXSize: 1, inputYSize: 1 },
     { mI: 2, inputXSize: 4, inputYSize: 2 },
@@ -446,12 +521,12 @@ async function runSmallParity(
 
   for (const [index, shape] of shapes.entries()) {
     const testCase = await createBenchmarkCase(field, shape, 0x4b304f5241434c45n + BigInt(index));
-    const baseline = await CANDIDATES[0].run(testCase);
+    const baseline = await CANDIDATES[0].run(testCase, runtime);
     const oracle = directK0Convolution(testCase.input, shape.mI, baseline.xSize);
     assertPolynomialEqual(baseline, oracle, `${formatShape(shape)} current-production oracle`);
     for (const candidate of candidates.filter((candidate) => candidate.name !== CANDIDATES[0].name)) {
       assertPolynomialEqual(
-        await candidate.run(testCase),
+        await candidate.run(testCase, runtime),
         baseline,
         `${formatShape(shape)} ${candidate.name}`,
       );
