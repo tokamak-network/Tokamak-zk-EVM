@@ -26,6 +26,17 @@ Useful options:
 - `--json=tmp/timing/prover-init-benchmark.json`: structured report path.
 - `--markdown=tmp/timing/prover-init-benchmark.md`: human-readable report path.
 
+The sparse witness accumulation benchmark has a separate entry point:
+
+```bash
+npm run bench:prover-init:sparse
+```
+
+It compares the current per-entry JavaScript field loop with a packed CSR row-dot
+kernel in caller-thread WASM, one ffjavascript worker, and row-sharded workers.
+Its measured accumulation boundary includes active-wire and CSR packing, worker
+input transfer, kernel execution, result transfer, and output assembly.
+
 ## Promotion Rule
 
 Do not promote an init optimization candidate into production code from this benchmark alone. A production change must also pass full prover acceptance, generated-proof verification, and package distribution checks.
@@ -56,3 +67,21 @@ Interpretation:
 - Flat buffers help allocation and materialization, but the observed win is small and noisy.
 - Direct sparse active-wire access and row-major UVW writes are not sufficient standalone production candidates.
 - Parallel scheduling of independent ROU conversions was the strongest candidate in this diagnostic run, but the project owner discarded its production promotion. Retain this result only as historical benchmark evidence.
+
+## Sparse Witness Accumulation
+
+Fixture: `fixtures/small/runtime`. Worker count: `14`.
+
+| candidate | sparse accumulation | complete witness | parity |
+| --- | ---: | ---: | --- |
+| current per-entry JavaScript | 822.279 ms | 2.76 s | exact |
+| caller-thread WASM | 323.193 ms | 2.27 s | exact |
+| one ffjavascript worker | 328.331 ms | 2.16 s | exact |
+| 14 row-sharded workers | 529.133 ms | 2.55 s | exact |
+
+All candidates preserve entry order within each row and produce byte-identical
+`b`, `u`, `v`, `w`, and `r` witness polynomials. The packed WASM kernel is
+effective, but row sharding is not: these sparse matrices do not provide enough
+work per task to amortize repeated packing and worker transfer. Production
+promotion should therefore use one worker task per matrix rather than row
+sharding.
