@@ -569,6 +569,51 @@ and package inspection also passed; the 253-file package contains no
 
 Do not promote a candidate into production prover code from this benchmark alone. A production change must also pass the relevant operation parity check, native testing-mode-style prover diagnostics, full prover runtime verification, and package distribution checks.
 
+## Whole-Loop WASM Vanishing Division
+
+`bench-vanishing-division.ts` constructs exactly divisible numerators and
+measures the complete optimized vanishing-division boundary, including shape
+optimization, block-row extraction, task input copying, corrected numerator
+assembly, column extraction, and quotient assembly.
+
+```bash
+npm run bench:vanishing -- --cases=8192x512:4096x256,16384x512:4096x256 --iterations=3 --warmup=1 --json=tmp/timing/vanishing-division-representative.json
+```
+
+Representative medians:
+
+| numerator / vanishing degree | scalar JS | caller-thread WASM | one production worker | worker shards | worker reduction |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `8192x512 / 4096x256` | 1668.829 ms | 93.498 ms | 211.248 ms | 123.671 ms | 92.6% |
+| `16384x512 / 4096x256` | 3216.914 ms | 174.470 ms | 268.205 ms | 233.578 ms | 92.7% |
+
+The caller-thread result uses a diagnostics-only single-thread runtime and is
+not directly available to the production multi-thread runtime. Within the
+production runtime, worker shards beat one worker at both real prover shapes.
+Every candidate passes exact quotient-byte parity and reconstruction on small
+and representative cases. Conservative explicit-allocation bounds are 832 MiB
+and 1472 MiB respectively; they are not measured process peaks.
+
+Related commit: `72c8c379` (`Parallelize prover vanishing division`).
+
+Production shards X-block accumulation and Y quotient recurrence by local X
+rows, assembles the corrected first X block, then shards the X quotient
+recurrence by independent Y columns. Recurrence order inside each row or
+column remains unchanged.
+
+Integrated fixed-taxonomy timing:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.div_vanishing` | 5.701 s | 0.940 s | -4.761 s (-83.5%) |
+| prover stage total | 152.070 s | 147.400 s | -4.670 s |
+| total wall | 159.890 s | 154.850 s | -5.040 s |
+
+Polynomial parity, native testing-mode-style invariants, and Node proof
+verification passed. Chromium generated a 2408-byte proof in `150.46 s` and
+verified it in `19 ms`. Build and package inspection passed; the 253-file
+package contains no `test/`, `scripts/`, `fixtures/`, or `tmp/` paths.
+
 ## Initial Local Matrix
 
 Command:

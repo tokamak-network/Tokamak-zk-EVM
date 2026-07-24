@@ -1571,3 +1571,32 @@ Operation parity, native testing-mode-style invariants, and Node proof
 verification passed. Chromium generated a 2408-byte proof in `155.02 s` and
 verified it in `20 ms`. Build and package inspection passed; the 253-file
 package contains no `test/`, `scripts/`, `fixtures/`, or `tmp/` paths.
+
+## Whole-Loop WASM Vanishing Division
+
+Related commit: `72c8c379`.
+
+The accepted implementation preserves the native-style coefficient-domain
+recurrence while moving its complete row and column loops into backend-owned
+WASM. It shards X-block accumulation and the Y quotient by independent local
+X rows, then shards the X quotient by independent Y columns. Task copying and
+quotient assembly are included in the benchmark boundary.
+
+| numerator / vanishing degree | scalar JS | worker shards | reduction |
+| --- | ---: | ---: | ---: |
+| `8192x512 / 4096x256` | 1668.829 ms | 123.671 ms | 92.6% |
+| `16384x512 / 4096x256` | 3216.914 ms | 233.578 ms | 92.7% |
+
+Exact quotient parity and reconstruction passed. Integrated fixed-taxonomy
+timing:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.div_vanishing` | 5.701 s | 0.940 s | -4.761 s (-83.5%) |
+| prover stage total | 152.070 s | 147.400 s | -4.670 s |
+| total wall | 159.890 s | 154.850 s | -5.040 s |
+
+Polynomial parity, native testing-mode-style invariants, and Node proof
+verification passed. Chromium generated a 2408-byte proof in `150.46 s` and
+verified it in `19 ms`. Build and package inspection passed; the 253-file
+package contains no `test/`, `scripts/`, `fixtures/`, or `tmp/` paths.
