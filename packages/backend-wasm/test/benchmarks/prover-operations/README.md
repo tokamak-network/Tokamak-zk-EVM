@@ -1324,3 +1324,19 @@ when the increment has order dividing `ySize`; then its powers restart at each
 row in the row-major coefficient buffer. This holds for the prover's
 `omegaSMax^-1` rescale. It is not a generic replacement for arbitrary Y
 factors. No corresponding single batch-key sequence represents X rescaling.
+
+Production commit `9f35558c` applies direct subarray access to the three
+existing synchronous methods. It uses public batch-key scaling only for the
+copy/opening `omegaSMax^-1` Y rescale and opening `term10`.
+
+| integrated target | before | after | delta |
+| --- | ---: | ---: | ---: |
+| two Y root-cycle rescale events | 0.598 s | 0.247 s | -0.351 s |
+| opening `term10` scale | 0.269 s | 0.028 s | -0.241 s |
+| `field.operations` | 113.675 s | 111.487 s | -2.188 s |
+| prover stage total | 247.264 s | 245.206 s | -2.057 s |
+| total wall | 255.249 s | 253.738 s | -1.511 s |
+
+Chromium generated the proof in `236.67 s` and verified it in `19 ms`.
+Type checks, polynomial parity, testing-mode invariants, stage timing and
+generated-proof verification, build, and package-content inspection passed.

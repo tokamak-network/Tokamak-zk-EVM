@@ -1165,6 +1165,65 @@ in `22 ms`. Type checks, testing-mode invariants, stage timing and generated
 proof verification, build, Chromium verification, and package inspection
 passed.
 
+## Coefficient Rescale and Batch-Key Scaling
+
+Benchmark commit: `1f789b58` (`Benchmark coefficient rescale paths`).
+
+Production commit: `9f35558c` (`Optimize polynomial coefficient scaling`).
+
+Candidate result:
+
+- Validated-once direct subarray loops improved the complete uniform/X/Y
+  scaling paths at both `4096x256` and `8192x512`.
+- Public ffjavascript batch-key scaling reduced representative uniform and Y
+  root-cycle scaling by about one order of magnitude.
+- Exact byte parity passed for all candidates.
+- Y batch scaling is restricted to factors whose order divides `ySize`; the
+  production `omegaSMax^-1` factors satisfy this requirement.
+
+Production change:
+
+- `scaleAssign`, `scaleCoeffsXAssign`, and `scaleCoeffsYAssign` now validate
+  their owned coefficient buffer once and use direct element subarrays.
+- Copy and opening use `batchApplyKeyBuffer(...)` for the
+  `omegaSMax^-1` Y rescale.
+- Opening uses `batchApplyKeyBuffer(...)` for the uniform `term10` scale.
+- Generic Y factors and all X rescaling remain on explicit loops.
+
+Integrated target comparison:
+
+| target event set | before | after | delta |
+| --- | ---: | ---: | ---: |
+| two Y root-cycle rescale events | 0.598 s | 0.247 s | -0.351 s |
+| opening `term10` scale | 0.269 s | 0.028 s | -0.241 s |
+
+Standalone stage-timing comparison:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_without_multiplication` | 54.09 s | 53.42 s | -0.67 s |
+| `polynomial.combination_with_multiplication` | 35.79 s | 34.82 s | -0.97 s |
+| `field.operations` | 113.67 s | 111.49 s | -2.19 s |
+| encode | 135.71 s | 135.98 s | +0.27 s |
+| prover stage total | 247.26 s | 245.21 s | -2.06 s |
+| total wall | 255.25 s | 253.74 s | -1.51 s |
+
+Chromium proof generation completed in `236.67 s`, and verification completed
+in `19 ms`.
+
+Verification:
+
+- `npm run typecheck` passed.
+- `npm run typecheck:scripts` passed.
+- `npm run polynomial:buffer:check` passed.
+- `npm run prover:ops:polynomial` passed.
+- `npm run prover:testing-mode:check` passed.
+- `npm run prover:stage-timing:check` passed and verified the generated proof.
+- `npm run build` passed.
+- `npm run prover:browser:check` passed.
+- `npm pack --dry-run --json` passed with 249 files and no test, script,
+  temporary, benchmark, or diagnostics paths.
+
 ## Superseded Old-Taxonomy Comparison
 
 The old comparison below is preserved only as historical context. It must not be used as the active timing table because it used add/sub/mul/scale rows that are no longer part of the accepted taxonomy.
