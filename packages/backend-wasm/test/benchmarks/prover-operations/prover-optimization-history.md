@@ -1737,3 +1737,36 @@ Type checks, polynomial operation parity, native testing-mode-style
 invariants, build, Chromium proof generation (`141.14 s`) and verification
 (`19 ms`), and package-content inspection passed. The package contains 253
 files and no `test/`, `scripts/`, or `tmp/` paths.
+
+## Whole-Loop WASM Fused Linear-Plus-Scaled Terms
+
+Related commit: `a3773077` (`Parallelize fused linear polynomial terms`).
+
+The copy-quotient inner terms retain the exact expression
+`linearFactor(rD) + rR*gD`. A backend-owned WASM kernel now computes the two
+linear-factor terms and scaled addend in one coefficient pass. Independent
+output X rows are compactly worker-sharded. Existing optimized `(X-1)` and
+Lagrange-K0 consumers remain separate and unchanged.
+
+| boundary at `4096x256` | current production | JavaScript fused | caller WASM | one worker | workers |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| X inner | 754.556 ms | 925.724 ms | 239.414 ms | 252.929 ms | 40.309 ms |
+| X term2 | 830.353 ms | 1000.764 ms | 316.310 ms | 330.689 ms | 117.073 ms |
+| X term3 | 915.441 ms | 1089.552 ms | 407.537 ms | 416.774 ms | 205.370 ms |
+| Y inner | 762.490 ms | 938.908 ms | 242.006 ms | 256.952 ms | 40.763 ms |
+| Y term2 | 896.942 ms | 1061.334 ms | 366.318 ms | 378.837 ms | 172.301 ms |
+| Y term3 | 1017.897 ms | 1189.820 ms | 508.863 ms | 516.720 ms | 305.647 ms |
+
+Zero, unit, and non-unit addend scales pass exact output bytes for both axes
+and both complete consumers.
+
+| integrated timing row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_without_multiplication` | 8.73 s | 5.40 s | -3.33 s |
+| prover stage total | 137.89 s | 134.99 s | -2.90 s |
+| total wall | 145.26 s | 143.06 s | -2.20 s |
+
+Type checks, polynomial operation parity, native testing-mode-style
+invariants, build, Chromium proof generation (`137.57 s`) and verification
+(`18 ms`), and package-content inspection passed. The package contains 253
+files and no `test/`, `scripts/`, or `tmp/` paths.

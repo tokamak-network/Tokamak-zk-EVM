@@ -1639,3 +1639,27 @@ Integrated `polynomial.combination_with_multiplication` decreased from
 `21.71 s` to `17.91 s`, prover stage total from `141.18 s` to `137.89 s`, and
 total wall from `148.72 s` to `145.26 s`. Chromium generated a 2408-byte proof
 in `141.14 s` and verified it in `19 ms`.
+
+## Whole-Loop WASM Fused Linear-Plus-Scaled Terms
+
+`bench-copy-linear-fusion.ts` compares the current two-boundary construction
+`linearFactor(rD) + scale*gD` with a JavaScript fused loop, caller-thread
+WASM, one production worker, and X-row-sharded workers. The benchmark checks
+the fused inner result and the complete `(X-1)` term2 and Lagrange-K0 term3
+consumers. Zero, unit, and non-unit addend scales pass exact byte parity.
+
+| boundary at `4096x256` | current production | JavaScript fused | caller WASM | one worker | workers |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| X inner | 754.556 ms | 925.724 ms | 239.414 ms | 252.929 ms | 40.309 ms |
+| X term2 | 830.353 ms | 1000.764 ms | 316.310 ms | 330.689 ms | 117.073 ms |
+| X term3 | 915.441 ms | 1089.552 ms | 407.537 ms | 416.774 ms | 205.370 ms |
+| Y inner | 762.490 ms | 938.908 ms | 242.006 ms | 256.952 ms | 40.763 ms |
+| Y term2 | 896.942 ms | 1061.334 ms | 366.318 ms | 378.837 ms | 172.301 ms |
+| Y term3 | 1017.897 ms | 1189.820 ms | 508.863 ms | 516.720 ms | 305.647 ms |
+
+Production commit `a3773077` promotes only the fused inner kernel; existing
+term2 and K0 term3 consumers remain separate optimized operations. Integrated
+`polynomial.combination_without_multiplication` decreased from `8.73 s` to
+`5.40 s`, prover stage total from `137.89 s` to `134.99 s`, and total wall
+from `145.26 s` to `143.06 s`. Chromium generated a 2408-byte proof in
+`137.57 s` and verified it in `18 ms`.
