@@ -1586,3 +1586,29 @@ Production commit `49448d7c` promotes this path. Integrated
 `23.38 s`, prover stage total from `147.92 s` to `143.76 s`, and total wall
 from `155.67 s` to `151.46 s`. Chromium generated a 2408-byte proof in
 `146.82 s` and verified it in `18 ms`.
+
+## Whole-Loop WASM Lagrange KL Recurrences
+
+The KL extension preserves direct KL construction, the accepted weighted
+sliding formulas, and final batch scaling. It moves the X recurrence into
+WASM and partitions independent Y columns, then moves the Y recurrence into
+WASM and partitions independent X rows. Compact input shards, intermediate
+assembly, row shards, final output assembly, and scaling are inside the
+measured boundary.
+
+| boundary at `4096x256` | JavaScript production | caller WASM | one worker | workers |
+| --- | ---: | ---: | ---: | ---: |
+| KL multiplication | 2425.599 ms | 1156.151 ms | 683.929 ms | 198.416 ms |
+| KL construction plus multiplication | 2621.620 ms | 1365.213 ms | 906.783 ms | 401.267 ms |
+
+The selected worker recurrence reduced multiplication by `91.8%`. Its
+explicit algorithm-owned temporary bound is approximately `480 MiB`, compared
+with `192 MiB` for the JavaScript recurrence. The increase consists of compact
+X shards, the assembled intermediate, contiguous Y row shards, and assembled
+output; no worker receives the full source polynomial.
+
+Production commit `f28a5c7a` promotes this path. Integrated
+`polynomial.combination_with_multiplication` decreased from `23.38 s` to
+`21.71 s`, prover stage total from `143.76 s` to `141.18 s`, and total wall
+from `151.46 s` to `148.72 s`. Chromium generated a 2408-byte proof in
+`144.49 s` and verified it in `19 ms`.
