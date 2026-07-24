@@ -1612,3 +1612,30 @@ Production commit `f28a5c7a` promotes this path. Integrated
 `21.71 s`, prover stage total from `143.76 s` to `141.18 s`, and total wall
 from `151.46 s` to `148.72 s`. Chromium generated a 2408-byte proof in
 `144.49 s` and verified it in `19 ms`.
+
+## Whole-Loop WASM Special-Form Products
+
+The Priority 24G special-form extension compares the retained JavaScript
+implementations with caller-thread WASM, one production worker, and
+X-row-sharded workers. The measured boundary includes compact source-row
+copies, worker transfer, output transfer, and row-major output assembly.
+Every candidate passed exact byte parity for zero, sparse, edge, and
+representative inputs.
+
+| operation at `4096x256` | JavaScript production | caller WASM | one worker | workers |
+| --- | ---: | ---: | ---: | ---: |
+| `(X-1)P` | 169.322 ms | 10.027 ms | 17.961 ms | 9.784 ms |
+| `(1-X)P` | 170.662 ms | 10.425 ms | 18.025 ms | 8.337 ms |
+| X-linear product | 545.703 ms | 158.164 ms | 163.244 ms | 27.081 ms |
+| Y-linear product | 552.593 ms | 159.696 ms | 168.202 ms | 28.146 ms |
+| term9 product | 887.635 ms | 244.078 ms | 253.412 ms | 38.896 ms |
+
+Production commit `8fa5174d` promotes the worker kernels. The runtime shards
+only the active X-row range and includes the immediately preceding source row
+when an X-shifted term needs it; it does not copy the complete polynomial to
+every worker.
+
+Integrated `polynomial.combination_with_multiplication` decreased from
+`21.71 s` to `17.91 s`, prover stage total from `141.18 s` to `137.89 s`, and
+total wall from `148.72 s` to `145.26 s`. Chromium generated a 2408-byte proof
+in `141.14 s` and verified it in `19 ms`.

@@ -1704,3 +1704,36 @@ invariants, Node proof generation and verifier acceptance, build, Chromium
 proof generation (`144.49 s`) and verification (`19 ms`), and package-content
 inspection passed. The package contains 253 files and no `test/`, `scripts/`,
 `fixtures/`, or `tmp/` paths.
+
+## Whole-Loop WASM Special-Form Products
+
+Related commit: `8fa5174d` (`Parallelize special-form polynomial products`).
+
+The accepted algebraic formulas for `(X-1)P`, `(1-X)P`, X/Y linear products,
+and term9 remain unchanged. Backend-owned WASM kernels now execute each
+complete active coefficient loop. The production runtime partitions active
+output X rows across ffjavascript workers, gives each shard only its required
+source rows plus the preceding row needed by X-shifted terms, and assembles
+the row-major result. Input preparation, transfer, result transfer, and
+assembly are included in the benchmark.
+
+| operation at `4096x256` | JavaScript production | caller WASM | one worker | workers |
+| --- | ---: | ---: | ---: | ---: |
+| `(X-1)P` | 169.322 ms | 10.027 ms | 17.961 ms | 9.784 ms |
+| `(1-X)P` | 170.662 ms | 10.425 ms | 18.025 ms | 8.337 ms |
+| X-linear product | 545.703 ms | 158.164 ms | 163.244 ms | 27.081 ms |
+| Y-linear product | 552.593 ms | 159.696 ms | 168.202 ms | 28.146 ms |
+| term9 product | 887.635 ms | 244.078 ms | 253.412 ms | 38.896 ms |
+
+Exact byte parity passed for zero, sparse, edge, and representative inputs.
+
+| integrated timing row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_with_multiplication` | 21.71 s | 17.91 s | -3.80 s |
+| prover stage total | 141.18 s | 137.89 s | -3.29 s |
+| total wall | 148.72 s | 145.26 s | -3.46 s |
+
+Type checks, polynomial operation parity, native testing-mode-style
+invariants, build, Chromium proof generation (`141.14 s`) and verification
+(`19 ms`), and package-content inspection passed. The package contains 253
+files and no `test/`, `scripts/`, or `tmp/` paths.
