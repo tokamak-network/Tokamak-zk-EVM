@@ -67,6 +67,25 @@ The runner enforces:
 - `classified operation time <= total wall time + tolerance`.
 - `unclassified prover time >= -tolerance`.
 
+## Same-Code Post-Reboot Timing Refresh
+
+The post-Priority-23 timing run was repeated after a system reboot without a
+code change. This separates system-state variation from deterministic encoder
+regression.
+
+| row | before reboot | after reboot | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.encode` | 129.95 s | 115.70 s | -14.25 s |
+| `binding.encode` | 2.19 s | 2.14 s | -0.05 s |
+| encode | 132.14 s | 117.84 s | -14.29 s (-10.8%) |
+| `field.operations` | 69.62 s | 61.96 s | -7.65 s (-11.0%) |
+| total wall | 207.99 s | 186.31 s | -21.68 s (-10.4%) |
+
+The after-reboot encode total differs by only `0.52%` from the valid earlier
+current-taxonomy result of `117.23 s`. No encode implementation changed
+between these two runs, so the elevated pre-reboot value is not treated as a
+code regression.
+
 ## Timing Taxonomy Extension For Recursion And Evaluation
 
 Related commit: `800516da Add recursion and evaluation timing rows`.
@@ -1314,3 +1333,69 @@ Acceptance results:
 - type checks, build, and package dry-run passed;
 - package inspection found no `test/`, `scripts/`, or `tmp/` paths in the
   published file list.
+
+## Whole-Buffer WASM Pointwise Multiplication
+
+Related commit: this commit.
+
+The remaining general and omega-shifted multiplication paths invoked one
+JavaScript-to-WASM field multiplication per evaluation element. The accepted
+implementation exports wasmcurves' existing `frm_batchMul` and adds one
+layout-aware shifted multiplication kernel through the backend-owned
+ffjavascript plugin. Both runtime methods shard disjoint inputs through the
+existing ffjavascript thread manager and include worker input copies and
+output assembly.
+
+Representative `4096x256` end-to-end benchmark:
+
+| workload | retained scalar | single-task WASM | worker-sharded WASM | accepted reduction |
+| --- | ---: | ---: | ---: | ---: |
+| generic product | 5178.222 ms | 4516.056 ms | 4304.207 ms | 16.9% |
+| three shifted products | 11676.935 ms | 9629.446 ms | 8818.729 ms | 24.5% |
+
+The generic benchmark's isolated pointwise stage measured `958.958 ms` for
+the retained scalar loop, `322.108 ms` for one WASM task, and `68.986 ms` for
+worker-sharded WASM. Every candidate passed small-domain independent parity
+and complete inverse-NTT byte parity.
+
+Integrated fixed-taxonomy comparison against the same-code post-reboot
+baseline:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `prove0.p0XY.mul` | 6.157 s | 5.023 s | -1.134 s (-18.4%) |
+| `prove2.omega_shifted_products` | 13.085 s | 10.464 s | -2.621 s (-20.0%) |
+| `polynomial.combination_with_multiplication` | 31.479 s | 27.627 s | -3.852 s (-12.2%) |
+| `field.operations` | 61.965 s | 57.607 s | -4.358 s (-7.0%) |
+| encode | 117.843 s | 116.254 s | -1.589 s |
+| prover stage total | 177.669 s | 171.893 s | -5.776 s |
+| total wall | 186.308 s | 179.505 s | -6.803 s (-3.7%) |
+
+Only the first three rows are direct optimization targets. Encode variation
+is reported for transparency and is not attributed to pointwise
+multiplication.
+
+Production scope:
+
+- generic `BivariatePolynomialBuffer.mul(...)` uses worker-sharded
+  `batchMulBuffer(...)`;
+- omega-shifted products use `batchMulShiftedBuffer(...)`, which reads shifted
+  Y indices in WASM and copies only each worker's shifted X-row shard;
+- scalar field methods, specialized X/Y univariate products, K0/KL products,
+  binary formats, transcript bytes, and verifier logic are unchanged;
+- the production call-site audit found no prover hot path invoking generic
+  X-only or Y-only `BivariatePolynomialBuffer.mul(...)`; those specialized
+  structured kernels remain in their dedicated benchmark campaign.
+
+Verification:
+
+- field-buffer, polynomial-buffer, prover polynomial, and commitment parity
+  checks passed;
+- native testing-mode-style arithmetic, recursion, copy quotient, and opening
+  invariants passed;
+- Node stage timing generated a proof accepted by the verifier;
+- Chromium generated a 2408-byte proof in `172.55 s` and verified it in
+  `18 ms`;
+- type checks and build passed;
+- package dry-run contained 253 files and no `test/`, `scripts/`, or `tmp/`
+  paths.

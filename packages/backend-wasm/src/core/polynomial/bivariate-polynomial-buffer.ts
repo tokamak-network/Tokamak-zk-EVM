@@ -370,17 +370,7 @@ export class BivariatePolynomialBuffer {
 
     const leftEvals = await resizeForMultiplication(this, xSize, ySize).toRouEvals();
     const rightEvals = await resizeForMultiplication(other, xSize, ySize).toRouEvals();
-    const outputEvals = new Uint8Array(leftEvals.byteLength);
-
-    for (let offset = 0; offset < leftEvals.byteLength; offset += this.field.byteLength) {
-      outputEvals.set(
-        this.field.mul(
-          leftEvals.subarray(offset, offset + this.field.byteLength),
-          rightEvals.subarray(offset, offset + this.field.byteLength),
-        ),
-        offset,
-      );
-    }
+    const outputEvals = await this.field.batchMulBuffer(leftEvals, rightEvals);
 
     return await BivariatePolynomialBuffer.fromRouEvals(this.field, outputEvals, xSize, ySize);
   }

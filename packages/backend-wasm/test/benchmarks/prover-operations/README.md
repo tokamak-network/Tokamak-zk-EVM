@@ -294,6 +294,12 @@ Chromium generated the 2408-byte proof in `226.78 s` and verified it in
 Node proof generation and verification, stage timing, build, browser
 verification, and package-content inspection pass.
 
+The later whole-buffer WASM multiplication campaign retained the scalar
+shifted implementation as its baseline. At `4096x256`, the scalar path
+measured `11676.935 ms`, the single-task WASM path measured `9629.446 ms`, and
+the worker-sharded production path measured `8818.729 ms`. The promoted path
+is `24.5%` faster than the scalar baseline.
+
 ## Generic Multiplication Buffer Benchmark
 
 `bench-generic-multiplication-buffers.ts` isolates the remaining standalone
@@ -353,6 +359,13 @@ Integrated stage timing:
 
 Only the `prove0.p0XY.mul` row is the direct production effect. Smaller
 changes in unrelated rows are run-to-run variation.
+
+The later whole-buffer WASM multiplication campaign retained that scalar
+implementation as its baseline. At `4096x256`, the scalar path measured
+`5178.222 ms`, the single-task WASM path measured `4516.056 ms`, and the
+worker-sharded production path measured `4304.207 ms`. The promoted path is
+`16.9%` faster than the scalar baseline. Isolated pointwise multiplication
+measured `958.958 ms`, `322.108 ms`, and `68.986 ms`, respectively.
 
 Chromium generated the 2408-byte proof in `226.13 s` and verified it in
 `24 ms`. Type checks, operation parity, native testing-mode-style diagnostics,

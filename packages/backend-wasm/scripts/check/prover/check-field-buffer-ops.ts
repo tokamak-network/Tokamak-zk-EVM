@@ -75,6 +75,23 @@ async function checkFieldBufferOps(field: FieldRuntime): Promise<void> {
   );
   assertFields(
     field,
+    field.split(await field.batchMulBuffer(buffer, otherBuffer)),
+    values.map((value, index) => field.mul(value, otherValues[index])),
+    "batchMulBuffer",
+  );
+  assertFields(
+    field,
+    field.split(await field.batchMulShiftedBuffer(buffer, otherBuffer, 2, 2, -1, -1)),
+    [
+      field.mul(values[3], otherValues[0]),
+      field.mul(values[2], otherValues[1]),
+      field.mul(values[1], otherValues[2]),
+      field.mul(values[0], otherValues[3]),
+    ],
+    "batchMulShiftedBuffer",
+  );
+  assertFields(
+    field,
     field.split(await field.batchScaleBuffer(buffer, firstKey)),
     values.map((value) => field.mul(value, firstKey)),
     "batchScaleBuffer",

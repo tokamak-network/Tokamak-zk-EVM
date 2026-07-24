@@ -4,10 +4,19 @@ import path from "node:path";
 
 import {
   BivariatePolynomialBuffer,
-  createCurveRuntime,
   type FieldRuntime,
 } from "../../../src/index.js";
 import { multiplyOmegaShiftedProducts } from "../../../src/prover/internal/polynomial-ops.js";
+import {
+  batchMultiplyOneTask,
+  batchMultiplyShiftedOneTask,
+  batchMultiplyShiftedWorkers,
+  batchMultiplyWorkers,
+  createPointwiseBenchmarkRuntimes,
+  type PointwiseBenchmarkRuntimes,
+} from "./pointwise-mul-benchmark-support.js";
+
+type Candidate = "retained-scalar-production" | "current-production" | "wasm-single-pointwise";
 
 interface Shape {
   readonly mI: number;
@@ -36,7 +45,7 @@ interface TimingSummary {
 }
 
 interface BenchmarkRecord extends TimingSummary {
-  readonly candidate: "current-production" | "shifted-rou-reuse";
+  readonly candidate: Candidate;
   readonly shape: string;
   readonly outputBytes: number;
   readonly temporaryBytesExcludingResults: number;
@@ -46,63 +55,61 @@ let resultSink = 0;
 
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2));
-  const runtime = await createCurveRuntime();
+  const runtimes = await createPointwiseBenchmarkRuntimes();
 
   try {
-    await checkSmallParity(runtime.Fr);
+    await checkSmallParity(runtimes);
     const records: BenchmarkRecord[] = [];
     for (const shape of options.shapes) {
-      records.push(...await benchmarkShape(runtime.Fr, shape, options));
+      records.push(...await benchmarkShape(runtimes, shape, options));
     }
     printRecords(records);
     await writeReport(options, records);
   } finally {
-    await runtime.terminate();
+    await runtimes.terminate();
   }
 }
 
 async function benchmarkShape(
-  field: FieldRuntime,
+  runtimes: PointwiseBenchmarkRuntimes,
   shape: Shape,
   options: Options,
 ): Promise<BenchmarkRecord[]> {
+  const field = runtimes.field;
   const r = deterministicPolynomial(field, shape, options.seed);
   const g = deterministicPolynomial(field, shape, options.seed + 1n);
   const f = deterministicPolynomial(field, shape, options.seed + 2n);
-  const rOmega = r.scaleCoeffsX(field.inv(field.rootOfUnity(shape.mI)));
-  const rOmegaOmega = rOmega.scaleCoeffsY(field.inv(field.rootOfUnity(shape.sMax)));
+  const expected = await shiftedRouProducts(r, g, f, shape.mI, shape.sMax);
+  const runs: Readonly<Record<Candidate, () => Promise<ProductTriplet>>> = {
+    "retained-scalar-production": async () =>
+      await scalarShiftedRouProducts(r, g, f, shape.mI, shape.sMax),
+    "current-production": async () => await shiftedRouProducts(r, g, f, shape.mI, shape.sMax),
+    "wasm-single-pointwise": async () =>
+      await batchShiftedRouProducts(r, g, f, shape.mI, shape.sMax, runtimes, "single"),
+  };
+  for (const [candidate, run] of Object.entries(runs) as [Candidate, () => Promise<ProductTriplet>][]) {
+    assertTripletEqual(await run(), expected, `${formatShape(shape)} ${candidate}`);
+  }
 
-  const current = await currentProducts(r, rOmega, rOmegaOmega, g, f);
-  const candidate = await shiftedRouProducts(r, g, f, shape.mI, shape.sMax);
-  assertTripletEqual(candidate, current, `${formatShape(shape)} candidate`);
-
-  const summaries = await measureAlternating(
-    options,
-    async () => await currentProducts(r, rOmega, rOmegaOmega, g, f),
-    async () => await shiftedRouProducts(r, g, f, shape.mI, shape.sMax),
-  );
+  const summaries = await measureCandidates(options, runs);
   const resultBytes =
-    current.rG.coefficients.byteLength
-    + current.rOmegaF.coefficients.byteLength
-    + current.rOmegaOmegaF.coefficients.byteLength;
-  const domainBytes = current.rG.coefficients.byteLength;
+    expected.rG.coefficients.byteLength
+    + expected.rOmegaF.coefficients.byteLength
+    + expected.rOmegaOmegaF.coefficients.byteLength;
+  const domainBytes = expected.rG.coefficients.byteLength;
 
-  return [
-    {
-      candidate: "current-production",
-      shape: formatShape(shape),
-      outputBytes: resultBytes,
-      temporaryBytesExcludingResults: domainBytes * 3,
-      ...summaries.current,
-    },
-    {
-      candidate: "shifted-rou-reuse",
-      shape: formatShape(shape),
-      outputBytes: resultBytes,
-      temporaryBytesExcludingResults: domainBytes * 3,
-      ...summaries.candidate,
-    },
-  ];
+  return (Object.keys(runs) as Candidate[]).map((candidate) => ({
+    candidate,
+    shape: formatShape(shape),
+    outputBytes: resultBytes,
+    temporaryBytesExcludingResults:
+      candidate === "retained-scalar-production"
+        ? domainBytes * 3
+        : candidate === "wasm-single-pointwise"
+          ? domainBytes * 5
+          : domainBytes * 6,
+    ...summaries.get(candidate)!,
+  }));
 }
 
 async function currentProducts(
@@ -146,6 +153,93 @@ async function shiftedRouProducts(
   return { rG, rOmegaF, rOmegaOmegaF };
 }
 
+async function scalarShiftedRouProducts(
+  r: BivariatePolynomialBuffer,
+  g: BivariatePolynomialBuffer,
+  f: BivariatePolynomialBuffer,
+  mI: number,
+  sMax: number,
+): Promise<ProductTriplet> {
+  const shape = multiplicationShape(r, g);
+  const fShape = multiplicationShape(r, f);
+  if (shape.xSize !== fShape.xSize || shape.ySize !== fShape.ySize) {
+    throw new Error("Scalar shifted products must have matching output shapes.");
+  }
+  const { xSize, ySize } = shape;
+  const baseEvals = await r.resize(xSize, ySize).toRouEvals();
+  const gEvals = await g.resize(xSize, ySize).toRouEvals();
+  const fEvals = await f.resize(xSize, ySize).toRouEvals();
+  const xShift = -(xSize / mI);
+  const yShift = -(ySize / sMax);
+  const rG = await productFromShiftedEvals(r.field, baseEvals, gEvals, xSize, ySize, 0, 0);
+  const rOmegaF = await productFromShiftedEvals(r.field, baseEvals, fEvals, xSize, ySize, xShift, 0);
+  const rOmegaOmegaF = await productFromShiftedEvals(
+    r.field,
+    baseEvals,
+    fEvals,
+    xSize,
+    ySize,
+    xShift,
+    yShift,
+  );
+  return { rG, rOmegaF, rOmegaOmegaF };
+}
+
+async function batchShiftedRouProducts(
+  r: BivariatePolynomialBuffer,
+  g: BivariatePolynomialBuffer,
+  f: BivariatePolynomialBuffer,
+  mI: number,
+  sMax: number,
+  runtimes: PointwiseBenchmarkRuntimes,
+  mode: "single" | "workers",
+): Promise<ProductTriplet> {
+  const shape = multiplicationShape(r, g);
+  const fShape = multiplicationShape(r, f);
+  if (shape.xSize !== fShape.xSize || shape.ySize !== fShape.ySize) {
+    throw new Error("Shifted pointwise benchmark products must have matching output shapes.");
+  }
+  const { xSize, ySize } = shape;
+  const baseEvals = await r.resize(xSize, ySize).toRouEvals();
+  const gEvals = await g.resize(xSize, ySize).toRouEvals();
+  const fEvals = await f.resize(xSize, ySize).toRouEvals();
+  const xShift = -(xSize / mI);
+  const yShift = -(ySize / sMax);
+  const rawField = mode === "single" ? runtimes.singleField : runtimes.multiField;
+  const multiply = mode === "single" ? batchMultiplyOneTask : batchMultiplyWorkers;
+  const multiplyShifted =
+    mode === "single" ? batchMultiplyShiftedOneTask : batchMultiplyShiftedWorkers;
+
+  const rGEvals = await multiply(rawField, baseEvals, gEvals);
+  const rOmegaFEvals = await multiplyShifted(
+    rawField,
+    baseEvals,
+    fEvals,
+    xSize,
+    ySize,
+    xShift,
+    0,
+  );
+  const rOmegaOmegaFEvals = await multiplyShifted(
+    rawField,
+    baseEvals,
+    fEvals,
+    xSize,
+    ySize,
+    xShift,
+    yShift,
+  );
+  const rG = await BivariatePolynomialBuffer.fromRouEvals(r.field, rGEvals, xSize, ySize);
+  const rOmegaF = await BivariatePolynomialBuffer.fromRouEvals(r.field, rOmegaFEvals, xSize, ySize);
+  const rOmegaOmegaF = await BivariatePolynomialBuffer.fromRouEvals(
+    r.field,
+    rOmegaOmegaFEvals,
+    xSize,
+    ySize,
+  );
+  return { rG, rOmegaF, rOmegaOmegaF };
+}
+
 async function productFromShiftedEvals(
   field: FieldRuntime,
   leftEvals: Uint8Array,
@@ -177,7 +271,8 @@ async function productFromShiftedEvals(
   return await BivariatePolynomialBuffer.fromRouEvals(field, output, xSize, ySize);
 }
 
-async function checkSmallParity(field: FieldRuntime): Promise<void> {
+async function checkSmallParity(runtimes: PointwiseBenchmarkRuntimes): Promise<void> {
+  const field = runtimes.field;
   for (const shape of [{ mI: 2, sMax: 2 }, { mI: 4, sMax: 2 }, { mI: 4, sMax: 4 }]) {
     const r = deterministicPolynomial(field, shape, 0x524f55504152495459n);
     const g = deterministicPolynomial(field, shape, 0x524f5550415249545an);
@@ -218,6 +313,16 @@ async function checkSmallParity(field: FieldRuntime): Promise<void> {
       await currentProducts(r, rOmega, rOmegaOmega, g, f),
       `${formatShape(shape)} products`,
     );
+    assertTripletEqual(
+      await batchShiftedRouProducts(r, g, f, shape.mI, shape.sMax, runtimes, "single"),
+      await shiftedRouProducts(r, g, f, shape.mI, shape.sMax),
+      `${formatShape(shape)} single-task WASM products`,
+    );
+    assertTripletEqual(
+      await batchShiftedRouProducts(r, g, f, shape.mI, shape.sMax, runtimes, "workers"),
+      await shiftedRouProducts(r, g, f, shape.mI, shape.sMax),
+      `${formatShape(shape)} worker WASM products`,
+    );
   }
 }
 
@@ -242,31 +347,26 @@ function assertShiftedEvalsEqual(
   }
 }
 
-async function measureAlternating(
+async function measureCandidates(
   options: Options,
-  current: () => Promise<ProductTriplet>,
-  candidate: () => Promise<ProductTriplet>,
-): Promise<{ readonly current: TimingSummary; readonly candidate: TimingSummary }> {
+  runs: Readonly<Record<Candidate, () => Promise<ProductTriplet>>>,
+): Promise<ReadonlyMap<Candidate, TimingSummary>> {
+  const candidates = Object.keys(runs) as Candidate[];
   for (let index = 0; index < options.warmup; index += 1) {
-    consume(await current());
-    consume(await candidate());
-  }
-
-  const currentSamples: number[] = [];
-  const candidateSamples: number[] = [];
-  for (let index = 0; index < options.iterations; index += 1) {
-    if (index % 2 === 0) {
-      currentSamples.push(await timed(current));
-      candidateSamples.push(await timed(candidate));
-    } else {
-      candidateSamples.push(await timed(candidate));
-      currentSamples.push(await timed(current));
+    for (const candidate of candidates) {
+      consume(await runs[candidate]());
     }
   }
-  return {
-    current: summarize(currentSamples),
-    candidate: summarize(candidateSamples),
-  };
+
+  const samples = new Map<Candidate, number[]>(candidates.map((candidate) => [candidate, []]));
+  for (let iteration = 0; iteration < options.iterations; iteration += 1) {
+    const offset = iteration % candidates.length;
+    for (let index = 0; index < candidates.length; index += 1) {
+      const candidate = candidates[(index + offset) % candidates.length];
+      samples.get(candidate)?.push(await timed(runs[candidate]));
+    }
+  }
+  return new Map(candidates.map((candidate) => [candidate, summarize(samples.get(candidate)!)]));
 }
 
 async function timed(run: () => Promise<ProductTriplet>): Promise<number> {
@@ -400,6 +500,34 @@ function summarize(samples: readonly number[]): TimingSummary {
 
 function modulo(value: number, modulus: number): number {
   return ((value % modulus) + modulus) % modulus;
+}
+
+function multiplicationShape(
+  left: BivariatePolynomialBuffer,
+  right: BivariatePolynomialBuffer,
+): { readonly xSize: number; readonly ySize: number } {
+  const leftDegree = left.findDegree();
+  const rightDegree = right.findDegree();
+  if (
+    leftDegree.xDegree < 0
+    || leftDegree.yDegree < 0
+    || rightDegree.xDegree < 0
+    || rightDegree.yDegree < 0
+  ) {
+    throw new Error("Shifted pointwise benchmark inputs must be non-zero.");
+  }
+  return {
+    xSize: nextPowerOfTwo(leftDegree.xDegree + rightDegree.xDegree + 1),
+    ySize: nextPowerOfTwo(leftDegree.yDegree + rightDegree.yDegree + 1),
+  };
+}
+
+function nextPowerOfTwo(value: number): number {
+  let result = 1;
+  while (result < value) {
+    result *= 2;
+  }
+  return result;
 }
 
 function formatShape(shape: Shape): string {

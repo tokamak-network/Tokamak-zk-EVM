@@ -1,9 +1,11 @@
 export const FIELD_BATCH_ADD = "frm_batchAdd";
 export const FIELD_BATCH_SUB = "frm_batchSub";
+export const FIELD_BATCH_MUL = "frm_batchMul";
 export const FIELD_BATCH_ADD_SCALED = "tokamak_frm_batchAddScaled";
 export const FIELD_BATCH_ADD_SCALED_PREFIX = "tokamak_frm_batchAddScaledPrefix";
 export const FIELD_BATCH_SCALE_X = "tokamak_frm_batchScaleX";
 export const FIELD_BATCH_SCALE_Y = "tokamak_frm_batchScaleY";
+export const FIELD_BATCH_MUL_SHIFTED = "tokamak_frm_batchMulShifted";
 
 interface WasmCodeBuilder {
   i32_const(value: number): unknown;
@@ -12,6 +14,7 @@ interface WasmCodeBuilder {
   i32_add(left: unknown, right: unknown): unknown;
   i32_sub(left: unknown, right: unknown): unknown;
   i32_mul(left: unknown, right: unknown): unknown;
+  i32_rem_u(left: unknown, right: unknown): unknown;
   i32_eq(left: unknown, right: unknown): unknown;
   call(name: string, ...params: unknown[]): unknown;
   br(depth: number): unknown;
@@ -36,10 +39,12 @@ export interface WasmModuleBuilder {
 export function installLinearBatchPlugin(module: WasmModuleBuilder): void {
   module.exportFunction(FIELD_BATCH_ADD);
   module.exportFunction(FIELD_BATCH_SUB);
+  module.exportFunction(FIELD_BATCH_MUL);
   buildAddScaledKernel(module);
   buildAddScaledPrefixKernel(module);
   buildScaleXKernel(module);
   buildScaleYKernel(module);
+  buildShiftedMultiplyKernel(module);
 }
 
 function buildAddScaledKernel(module: WasmModuleBuilder): void {
@@ -207,4 +212,77 @@ function buildScaleYKernel(module: WasmModuleBuilder): void {
     ),
   );
   module.exportFunction(FIELD_BATCH_SCALE_Y);
+}
+
+function buildShiftedMultiplyKernel(module: WasmModuleBuilder): void {
+  const fn = module.addFunction(FIELD_BATCH_MUL_SHIFTED);
+  fn.addParam("pLeft", "i32");
+  fn.addParam("pRight", "i32");
+  fn.addParam("xSize", "i32");
+  fn.addParam("ySize", "i32");
+  fn.addParam("xShift", "i32");
+  fn.addParam("yShift", "i32");
+  fn.addParam("pOut", "i32");
+  fn.addLocal("x", "i32");
+  fn.addLocal("y", "i32");
+  fn.addLocal("sourceX", "i32");
+  fn.addLocal("sourceY", "i32");
+  fn.addLocal("source", "i32");
+  fn.addLocal("right", "i32");
+  fn.addLocal("out", "i32");
+  const code = fn.getCodeBuilder();
+  const elementBytes = code.i32_const(32);
+  fn.addCode(
+    code.setLocal("x", code.i32_const(0)),
+    code.setLocal("sourceX", code.getLocal("xShift")),
+    code.setLocal("right", code.getLocal("pRight")),
+    code.setLocal("out", code.getLocal("pOut")),
+    code.block(
+      code.loop(
+        code.br_if(1, code.i32_eq(code.getLocal("x"), code.getLocal("xSize"))),
+        code.setLocal("y", code.i32_const(0)),
+        code.setLocal("sourceY", code.getLocal("yShift")),
+        code.block(
+          code.loop(
+            code.br_if(1, code.i32_eq(code.getLocal("y"), code.getLocal("ySize"))),
+            code.setLocal(
+              "source",
+              code.i32_add(
+                code.getLocal("pLeft"),
+                code.i32_mul(
+                  code.i32_add(
+                    code.i32_mul(code.getLocal("sourceX"), code.getLocal("ySize")),
+                    code.getLocal("sourceY"),
+                  ),
+                  elementBytes,
+                ),
+              ),
+            ),
+            code.call("frm_mul", code.getLocal("source"), code.getLocal("right"), code.getLocal("out")),
+            code.setLocal(
+              "sourceY",
+              code.i32_rem_u(
+                code.i32_add(code.getLocal("sourceY"), code.i32_const(1)),
+                code.getLocal("ySize"),
+              ),
+            ),
+            code.setLocal("right", code.i32_add(code.getLocal("right"), elementBytes)),
+            code.setLocal("out", code.i32_add(code.getLocal("out"), elementBytes)),
+            code.setLocal("y", code.i32_add(code.getLocal("y"), code.i32_const(1))),
+            code.br(0),
+          ),
+        ),
+        code.setLocal(
+          "sourceX",
+          code.i32_rem_u(
+            code.i32_add(code.getLocal("sourceX"), code.i32_const(1)),
+            code.getLocal("xSize"),
+          ),
+        ),
+        code.setLocal("x", code.i32_add(code.getLocal("x"), code.i32_const(1))),
+        code.br(0),
+      ),
+    ),
+  );
+  module.exportFunction(FIELD_BATCH_MUL_SHIFTED);
 }

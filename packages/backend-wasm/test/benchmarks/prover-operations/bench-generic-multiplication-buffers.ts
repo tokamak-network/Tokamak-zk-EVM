@@ -4,16 +4,24 @@ import path from "node:path";
 
 import {
   BivariatePolynomialBuffer,
-  createCurveRuntime,
   type FieldRuntime,
 } from "../../../src/index.js";
+import {
+  batchMultiplyOneTask,
+  batchMultiplyWorkers,
+  createPointwiseBenchmarkRuntimes,
+  type PointwiseBenchmarkRuntimes,
+} from "./pointwise-mul-benchmark-support.js";
 
 type Candidate =
   | "legacy-production"
+  | "retained-scalar-production"
   | "current-production"
   | "row-copy-padding"
   | "raw-pointwise"
-  | "combined";
+  | "combined"
+  | "wasm-single-pointwise"
+  | "wasm-worker-pointwise";
 type ProfileStage =
   | "degree-discovery"
   | "left-padding"
@@ -21,6 +29,8 @@ type ProfileStage =
   | "right-padding"
   | "right-forward-ntt"
   | "pointwise-multiplication"
+  | "pointwise-multiplication-wasm-single"
+  | "pointwise-multiplication-wasm-workers"
   | "inverse-ntt-and-output";
 
 interface Shape {
@@ -60,39 +70,40 @@ let resultSink = 0;
 
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2));
-  const runtime = await createCurveRuntime();
+  const runtimes = await createPointwiseBenchmarkRuntimes();
 
   try {
-    await checkSmallParity(runtime.Fr);
+    await checkSmallParity(runtimes);
     const benchmarkRecords: BenchmarkRecord[] = [];
     const profileRecords: ProfileRecord[] = [];
     for (const shape of options.shapes) {
-      const result = await benchmarkShape(runtime.Fr, shape, options);
+      const result = await benchmarkShape(runtimes, shape, options);
       benchmarkRecords.push(...result.benchmarks);
       profileRecords.push(...result.profiles);
     }
     printRecords(benchmarkRecords, profileRecords);
     await writeReport(options, benchmarkRecords, profileRecords);
   } finally {
-    await runtime.terminate();
+    await runtimes.terminate();
   }
 }
 
 async function benchmarkShape(
-  field: FieldRuntime,
+  runtimes: PointwiseBenchmarkRuntimes,
   shape: Shape,
   options: Options,
 ): Promise<{
   readonly benchmarks: readonly BenchmarkRecord[];
   readonly profiles: readonly ProfileRecord[];
 }> {
+  const field = runtimes.field;
   const left = deterministicPolynomial(field, shape, options.seed);
   const right = deterministicPolynomial(field, shape, options.seed + 1n);
   const expected = await left.mul(right);
 
   for (const candidate of options.candidates) {
     assertPolynomialEqual(
-      await runCandidate(candidate, left, right),
+      await runCandidate(candidate, left, right, runtimes),
       expected,
       `${formatShape(shape)} ${candidate}`,
     );
@@ -103,7 +114,7 @@ async function benchmarkShape(
   );
   for (let index = 0; index < options.warmup; index += 1) {
     for (const candidate of options.candidates) {
-      consume(await runCandidate(candidate, left, right));
+      consume(await runCandidate(candidate, left, right, runtimes));
     }
   }
   for (let iteration = 0; iteration < options.iterations; iteration += 1) {
@@ -111,7 +122,7 @@ async function benchmarkShape(
     for (let index = 0; index < options.candidates.length; index += 1) {
       const candidate = options.candidates[(index + offset) % options.candidates.length];
       const start = performance.now();
-      consume(await runCandidate(candidate, left, right));
+      consume(await runCandidate(candidate, left, right, runtimes));
       samples.get(candidate)?.push(performance.now() - start);
     }
   }
@@ -125,6 +136,10 @@ async function benchmarkShape(
       values.push(durationMs);
       profileSamples.set(stage, values);
     }
+  }
+  const pointwiseProfiles = await profilePointwiseCandidates(left, right, runtimes, options.profileIterations);
+  for (const [stage, values] of pointwiseProfiles) {
+    profileSamples.set(stage, values);
   }
 
   return {
@@ -146,18 +161,25 @@ async function runCandidate(
   candidate: Candidate,
   left: BivariatePolynomialBuffer,
   right: BivariatePolynomialBuffer,
+  runtimes: PointwiseBenchmarkRuntimes,
 ): Promise<BivariatePolynomialBuffer> {
   switch (candidate) {
     case "legacy-production":
-      return await genericMultiply(left, right, false, false);
+      return await genericMultiply(left, right, false, "legacy", runtimes);
+    case "retained-scalar-production":
+      return await genericMultiply(left, right, true, "raw", runtimes);
     case "current-production":
       return await left.mul(right);
     case "row-copy-padding":
-      return await genericMultiply(left, right, true, false);
+      return await genericMultiply(left, right, true, "legacy", runtimes);
     case "raw-pointwise":
-      return await genericMultiply(left, right, false, true);
+      return await genericMultiply(left, right, false, "raw", runtimes);
     case "combined":
-      return await genericMultiply(left, right, true, true);
+      return await genericMultiply(left, right, true, "raw", runtimes);
+    case "wasm-single-pointwise":
+      return await genericMultiply(left, right, true, "wasm-single", runtimes);
+    case "wasm-worker-pointwise":
+      return await genericMultiply(left, right, true, "wasm-workers", runtimes);
   }
 }
 
@@ -165,7 +187,8 @@ async function genericMultiply(
   left: BivariatePolynomialBuffer,
   right: BivariatePolynomialBuffer,
   rowCopyPadding: boolean,
-  rawPointwise: boolean,
+  pointwise: "legacy" | "raw" | "wasm-single" | "wasm-workers",
+  runtimes: PointwiseBenchmarkRuntimes,
 ): Promise<BivariatePolynomialBuffer> {
   const shape = multiplicationShape(left, right);
   const leftPadded = rowCopyPadding
@@ -176,15 +199,71 @@ async function genericMultiply(
     : right.resize(shape.xSize, shape.ySize);
   const leftEvals = await leftPadded.toRouEvals();
   const rightEvals = await rightPadded.toRouEvals();
-  const productEvals = rawPointwise
-    ? pointwiseRaw(left.field, leftEvals, rightEvals)
-    : pointwiseLegacy(left.field, leftEvals, rightEvals);
+  let productEvals: Uint8Array;
+  switch (pointwise) {
+    case "legacy":
+      productEvals = pointwiseLegacy(left.field, leftEvals, rightEvals);
+      break;
+    case "raw":
+      productEvals = pointwiseRaw(left.field, leftEvals, rightEvals);
+      break;
+    case "wasm-single":
+      productEvals = await batchMultiplyOneTask(runtimes.singleField, leftEvals, rightEvals);
+      break;
+    case "wasm-workers":
+      productEvals = await batchMultiplyWorkers(runtimes.multiField, leftEvals, rightEvals);
+      break;
+  }
   return await BivariatePolynomialBuffer.fromRouEvals(
     left.field,
     productEvals,
     shape.xSize,
     shape.ySize,
   );
+}
+
+async function profilePointwiseCandidates(
+  left: BivariatePolynomialBuffer,
+  right: BivariatePolynomialBuffer,
+  runtimes: PointwiseBenchmarkRuntimes,
+  iterations: number,
+): Promise<ReadonlyMap<ProfileStage, number[]>> {
+  const shape = multiplicationShape(left, right);
+  const leftEvals = await resizeByRowCopy(left, shape.xSize, shape.ySize).toRouEvals();
+  const rightEvals = await resizeByRowCopy(right, shape.xSize, shape.ySize).toRouEvals();
+  const expected = pointwiseRaw(left.field, leftEvals, rightEvals);
+  const candidates: readonly {
+    stage: ProfileStage;
+    run(): Promise<Uint8Array> | Uint8Array;
+  }[] = [
+    {
+      stage: "pointwise-multiplication",
+      run: () => pointwiseRaw(left.field, leftEvals, rightEvals),
+    },
+    {
+      stage: "pointwise-multiplication-wasm-single",
+      run: async () => await batchMultiplyOneTask(runtimes.singleField, leftEvals, rightEvals),
+    },
+    {
+      stage: "pointwise-multiplication-wasm-workers",
+      run: async () => await batchMultiplyWorkers(runtimes.multiField, leftEvals, rightEvals),
+    },
+  ];
+  for (const candidate of candidates) {
+    assertBytesEqual(await candidate.run(), expected, candidate.stage);
+  }
+
+  const samples = new Map<ProfileStage, number[]>(candidates.map(({ stage }) => [stage, []]));
+  for (let iteration = 0; iteration < iterations; iteration += 1) {
+    const offset = iteration % candidates.length;
+    for (let index = 0; index < candidates.length; index += 1) {
+      const candidate = candidates[(index + offset) % candidates.length];
+      const start = performance.now();
+      consumeBytes(await candidate.run());
+      samples.get(candidate.stage)?.push(performance.now() - start);
+    }
+  }
+  return samples;
 }
 
 async function profileCurrentMultiplication(
@@ -301,14 +380,23 @@ function multiplicationShape(
   };
 }
 
-async function checkSmallParity(field: FieldRuntime): Promise<void> {
+async function checkSmallParity(runtimes: PointwiseBenchmarkRuntimes): Promise<void> {
+  const field = runtimes.field;
   for (const shape of [{ xSize: 2, ySize: 2 }, { xSize: 4, ySize: 2 }, { xSize: 4, ySize: 4 }]) {
     const left = deterministicPolynomial(field, shape, 0x47454e455249434dn);
     const right = deterministicPolynomial(field, shape, 0x47454e455249434en);
     const expected = await left.mul(right);
-    for (const candidate of ["row-copy-padding", "raw-pointwise", "combined"] as const) {
+    for (
+      const candidate of [
+        "row-copy-padding",
+        "raw-pointwise",
+        "combined",
+        "wasm-single-pointwise",
+        "wasm-worker-pointwise",
+      ] as const
+    ) {
       assertPolynomialEqual(
-        await runCandidate(candidate, left, right),
+        await runCandidate(candidate, left, right, runtimes),
         expected,
         `small ${formatShape(shape)} ${candidate}`,
       );
@@ -349,6 +437,22 @@ function consume(polynomial: BivariatePolynomialBuffer): void {
   resultSink ^= polynomial.coefficients[polynomial.coefficients.byteLength - 1] ?? 0;
 }
 
+function consumeBytes(buffer: Uint8Array): void {
+  resultSink ^= buffer[0] ?? 0;
+  resultSink ^= buffer[buffer.byteLength - 1] ?? 0;
+}
+
+function assertBytesEqual(actual: Uint8Array, expected: Uint8Array, label: string): void {
+  if (actual.byteLength !== expected.byteLength) {
+    throw new Error(`${label}: byte-length mismatch.`);
+  }
+  for (let index = 0; index < actual.byteLength; index += 1) {
+    if (actual[index] !== expected[index]) {
+      throw new Error(`${label}: mismatch at byte ${index}.`);
+    }
+  }
+}
+
 function parseOptions(args: readonly string[]): Options {
   const values = new Map<string, string>();
   for (const arg of args) {
@@ -362,7 +466,7 @@ function parseOptions(args: readonly string[]): Options {
     seed: parseSeed(values.get("seed") ?? "0x47454e455249434d"),
     shapes: parseShapes(values.get("shapes") ?? "4096x256"),
     candidates: parseCandidates(
-      values.get("candidates") ?? "legacy-production,current-production,row-copy-padding,raw-pointwise,combined",
+      values.get("candidates") ?? "retained-scalar-production,current-production,wasm-single-pointwise",
     ),
     iterations: parsePositiveInteger(values.get("iterations") ?? "3", "iterations"),
     warmup: parseNonNegativeInteger(values.get("warmup") ?? "1", "warmup"),
@@ -374,10 +478,13 @@ function parseOptions(args: readonly string[]): Options {
 function parseCandidates(value: string): Candidate[] {
   const valid = new Set<Candidate>([
     "legacy-production",
+    "retained-scalar-production",
     "current-production",
     "row-copy-padding",
     "raw-pointwise",
     "combined",
+    "wasm-single-pointwise",
+    "wasm-worker-pointwise",
   ]);
   const candidates = value.split(",").map((entry) => entry.trim() as Candidate);
   if (candidates.length === 0 || !candidates.includes("current-production")) {

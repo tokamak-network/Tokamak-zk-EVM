@@ -946,23 +946,14 @@ async function multiplyShiftedEvals(
     throw new Error("Omega-shifted ROU eval buffer length does not match the multiplication shape.");
   }
 
-  const outputEvals = new Uint8Array(leftEvals.byteLength);
-  const elementBytes = field.byteLength;
-  for (let x = 0; x < xSize; x += 1) {
-    const sourceX = modulo(x + xShift, xSize);
-    for (let y = 0; y < ySize; y += 1) {
-      const sourceY = modulo(y + yShift, ySize);
-      const sourceOffset = (sourceX * ySize + sourceY) * elementBytes;
-      const rightOffset = (x * ySize + y) * elementBytes;
-      outputEvals.set(
-        field.mul(
-          leftEvals.subarray(sourceOffset, sourceOffset + elementBytes),
-          rightEvals.subarray(rightOffset, rightOffset + elementBytes),
-        ),
-        rightOffset,
-      );
-    }
-  }
+  const outputEvals = await field.batchMulShiftedBuffer(
+    leftEvals,
+    rightEvals,
+    xSize,
+    ySize,
+    xShift,
+    yShift,
+  );
 
   return BivariatePolynomialBuffer.fromRouEvals(field, outputEvals, xSize, ySize);
 }

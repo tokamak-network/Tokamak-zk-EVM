@@ -3,6 +3,8 @@ import {
   FIELD_BATCH_ADD,
   FIELD_BATCH_ADD_SCALED,
   FIELD_BATCH_ADD_SCALED_PREFIX,
+  FIELD_BATCH_MUL,
+  FIELD_BATCH_MUL_SHIFTED,
   FIELD_BATCH_SCALE_X,
   FIELD_BATCH_SCALE_Y,
   FIELD_BATCH_SUB,
@@ -38,6 +40,15 @@ export interface FieldRuntime {
   batchApplyKeyBuffer(buffer: Uint8Array, first: FieldElement, increment: FieldElement): Promise<Uint8Array>;
   batchAddBuffer(left: Uint8Array, right: Uint8Array): Promise<Uint8Array>;
   batchSubBuffer(left: Uint8Array, right: Uint8Array): Promise<Uint8Array>;
+  batchMulBuffer(left: Uint8Array, right: Uint8Array): Promise<Uint8Array>;
+  batchMulShiftedBuffer(
+    left: Uint8Array,
+    right: Uint8Array,
+    xSize: number,
+    ySize: number,
+    xShift: number,
+    yShift: number,
+  ): Promise<Uint8Array>;
   batchScaleBuffer(buffer: Uint8Array, factor: FieldElement): Promise<Uint8Array>;
   batchAddScaledBuffer(target: Uint8Array, source: Uint8Array, factor: FieldElement): Promise<Uint8Array>;
   batchAddScaledPrefixBuffer(
@@ -167,6 +178,34 @@ export function createFieldRuntime(field: FfField): FieldRuntime {
     },
     async batchSubBuffer(left, right) {
       return await batchBinaryBuffer(field, left, right, FIELD_BATCH_SUB);
+    },
+    async batchMulBuffer(left, right) {
+      return await batchBinaryBuffer(field, left, right, FIELD_BATCH_MUL);
+    },
+    async batchMulShiftedBuffer(left, right, xSize, ySize, xShift, yShift) {
+      assertPolynomialBufferShape(left, xSize, ySize, field.n8, "Shifted multiplication left");
+      assertPolynomialBufferShape(right, xSize, ySize, field.n8, "Shifted multiplication right");
+      const normalizedXShift = modulo(xShift, xSize);
+      const normalizedYShift = modulo(yShift, ySize);
+      const rowBytes = ySize * field.n8;
+      const ranges = splitRanges(xSize, field.tm.concurrency);
+      const results = await Promise.all(
+        ranges.map(({ start, count }) => {
+          const leftRows = new Uint8Array(count * rowBytes);
+          for (let localX = 0; localX < count; localX += 1) {
+            const sourceX = modulo(start + localX + normalizedXShift, xSize);
+            leftRows.set(
+              left.subarray(sourceX * rowBytes, (sourceX + 1) * rowBytes),
+              localX * rowBytes,
+            );
+          }
+          const rightRows = right.slice(start * rowBytes, (start + count) * rowBytes);
+          return field.tm.queueAction(
+            buildShiftedMultiplyTask(leftRows, rightRows, count, ySize, normalizedYShift, field.n8),
+          );
+        }),
+      );
+      return assembleTaskOutputs(results, left.byteLength);
     },
     async batchScaleBuffer(buffer, factor) {
       assertFieldBuffer(buffer, field.n8);
@@ -659,6 +698,8 @@ function assertLinearBatchExports(field: FfField): void {
     FIELD_BATCH_SUB,
     FIELD_BATCH_ADD_SCALED,
     FIELD_BATCH_ADD_SCALED_PREFIX,
+    FIELD_BATCH_MUL,
+    FIELD_BATCH_MUL_SHIFTED,
     FIELD_BATCH_SCALE_X,
     FIELD_BATCH_SCALE_Y,
   ];
@@ -673,7 +714,7 @@ async function batchBinaryBuffer(
   field: FfField,
   left: Uint8Array,
   right: Uint8Array,
-  functionName: typeof FIELD_BATCH_ADD | typeof FIELD_BATCH_SUB,
+  functionName: typeof FIELD_BATCH_ADD | typeof FIELD_BATCH_SUB | typeof FIELD_BATCH_MUL,
 ): Promise<Uint8Array> {
   assertMatchingFieldBuffers(left, right, field.n8, "Binary batch buffers");
   const elementCount = left.byteLength / field.n8;
@@ -696,6 +737,36 @@ async function batchBinaryBuffer(
     }),
   );
   return assembleTaskOutputs(results, left.byteLength);
+}
+
+function buildShiftedMultiplyTask(
+  left: Uint8Array,
+  right: Uint8Array,
+  xSize: number,
+  ySize: number,
+  yShift: number,
+  elementBytes: number,
+): FfWorkerCommand[] {
+  const outputBytes = xSize * ySize * elementBytes;
+  return [
+    { cmd: "ALLOCSET", var: 0, buff: left },
+    { cmd: "ALLOCSET", var: 1, buff: right },
+    { cmd: "ALLOC", var: 2, len: outputBytes },
+    {
+      cmd: "CALL",
+      fnName: FIELD_BATCH_MUL_SHIFTED,
+      params: [
+        { var: 0 },
+        { var: 1 },
+        { val: xSize },
+        { val: ySize },
+        { val: 0 },
+        { val: yShift },
+        { var: 2 },
+      ],
+    },
+    { cmd: "GET", out: 0, var: 2, len: outputBytes },
+  ];
 }
 
 function splitRanges(elementCount: number, requestedTaskCount: number): readonly { start: number; count: number }[] {
@@ -747,6 +818,10 @@ function assertFieldElement(value: Uint8Array, elementBytes: number, label: stri
   if (value.byteLength !== elementBytes) {
     throw new Error(`${label} byte length does not match the runtime field.`);
   }
+}
+
+function modulo(value: number, modulus: number): number {
+  return ((value % modulus) + modulus) % modulus;
 }
 
 function assertPolynomialBufferShape(
