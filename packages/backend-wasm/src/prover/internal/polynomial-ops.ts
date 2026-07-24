@@ -121,6 +121,28 @@ export function evaluateAtScaledChallengeSet(
   return [baseResult, scaledXResult, scaledXYResult];
 }
 
+export async function evaluateAtScaledChallengeSetBatch(
+  field: CurveRuntime["Fr"],
+  polynomial: BivariatePolynomialBuffer,
+  xPoint: FieldElement,
+  scaledXPoint: FieldElement,
+  yPoint: FieldElement,
+  scaledYPoint: FieldElement,
+): Promise<readonly [FieldElement, FieldElement, FieldElement]> {
+  if (polynomial.field !== field) {
+    throw new Error("Scaled evaluation polynomial belongs to a different field runtime.");
+  }
+  return await field.evaluateScaledChallengeSetBuffer(
+    polynomial.coefficients,
+    polynomial.xSize,
+    polynomial.ySize,
+    xPoint,
+    scaledXPoint,
+    yPoint,
+    scaledYPoint,
+  );
+}
+
 export function evaluateLagrangeK0At(
   field: CurveRuntime["Fr"],
   domainSize: number,

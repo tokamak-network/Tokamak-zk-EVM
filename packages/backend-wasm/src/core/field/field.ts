@@ -8,6 +8,10 @@ import {
   FIELD_BATCH_SCALE_X,
   FIELD_BATCH_SCALE_Y,
   FIELD_BATCH_SUB,
+  FIELD_EVAL_REDUCE,
+  FIELD_EVAL_REDUCE_FUSED,
+  FIELD_EVAL_ROWS,
+  FIELD_EVAL_ROWS_FUSED,
   FIELD_RUFFINI_X,
   FIELD_RUFFINI_Y,
 } from "./linear-batch-plugin.js";
@@ -87,6 +91,22 @@ export interface FieldRuntime {
     ySize: number,
     point: FieldElement,
   ): Promise<{ readonly quotient: Uint8Array; readonly remainder: FieldElement }>;
+  evaluatePolynomialBuffer(
+    buffer: Uint8Array,
+    xSize: number,
+    ySize: number,
+    xPoint: FieldElement,
+    yPoint: FieldElement,
+  ): Promise<FieldElement>;
+  evaluateScaledChallengeSetBuffer(
+    buffer: Uint8Array,
+    xSize: number,
+    ySize: number,
+    xPoint: FieldElement,
+    scaledXPoint: FieldElement,
+    yPoint: FieldElement,
+    scaledYPoint: FieldElement,
+  ): Promise<readonly [FieldElement, FieldElement, FieldElement]>;
   fft(values: readonly FieldElement[]): Promise<FieldElement[]>;
   ifft(values: readonly FieldElement[]): Promise<FieldElement[]>;
   add(left: FieldElement, right: FieldElement): FieldElement;
@@ -405,6 +425,56 @@ export function createFieldRuntime(field: FfField): FieldRuntime {
         "Ruffini Y",
       );
       return { quotient: result[0], remainder: result[1] };
+    },
+    async evaluatePolynomialBuffer(buffer, xSize, ySize, xPoint, yPoint) {
+      assertPolynomialBufferShape(buffer, xSize, ySize, field.n8, "Polynomial evaluation input");
+      assertFieldElement(xPoint, field.n8, "Polynomial evaluation X point");
+      assertFieldElement(yPoint, field.n8, "Polynomial evaluation Y point");
+      const rows = await evaluateRows(field, buffer, xSize, ySize, yPoint);
+      const result = requireTaskOutputs(
+        await field.tm.queueAction(buildEvalReduceTask(rows, xSize, xPoint, field.n8)),
+        1,
+        "Polynomial evaluation reduction",
+      );
+      return result[0];
+    },
+    async evaluateScaledChallengeSetBuffer(
+      buffer,
+      xSize,
+      ySize,
+      xPoint,
+      scaledXPoint,
+      yPoint,
+      scaledYPoint,
+    ) {
+      assertPolynomialBufferShape(buffer, xSize, ySize, field.n8, "Scaled evaluation input");
+      assertFieldElement(xPoint, field.n8, "Scaled evaluation X point");
+      assertFieldElement(scaledXPoint, field.n8, "Scaled evaluation adjusted X point");
+      assertFieldElement(yPoint, field.n8, "Scaled evaluation Y point");
+      assertFieldElement(scaledYPoint, field.n8, "Scaled evaluation adjusted Y point");
+      const [baseRows, scaledRows] = await evaluateRowsFused(
+        field,
+        buffer,
+        xSize,
+        ySize,
+        yPoint,
+        scaledYPoint,
+      );
+      const result = requireTaskOutputs(
+        await field.tm.queueAction(
+          buildEvalReduceFusedTask(
+            baseRows,
+            scaledRows,
+            xSize,
+            xPoint,
+            scaledXPoint,
+            field.n8,
+          ),
+        ),
+        3,
+        "Scaled evaluation reduction",
+      );
+      return [result[0], result[1], result[2]];
     },
     async fft(values) {
       return splitFieldBuffer(await field.fft(concatFieldElements(values, field.n8)), field.n8);
@@ -757,6 +827,10 @@ function assertLinearBatchExports(field: FfField): void {
     FIELD_BATCH_MUL_SHIFTED,
     FIELD_BATCH_SCALE_X,
     FIELD_BATCH_SCALE_Y,
+    FIELD_EVAL_REDUCE,
+    FIELD_EVAL_REDUCE_FUSED,
+    FIELD_EVAL_ROWS,
+    FIELD_EVAL_ROWS_FUSED,
     FIELD_RUFFINI_X,
     FIELD_RUFFINI_Y,
   ];
@@ -876,6 +950,130 @@ function buildRuffiniYTask(
     },
     { cmd: "GET", out: 0, var: 2, len: quotientBytes },
     { cmd: "GET", out: 1, var: 3, len: field.n8 },
+  ];
+}
+
+async function evaluateRows(
+  field: FfField,
+  buffer: Uint8Array,
+  xSize: number,
+  ySize: number,
+  yPoint: FieldElement,
+): Promise<Uint8Array> {
+  const ranges = splitRanges(xSize, field.tm.concurrency);
+  const rowBytes = ySize * field.n8;
+  const results = await Promise.all(
+    ranges.map(({ start, count }) => field.tm.queueAction([
+      { cmd: "ALLOCSET", var: 0, buff: buffer.slice(start * rowBytes, (start + count) * rowBytes) },
+      { cmd: "ALLOCSET", var: 1, buff: yPoint },
+      { cmd: "ALLOC", var: 2, len: count * field.n8 },
+      {
+        cmd: "CALL",
+        fnName: FIELD_EVAL_ROWS,
+        params: [{ var: 0 }, { val: count }, { val: ySize }, { var: 1 }, { var: 2 }],
+      },
+      { cmd: "GET", out: 0, var: 2, len: count * field.n8 },
+    ])),
+  );
+  return assembleTaskOutputs(results, xSize * field.n8);
+}
+
+async function evaluateRowsFused(
+  field: FfField,
+  buffer: Uint8Array,
+  xSize: number,
+  ySize: number,
+  yPoint: FieldElement,
+  scaledYPoint: FieldElement,
+): Promise<readonly [Uint8Array, Uint8Array]> {
+  const ranges = splitRanges(xSize, field.tm.concurrency);
+  const rowBytes = ySize * field.n8;
+  const results = await Promise.all(
+    ranges.map(({ start, count }) => field.tm.queueAction([
+      { cmd: "ALLOCSET", var: 0, buff: buffer.slice(start * rowBytes, (start + count) * rowBytes) },
+      { cmd: "ALLOCSET", var: 1, buff: yPoint },
+      { cmd: "ALLOCSET", var: 2, buff: scaledYPoint },
+      { cmd: "ALLOC", var: 3, len: count * field.n8 },
+      { cmd: "ALLOC", var: 4, len: count * field.n8 },
+      {
+        cmd: "CALL",
+        fnName: FIELD_EVAL_ROWS_FUSED,
+        params: [
+          { var: 0 },
+          { val: count },
+          { val: ySize },
+          { var: 1 },
+          { var: 2 },
+          { var: 3 },
+          { var: 4 },
+        ],
+      },
+      { cmd: "GET", out: 0, var: 3, len: count * field.n8 },
+      { cmd: "GET", out: 1, var: 4, len: count * field.n8 },
+    ])),
+  );
+  const baseRows = new Uint8Array(xSize * field.n8);
+  const scaledRows = new Uint8Array(xSize * field.n8);
+  for (let index = 0; index < ranges.length; index += 1) {
+    const outputs = requireTaskOutputs(results[index], 2, "Scaled evaluation row");
+    baseRows.set(outputs[0], ranges[index].start * field.n8);
+    scaledRows.set(outputs[1], ranges[index].start * field.n8);
+  }
+  return [baseRows, scaledRows];
+}
+
+function buildEvalReduceTask(
+  rows: Uint8Array,
+  xSize: number,
+  xPoint: FieldElement,
+  elementBytes: number,
+): FfWorkerCommand[] {
+  return [
+    { cmd: "ALLOCSET", var: 0, buff: rows },
+    { cmd: "ALLOCSET", var: 1, buff: xPoint },
+    { cmd: "ALLOC", var: 2, len: elementBytes },
+    {
+      cmd: "CALL",
+      fnName: FIELD_EVAL_REDUCE,
+      params: [{ var: 0 }, { val: xSize }, { var: 1 }, { var: 2 }],
+    },
+    { cmd: "GET", out: 0, var: 2, len: elementBytes },
+  ];
+}
+
+function buildEvalReduceFusedTask(
+  baseRows: Uint8Array,
+  scaledRows: Uint8Array,
+  xSize: number,
+  xPoint: FieldElement,
+  scaledXPoint: FieldElement,
+  elementBytes: number,
+): FfWorkerCommand[] {
+  return [
+    { cmd: "ALLOCSET", var: 0, buff: baseRows },
+    { cmd: "ALLOCSET", var: 1, buff: scaledRows },
+    { cmd: "ALLOCSET", var: 2, buff: xPoint },
+    { cmd: "ALLOCSET", var: 3, buff: scaledXPoint },
+    { cmd: "ALLOC", var: 4, len: elementBytes },
+    { cmd: "ALLOC", var: 5, len: elementBytes },
+    { cmd: "ALLOC", var: 6, len: elementBytes },
+    {
+      cmd: "CALL",
+      fnName: FIELD_EVAL_REDUCE_FUSED,
+      params: [
+        { var: 0 },
+        { var: 1 },
+        { val: xSize },
+        { var: 2 },
+        { var: 3 },
+        { var: 4 },
+        { var: 5 },
+        { var: 6 },
+      ],
+    },
+    { cmd: "GET", out: 0, var: 4, len: elementBytes },
+    { cmd: "GET", out: 1, var: 5, len: elementBytes },
+    { cmd: "GET", out: 2, var: 6, len: elementBytes },
   ];
 }
 

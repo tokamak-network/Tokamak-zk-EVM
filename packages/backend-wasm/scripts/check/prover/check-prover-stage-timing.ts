@@ -43,6 +43,7 @@ import {
   constantPolynomialBuffer,
   computeRecursionEvalsBuffer,
   evaluateAtScaledChallengeSet,
+  evaluateAtScaledChallengeSetBatch,
   evaluateLagrangeK0At,
   linearCombinationBufferBatch,
   lowDegreeXTimesVanishingBuffer,
@@ -357,6 +358,20 @@ function evaluatePolynomialAt(
   return polynomialEvaluation(label, () => polynomial.eval(x, y), [
     shapeSize("polynomial", polynomial.xSize, polynomial.ySize),
   ]);
+}
+
+async function evaluatePolynomialAtBatch(
+  label: string,
+  polynomial: BivariatePolynomialBuffer,
+  x: FieldElement,
+  y: FieldElement,
+): Promise<FieldElement> {
+  return polynomialOperation(
+    "polynomial.evaluation",
+    label,
+    () => polynomial.evalBatch(x, y),
+    [shapeSize("polynomial", polynomial.xSize, polynomial.ySize)],
+  );
 }
 
 async function polynomialDivVanishing(
@@ -931,7 +946,12 @@ async function prove4Timed(input: {
   const kappa1Fourth = field.square(kappa1Sq);
   const tNEval = evaluatePolynomialAt("prove4.tN_eval", state.instance.tN, chi, field.one);
   const tSMaxEval = evaluatePolynomialAt("prove4.tSMax_eval", state.instance.tSMax, field.one, zeta);
-  const smallVEval = evaluatePolynomialAt("prove4.V_eval", state.witness.vXY, chi, zeta);
+  const smallVEval = await evaluatePolynomialAtBatch(
+    "prove4.V_eval",
+    state.witnessBuffers.vXY,
+    chi,
+    zeta,
+  );
   const rW_X = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_X, state.mixer.rW_X.length, 1);
   const rW_Y = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_Y, 1, state.mixer.rW_Y.length);
   const VXY = await polynomialLinearCombination(
@@ -1018,7 +1038,12 @@ async function prove4Timed(input: {
     omegaMIInv,
     omegaSMaxInv,
   });
-  const aEval = evaluatePolynomialAt("prove4.A_free_eval", state.instance.aFreeX, chi, zeta);
+  const aEval = await evaluatePolynomialAtBatch(
+    "prove4.A_free_eval",
+    state.instanceBuffers.aFreeX,
+    chi,
+    zeta,
+  );
   const piBDivision = await polynomialDivRuffiniAfterSubtractingConstant(
     "prove4.Pi_B",
     state.instance.aFreeX,
@@ -1134,10 +1159,11 @@ async function buildCopyOpeningsTimed(input: {
     () => evaluateLagrangeK0At(field, mI, chi, tMiEval),
     [shapeSize("lagrange_K0", mI, 1)],
   );
-  const [smallREval, smallROmegaXEval, smallROmegaXOmegaYEval] = polynomialEvaluation(
+  const [smallREval, smallROmegaXEval, smallROmegaXOmegaYEval] = await polynomialOperation(
+    "polynomial.evaluation",
     "prove4.r_scaled_evaluation_set",
     () =>
-      evaluateAtScaledChallengeSet(
+      evaluateAtScaledChallengeSetBatch(
         field,
         rXY,
         chi,
@@ -1267,10 +1293,11 @@ async function evaluateChallengePointsTimed(input: {
   const scaledChi = field.mul(field.inv(omegaMI), chi);
   const scaledZeta = field.mul(field.inv(omegaSMax), zeta);
 
-  return polynomialEvaluation(
+  return polynomialOperation(
+    "polynomial.evaluation",
     "prove3.challenge_evaluations",
-    () => {
-      const [R_eval, R_omegaX_eval, R_omegaX_omegaY_eval] = evaluateAtScaledChallengeSet(
+    async () => {
+      const [R_eval, R_omegaX_eval, R_omegaX_omegaY_eval] = await evaluateAtScaledChallengeSetBatch(
         field,
         RXY,
         chi,
@@ -1279,7 +1306,7 @@ async function evaluateChallengePointsTimed(input: {
         scaledZeta,
       );
       return {
-        V_eval: VXY.eval(chi, zeta),
+        V_eval: await VXY.evalBatch(chi, zeta),
         R_eval,
         R_omegaX_eval,
         R_omegaX_omegaY_eval,

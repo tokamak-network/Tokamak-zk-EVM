@@ -2,7 +2,7 @@ import { BivariatePolynomialBuffer } from "../../core/polynomial/bivariate-polyn
 import type { CurveRuntime } from "../../core/curve/curve.js";
 import type { FieldElement } from "../../core/field/field.js";
 import {
-  evaluateAtScaledChallengeSet,
+  evaluateAtScaledChallengeSetBatch,
   linearCombinationBufferBatch,
 } from "./polynomial-ops.js";
 import type { ProverState } from "./state.js";
@@ -38,7 +38,7 @@ export async function evaluateChallengePoints(input: {
   ]);
   const scaledChi = field.mul(field.inv(omegaMI), chi);
   const scaledZeta = field.mul(field.inv(omegaSMax), zeta);
-  const [R_eval, R_omegaX_eval, R_omegaX_omegaY_eval] = evaluateAtScaledChallengeSet(
+  const [R_eval, R_omegaX_eval, R_omegaX_omegaY_eval] = await evaluateAtScaledChallengeSetBatch(
     field,
     RXY,
     chi,
@@ -48,7 +48,7 @@ export async function evaluateChallengePoints(input: {
   );
 
   return {
-    V_eval: VXY.eval(chi, zeta),
+    V_eval: await VXY.evalBatch(chi, zeta),
     R_eval,
     R_omegaX_eval,
     R_omegaX_omegaY_eval,

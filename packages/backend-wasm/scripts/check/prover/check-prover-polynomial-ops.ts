@@ -8,6 +8,7 @@ import {
   computeRecursionEvalsBuffer,
   constantPolynomialBuffer,
   evaluateAtScaledChallengeSet,
+  evaluateAtScaledChallengeSetBatch,
   evaluateLagrangeK0At,
   linearCombinationBuffer,
   lowDegreeXTimesVanishingBuffer,
@@ -181,6 +182,25 @@ async function checkEvaluationHelpers(field: FieldRuntime): Promise<void> {
       polynomial.eval(scaledXPoint, scaledYPoint),
     ],
     "evaluateAtScaledChallengeSet",
+  );
+  assertFields(
+    field,
+    [await polynomial.evalBatch(xPoint, yPoint)],
+    [polynomial.eval(xPoint, yPoint)],
+    "BivariatePolynomialBuffer.evalBatch",
+  );
+  assertFields(
+    field,
+    await evaluateAtScaledChallengeSetBatch(
+      field,
+      polynomial,
+      xPoint,
+      scaledXPoint,
+      yPoint,
+      scaledYPoint,
+    ),
+    [baseEval, scaledXEval, scaledXYEval],
+    "evaluateAtScaledChallengeSetBatch",
   );
 
   const mI = 8;

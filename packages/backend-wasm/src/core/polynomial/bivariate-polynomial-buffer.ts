@@ -331,6 +331,16 @@ export class BivariatePolynomialBuffer {
     return result;
   }
 
+  async evalBatch(xPoint: FieldElement, yPoint: FieldElement): Promise<FieldElement> {
+    return await this.field.evaluatePolynomialBuffer(
+      this.coefficients,
+      this.xSize,
+      this.ySize,
+      xPoint,
+      yPoint,
+    );
+  }
+
   addAssign(other: BivariatePolynomialBuffer): this {
     this.assertSameShape(other);
     this.addSameShapeAssign(other);

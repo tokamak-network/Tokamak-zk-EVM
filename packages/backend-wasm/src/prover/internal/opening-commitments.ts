@@ -4,7 +4,7 @@ import type { FieldElement } from "../../core/field/field.js";
 import type { ProverCrsRuntime } from "../api/binary-input.js";
 import {
   constantPolynomialBuffer,
-  evaluateAtScaledChallengeSet,
+  evaluateAtScaledChallengeSetBatch,
   evaluateLagrangeK0At,
   linearCombinationBufferBatch,
   mulByOneMinusX,
@@ -88,7 +88,7 @@ export async function computeOpeningCommitments(input: {
   const kappa1Fourth = field.square(kappa1Sq);
   const tNEval = state.instance.tN.eval(chi, field.one);
   const tSMaxEval = state.instance.tSMax.eval(field.one, zeta);
-  const smallVEval = state.witness.vXY.eval(chi, zeta);
+  const smallVEval = await state.witnessBuffers.vXY.evalBatch(chi, zeta);
   const rW_X = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_X, state.mixer.rW_X.length, 1);
   const rW_Y = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_Y, 1, state.mixer.rW_Y.length);
   const VXY = await linearCombinationBufferBatch(field, [
@@ -153,7 +153,7 @@ export async function computeOpeningCommitments(input: {
     omegaMIInv,
     omegaSMaxInv,
   });
-  const aEval = state.instance.aFreeX.eval(chi, zeta);
+  const aEval = await state.instanceBuffers.aFreeX.evalBatch(chi, zeta);
   const piBDivision = await divideAfterSubtractingConstant(
     state.instanceBuffers.aFreeX,
     chi,
@@ -278,7 +278,7 @@ async function buildCopyOpeningPolynomials(input: {
   const tMiEval = field.sub(field.pow(chi, mI), field.one);
   const tSMaxEval = field.sub(field.pow(zeta, sMax), field.one);
   const lagrangeK0Eval = evaluateLagrangeK0At(field, mI, chi, tMiEval);
-  const [smallREval, smallROmegaXEval, smallROmegaXOmegaYEval] = evaluateAtScaledChallengeSet(
+  const [smallREval, smallROmegaXEval, smallROmegaXOmegaYEval] = await evaluateAtScaledChallengeSetBatch(
     field,
     rXY,
     chi,
