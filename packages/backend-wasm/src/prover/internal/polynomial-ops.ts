@@ -347,28 +347,8 @@ export async function computeRecursionEvalsBuffer(
     throw new Error("computeRecursionCommitment recursion domain must be non-empty.");
   }
 
-  const elementByteLength = field.byteLength;
   const inverseF = await field.batchInverseBuffer(fXYEvals);
-  const output = new Uint8Array(total * elementByteLength);
-  output.set(field.one, (total - 1) * elementByteLength);
-
-  for (let transposedIndex = total - 2; transposedIndex >= 0; transposedIndex -= 1) {
-    const nextTransposedIndex = transposedIndex + 1;
-    const nextOriginalIndex = (nextTransposedIndex % mI) * sMax + Math.floor(nextTransposedIndex / mI);
-    const currentOriginalIndex = (transposedIndex % mI) * sMax + Math.floor(transposedIndex / mI);
-    const nextOriginalOffset = nextOriginalIndex * elementByteLength;
-    const currentOriginalOffset = currentOriginalIndex * elementByteLength;
-    const ratio = field.mul(
-      gXYEvals.subarray(nextOriginalOffset, nextOriginalOffset + elementByteLength),
-      inverseF.subarray(nextOriginalOffset, nextOriginalOffset + elementByteLength),
-    );
-    output.set(
-      field.mul(output.subarray(nextOriginalOffset, nextOriginalOffset + elementByteLength), ratio),
-      currentOriginalOffset,
-    );
-  }
-
-  return output;
+  return await field.computeRecursionRecurrenceBuffer(gXYEvals, inverseF, mI, sMax);
 }
 
 export function transposeRowMajorBuffer(

@@ -14,6 +14,7 @@ export const FIELD_EVAL_REDUCE = "tokamak_frm_evalReduce";
 export const FIELD_EVAL_REDUCE_FUSED = "tokamak_frm_evalReduceFused";
 export const FIELD_VANISHING_Y = "tokamak_frm_vanishingY";
 export const FIELD_VANISHING_X = "tokamak_frm_vanishingX";
+export const FIELD_RECURSION_RECURRENCE = "tokamak_frm_recursionRecurrence";
 
 interface WasmCodeBuilder {
   i32_const(value: number): unknown;
@@ -61,6 +62,7 @@ export function installLinearBatchPlugin(module: WasmModuleBuilder): void {
   buildEvalReduceFusedKernel(module);
   buildVanishingYKernel(module);
   buildVanishingXKernel(module);
+  buildRecursionRecurrenceKernel(module);
 }
 
 function buildAddScaledKernel(module: WasmModuleBuilder): void {
@@ -870,4 +872,60 @@ function vanishingPreviousXPointer(code: WasmCodeBuilder): unknown {
       code.i32_const(32),
     ),
   );
+}
+
+function buildRecursionRecurrenceKernel(module: WasmModuleBuilder): void {
+  const fn = module.addFunction(FIELD_RECURSION_RECURRENCE);
+  fn.addParam("pG", "i32");
+  fn.addParam("pInverseF", "i32");
+  fn.addParam("mI", "i32");
+  fn.addParam("sMax", "i32");
+  fn.addParam("total", "i32");
+  fn.addParam("pOne", "i32");
+  fn.addParam("pOut", "i32");
+  fn.addLocal("transposed", "i32");
+  fn.addLocal("nextOriginal", "i32");
+  fn.addLocal("currentOriginal", "i32");
+  const code = fn.getCodeBuilder() as WasmCodeBuilder & {
+    i32_div_u(left: unknown, right: unknown): unknown;
+  };
+  const ratio = code.i32_const(module.alloc(32));
+  const temporary = code.i32_const(module.alloc(32));
+  const originalIndex = (index: unknown) =>
+    code.i32_add(
+      code.i32_mul(code.i32_rem_u(index, code.getLocal("mI")), code.getLocal("sMax")),
+      code.i32_div_u(index, code.getLocal("mI")),
+    );
+  const pointer = (base: string, index: unknown) =>
+    code.i32_add(code.getLocal(base), code.i32_mul(index, code.i32_const(32)));
+
+  fn.addCode(
+    code.call(
+      "frm_copy",
+      code.getLocal("pOne"),
+      pointer("pOut", code.i32_sub(code.getLocal("total"), code.i32_const(1))),
+    ),
+    code.setLocal("transposed", code.i32_sub(code.getLocal("total"), code.i32_const(1))),
+    code.block(code.loop(
+      code.br_if(1, code.i32_eq(code.getLocal("transposed"), code.i32_const(0))),
+      code.setLocal("nextOriginal", originalIndex(code.getLocal("transposed"))),
+      code.setLocal("transposed", code.i32_sub(code.getLocal("transposed"), code.i32_const(1))),
+      code.setLocal("currentOriginal", originalIndex(code.getLocal("transposed"))),
+      code.call(
+        "frm_mul",
+        pointer("pG", code.getLocal("nextOriginal")),
+        pointer("pInverseF", code.getLocal("nextOriginal")),
+        ratio,
+      ),
+      code.call(
+        "frm_mul",
+        pointer("pOut", code.getLocal("nextOriginal")),
+        ratio,
+        temporary,
+      ),
+      code.call("frm_copy", temporary, pointer("pOut", code.getLocal("currentOriginal"))),
+      code.br(0),
+    )),
+  );
+  module.exportFunction(FIELD_RECURSION_RECURRENCE);
 }

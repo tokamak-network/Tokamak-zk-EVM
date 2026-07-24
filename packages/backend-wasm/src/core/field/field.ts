@@ -14,6 +14,7 @@ import {
   FIELD_EVAL_ROWS_FUSED,
   FIELD_RUFFINI_X,
   FIELD_RUFFINI_Y,
+  FIELD_RECURSION_RECURRENCE,
   FIELD_VANISHING_X,
   FIELD_VANISHING_Y,
 } from "./linear-batch-plugin.js";
@@ -116,6 +117,12 @@ export interface FieldRuntime {
     xDegree: number,
     yDegree: number,
   ): Promise<{ readonly quotientX: Uint8Array; readonly quotientY: Uint8Array }>;
+  computeRecursionRecurrenceBuffer(
+    gEvals: Uint8Array,
+    inverseFEvals: Uint8Array,
+    mI: number,
+    sMax: number,
+  ): Promise<Uint8Array>;
   fft(values: readonly FieldElement[]): Promise<FieldElement[]>;
   ifft(values: readonly FieldElement[]): Promise<FieldElement[]>;
   add(left: FieldElement, right: FieldElement): FieldElement;
@@ -539,6 +546,38 @@ export function createFieldRuntime(field: FfField): FieldRuntime {
         quotientY,
       };
     },
+    async computeRecursionRecurrenceBuffer(gEvals, inverseFEvals, mI, sMax) {
+      assertMatchingFieldBuffers(gEvals, inverseFEvals, field.n8, "Recursion recurrence inputs");
+      if (gEvals.byteLength / field.n8 !== mI * sMax || mI <= 0 || sMax <= 0) {
+        throw new Error("Recursion recurrence input length does not match its domain.");
+      }
+      const outputBytes = gEvals.byteLength;
+      const result = requireTaskOutputs(
+        await field.tm.queueAction([
+          { cmd: "ALLOCSET", var: 0, buff: gEvals },
+          { cmd: "ALLOCSET", var: 1, buff: inverseFEvals },
+          { cmd: "ALLOCSET", var: 2, buff: field.one },
+          { cmd: "ALLOCSET", var: 3, buff: new Uint8Array(outputBytes) },
+          {
+            cmd: "CALL",
+            fnName: FIELD_RECURSION_RECURRENCE,
+            params: [
+              { var: 0 },
+              { var: 1 },
+              { val: mI },
+              { val: sMax },
+              { val: mI * sMax },
+              { var: 2 },
+              { var: 3 },
+            ],
+          },
+          { cmd: "GET", out: 0, var: 3, len: outputBytes },
+        ]),
+        1,
+        "Recursion recurrence",
+      );
+      return result[0];
+    },
     async fft(values) {
       return splitFieldBuffer(await field.fft(concatFieldElements(values, field.n8)), field.n8);
     },
@@ -896,6 +935,7 @@ function assertLinearBatchExports(field: FfField): void {
     FIELD_EVAL_ROWS_FUSED,
     FIELD_RUFFINI_X,
     FIELD_RUFFINI_Y,
+    FIELD_RECURSION_RECURRENCE,
     FIELD_VANISHING_X,
     FIELD_VANISHING_Y,
   ];
