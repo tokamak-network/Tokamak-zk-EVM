@@ -1200,3 +1200,23 @@ element-by-element writes from `createZeroBuffer(...)`. Field-buffer parity
 checks cover the raw representation. Full-prover timing remained within
 run-to-run variation (`258.28 s` before and `258.94 s` after), while all Node,
 Chromium, build, and package-content gates passed.
+
+## Opening pC Term Fusion
+
+The diagnostics-only `bench-opening-pc-fusion.ts` compares the complete
+opening `pC` construction with and without materialized `term5` and `term6`
+polynomials. Both paths include scalar preparation, allocation, arithmetic,
+mixed input shapes, and final output construction.
+
+```bash
+npm run bench:opening-pc-fusion -- --base-shape=16x16 --iterations=2 --warmup=1 --json=tmp/timing/opening-pc-fusion-smoke.json
+npm run bench:opening-pc-fusion -- --base-shape=4096x256 --iterations=1 --warmup=0 --json=tmp/timing/opening-pc-fusion-representative.json
+```
+
+| candidate | base shape | output shape | ms/op |
+| --- | ---: | ---: | ---: |
+| current materialized `term5`/`term6` | `4096x256` | `8192x512` | 5477.132 |
+| fused `pC` | `4096x256` | `8192x512` | 4156.551 |
+
+The fused equation passed exact output-buffer parity and reduced representative
+time by `1320.581 ms` (`24.1%`). It is eligible for production promotion.
