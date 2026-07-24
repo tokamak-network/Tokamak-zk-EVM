@@ -1559,3 +1559,30 @@ The subsequent complete prover run did not establish an aggregate speedup:
 from `147.40 s` to `147.92 s`, and total wall from `154.85 s` to `155.67 s`.
 Those aggregate deltas are smaller than run-to-run variation and include the
 unchanged batch-inversion and NTT work.
+
+## Whole-Loop WASM Lagrange K0 Recurrence
+
+The Priority 24G K0 extension corrects the benchmark's `current-production`
+label to the previously promoted JavaScript sliding recurrence and retains the
+older generic FFT implementation under a legacy label. The new candidates
+move only the sliding recurrence into WASM. Worker execution partitions
+independent Y columns, compacts each shard, reassembles row-major output, and
+then uses the existing primitive-parallel whole-output scaling pass.
+
+| shape | JavaScript production | caller WASM | one worker | Y-sharded workers |
+| --- | ---: | ---: | ---: | ---: |
+| `4096x8192x512` | 1691.572 ms | 1210.145 ms | 304.860 ms | 268.403 ms |
+| `4096x8192x256` | 852.841 ms | 624.194 ms | 146.298 ms | 143.962 ms |
+| `4096x4096x512` | 866.008 ms | 622.909 ms | 161.310 ms | 136.642 ms |
+| four-call weighted total | 5101.993 ms | 3667.393 ms | 917.328 ms | 817.410 ms |
+
+The selected worker path reduced the weighted complete K0 boundary by
+`84.0%`. At the largest shape its explicit algorithm-owned temporary bound is
+approximately `640 MiB`, versus `256 MiB` for the JavaScript recurrence. This
+uses compact column shards rather than a full input copy per worker.
+
+Production commit `49448d7c` promotes this path. Integrated
+`polynomial.combination_with_multiplication` decreased from `27.54 s` to
+`23.38 s`, prover stage total from `147.92 s` to `143.76 s`, and total wall
+from `155.67 s` to `151.46 s`. Chromium generated a 2408-byte proof in
+`146.82 s` and verified it in `18 ms`.

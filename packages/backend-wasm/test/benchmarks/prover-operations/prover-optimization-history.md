@@ -1636,3 +1636,39 @@ invariants, Node proof generation and verifier acceptance, build, Chromium
 proof generation (`150.53 s`) and verification (`19 ms`), and package-content
 inspection passed. The package contains 253 files and no `test/`, `scripts/`,
 `fixtures/`, or `tmp/` paths.
+
+## Whole-Loop WASM Lagrange K0 Recurrence
+
+Related commit: `49448d7c` (`Parallelize Lagrange K0 recurrence`).
+
+The previously accepted K0 sliding algorithm and final
+`batchApplyKeyBuffer(...)` scaling pass remain unchanged. This promotion moves
+the recurrence itself from per-coefficient JavaScript field calls into a
+backend-owned WASM kernel and partitions independent Y columns through the
+existing ffjavascript worker queue. Compact shard extraction, output
+reassembly, and final scaling are included in the benchmark boundary.
+
+| shape | JavaScript production | caller WASM | one worker | Y-sharded workers |
+| --- | ---: | ---: | ---: | ---: |
+| `4096x8192x512` | 1691.572 ms | 1210.145 ms | 304.860 ms | 268.403 ms |
+| `4096x8192x256` | 852.841 ms | 624.194 ms | 146.298 ms | 143.962 ms |
+| `4096x4096x512` | 866.008 ms | 622.909 ms | 161.310 ms | 136.642 ms |
+| four-call weighted total | 5101.993 ms | 3667.393 ms | 917.328 ms | 817.410 ms |
+
+All candidates passed exact byte parity and the independent small-domain
+convolution oracle. The selected worker path reduced the weighted workload by
+`4284.583 ms` (`84.0%`). Its largest explicit temporary bound is about
+`640 MiB`, including compact input shards, shard outputs, assembled output,
+and recurrence windows; it does not replicate the full input per worker.
+
+| integrated timing row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_with_multiplication` | 27.54 s | 23.38 s | -4.16 s |
+| prover stage total | 147.92 s | 143.76 s | -4.16 s |
+| total wall | 155.67 s | 151.46 s | -4.21 s |
+
+Type checks, polynomial operation parity, native testing-mode-style
+invariants, Node proof generation and verifier acceptance, build, Chromium
+proof generation (`146.82 s`) and verification (`18 ms`), and package-content
+inspection passed. The package contains 253 files and no `test/`, `scripts/`,
+`fixtures/`, or `tmp/` paths.
