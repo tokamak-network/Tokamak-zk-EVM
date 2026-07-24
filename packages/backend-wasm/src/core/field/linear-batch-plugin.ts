@@ -23,6 +23,8 @@ export const FIELD_SPECIAL_ONE_MINUS_X = "tokamak_frm_oneMinusX";
 export const FIELD_SPECIAL_LINEAR_X = "tokamak_frm_linearX";
 export const FIELD_SPECIAL_LINEAR_Y = "tokamak_frm_linearY";
 export const FIELD_SPECIAL_TERM9 = "tokamak_frm_term9";
+export const FIELD_FUSED_LINEAR_X = "tokamak_frm_fusedLinearX";
+export const FIELD_FUSED_LINEAR_Y = "tokamak_frm_fusedLinearY";
 
 type SpecialPolynomialOperation =
   | "x-minus-one"
@@ -90,6 +92,8 @@ export function installLinearBatchPlugin(module: WasmModuleBuilder): void {
   buildSpecialPolynomialKernel(module, FIELD_SPECIAL_LINEAR_X, "linear-x");
   buildSpecialPolynomialKernel(module, FIELD_SPECIAL_LINEAR_Y, "linear-y");
   buildSpecialPolynomialKernel(module, FIELD_SPECIAL_TERM9, "term9");
+  buildFusedLinearKernel(module, FIELD_FUSED_LINEAR_X, "x");
+  buildFusedLinearKernel(module, FIELD_FUSED_LINEAR_Y, "y");
 }
 
 function buildAddScaledKernel(module: WasmModuleBuilder): void {
@@ -1294,6 +1298,124 @@ function buildSpecialPolynomialKernel(
   module.exportFunction(functionName);
 }
 
+function buildFusedLinearKernel(
+  module: WasmModuleBuilder,
+  functionName: string,
+  axis: "x" | "y",
+): void {
+  const fn = module.addFunction(functionName);
+  fn.addParam("pInput", "i32");
+  fn.addParam("sourceStart", "i32");
+  fn.addParam("inputY", "i32");
+  fn.addParam("pAddend", "i32");
+  fn.addParam("addendStart", "i32");
+  fn.addParam("addendRows", "i32");
+  fn.addParam("addendY", "i32");
+  fn.addParam("outputStart", "i32");
+  fn.addParam("xRows", "i32");
+  fn.addParam("activeX", "i32");
+  fn.addParam("activeY", "i32");
+  fn.addParam("activeOutputY", "i32");
+  fn.addParam("pConstant", "i32");
+  fn.addParam("pShift", "i32");
+  fn.addParam("pAddendScale", "i32");
+  fn.addParam("pOutput", "i32");
+  fn.addLocal("x", "i32");
+  fn.addLocal("y", "i32");
+  fn.addLocal("globalX", "i32");
+  const code = fn.getCodeBuilder();
+  const value = code.i32_const(module.alloc(32));
+  const term = code.i32_const(module.alloc(32));
+  const sequence = (...parts: unknown[]): unknown =>
+    (parts as readonly (readonly unknown[])[]).flat();
+  const addScaled = (pointer: unknown, factor: string): unknown =>
+    sequence(
+      code.call("frm_mul", pointer, code.getLocal(factor), term),
+      code.call("frm_add", value, term, value),
+    );
+  const current = specialInputPointer(code, code.getLocal("globalX"), code.getLocal("y"));
+  const shifted = axis === "x"
+    ? specialInputPointer(
+        code,
+        code.i32_sub(code.getLocal("globalX"), code.i32_const(1)),
+        code.getLocal("y"),
+      )
+    : specialInputPointer(
+        code,
+        code.getLocal("globalX"),
+        code.i32_sub(code.getLocal("y"), code.i32_const(1)),
+      );
+
+  fn.addCode(
+    code.setLocal("x", code.i32_const(0)),
+    code.block(code.loop(
+      code.br_if(1, code.i32_eq(code.getLocal("x"), code.getLocal("xRows"))),
+      code.setLocal(
+        "globalX",
+        code.i32_add(code.getLocal("outputStart"), code.getLocal("x")),
+      ),
+      code.setLocal("y", code.i32_const(0)),
+      code.block(code.loop(
+        code.br_if(1, code.i32_eq(code.getLocal("y"), code.getLocal("activeOutputY"))),
+        code.call("frm_zero", value),
+        code.if(
+          code.i32_lt_u(code.getLocal("globalX"), code.getLocal("activeX")),
+          code.if(
+            code.i32_lt_u(code.getLocal("y"), code.getLocal("activeY")),
+            addScaled(current, "pConstant"),
+          ),
+        ),
+        axis === "x"
+          ? code.if(
+              code.i32_gt_u(code.getLocal("globalX"), code.i32_const(0)),
+              code.if(
+                code.i32_lt_u(
+                  code.i32_sub(code.getLocal("globalX"), code.i32_const(1)),
+                  code.getLocal("activeX"),
+                ),
+                code.if(
+                  code.i32_lt_u(code.getLocal("y"), code.getLocal("activeY")),
+                  addScaled(shifted, "pShift"),
+                ),
+              ),
+            )
+          : code.if(
+              code.i32_lt_u(code.getLocal("globalX"), code.getLocal("activeX")),
+              code.if(
+                code.i32_gt_u(code.getLocal("y"), code.i32_const(0)),
+                code.if(
+                  code.i32_lt_u(
+                    code.i32_sub(code.getLocal("y"), code.i32_const(1)),
+                    code.getLocal("activeY"),
+                  ),
+                  addScaled(shifted, "pShift"),
+                ),
+              ),
+            ),
+        code.if(
+          code.i32_ge_u(code.getLocal("globalX"), code.getLocal("addendStart")),
+          code.if(
+            code.i32_lt_u(
+              code.getLocal("globalX"),
+              code.i32_add(code.getLocal("addendStart"), code.getLocal("addendRows")),
+            ),
+            code.if(
+              code.i32_lt_u(code.getLocal("y"), code.getLocal("addendY")),
+              addScaled(fusedAddendPointer(code), "pAddendScale"),
+            ),
+          ),
+        ),
+        code.call("frm_copy", value, specialOutputPointer(code)),
+        code.setLocal("y", code.i32_add(code.getLocal("y"), code.i32_const(1))),
+        code.br(0),
+      )),
+      code.setLocal("x", code.i32_add(code.getLocal("x"), code.i32_const(1))),
+      code.br(0),
+    )),
+  );
+  module.exportFunction(functionName);
+}
+
 function k0Pointer(code: WasmCodeBuilder, base: string, row: unknown): unknown {
   return code.i32_add(
     code.getLocal(base),
@@ -1351,6 +1473,22 @@ function specialOutputPointer(code: WasmCodeBuilder): unknown {
     code.i32_mul(
       code.i32_add(
         code.i32_mul(code.getLocal("x"), code.getLocal("activeOutputY")),
+        code.getLocal("y"),
+      ),
+      code.i32_const(32),
+    ),
+  );
+}
+
+function fusedAddendPointer(code: WasmCodeBuilder): unknown {
+  return code.i32_add(
+    code.getLocal("pAddend"),
+    code.i32_mul(
+      code.i32_add(
+        code.i32_mul(
+          code.i32_sub(code.getLocal("globalX"), code.getLocal("addendStart")),
+          code.getLocal("addendY"),
+        ),
         code.getLocal("y"),
       ),
       code.i32_const(32),

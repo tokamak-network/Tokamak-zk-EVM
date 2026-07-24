@@ -3,7 +3,6 @@ import path from "node:path";
 
 import {
   BivariatePolynomialBuffer,
-  createCurveRuntime,
   type FieldElement,
   type FieldRuntime,
 } from "../../../src/index.js";
@@ -13,6 +12,12 @@ import {
   mulByXMinusOne,
   multiplyByLagrangeK0,
 } from "../../../src/prover/internal/polynomial-ops.js";
+import {
+  createStructuredBenchmarkRuntimes,
+  multiplyFusedLinearWasmOneWorker,
+  multiplyFusedLinearWasmSingle,
+  multiplyFusedLinearWasmWorkers,
+} from "./structured-wasm-benchmark-support.js";
 
 interface Shape {
   readonly xSize: number;
@@ -32,90 +37,134 @@ interface Record {
   readonly ms: number;
 }
 
+interface FusedImplementation {
+  readonly name: string;
+  readonly run: (
+    rD: BivariatePolynomialBuffer,
+    gD: BivariatePolynomialBuffer,
+    coefficients: readonly [FieldElement, FieldElement],
+    scale: FieldElement,
+    axis: "x" | "y",
+  ) => Promise<BivariatePolynomialBuffer>;
+}
+
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2));
-  const runtime = await createCurveRuntime({ singleThread: true });
+  const runtime = await createStructuredBenchmarkRuntimes();
   try {
-    const field = runtime.Fr;
+    const field = runtime.field;
     const rD = patternedPolynomial(field, options.shape, 0x31n);
     const gD = patternedPolynomial(field, options.shape, 0x53n);
-    const linearCoefficients = [field.fromBigInt(3n), field.fromBigInt(5n)];
+    const linearCoefficients: readonly [FieldElement, FieldElement] = [
+      field.fromBigInt(3n),
+      field.fromBigInt(5n),
+    ];
     const scale = field.fromBigInt(7n);
+    const implementations: readonly FusedImplementation[] = [
+      {
+        name: "current-production",
+        run: (left, right, coefficients, addendScale, axis) =>
+          axis === "x"
+            ? currentInnerX(left, right, coefficients, addendScale)
+            : currentInnerY(left, right, coefficients, addendScale),
+      },
+      {
+        name: "javascript-fused",
+        run: async (left, right, coefficients, addendScale, axis) =>
+          fusedLinearPlusScaled(left, right, coefficients, addendScale, axis),
+      },
+      {
+        name: "wasm-single-task",
+        run: (left, right, coefficients, addendScale, axis) =>
+          multiplyFusedLinearWasmSingle(
+            runtime,
+            left,
+            right,
+            coefficients,
+            addendScale,
+            axis,
+          ),
+      },
+      {
+        name: "wasm-one-worker",
+        run: (left, right, coefficients, addendScale, axis) =>
+          multiplyFusedLinearWasmOneWorker(
+            runtime,
+            left,
+            right,
+            coefficients,
+            addendScale,
+            axis,
+          ),
+      },
+      {
+        name: "wasm-workers",
+        run: (left, right, coefficients, addendScale, axis) =>
+          multiplyFusedLinearWasmWorkers(
+            runtime,
+            left,
+            right,
+            coefficients,
+            addendScale,
+            axis,
+          ),
+      },
+    ];
 
     for (const parityScale of [field.zero, field.one, scale]) {
-      assertBytesEqual(
-        (await currentInnerX(rD, gD, linearCoefficients, parityScale)).coefficients,
-        fusedLinearPlusScaled(rD, gD, linearCoefficients, parityScale, "x").coefficients,
-        "fused X-linear inner parity",
-      );
-      assertBytesEqual(
-        (await currentInnerY(rD, gD, linearCoefficients, parityScale)).coefficients,
-        fusedLinearPlusScaled(rD, gD, linearCoefficients, parityScale, "y").coefficients,
-        "fused Y-linear inner parity",
-      );
+      for (const axis of ["x", "y"] as const) {
+        const expected = await implementations[0].run(
+          rD,
+          gD,
+          linearCoefficients,
+          parityScale,
+          axis,
+        );
+        for (const implementation of implementations.slice(1)) {
+          assertPolynomialEqual(
+            await implementation.run(rD, gD, linearCoefficients, parityScale, axis),
+            expected,
+            `${implementation.name} ${axis} scale parity`,
+          );
+        }
+      }
     }
 
-    const currentX = await currentInnerX(rD, gD, linearCoefficients, scale);
-    const fusedX = fusedLinearPlusScaled(rD, gD, linearCoefficients, scale, "x");
-    const currentY = await currentInnerY(rD, gD, linearCoefficients, scale);
-    const fusedY = fusedLinearPlusScaled(rD, gD, linearCoefficients, scale, "y");
-    assertBytesEqual(currentX.coefficients, fusedX.coefficients, "representative X inner parity");
-    assertBytesEqual(currentY.coefficients, fusedY.coefficients, "representative Y inner parity");
-    assertBytesEqual(
-      (await mulByXMinusOne(currentX)).coefficients,
-      (await mulByXMinusOne(fusedX)).coefficients,
-      "representative X term2 parity",
-    );
-    assertBytesEqual(
-      (await mulByXMinusOne(currentY)).coefficients,
-      (await mulByXMinusOne(fusedY)).coefficients,
-      "representative Y term2 parity",
-    );
-    assertBytesEqual(
-      (await multiplyByLagrangeK0(currentX, options.shape.xSize)).coefficients,
-      (await multiplyByLagrangeK0(fusedX, options.shape.xSize)).coefficients,
-      "representative X term3 parity",
-    );
-    assertBytesEqual(
-      (await multiplyByLagrangeK0(currentY, options.shape.xSize)).coefficients,
-      (await multiplyByLagrangeK0(fusedY, options.shape.xSize)).coefficients,
-      "representative Y term3 parity",
-    );
-
-    const records: Record[] = [
-      await record(options, "current-inner-x", () => currentInnerX(rD, gD, linearCoefficients, scale)),
-      await record(options, "fused-inner-x", () => fusedLinearPlusScaled(rD, gD, linearCoefficients, scale, "x")),
-      await record(options, "current-inner-y", () => currentInnerY(rD, gD, linearCoefficients, scale)),
-      await record(options, "fused-inner-y", () => fusedLinearPlusScaled(rD, gD, linearCoefficients, scale, "y")),
-      await record(options, "current-term2-x", async () =>
-        mulByXMinusOne(await currentInnerX(rD, gD, linearCoefficients, scale))),
-      await record(options, "fused-term2-x", () =>
-        mulByXMinusOne(fusedLinearPlusScaled(rD, gD, linearCoefficients, scale, "x"))),
-      await record(options, "current-term2-y", async () =>
-        mulByXMinusOne(await currentInnerY(rD, gD, linearCoefficients, scale))),
-      await record(options, "fused-term2-y", () =>
-        mulByXMinusOne(fusedLinearPlusScaled(rD, gD, linearCoefficients, scale, "y"))),
-      await record(options, "current-term3-x", async () =>
-        multiplyByLagrangeK0(
-          await currentInnerX(rD, gD, linearCoefficients, scale),
-          options.shape.xSize,
-        )),
-      await record(options, "fused-term3-x", () =>
-        multiplyByLagrangeK0(
-          fusedLinearPlusScaled(rD, gD, linearCoefficients, scale, "x"),
-          options.shape.xSize,
-        )),
-      await record(options, "current-term3-y", async () =>
-        multiplyByLagrangeK0(
-          await currentInnerY(rD, gD, linearCoefficients, scale),
-          options.shape.xSize,
-        )),
-      await record(options, "fused-term3-y", () =>
-        multiplyByLagrangeK0(
-          fusedLinearPlusScaled(rD, gD, linearCoefficients, scale, "y"),
-          options.shape.xSize,
-        )),
-    ];
+    const records: Record[] = [];
+    for (const axis of ["x", "y"] as const) {
+      const expectedInner = await implementations[0].run(
+        rD,
+        gD,
+        linearCoefficients,
+        scale,
+        axis,
+      );
+      const expectedTerm2 = await mulByXMinusOne(expectedInner);
+      const expectedTerm3 = await multiplyByLagrangeK0(expectedInner, options.shape.xSize);
+      for (const implementation of implementations) {
+        const runInner = () =>
+          implementation.run(rD, gD, linearCoefficients, scale, axis);
+        const candidateInner = await runInner();
+        assertPolynomialEqual(candidateInner, expectedInner, `${implementation.name} ${axis} inner`);
+        assertPolynomialEqual(
+          await mulByXMinusOne(candidateInner),
+          expectedTerm2,
+          `${implementation.name} ${axis} term2`,
+        );
+        assertPolynomialEqual(
+          await multiplyByLagrangeK0(candidateInner, options.shape.xSize),
+          expectedTerm3,
+          `${implementation.name} ${axis} term3`,
+        );
+        records.push(
+          await record(options, `${implementation.name}-inner-${axis}`, runInner),
+          await record(options, `${implementation.name}-term2-${axis}`, async () =>
+            mulByXMinusOne(await runInner())),
+          await record(options, `${implementation.name}-term3-${axis}`, async () =>
+            multiplyByLagrangeK0(await runInner(), options.shape.xSize)),
+        );
+      }
+    }
 
     console.table(records.map((entry) => ({
       candidate: entry.candidate,
@@ -285,6 +334,19 @@ function nextPowerOfTwo(value: number): number {
     output *= 2;
   }
   return output;
+}
+
+function assertPolynomialEqual(
+  actual: BivariatePolynomialBuffer,
+  expected: BivariatePolynomialBuffer,
+  label: string,
+): void {
+  if (actual.xSize !== expected.xSize || actual.ySize !== expected.ySize) {
+    throw new Error(
+      `${label}: shape mismatch ${actual.xSize}x${actual.ySize} !== ${expected.xSize}x${expected.ySize}.`,
+    );
+  }
+  assertBytesEqual(actual.coefficients, expected.coefficients, label);
 }
 
 function assertBytesEqual(actual: Uint8Array, expected: Uint8Array, label: string): void {

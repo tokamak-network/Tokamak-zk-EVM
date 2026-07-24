@@ -12,6 +12,8 @@ import {
   FIELD_EVAL_REDUCE_FUSED,
   FIELD_EVAL_ROWS,
   FIELD_EVAL_ROWS_FUSED,
+  FIELD_FUSED_LINEAR_X,
+  FIELD_FUSED_LINEAR_Y,
   FIELD_K0_RECURRENCE,
   FIELD_KL_RECURRENCE_X,
   FIELD_KL_RECURRENCE_Y,
@@ -166,6 +168,22 @@ export interface FieldRuntime {
     constant: FieldElement,
     xCoefficient: FieldElement,
     yCoefficient: FieldElement,
+  ): Promise<Uint8Array>;
+  fusedLinearPolynomialBuffer(
+    buffer: Uint8Array,
+    inputXSize: number,
+    inputYSize: number,
+    activeXSize: number,
+    activeYSize: number,
+    addend: Uint8Array,
+    addendXSize: number,
+    addendYSize: number,
+    outputXSize: number,
+    outputYSize: number,
+    axis: "x" | "y",
+    constant: FieldElement,
+    shiftCoefficient: FieldElement,
+    addendScale: FieldElement,
   ): Promise<Uint8Array>;
   fft(values: readonly FieldElement[]): Promise<FieldElement[]>;
   ifft(values: readonly FieldElement[]): Promise<FieldElement[]>;
@@ -809,6 +827,87 @@ export function createFieldRuntime(field: FfField): FieldRuntime {
       }
       return output;
     },
+    async fusedLinearPolynomialBuffer(
+      buffer,
+      inputXSize,
+      inputYSize,
+      activeXSize,
+      activeYSize,
+      addend,
+      addendXSize,
+      addendYSize,
+      outputXSize,
+      outputYSize,
+      axis,
+      constant,
+      shiftCoefficient,
+      addendScale,
+    ) {
+      assertPolynomialBufferShape(buffer, inputXSize, inputYSize, field.n8, "Fused linear input");
+      assertPolynomialBufferShape(addend, addendXSize, addendYSize, field.n8, "Fused linear addend");
+      assertPositiveSafeInteger(activeXSize, "Fused linear active X size");
+      assertPositiveSafeInteger(activeYSize, "Fused linear active Y size");
+      assertPositiveSafeInteger(outputXSize, "Fused linear output X size");
+      assertPositiveSafeInteger(outputYSize, "Fused linear output Y size");
+      assertFieldElement(constant, field.n8, "Fused linear constant");
+      assertFieldElement(shiftCoefficient, field.n8, "Fused linear shift coefficient");
+      assertFieldElement(addendScale, field.n8, "Fused linear addend scale");
+      const activeOutputX = activeXSize + (axis === "x" ? 1 : 0);
+      const activeOutputY = activeYSize + (axis === "y" ? 1 : 0);
+      if (
+        activeXSize > inputXSize
+        || activeYSize > inputYSize
+        || activeOutputX > outputXSize
+        || activeOutputY > outputYSize
+        || addendXSize > outputXSize
+        || addendYSize > outputYSize
+      ) {
+        throw new Error("Fused linear input and output shapes are incompatible.");
+      }
+
+      const ranges = splitRanges(activeOutputX, field.tm.concurrency);
+      const inputRowBytes = inputYSize * field.n8;
+      const addendRowBytes = addendYSize * field.n8;
+      const functionName = axis === "x" ? FIELD_FUSED_LINEAR_X : FIELD_FUSED_LINEAR_Y;
+      const results = await Promise.all(ranges.map(({ start, count }) => {
+        const sourceStart = Math.max(0, start - (axis === "x" ? 1 : 0));
+        const sourceEnd = Math.min(activeXSize, start + count);
+        const addendStart = Math.min(start, addendXSize);
+        const addendEnd = Math.min(start + count, addendXSize);
+        return field.tm.queueAction(buildFusedLinearTask(
+          buffer.slice(sourceStart * inputRowBytes, sourceEnd * inputRowBytes),
+          sourceStart,
+          inputYSize,
+          addend.slice(addendStart * addendRowBytes, addendEnd * addendRowBytes),
+          addendStart,
+          addendEnd - addendStart,
+          addendYSize,
+          start,
+          count,
+          activeXSize,
+          activeYSize,
+          activeOutputY,
+          functionName,
+          constant,
+          shiftCoefficient,
+          addendScale,
+          field.n8,
+        ));
+      }));
+      const output = new Uint8Array(outputXSize * outputYSize * field.n8);
+      for (let index = 0; index < ranges.length; index += 1) {
+        const shard = requireTaskOutputs(results[index], 1, `fused-linear-${axis}`)[0];
+        const { start, count } = ranges[index];
+        for (let localX = 0; localX < count; localX += 1) {
+          const sourceOffset = localX * activeOutputY * field.n8;
+          output.set(
+            shard.subarray(sourceOffset, sourceOffset + activeOutputY * field.n8),
+            (start + localX) * outputYSize * field.n8,
+          );
+        }
+      }
+      return output;
+    },
     async fft(values) {
       return splitFieldBuffer(await field.fft(concatFieldElements(values, field.n8)), field.n8);
     },
@@ -1164,6 +1263,8 @@ function assertLinearBatchExports(field: FfField): void {
     FIELD_EVAL_REDUCE_FUSED,
     FIELD_EVAL_ROWS,
     FIELD_EVAL_ROWS_FUSED,
+    FIELD_FUSED_LINEAR_X,
+    FIELD_FUSED_LINEAR_Y,
     FIELD_K0_RECURRENCE,
     FIELD_KL_RECURRENCE_X,
     FIELD_KL_RECURRENCE_Y,
@@ -1316,6 +1417,59 @@ function buildSpecialPolynomialTask(
       ],
     },
     { cmd: "GET", out: 0, var: 4, len: outputBytes },
+  ];
+}
+
+function buildFusedLinearTask(
+  source: Uint8Array,
+  sourceStart: number,
+  inputYSize: number,
+  addend: Uint8Array,
+  addendStart: number,
+  addendRows: number,
+  addendYSize: number,
+  outputStart: number,
+  outputXRows: number,
+  activeXSize: number,
+  activeYSize: number,
+  activeOutputY: number,
+  functionName: string,
+  constant: FieldElement,
+  shiftCoefficient: FieldElement,
+  addendScale: FieldElement,
+  elementBytes: number,
+): FfWorkerCommand[] {
+  const outputBytes = outputXRows * activeOutputY * elementBytes;
+  return [
+    { cmd: "ALLOCSET", var: 0, buff: source },
+    { cmd: "ALLOCSET", var: 1, buff: addend },
+    { cmd: "ALLOCSET", var: 2, buff: constant },
+    { cmd: "ALLOCSET", var: 3, buff: shiftCoefficient },
+    { cmd: "ALLOCSET", var: 4, buff: addendScale },
+    { cmd: "ALLOC", var: 5, len: outputBytes },
+    {
+      cmd: "CALL",
+      fnName: functionName,
+      params: [
+        { var: 0 },
+        { val: sourceStart },
+        { val: inputYSize },
+        { var: 1 },
+        { val: addendStart },
+        { val: addendRows },
+        { val: addendYSize },
+        { val: outputStart },
+        { val: outputXRows },
+        { val: activeXSize },
+        { val: activeYSize },
+        { val: activeOutputY },
+        { var: 2 },
+        { var: 3 },
+        { var: 4 },
+        { var: 5 },
+      ],
+    },
+    { cmd: "GET", out: 0, var: 5, len: outputBytes },
   ];
 }
 

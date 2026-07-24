@@ -844,7 +844,7 @@ async function prove2Timed(input: {
   const rD1 = await polynomialSub("prove2.rD1", rXY, rOmegaX);
   const rD2 = await polynomialSub("prove2.rD2", rXY, rOmegaXOmegaY);
   const gD = await polynomialSub("prove2.gD", gXY, fXY);
-  const qCxTerm2Sum = polynomialOperationSync(
+  const qCxTerm2Sum = await polynomialOperation(
     "polynomial.combination_without_multiplication",
     "prove2.Q_CX.term2.fused_inner",
     () => combineLinearXWithScaled(rD1, state.mixer.rB_X, gD, state.mixer.rR_X),
@@ -854,7 +854,7 @@ async function prove2Timed(input: {
     () => mulByXMinusOne(qCxTerm2Sum),
     [shapeSize("polynomial", qCxTerm2Sum.xSize, qCxTerm2Sum.ySize)],
   );
-  const qCxTerm3Sum = polynomialOperationSync(
+  const qCxTerm3Sum = await polynomialOperation(
     "polynomial.combination_without_multiplication",
     "prove2.Q_CX.term3.fused_inner",
     () => combineLinearXWithScaled(rD2, state.mixer.rB_X, gD, state.mixer.rR_X),
@@ -870,7 +870,7 @@ async function prove2Timed(input: {
       [kappa0Sq, qCxTerm3],
     ],
   );
-  const qCyTerm2Sum = polynomialOperationSync(
+  const qCyTerm2Sum = await polynomialOperation(
     "polynomial.combination_without_multiplication",
     "prove2.Q_CY.term2.fused_inner",
     () => combineLinearYWithScaled(rD1, state.mixer.rB_Y, gD, state.mixer.rR_Y),
@@ -880,7 +880,7 @@ async function prove2Timed(input: {
     () => mulByXMinusOne(qCyTerm2Sum),
     [shapeSize("polynomial", qCyTerm2Sum.xSize, qCyTerm2Sum.ySize)],
   );
-  const qCyTerm3Sum = polynomialOperationSync(
+  const qCyTerm3Sum = await polynomialOperation(
     "polynomial.combination_without_multiplication",
     "prove2.Q_CY.term3.fused_inner",
     () => combineLinearYWithScaled(rD2, state.mixer.rB_Y, gD, state.mixer.rR_Y),

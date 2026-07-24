@@ -97,10 +97,10 @@ export async function computeCopyQuotientCommitments(input: {
   const rD2 = await rXY.subBatch(rOmegaXOmegaY);
   const gD = await gXY.subBatch(fXY);
   const qCxTerm2 = await mulByXMinusOne(
-    combineLinearXWithScaled(rD1, state.mixer.rB_X, gD, state.mixer.rR_X),
+    await combineLinearXWithScaled(rD1, state.mixer.rB_X, gD, state.mixer.rR_X),
   );
   const qCxTerm3 = await multiplyByLagrangeK0(
-    combineLinearXWithScaled(rD2, state.mixer.rB_X, gD, state.mixer.rR_X),
+    await combineLinearXWithScaled(rD2, state.mixer.rB_X, gD, state.mixer.rR_X),
     mI,
   );
   const qCxXY = await linearCombinationBufferBatch(field, [
@@ -110,10 +110,10 @@ export async function computeCopyQuotientCommitments(input: {
     [kappa0Sq, qCxTerm3],
   ]);
   const qCyTerm2 = await mulByXMinusOne(
-    combineLinearYWithScaled(rD1, state.mixer.rB_Y, gD, state.mixer.rR_Y),
+    await combineLinearYWithScaled(rD1, state.mixer.rB_Y, gD, state.mixer.rR_Y),
   );
   const qCyTerm3 = await multiplyByLagrangeK0(
-    combineLinearYWithScaled(rD2, state.mixer.rB_Y, gD, state.mixer.rR_Y),
+    await combineLinearYWithScaled(rD2, state.mixer.rB_Y, gD, state.mixer.rR_Y),
     mI,
   );
   const qCyXY = await linearCombinationBufferBatch(field, [

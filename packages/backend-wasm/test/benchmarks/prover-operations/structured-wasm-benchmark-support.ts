@@ -16,6 +16,8 @@ const SPECIAL_ONE_MINUS_X = "tokamak_bench_oneMinusX";
 const SPECIAL_LINEAR_X = "tokamak_bench_linearX";
 const SPECIAL_LINEAR_Y = "tokamak_bench_linearY";
 const SPECIAL_TERM9 = "tokamak_bench_term9";
+const FUSED_LINEAR_X = "tokamak_bench_fusedLinearX";
+const FUSED_LINEAR_Y = "tokamak_bench_fusedLinearY";
 
 export type SpecialOperation =
   | "x-minus-one"
@@ -219,6 +221,66 @@ export function specialTemporaryBytes(
   return outputBytes * 2 + inputBytes + (taskCount > 1 ? inputBytes : 0);
 }
 
+export async function multiplyFusedLinearWasmSingle(
+  runtime: StructuredBenchmarkRuntimes,
+  polynomial: BivariatePolynomialBuffer,
+  addend: BivariatePolynomialBuffer,
+  coefficients: readonly [Uint8Array, Uint8Array],
+  addendScale: Uint8Array,
+  axis: "x" | "y",
+): Promise<BivariatePolynomialBuffer> {
+  return multiplyFusedLinear(
+    runtime,
+    runtime.singleField,
+    polynomial,
+    addend,
+    coefficients,
+    addendScale,
+    axis,
+    1,
+  );
+}
+
+export async function multiplyFusedLinearWasmOneWorker(
+  runtime: StructuredBenchmarkRuntimes,
+  polynomial: BivariatePolynomialBuffer,
+  addend: BivariatePolynomialBuffer,
+  coefficients: readonly [Uint8Array, Uint8Array],
+  addendScale: Uint8Array,
+  axis: "x" | "y",
+): Promise<BivariatePolynomialBuffer> {
+  return multiplyFusedLinear(
+    runtime,
+    runtime.multiField,
+    polynomial,
+    addend,
+    coefficients,
+    addendScale,
+    axis,
+    1,
+  );
+}
+
+export async function multiplyFusedLinearWasmWorkers(
+  runtime: StructuredBenchmarkRuntimes,
+  polynomial: BivariatePolynomialBuffer,
+  addend: BivariatePolynomialBuffer,
+  coefficients: readonly [Uint8Array, Uint8Array],
+  addendScale: Uint8Array,
+  axis: "x" | "y",
+): Promise<BivariatePolynomialBuffer> {
+  return multiplyFusedLinear(
+    runtime,
+    runtime.multiField,
+    polynomial,
+    addend,
+    coefficients,
+    addendScale,
+    axis,
+    runtime.workerCount,
+  );
+}
+
 async function multiplyK0(
   runtime: StructuredBenchmarkRuntimes,
   rawField: FfField,
@@ -418,6 +480,84 @@ async function multiplySpecial(
   );
 }
 
+async function multiplyFusedLinear(
+  runtime: StructuredBenchmarkRuntimes,
+  rawField: FfField,
+  polynomial: BivariatePolynomialBuffer,
+  addend: BivariatePolynomialBuffer,
+  coefficients: readonly [Uint8Array, Uint8Array],
+  addendScale: Uint8Array,
+  axis: "x" | "y",
+  taskCount: number,
+): Promise<BivariatePolynomialBuffer> {
+  if (polynomial.field !== addend.field) {
+    throw new Error("Fused linear benchmark inputs must use one field.");
+  }
+  const degree = polynomial.findDegree();
+  if (degree.xDegree < 0 || degree.yDegree < 0) {
+    return addend.scale(addendScale);
+  }
+  const activeX = degree.xDegree + 1;
+  const activeY = degree.yDegree + 1;
+  const activeOutputX = activeX + (axis === "x" ? 1 : 0);
+  const activeOutputY = activeY + (axis === "y" ? 1 : 0);
+  const outputXSize = axis === "x"
+    ? Math.max(polynomial.xSize, nextPowerOfTwo(activeOutputX))
+    : polynomial.xSize;
+  const outputYSize = axis === "y"
+    ? Math.max(polynomial.ySize, nextPowerOfTwo(activeOutputY))
+    : polynomial.ySize;
+  if (addend.xSize > outputXSize || addend.ySize > outputYSize) {
+    throw new Error("Fused linear benchmark addend must fit inside the output.");
+  }
+
+  const ranges = splitRanges(activeOutputX, taskCount);
+  const inputRowBytes = polynomial.ySize * runtime.field.byteLength;
+  const addendRowBytes = addend.ySize * runtime.field.byteLength;
+  const results = await Promise.all(ranges.map(({ start, count }) => {
+    const sourceStart = Math.max(0, start - (axis === "x" ? 1 : 0));
+    const sourceEnd = Math.min(activeX, start + count);
+    const addendStart = Math.min(start, addend.xSize);
+    const addendEnd = Math.min(start + count, addend.xSize);
+    return rawField.tm.queueAction(buildFusedLinearTask(
+      polynomial.coefficients.slice(sourceStart * inputRowBytes, sourceEnd * inputRowBytes),
+      sourceStart,
+      polynomial.ySize,
+      addend.coefficients.slice(addendStart * addendRowBytes, addendEnd * addendRowBytes),
+      addendStart,
+      addendEnd - addendStart,
+      addend.ySize,
+      start,
+      count,
+      activeX,
+      activeY,
+      activeOutputY,
+      axis === "x" ? FUSED_LINEAR_X : FUSED_LINEAR_Y,
+      coefficients,
+      addendScale,
+      runtime.field.byteLength,
+    ));
+  }));
+  const output = new Uint8Array(outputXSize * outputYSize * runtime.field.byteLength);
+  for (let index = 0; index < ranges.length; index += 1) {
+    const shard = requireOutputs(results[index], 1, `fused-linear-${axis}`)[0];
+    const { start, count } = ranges[index];
+    for (let localX = 0; localX < count; localX += 1) {
+      const sourceOffset = localX * activeOutputY * runtime.field.byteLength;
+      output.set(
+        shard.subarray(sourceOffset, sourceOffset + activeOutputY * runtime.field.byteLength),
+        (start + localX) * outputYSize * runtime.field.byteLength,
+      );
+    }
+  }
+  return BivariatePolynomialBuffer.fromOwnedBuffer(
+    runtime.field,
+    output,
+    outputXSize,
+    outputYSize,
+  );
+}
+
 function installStructuredBenchmarkPlugin(module: WasmModuleBuilder): void {
   installLinearBatchPlugin(module);
   buildK0Kernel(module as unknown as ModuleBuilder);
@@ -428,6 +568,8 @@ function installStructuredBenchmarkPlugin(module: WasmModuleBuilder): void {
   buildSpecialKernel(module as unknown as ModuleBuilder, SPECIAL_LINEAR_X, "linear-x");
   buildSpecialKernel(module as unknown as ModuleBuilder, SPECIAL_LINEAR_Y, "linear-y");
   buildSpecialKernel(module as unknown as ModuleBuilder, SPECIAL_TERM9, "term9");
+  buildFusedLinearKernel(module as unknown as ModuleBuilder, FUSED_LINEAR_X, "x");
+  buildFusedLinearKernel(module as unknown as ModuleBuilder, FUSED_LINEAR_Y, "y");
 }
 
 function buildK0Kernel(module: ModuleBuilder): void {
@@ -797,6 +939,124 @@ function buildSpecialKernel(
   module.exportFunction(functionName);
 }
 
+function buildFusedLinearKernel(
+  module: ModuleBuilder,
+  functionName: string,
+  axis: "x" | "y",
+): void {
+  const fn = module.addFunction(functionName);
+  fn.addParam("pInput", "i32");
+  fn.addParam("sourceStart", "i32");
+  fn.addParam("inputY", "i32");
+  fn.addParam("pAddend", "i32");
+  fn.addParam("addendStart", "i32");
+  fn.addParam("addendRows", "i32");
+  fn.addParam("addendY", "i32");
+  fn.addParam("outputStart", "i32");
+  fn.addParam("xRows", "i32");
+  fn.addParam("activeX", "i32");
+  fn.addParam("activeY", "i32");
+  fn.addParam("activeOutputY", "i32");
+  fn.addParam("pConstant", "i32");
+  fn.addParam("pShift", "i32");
+  fn.addParam("pAddendScale", "i32");
+  fn.addParam("pOutput", "i32");
+  fn.addLocal("x", "i32");
+  fn.addLocal("y", "i32");
+  fn.addLocal("globalX", "i32");
+  const code = fn.getCodeBuilder();
+  const value = code.i32_const(module.alloc(32));
+  const term = code.i32_const(module.alloc(32));
+  const sequence = (...parts: unknown[]): unknown =>
+    (parts as readonly (readonly unknown[])[]).flat();
+  const addScaled = (pointer: unknown, factor: string): unknown =>
+    sequence(
+      code.call("frm_mul", pointer, code.getLocal(factor), term),
+      code.call("frm_add", value, term, value),
+    );
+  const current = specialInputPointer(code, code.getLocal("globalX"), code.getLocal("y"));
+  const shifted = axis === "x"
+    ? specialInputPointer(
+        code,
+        code.i32_sub(code.getLocal("globalX"), code.i32_const(1)),
+        code.getLocal("y"),
+      )
+    : specialInputPointer(
+        code,
+        code.getLocal("globalX"),
+        code.i32_sub(code.getLocal("y"), code.i32_const(1)),
+      );
+
+  fn.addCode(
+    code.setLocal("x", code.i32_const(0)),
+    code.block(code.loop(
+      code.br_if(1, code.i32_eq(code.getLocal("x"), code.getLocal("xRows"))),
+      code.setLocal(
+        "globalX",
+        code.i32_add(code.getLocal("outputStart"), code.getLocal("x")),
+      ),
+      code.setLocal("y", code.i32_const(0)),
+      code.block(code.loop(
+        code.br_if(1, code.i32_eq(code.getLocal("y"), code.getLocal("activeOutputY"))),
+        code.call("frm_zero", value),
+        code.if(
+          code.i32_lt_u(code.getLocal("globalX"), code.getLocal("activeX")),
+          code.if(
+            code.i32_lt_u(code.getLocal("y"), code.getLocal("activeY")),
+            addScaled(current, "pConstant"),
+          ),
+        ),
+        axis === "x"
+          ? code.if(
+              code.i32_gt_u(code.getLocal("globalX"), code.i32_const(0)),
+              code.if(
+                code.i32_lt_u(
+                  code.i32_sub(code.getLocal("globalX"), code.i32_const(1)),
+                  code.getLocal("activeX"),
+                ),
+                code.if(
+                  code.i32_lt_u(code.getLocal("y"), code.getLocal("activeY")),
+                  addScaled(shifted, "pShift"),
+                ),
+              ),
+            )
+          : code.if(
+              code.i32_lt_u(code.getLocal("globalX"), code.getLocal("activeX")),
+              code.if(
+                code.i32_gt_u(code.getLocal("y"), code.i32_const(0)),
+                code.if(
+                  code.i32_lt_u(
+                    code.i32_sub(code.getLocal("y"), code.i32_const(1)),
+                    code.getLocal("activeY"),
+                  ),
+                  addScaled(shifted, "pShift"),
+                ),
+              ),
+            ),
+        code.if(
+          code.i32_ge_u(code.getLocal("globalX"), code.getLocal("addendStart")),
+          code.if(
+            code.i32_lt_u(
+              code.getLocal("globalX"),
+              code.i32_add(code.getLocal("addendStart"), code.getLocal("addendRows")),
+            ),
+            code.if(
+              code.i32_lt_u(code.getLocal("y"), code.getLocal("addendY")),
+              addScaled(fusedAddendPointer(code), "pAddendScale"),
+            ),
+          ),
+        ),
+        code.call("frm_copy", value, specialOutputPointer(code)),
+        code.setLocal("y", code.i32_add(code.getLocal("y"), code.i32_const(1))),
+        code.br(0),
+      )),
+      code.setLocal("x", code.i32_add(code.getLocal("x"), code.i32_const(1))),
+      code.br(0),
+    )),
+  );
+  module.exportFunction(functionName);
+}
+
 function rowPointer(
   code: WasmCodeBuilder,
   base: string,
@@ -838,6 +1098,22 @@ function specialOutputPointer(code: WasmCodeBuilder): unknown {
     code.i32_mul(
       code.i32_add(
         code.i32_mul(code.getLocal("x"), code.getLocal("activeOutputY")),
+        code.getLocal("y"),
+      ),
+      code.i32_const(32),
+    ),
+  );
+}
+
+function fusedAddendPointer(code: WasmCodeBuilder): unknown {
+  return code.i32_add(
+    code.getLocal("pAddend"),
+    code.i32_mul(
+      code.i32_add(
+        code.i32_mul(
+          code.i32_sub(code.getLocal("globalX"), code.getLocal("addendStart")),
+          code.getLocal("addendY"),
+        ),
         code.getLocal("y"),
       ),
       code.i32_const(32),
@@ -995,6 +1271,58 @@ function buildSpecialTask(
       ],
     },
     { cmd: "GET", out: 0, var: 4, len: outputBytes },
+  ];
+}
+
+function buildFusedLinearTask(
+  source: Uint8Array,
+  sourceStart: number,
+  inputYSize: number,
+  addend: Uint8Array,
+  addendStart: number,
+  addendRows: number,
+  addendYSize: number,
+  outputStart: number,
+  outputXRows: number,
+  activeX: number,
+  activeY: number,
+  activeOutputY: number,
+  functionName: string,
+  coefficients: readonly [Uint8Array, Uint8Array],
+  addendScale: Uint8Array,
+  elementBytes: number,
+): FfWorkerCommand[] {
+  const outputBytes = outputXRows * activeOutputY * elementBytes;
+  return [
+    { cmd: "ALLOCSET", var: 0, buff: source },
+    { cmd: "ALLOCSET", var: 1, buff: addend },
+    { cmd: "ALLOCSET", var: 2, buff: coefficients[0] },
+    { cmd: "ALLOCSET", var: 3, buff: coefficients[1] },
+    { cmd: "ALLOCSET", var: 4, buff: addendScale },
+    { cmd: "ALLOC", var: 5, len: outputBytes },
+    {
+      cmd: "CALL",
+      fnName: functionName,
+      params: [
+        { var: 0 },
+        { val: sourceStart },
+        { val: inputYSize },
+        { var: 1 },
+        { val: addendStart },
+        { val: addendRows },
+        { val: addendYSize },
+        { val: outputStart },
+        { val: outputXRows },
+        { val: activeX },
+        { val: activeY },
+        { val: activeOutputY },
+        { var: 2 },
+        { var: 3 },
+        { var: 4 },
+        { var: 5 },
+      ],
+    },
+    { cmd: "GET", out: 0, var: 5, len: outputBytes },
   ];
 }
 
