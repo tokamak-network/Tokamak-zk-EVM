@@ -109,3 +109,46 @@ approximately `92.5 MiB` of repeated packed-data construction. The current
 generated module still contains `172,032` row arrays and `81,624` entry
 objects, so removing generated object expansion remains part of the separate
 production plan rather than this diagnostics change.
+
+## Flat Witness Construction
+
+`bench-flat-witness.ts` compares the current witness materialization boundary
+with direct final-buffer construction. All candidates use the same
+`sparseRowDotBuffer(...)` primitive and include `bXY`, `uXY`, `vXY`, and `wXY`
+ROU-to-coefficient conversion.
+
+- `current-object-transpose` reproduces field-element arrays, placement-major
+  U/V/W outputs, object-array transpose, concatenation, and polynomial
+  materialization.
+- `flat-direct-output` keeps the current per-placement CSR reconstruction but
+  writes B and U/V/W directly into final row-major byte buffers.
+- `packed-flat-combined` combines the independently measured persistent packed
+  CSR candidate with direct final buffers.
+
+```bash
+npm run bench:flat-witness
+```
+
+Environment: local Node.js with exposed GC, one warmup, three alternating-order
+measured iterations, and the prepared small runtime fixture.
+
+| candidate | median ms | allocation ms | fill ms | transpose ms | materialization ms | JS array entries | explicit copied MiB |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| current object/transpose | 4143.801 | 91.391 | 531.080 | 18.479 | 3502.613 | 7,340,032 | 224.000 |
+| flat direct output | 2923.687 | 1.243 | 399.700 | 0 | 2522.568 | 0 | 87.750 |
+| packed CSR + flat output | 2781.108 | 1.102 | 358.354 | 0 | 2421.392 | 0 | 87.750 |
+
+The standalone flat candidate reduced the measured boundary by `1220.114 ms`
+(`29.4%`). The combined candidate reduced it by `1362.693 ms` (`32.9%`);
+this combined number is measured directly and is not the sum of isolated
+speedups. Exact coefficient parity passed for all four polynomials on both the
+prepared fixture and a deterministic small layout containing empty rows and
+unused placement columns.
+
+The benchmark samples process-relative heap and RSS at phase boundaries.
+The current path's median run reached a `761.014 MiB` heap delta, while the flat
+path reached `9.977 MiB`; this supports the explicit array-allocation result.
+RSS deltas are retained in the JSON report but are not used as an absolute peak
+comparison because the allocator reuses memory between candidates in the same
+process. The exact JavaScript entry and explicit-copy counts are the
+authoritative allocation metrics for promotion review.
