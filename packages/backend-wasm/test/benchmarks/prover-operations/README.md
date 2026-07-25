@@ -1683,3 +1683,25 @@ dense representative profile remains immaterial, and there is no measured
 production hot path repeatedly scanning the synthetic worst-case shapes.
 Adding a WASM boundary would also copy the complete coefficient buffer to
 save at most a few milliseconds over the raw caller scan.
+
+## Combined Final Openings
+
+`bench-combined-final-openings.ts` constructs the actual prepared-fixture
+opening numerators after running the prover through challenge evaluation. It
+compares the current split `Pi_A`, `Pi_C`, and `Pi_B` Ruffini divisions and
+commitments against one linear-combined numerator, one Ruffini division, and
+the final two `Pi_X` and `Pi_Y` commitments. Fixture preparation and numerator
+construction are outside the repeated boundary.
+
+The benchmark checks exact X/Y quotient bytes and final G1 equality before
+reporting timing. Two measured iterations produced:
+
+| candidate | median | min | max | division | encode | explicit polynomial bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| current split openings | 30294.432 ms | 30103.243 ms | 30294.432 ms | 688.726 ms | 29439.615 ms | 640.051 MiB |
+| combined final openings | 20317.743 ms | 20036.751 ms | 20317.743 ms | 314.218 ms | 19838.418 ms | 512.016 MiB |
+
+The combined path reduced the isolated complete boundary by `9976.689 ms`
+(`32.9%`) and reduced explicitly retained polynomial storage by approximately
+`128 MiB`. This is diagnostics-only evidence. Production opening construction
+remains unchanged pending the separate promotion decision and acceptance plan.
