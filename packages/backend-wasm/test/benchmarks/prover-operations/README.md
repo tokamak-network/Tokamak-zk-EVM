@@ -1768,3 +1768,38 @@ difference is runtime noise. The attributable result is removal of about
 `3.365 ms` of clone work and `64 MiB` of explicit coefficient copying. This is
 a low-impact, memory-positive promotion candidate; the report does not claim
 the noisy NTT difference as a clone-removal speedup.
+
+## Segmented 2D NTT Micro-Candidates
+
+`bench-2d-ntt-micro-candidates.ts` keeps the accepted ffjavascript
+primitive-parallel scheduler and tests only its caller-side orchestration:
+
+- G1 caches bit-reversal index tables by segment length.
+- G2 constructs one contiguous bit-reversed shard per worker task and passes
+  segment views from that shard, avoiding the full reversed buffer followed by
+  one owned slice per segment.
+- G3 writes inverse worker results directly into their rotated final positions.
+- G1+G2 applies cached indexes while constructing direct task shards.
+
+All candidates match production forward/inverse output at `4096x256` and
+`8192x512`. One-dimensional `1x8` and `8x1`, true two-dimensional `8x4`, and
+coset forward/inverse round-trip checks also pass exactly.
+
+| shape | direction | current ms | G1 ms | G2 ms | G3 ms | G1+G2 ms | G2 reduction |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 4096x256 | forward | 354.750 | 361.876 | 323.244 | 356.194 | 327.755 | 8.9% |
+| 4096x256 | inverse | 376.386 | 378.565 | 357.644 | 372.176 | 359.413 | 5.0% |
+| 8192x512 | forward | 1392.968 | 1439.935 | 1272.758 | 1389.553 | 1277.666 | 8.6% |
+| 8192x512 | inverse | 1481.382 | 1475.086 | 1381.312 | 1458.494 | 1353.727 | 6.8% |
+
+G2 is the only independent candidate with a consistent complete-boundary win.
+Its cumulative explicit segment-orchestration allocation decreased from
+`128 MiB` to `64 MiB` for 4096x256 forward, from `192 MiB` to `128 MiB` for
+inverse, and by the corresponding `256 MiB` at 8192x512.
+
+G1 is rejected: its small index-computation saving did not overcome variance
+and regressed three of four final measurements. G1+G2 beat G2 only for the
+largest inverse case and was slower for the other three, so it is also
+rejected. G3 consistently reduces the isolated inverse assembly copy, but its
+complete-boundary direction changed between repeated benchmark executions; it
+is not a production promotion candidate in this campaign.
