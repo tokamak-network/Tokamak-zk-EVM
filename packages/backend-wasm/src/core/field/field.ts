@@ -1060,7 +1060,6 @@ async function transformSmallSegmentsWithWorkerTasks(
   const output = new Uint8Array(buffer.byteLength);
   const taskCount = Math.min(Math.max(1, field.tm.concurrency), segmentCount);
   const segmentsPerTask = Math.ceil(segmentCount / taskCount);
-  const reversed = bitReverseSegments(buffer, segmentSize, field.n8);
   const promises: Promise<Uint8Array[]>[] = [];
   const taskStarts: number[] = [];
 
@@ -1074,7 +1073,16 @@ async function transformSmallSegmentsWithWorkerTasks(
     taskStarts.push(startSegment);
     promises.push(
       field.tm.queueAction(
-        buildBatchFftTask(field, reversed, segmentByteLength, startSegment, endSegment, segmentSize, segmentBits, direction),
+        buildBatchFftTask(
+          field,
+          buffer,
+          segmentByteLength,
+          startSegment,
+          endSegment,
+          segmentSize,
+          segmentBits,
+          direction,
+        ),
       ),
     );
   }
@@ -1095,7 +1103,7 @@ async function transformSmallSegmentsWithWorkerTasks(
 
 function buildBatchFftTask(
   field: FfFieldWithWorkerTasks,
-  reversed: Uint8Array,
+  source: Uint8Array,
   segmentByteLength: number,
   startSegment: number,
   endSegment: number,
@@ -1106,6 +1114,20 @@ function buildBatchFftTask(
   const task: FfWorkerCommand[] = [];
   const inverseFactorVar = 0;
   const firstSegmentVar = direction === "inverse" ? 1 : 0;
+  const shard = new Uint8Array((endSegment - startSegment) * segmentByteLength);
+
+  for (let segmentIndex = startSegment; segmentIndex < endSegment; segmentIndex += 1) {
+    const sourceStart = segmentIndex * segmentByteLength;
+    const shardStart = (segmentIndex - startSegment) * segmentByteLength;
+    for (let index = 0; index < segmentSize; index += 1) {
+      const reversedIndex = reverseBits(index, segmentBits);
+      const elementStart = sourceStart + index * field.n8;
+      shard.set(
+        source.subarray(elementStart, elementStart + field.n8),
+        shardStart + reversedIndex * field.n8,
+      );
+    }
+  }
 
   if (direction === "inverse") {
     task.push({
@@ -1118,11 +1140,11 @@ function buildBatchFftTask(
   for (let segmentIndex = startSegment; segmentIndex < endSegment; segmentIndex += 1) {
     const localIndex = segmentIndex - startSegment;
     const variable = firstSegmentVar + localIndex;
-    const segmentStart = segmentIndex * segmentByteLength;
+    const segmentStart = localIndex * segmentByteLength;
     task.push({
       cmd: "ALLOCSET",
       var: variable,
-      buff: reversed.slice(segmentStart, segmentStart + segmentByteLength),
+      buff: shard.subarray(segmentStart, segmentStart + segmentByteLength),
     });
 
     for (let mixBits = 1; mixBits <= segmentBits; mixBits += 1) {
@@ -1150,26 +1172,6 @@ function buildBatchFftTask(
   }
 
   return task;
-}
-
-function bitReverseSegments(buffer: Uint8Array, segmentSize: number, elementByteLength: number): Uint8Array {
-  const segmentByteLength = segmentSize * elementByteLength;
-  const segmentCount = buffer.byteLength / segmentByteLength;
-  const bits = checkedPowerOfTwoLog(segmentSize);
-  const output = new Uint8Array(buffer.byteLength);
-
-  for (let segmentIndex = 0; segmentIndex < segmentCount; segmentIndex += 1) {
-    const segmentStart = segmentIndex * segmentByteLength;
-    for (let index = 0; index < segmentSize; index += 1) {
-      const reversedIndex = reverseBits(index, bits);
-      output.set(
-        buffer.subarray(segmentStart + index * elementByteLength, segmentStart + (index + 1) * elementByteLength),
-        segmentStart + reversedIndex * elementByteLength,
-      );
-    }
-  }
-
-  return output;
 }
 
 function reverseBits(value: number, bits: number): number {
