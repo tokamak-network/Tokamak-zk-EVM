@@ -780,8 +780,14 @@ async function prove1Timed(
   const rXY = await polynomialRecursion(
     "prove1.recursion_polynomial",
     async () => {
-      const fXYEvals = await fXY.resize(mI, sMax).toRouEvals();
-      const gXYEvals = await gXY.resize(mI, sMax).toRouEvals();
+      if (fXY.xSize !== mI || fXY.ySize !== sMax || gXY.xSize !== mI || gXY.ySize !== sMax) {
+        throw new Error(
+          `Recursion polynomial shape mismatch: expected ${mI}x${sMax}, `
+            + `got fXY=${fXY.xSize}x${fXY.ySize}, gXY=${gXY.xSize}x${gXY.ySize}.`,
+        );
+      }
+      const fXYEvals = await fXY.toRouEvals();
+      const gXYEvals = await gXY.toRouEvals();
       const rXYEvals = await computeRecursionEvalsBuffer(field, gXYEvals, fXYEvals, mI, sMax);
       return BivariatePolynomialBuffer.fromRouEvals(field, rXYEvals, mI, sMax);
     },

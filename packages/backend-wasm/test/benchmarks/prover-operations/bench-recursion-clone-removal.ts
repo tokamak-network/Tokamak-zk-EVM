@@ -11,8 +11,10 @@ import {
 } from "../../../src/index.js";
 import {
   constantPolynomialBuffer,
+  computeRecursionEvalsBuffer,
   linearCombinationBufferBatch,
 } from "../../../src/prover/internal/polynomial-ops.js";
+import { computeRecursionCommitment } from "../../../src/prover/internal/recursion-commitment.js";
 import type { ProverState } from "../../../src/prover/internal/state.js";
 import { loadPreparedProverInput } from "./prepared-prover-context.js";
 
@@ -68,6 +70,34 @@ async function main(): Promise<void> {
     assertBytesEqual(currentOracle.gEvals, directOracle.gEvals, "gXY ROU evaluations");
     assertBytesEqual(sourceF, recursionInputs.fXY.coefficients, "fXY source mutation");
     assertBytesEqual(sourceG, recursionInputs.gXY.coefficients, "gXY source mutation");
+    const expectedRecursionEvals = await computeRecursionEvalsBuffer(
+      runtime.Fr,
+      currentOracle.gEvals,
+      currentOracle.fEvals,
+      recursionInputs.xSize,
+      recursionInputs.ySize,
+    );
+    const expectedRecursion = await BivariatePolynomialBuffer.fromRouEvals(
+      runtime.Fr,
+      expectedRecursionEvals,
+      recursionInputs.xSize,
+      recursionInputs.ySize,
+    );
+    const production = await computeRecursionCommitment(
+      runtime,
+      input.crs,
+      state,
+      [
+        runtime.Fr.fromBigInt(2n),
+        runtime.Fr.fromBigInt(3n),
+        runtime.Fr.fromBigInt(5n),
+      ],
+    );
+    assertBytesEqual(
+      expectedRecursion.coefficients,
+      production.rXY.coefficients,
+      "production recursion coefficients",
+    );
 
     const candidates: readonly Candidate[] = ["current-same-shape-resize", "shape-assert-direct"];
     for (let warmup = 0; warmup < 2; warmup += 1) {
@@ -101,6 +131,7 @@ async function main(): Promise<void> {
       warmup: 2,
       parity: {
         evaluations: "pass",
+        productionRecursion: "pass",
         sourceMutation: "pass",
         smallShape: "pass",
         wrongShapeRejection: "pass",

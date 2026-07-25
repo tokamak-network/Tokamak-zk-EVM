@@ -48,8 +48,10 @@ export async function computeRecursionCommitment(
     [thetas[1], yMonomial],
     [field.one, theta2],
   ]);
-  const fXYEvals = await fXY.resize(mI, sMax).toRouEvals();
-  const gXYEvals = await gXY.resize(mI, sMax).toRouEvals();
+  assertRecursionPolynomialShape(fXY, mI, sMax);
+  assertRecursionPolynomialShape(gXY, mI, sMax);
+  const fXYEvals = await fXY.toRouEvals();
+  const gXYEvals = await gXY.toRouEvals();
   const rXYEvals = await computeRecursionEvalsBuffer(field, gXYEvals, fXYEvals, mI, sMax);
   const rXY = await BivariatePolynomialBuffer.fromRouEvals(field, rXYEvals, mI, sMax);
   const RXY = await linearCombinationBufferBatch(field, [
@@ -67,4 +69,17 @@ export async function computeRecursionCommitment(
     },
     rXY,
   };
+}
+
+function assertRecursionPolynomialShape(
+  polynomial: BivariatePolynomialBuffer,
+  xSize: number,
+  ySize: number,
+): void {
+  if (polynomial.xSize !== xSize || polynomial.ySize !== ySize) {
+    throw new Error(
+      `Recursion polynomial shape mismatch: expected ${xSize}x${ySize}, `
+        + `got ${polynomial.xSize}x${polynomial.ySize}.`,
+    );
+  }
 }
