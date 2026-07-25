@@ -1981,3 +1981,63 @@ native testing-mode-style polynomial invariants, Node proof generation and
 verifier acceptance, production build, Chromium proof generation (`122.79 s`)
 and verification (`19 ms`), and package inspection passed. The package
 contains 253 files and no `test/`, `scripts/`, `fixtures/`, or `tmp/` paths.
+
+## Zero-Compacted Statement Bindings
+
+Related commit: `7e683191`.
+
+Production `O_mid` and `O_prv` statement commitments now allocate contiguous
+base and Montgomery-scalar buffers for the exact selected-variable capacity
+and write only nonzero pairs into the active prefix. The active scalar prefix
+is batch-converted once and submitted to the existing ffjavascript MSM
+primitive. Selected-variable count validation and base/scalar order are
+unchanged. `O_pub_free` retains its previous path because the independent
+benchmark measured a regression for that small input.
+
+The post-promotion benchmark directly compared the actual production
+`encodeOMidNoZk(...)` and `encodeOPrvNoZk(...)` results with the independent
+all-scalar implementation and passed exact G1 equality. Synthetic all-zero,
+first/last-nonzero, alternating, partial-density, and all-nonzero cases also
+retained exact candidate parity.
+
+| binding | selected | nonzero | legacy all-scalar | compact | reduction | legacy temporary | compact temporary |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `O_mid` | 6,820 | 4,391 | 14.767 ms | 14.772 ms | -0.0% | 1.041 MiB | 0.967 MiB |
+| `O_prv` | 650,925 | 352,160 | 1706.290 ms | 1539.455 ms | 9.8% | 99.323 MiB | 90.206 MiB |
+
+The `O_mid` wall-time difference in this run is noise-sized; the earlier
+alternating-order benchmark measured a `5.4%` reduction. No deterministic
+full-prover speedup is attributed to that small binding.
+
+Latest fixed-taxonomy timing:
+
+| layer | row | total | count |
+| --- | --- | ---: | ---: |
+| lowest | `polynomial.combination_without_multiplication` | 4.25 s | 49 |
+| lowest | `polynomial.combination_with_multiplication` | 16.62 s | 18 |
+| lowest | `polynomial.recursion` | 1.48 s | 1 |
+| lowest | `polynomial.evaluation` | 206 ms | 7 |
+| lowest | `polynomial.div_ruffini` | 404 ms | 2 |
+| lowest | `polynomial.div_vanishing` | 882 ms | 2 |
+| lowest | `polynomial.encode` | 92.13 s | 14 |
+| lowest | `binding.encode` | 1.60 s | 1 |
+| top | `field.operations` | 23.84 s | 79 |
+| top | `encode` | 93.73 s | 15 |
+| boundary | `init` | 2.91 s | 2 |
+| boundary | `stage.unclassified` | 7 ms | 1 |
+| boundary | `io` | 151 ms | 2 |
+| boundary | `verify` | 18 ms | 1 |
+| boundary | `output` | 3 ms | 1 |
+| total | prover stage total | 115.97 s | - |
+| total | total wall | 120.65 s | - |
+
+The immediately preceding accepted record had `binding.encode = 1.75 s`,
+prover stage total `116.62 s`, and total wall `121.47 s`. The binding row
+decreased by `0.15 s`; broader movement is not attributed solely to this
+change.
+
+Production and diagnostics type checks, field/polynomial/commitment parity,
+native testing-mode-style invariants, Node proof generation and verifier
+acceptance, production build, Chromium proof generation (`122.82 s`) and
+verification (`19 ms`), and package inspection passed. The package contains
+253 files and no `test/`, `scripts/`, `fixtures/`, or `tmp/` paths.

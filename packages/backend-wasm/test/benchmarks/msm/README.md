@@ -269,8 +269,17 @@ fixture.
 
 Exact G1 parity also passed for all-zero, first/last-nonzero, 25% dense,
 alternating-zero, 75% dense, and all-nonzero synthetic vectors. The candidate
-is recommended for Priority 33 promotion review only for `O_mid` and `O_prv`.
-It is rejected for `O_pub_free`, where fixed scan/allocation overhead exceeds
-the savings. The result includes both zero omission and the candidate's
-preallocated typed-buffer construction; production promotion must preserve
-that complete benchmarked boundary.
+was promoted to production for `O_mid` and `O_prv` in commit `7e683191`.
+Production writes nonzero base/scalar pairs directly into preallocated typed
+buffers, batch-converts only the active scalar prefix, and submits the active
+prefix to the existing MSM primitive. The benchmark now also compares the
+actual production functions against the independent legacy implementation.
+It remains rejected for `O_pub_free`, where fixed scan/allocation overhead
+exceeds the savings.
+
+The post-promotion run retained exact production parity. `O_prv` changed from
+`1706.290 ms` to `1539.455 ms`, while explicit temporary storage remained
+`99.323 MiB` versus `90.206 MiB`. The smaller `O_mid` result was effectively
+neutral in that run (`14.767 ms` versus `14.772 ms`), so its production value
+is the lower temporary storage and the previously observed modest speedup,
+not a deterministic wall-time claim.
