@@ -6,19 +6,12 @@ import {
   BivariatePolynomialBuffer,
   RollingKeccakTranscript,
   RuntimeArtifactFileRole,
-  buildDomainContext,
   buildWitnessPolynomials,
-  collectChallenges,
   createCurveRuntime,
   createProverState,
   createVerifierProofArtifactFromProverOutput,
   decodeVerifierBinaryResult,
-  evalAPub,
-  evalLagrangeK0,
   g1AddMany,
-  lhsArith,
-  lhsBinding,
-  lhsCopyMsm,
   loadRuntimeArtifactFile,
   loadProverInputFromRuntimeBundles,
   loadVerifierInputFromRuntimeBundles,
@@ -31,9 +24,6 @@ import {
   type ProverRuntimeInput,
   type ProverState,
   type RuntimeArtifactBundleManifest,
-  type VerifierChallenges,
-  type VerifierDomainContext,
-  type VerifierInput,
 } from "../../../src/index.js";
 import {
   buildProverBinding,
@@ -44,7 +34,7 @@ import {
 import { computeRecursionCommitment, type RecursionComputation } from "../../../src/prover/internal/recursion-commitment.js";
 import { computeCopyQuotientCommitments, type CopyQuotientComputation } from "../../../src/prover/internal/copy-quotient.js";
 import { evaluateChallengePoints, type ChallengeEvaluations } from "../../../src/prover/internal/challenge-evaluations.js";
-import { type OpeningCommitmentsComputation, computeOpeningCommitments } from "../../../src/prover/internal/opening-commitments.js";
+import { computeOpeningCommitments } from "../../../src/prover/internal/opening-commitments.js";
 import {
   buildLagrangeK0,
   buildLagrangeKl,
@@ -60,7 +50,6 @@ import {
 
 interface ProverTestingModeOutput {
   readonly proofArtifact: Uint8Array;
-  readonly openings: OpeningCommitmentsComputation;
 }
 
 async function main(): Promise<void> {
@@ -101,10 +90,6 @@ async function main(): Promise<void> {
     const verifierInput = await timed("load verifier runtime bundles with generated proof", () =>
       loadVerifierInputFromRuntimeBundles(runtime, verifierProofInput, verifierSetupInput, proofResolver),
     );
-    await timed("check verifier testing-mode split pairings", () =>
-      checkVerifierTestingModeSplitPairings(runtime, verifierInput, proverOutput.openings),
-    );
-
     const verificationResult = await timed("verify generated proof", () =>
       verifyBinary(runtime, verifierProofInput, verifierSetupInput, proofResolver, {
         randomScalar: () => runtime.Fr.one,
@@ -230,7 +215,6 @@ async function provePreparedInputWithTestingModeChecks(
 
   return {
     proofArtifact,
-    openings: prove4Output,
   };
 }
 
@@ -640,143 +624,6 @@ async function checkProve4Openings(input: {
   });
 }
 
-async function checkVerifierTestingModeSplitPairings(
-  runtime: CurveRuntime,
-  input: VerifierInput,
-  prove4Output: OpeningCommitmentsComputation,
-): Promise<void> {
-  const challenges = await collectChallenges(runtime.Fr, runtime.G1, () => runtime.Fr.one, input.proof);
-  const domain = buildDomainContext(runtime.Fr, input.setup, challenges);
-  const lagrangeK0Eval = evalLagrangeK0(runtime.Fr, domain, challenges);
-  const aEval = evalAPub(input.aPubX, challenges);
-
-  await assertPairing(runtime, "verifier arith split", verifyArithSplit(runtime, input, domain, challenges, prove4Output));
-  await assertPairing(
-    runtime,
-    "verifier copy split",
-    verifyCopySplit(runtime, input, domain, challenges, lagrangeK0Eval, prove4Output),
-  );
-  await assertPairing(
-    runtime,
-    "verifier binding split",
-    verifyBindingSplit(runtime, input, challenges, aEval, prove4Output),
-  );
-}
-
-async function verifyArithSplit(
-  runtime: CurveRuntime,
-  input: VerifierInput,
-  domain: VerifierDomainContext,
-  challenges: VerifierChallenges,
-  prove4Output: OpeningCommitmentsComputation,
-): Promise<boolean> {
-  const Pi_AX = runtime.G1.toAffine(prove4Output.debug.Pi_AX);
-  const Pi_AY = runtime.G1.toAffine(prove4Output.debug.Pi_AY);
-  const lhsA = lhsArith(runtime.Fr, runtime.G1, input, domain, challenges);
-  const auxA = g1AddMany(runtime.G1, [
-    runtime.G1.mulScalar(Pi_AX, challenges.chi),
-    runtime.G1.mulScalar(Pi_AY, challenges.zeta),
-  ]);
-
-  return runtime.pairing.productsEqual(
-    [{ g1: runtime.G1.add(lhsA, auxA), g2: input.sigma.H }],
-    [
-      { g1: Pi_AX, g2: input.sigma.sigma2.x },
-      { g1: Pi_AY, g2: input.sigma.sigma2.y },
-    ],
-  );
-}
-
-async function verifyCopySplit(
-  runtime: CurveRuntime,
-  input: VerifierInput,
-  domain: VerifierDomainContext,
-  challenges: VerifierChallenges,
-  lagrangeK0Eval: FieldElement,
-  prove4Output: OpeningCommitmentsComputation,
-): Promise<boolean> {
-  const field = runtime.Fr;
-  const lhsC = await lhsCopyMsm(field, runtime.G1, input, domain, challenges, lagrangeK0Eval);
-  const { aux, auxX, auxY } = copyAux(runtime, prove4Output.debug, domain, challenges);
-
-  return runtime.pairing.productsEqual(
-    [{ g1: runtime.G1.add(lhsC, aux), g2: input.sigma.H }],
-    [
-      { g1: auxX, g2: input.sigma.sigma2.x },
-      { g1: auxY, g2: input.sigma.sigma2.y },
-    ],
-  );
-}
-
-async function verifyBindingSplit(
-  runtime: CurveRuntime,
-  input: VerifierInput,
-  challenges: VerifierChallenges,
-  aEval: FieldElement,
-  prove4Output: OpeningCommitmentsComputation,
-): Promise<boolean> {
-  const field = runtime.Fr;
-  const Pi_B = runtime.G1.toAffine(prove4Output.debug.Pi_B);
-  const proof0 = input.proof.proof0;
-  const binding = input.proof.binding;
-  const lhsB = lhsBinding(field, runtime.G1, input.proof, input.sigma.G, challenges, aEval);
-  const auxB = runtime.G1.mulScalar(Pi_B, field.mul(challenges.kappa2, challenges.chi));
-
-  return runtime.pairing.productsEqual(
-    [
-      { g1: runtime.G1.add(lhsB, auxB), g2: input.sigma.H },
-      { g1: proof0.B, g2: input.sigma.sigma2.alpha4 },
-      { g1: proof0.U, g2: input.sigma.sigma2.alpha },
-      { g1: proof0.V, g2: input.sigma.sigma2.alpha2 },
-      { g1: proof0.W, g2: input.sigma.sigma2.alpha3 },
-    ],
-    [
-      { g1: runtime.G1.add(input.preprocess.O_pub_fix, binding.O_pub_free), g2: input.sigma.sigma2.gamma },
-      { g1: binding.O_mid, g2: input.sigma.sigma2.eta },
-      { g1: binding.O_prv, g2: input.sigma.sigma2.delta },
-      { g1: runtime.G1.mulScalar(Pi_B, challenges.kappa2), g2: input.sigma.sigma2.x },
-    ],
-  );
-}
-
-function copyAux(
-  runtime: CurveRuntime,
-  proof4: OpeningCommitmentsComputation["debug"],
-  domain: VerifierDomainContext,
-  challenges: VerifierChallenges,
-): { readonly aux: G1Point; readonly auxX: G1Point; readonly auxY: G1Point } {
-  const field = runtime.Fr;
-  const Pi_CX = runtime.G1.toAffine(proof4.Pi_CX);
-  const Pi_CY = runtime.G1.toAffine(proof4.Pi_CY);
-  const M_X = runtime.G1.toAffine(proof4.M_X);
-  const M_Y = runtime.G1.toAffine(proof4.M_Y);
-  const N_X = runtime.G1.toAffine(proof4.N_X);
-  const N_Y = runtime.G1.toAffine(proof4.N_Y);
-  const kappa2Squared = field.square(challenges.kappa2);
-  const omegaMIInv = field.inv(domain.omegaMI);
-  const omegaSMaxInv = field.inv(domain.omegaSMax);
-  const aux = g1AddMany(runtime.G1, [
-    runtime.G1.mulScalar(Pi_CX, challenges.chi),
-    runtime.G1.mulScalar(Pi_CY, challenges.zeta),
-    runtime.G1.mulScalar(M_X, field.mul(field.mul(challenges.kappa2, omegaMIInv), challenges.chi)),
-    runtime.G1.mulScalar(M_Y, field.mul(challenges.kappa2, challenges.zeta)),
-    runtime.G1.mulScalar(N_X, field.mul(field.mul(kappa2Squared, omegaMIInv), challenges.chi)),
-    runtime.G1.mulScalar(N_Y, field.mul(field.mul(kappa2Squared, omegaSMaxInv), challenges.zeta)),
-  ]);
-  const auxX = g1AddMany(runtime.G1, [
-    Pi_CX,
-    runtime.G1.mulScalar(M_X, challenges.kappa2),
-    runtime.G1.mulScalar(N_X, kappa2Squared),
-  ]);
-  const auxY = g1AddMany(runtime.G1, [
-    Pi_CY,
-    runtime.G1.mulScalar(M_Y, challenges.kappa2),
-    runtime.G1.mulScalar(N_Y, kappa2Squared),
-  ]);
-
-  return { aux, auxX, auxY };
-}
-
 function lhsArithFromProverOutput(
   runtime: CurveRuntime,
   sigmaG: G1Point,
@@ -1005,12 +852,6 @@ function assertRuffiniDivisionAtPoint(
     field.mul(input.quotientY.eval(xPoint, yPoint), field.sub(yPoint, input.yRoot)),
   );
   assertFieldEqual(runtime, input.numerator.eval(xPoint, yPoint), rhs, { label: `${input.label} reconstruction` });
-}
-
-async function assertPairing(runtime: CurveRuntime, label: string, result: Promise<boolean>): Promise<void> {
-  if (!(await result)) {
-    throw new Error(`${label} pairing equation failed.`);
-  }
 }
 
 function assertFieldBufferEqual(

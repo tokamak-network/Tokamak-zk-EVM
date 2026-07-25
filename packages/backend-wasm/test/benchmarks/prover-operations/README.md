@@ -1703,8 +1703,8 @@ reporting timing. Two measured iterations produced:
 
 The combined path reduced the isolated complete boundary by `9976.689 ms`
 (`32.9%`) and reduced explicitly retained polynomial storage by approximately
-`128 MiB`. This is diagnostics-only evidence. Production opening construction
-remains unchanged pending the separate promotion decision and acceptance plan.
+`128 MiB`. This is the independent benchmark evidence that preceded the
+coordinated production promotion described below.
 
 ## Shared M/N X Opening
 
@@ -1724,8 +1724,9 @@ commitments against the current path. Two measured iterations produced:
 | shared X quotient/commitment | 5290.750 ms | 5281.985 ms | 5290.750 ms | 129.684 ms | 0.425 ms | 5160.625 ms | 128.031 MiB |
 
 Sharing the X work reduced the isolated boundary by `5255.253 ms` (`49.8%`)
-and explicit quotient storage by approximately `128 MiB`. This remains a
-diagnostics-only result pending the separate promotion decision.
+and explicit quotient storage by approximately `128 MiB`. This is the
+independent benchmark evidence that preceded the coordinated production
+promotion.
 
 ## Combined Opening Winners
 
@@ -1742,6 +1743,25 @@ All Pi and M/N quotient buffers and G1 commitments match exactly. The directly
 measured combination reduces this boundary by `15104.269 ms` (`37.2%`) and
 explicit polynomial storage by `256.035 MiB`. This measured result supersedes
 any estimate formed by adding the two isolated benchmark deltas.
+
+The coordinated implementation is now the production opening path. The
+production function is directly compared against the legacy path during the
+first benchmark iteration. All six final G1 commitments match. A
+post-promotion run measured:
+
+| candidate | median | Pi | M/N | explicit polynomial MiB |
+| --- | ---: | ---: | ---: | ---: |
+| legacy all openings | 40132.677 ms | 29724.346 ms | 10408.327 ms | 896.082 |
+| production combined/shared | 24874.299 ms | 19688.843 ms | 5185.451 ms | 640.047 |
+
+Production commits only the final combined Pi X/Y quotients. M and N share
+one X quotient and commitment while retaining separate Y quotients and both
+serialized M_X and N_X proof fields. Removed Pi_A/Pi_C/Pi_B split commitments
+remain diagnostics-only benchmark values.
+
+The fixed-taxonomy full run changed from `135.92 s` to `121.47 s`, with the
+opening module changing from `42.98 s` to `28.21 s`. Chromium generated the
+proof in `122.79 s` and verified it in `19 ms`.
 
 ## Prover CRS In-Memory Representation
 

@@ -7,6 +7,10 @@ import {
   type CurveRuntime,
 } from "../../../src/index.js";
 import { encodePolynomialBufferWithSigma1 } from "../../../src/prover/internal/initial-relation.js";
+import {
+  computeOpeningCommitments,
+  type OpeningCommitmentsComputation,
+} from "../../../src/prover/internal/opening-commitments.js";
 import { linearCombinationBufferBatch } from "../../../src/prover/internal/polynomial-ops.js";
 import {
   buildOpeningBenchmarkInputs,
@@ -72,6 +76,24 @@ async function main(): Promise<void> {
       const current = currentFirst ? first : second;
       const optimized = currentFirst ? second : first;
       assertEquivalent(runtime, current, optimized);
+      if (iteration === 0) {
+        console.log("Checking production opening parity");
+        const production = await computeOpeningCommitments({
+          runtime,
+          crs: context.input.crs,
+          state: context.state,
+          rXY: context.recursion.rXY,
+          initialRelation: context.initialRelation,
+          copyQuotient: context.copyQuotient,
+          evaluations: context.evaluations,
+          thetas: context.thetas,
+          kappa0: context.kappa0,
+          chi: context.chi,
+          zeta: context.zeta,
+          kappa1: context.kappa1,
+        });
+        assertProductionEquivalent(runtime, current, production);
+      }
       addSample(samples, first);
       addSample(samples, second);
     }
@@ -380,6 +402,19 @@ function assertEquivalent(runtime: CurveRuntime, current: RunResult, optimized: 
   for (const key of ["mXPoint", "mYPoint", "nXPoint", "nYPoint"] as const) {
     assertPointEqual(runtime, current.mn[key], optimized.mn[key], key);
   }
+}
+
+function assertProductionEquivalent(
+  runtime: CurveRuntime,
+  current: RunResult,
+  production: OpeningCommitmentsComputation,
+): void {
+  assertPointEqual(runtime, current.pi.piX, production.commitments.Pi_X, "production Pi_X");
+  assertPointEqual(runtime, current.pi.piY, production.commitments.Pi_Y, "production Pi_Y");
+  assertPointEqual(runtime, current.mn.mXPoint, production.commitments.M_X, "production M_X");
+  assertPointEqual(runtime, current.mn.mYPoint, production.commitments.M_Y, "production M_Y");
+  assertPointEqual(runtime, current.mn.nXPoint, production.commitments.N_X, "production N_X");
+  assertPointEqual(runtime, current.mn.nYPoint, production.commitments.N_Y, "production N_Y");
 }
 
 function assertPointEqual(

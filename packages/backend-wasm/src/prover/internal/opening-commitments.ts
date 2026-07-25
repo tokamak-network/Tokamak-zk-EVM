@@ -26,21 +26,8 @@ export interface OpeningProofCommitments {
   readonly N_Y: Uint8Array;
 }
 
-export interface OpeningDebugCommitments {
-  readonly Pi_AX: Uint8Array;
-  readonly Pi_AY: Uint8Array;
-  readonly Pi_CX: Uint8Array;
-  readonly Pi_CY: Uint8Array;
-  readonly Pi_B: Uint8Array;
-  readonly M_X: Uint8Array;
-  readonly M_Y: Uint8Array;
-  readonly N_X: Uint8Array;
-  readonly N_Y: Uint8Array;
-}
-
 export interface OpeningCommitmentsComputation {
   readonly commitments: OpeningProofCommitments;
-  readonly debug: OpeningDebugCommitments;
 }
 
 export async function computeOpeningCommitments(input: {
@@ -65,7 +52,6 @@ export async function computeOpeningCommitments(input: {
     rXY,
     initialRelation,
     copyQuotient,
-    evaluations,
     thetas,
     kappa0,
     chi,
@@ -112,37 +98,52 @@ export async function computeOpeningCommitments(input: {
     [tSMaxEval, rW_Y],
     [field.neg(field.one), initialRelation.wZk],
   ]);
-  const piADivision = await divideAfterSubtractingConstant(
-    pAXY,
-    chi,
-    zeta,
-    field.mul(kappa1, evaluations.V_eval),
-  );
   const RXY = await linearCombinationBufferBatch(field, [
     [field.one, rXY],
     [state.mixer.rR_X, state.instanceBuffers.tMi],
     [state.mixer.rR_Y, state.instanceBuffers.tSMax],
   ]);
-  const mDivision = await divideAfterSubtractingConstant(
-    RXY,
+  const sharedXDivision = await field.ruffiniXBuffer(
+    RXY.coefficients,
+    RXY.xSize,
+    RXY.ySize,
     field.mul(omegaMIInv, chi),
+  );
+  const mYDivision = await field.ruffiniYBuffer(
+    sharedXDivision.remainder,
+    RXY.ySize,
     zeta,
-    evaluations.R_omegaX_eval,
   );
-  const nDivision = await divideAfterSubtractingConstant(
-    RXY,
-    field.mul(omegaMIInv, chi),
+  const nYDivision = await field.ruffiniYBuffer(
+    sharedXDivision.remainder,
+    RXY.ySize,
     field.mul(omegaSMaxInv, zeta),
-    evaluations.R_omegaX_omegaY_eval,
   );
-  const copyDivision = await buildCopyOpeningPolynomials({
+  const sharedXQuotient = BivariatePolynomialBuffer.fromOwnedBuffer(
+    field,
+    sharedXDivision.quotient,
+    RXY.xSize,
+    RXY.ySize,
+  );
+  const mYQuotient = BivariatePolynomialBuffer.fromOwnedBuffer(
+    field,
+    mYDivision.quotient,
+    1,
+    RXY.ySize,
+  );
+  const nYQuotient = BivariatePolynomialBuffer.fromOwnedBuffer(
+    field,
+    nYDivision.quotient,
+    1,
+    RXY.ySize,
+  );
+  const copyOpeningNumerator = await buildCopyOpeningNumerator({
     runtime,
     state,
     rXY,
     RXY,
     initialRelation,
     copyQuotient,
-    evaluations,
     thetas,
     kappa0,
     kappa0Sq,
@@ -153,13 +154,12 @@ export async function computeOpeningCommitments(input: {
     omegaMIInv,
     omegaSMaxInv,
   });
-  const aEval = await state.instanceBuffers.aFreeX.evalBatch(chi, zeta);
-  const piBDivision = await divideAfterSubtractingConstant(
-    state.instanceBuffers.aFreeX,
-    chi,
-    zeta,
-    aEval,
-  );
+  const combinedPiNumerator = await linearCombinationBufferBatch(field, [
+    [field.one, pAXY],
+    [field.one, copyOpeningNumerator],
+    [kappa1Fourth, state.instanceBuffers.aFreeX],
+  ]);
+  const combinedPiDivision = await combinedPiNumerator.divByRuffiniBatch(chi, zeta);
   const commitments = await encodeSigma1CommitmentBarrier(
     options.commitmentEncoder ?? {
       parallelSafe: false,
@@ -168,28 +168,19 @@ export async function computeOpeningCommitments(input: {
       },
     },
     [
-      { label: "Pi_AX", polynomial: piADivision.quotientX },
-      { label: "Pi_AY", polynomial: piADivision.quotientY },
-      { label: "M_X", polynomial: mDivision.quotientX },
-      { label: "M_Y", polynomial: mDivision.quotientY },
-      { label: "N_X", polynomial: nDivision.quotientX },
-      { label: "N_Y", polynomial: nDivision.quotientY },
-      { label: "Pi_CX", polynomial: copyDivision.quotientX },
-      { label: "Pi_CY", polynomial: copyDivision.quotientY },
-      { label: "Pi_B", polynomial: piBDivision.quotientX },
+      { label: "Pi_X", polynomial: combinedPiDivision.quotientX },
+      { label: "Pi_Y", polynomial: combinedPiDivision.quotientY },
+      { label: "M_X", polynomial: sharedXQuotient },
+      { label: "M_Y", polynomial: mYQuotient },
+      { label: "N_Y", polynomial: nYQuotient },
     ],
   );
-  const Pi_AX = requireCommitment(commitments, "Pi_AX");
-  const Pi_AY = requireCommitment(commitments, "Pi_AY");
+  const Pi_X = requireCommitment(commitments, "Pi_X");
+  const Pi_Y = requireCommitment(commitments, "Pi_Y");
   const M_X = requireCommitment(commitments, "M_X");
   const M_Y = requireCommitment(commitments, "M_Y");
-  const N_X = requireCommitment(commitments, "N_X");
+  const N_X = M_X;
   const N_Y = requireCommitment(commitments, "N_Y");
-  const Pi_CX = requireCommitment(commitments, "Pi_CX");
-  const Pi_CY = requireCommitment(commitments, "Pi_CY");
-  const Pi_B = runtime.G1.mulScalar(requireCommitment(commitments, "Pi_B"), kappa1Fourth);
-  const Pi_X = runtime.G1.add(runtime.G1.add(Pi_AX, Pi_CX), Pi_B);
-  const Pi_Y = runtime.G1.add(Pi_AY, Pi_CY);
 
   return {
     commitments: {
@@ -200,28 +191,16 @@ export async function computeOpeningCommitments(input: {
       N_X,
       N_Y,
     },
-    debug: {
-      Pi_AX,
-      Pi_AY,
-      Pi_CX,
-      Pi_CY,
-      Pi_B,
-      M_X,
-      M_Y,
-      N_X,
-      N_Y,
-    },
   };
 }
 
-async function buildCopyOpeningPolynomials(input: {
+async function buildCopyOpeningNumerator(input: {
   readonly runtime: CurveRuntime;
   readonly state: ProverState;
   readonly rXY: BivariatePolynomialBuffer;
   readonly RXY: BivariatePolynomialBuffer;
   readonly initialRelation: InitialRelationComputation;
   readonly copyQuotient: CopyQuotientComputation;
-  readonly evaluations: ChallengeEvaluations;
   readonly thetas: readonly FieldElement[];
   readonly kappa0: FieldElement;
   readonly kappa0Sq: FieldElement;
@@ -231,7 +210,7 @@ async function buildCopyOpeningPolynomials(input: {
   readonly zeta: FieldElement;
   readonly omegaMIInv: FieldElement;
   readonly omegaSMaxInv: FieldElement;
-}): Promise<{ readonly quotientX: BivariatePolynomialBuffer; readonly quotientY: BivariatePolynomialBuffer }> {
+}): Promise<BivariatePolynomialBuffer> {
   const {
     runtime,
     state,
@@ -239,7 +218,6 @@ async function buildCopyOpeningPolynomials(input: {
     RXY,
     initialRelation,
     copyQuotient,
-    evaluations,
     thetas,
     kappa0,
     kappa0Sq,
@@ -341,29 +319,5 @@ async function buildCopyOpeningPolynomials(input: {
     [field.mul(field.mul(kappa1Sq, kappa0Sq), field.one), lhsZk2],
     [kappa1Cube, RXY],
   ]);
-  const division = await divideAfterSubtractingConstant(
-    lhsForCopy,
-    chi,
-    zeta,
-    field.mul(kappa1Cube, evaluations.R_eval),
-  );
-
-  return {
-    quotientX: division.quotientX,
-    quotientY: division.quotientY,
-  };
-}
-
-async function divideAfterSubtractingConstant(
-  polynomial: BivariatePolynomialBuffer,
-  xPoint: FieldElement,
-  yPoint: FieldElement,
-  constant: FieldElement,
-): Promise<ReturnType<BivariatePolynomialBuffer["divByRuffini"]>> {
-  const division = await polynomial.divByRuffiniBatch(xPoint, yPoint);
-  return {
-    quotientX: division.quotientX,
-    quotientY: division.quotientY,
-    remainder: polynomial.field.sub(division.remainder, constant),
-  };
+  return lhsForCopy;
 }

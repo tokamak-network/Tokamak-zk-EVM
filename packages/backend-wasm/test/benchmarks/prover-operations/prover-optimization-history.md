@@ -1920,3 +1920,64 @@ native testing-mode-style invariants, Node proof generation and verifier
 acceptance, production build, Chromium proof generation (`137.69 s`) and
 verification (`18 ms`), and package inspection passed. The package contains
 253 files and no `test/`, `scripts/`, `fixtures/`, or `tmp/` paths.
+
+## Combined Pi And Shared M/N Openings
+
+Related benchmark files:
+`bench-combined-final-openings.ts`, `bench-shared-mn-opening.ts`, and
+`bench-opening-winners-combined.ts`. Production promotion: this commit.
+
+Production now combines the Pi_A, Pi_C, and `kappa1^4 * Pi_B` numerators
+before one bivariate Ruffini split. Only the final Pi_X and Pi_Y quotients are
+committed. The split Pi_A/Pi_C/Pi_B commitments were diagnostics-only
+intermediates and are no longer generated or exposed by production.
+
+M and N use the same blinded R polynomial and X evaluation point. Production
+therefore performs one X Ruffini division and one X commitment, then performs
+the distinct M_Y and N_Y divisions and commitments. Both M_X and N_X remain
+serialized as separate proof fields with identical point bytes.
+
+The first post-promotion real-fixture benchmark iteration directly compared
+the production function against the legacy split implementation. Pi_X, Pi_Y,
+M_X, M_Y, N_X, and N_Y all matched as G1 elements.
+
+| complete opening boundary | median | Pi | M/N | explicit polynomial storage |
+| --- | ---: | ---: | ---: | ---: |
+| legacy split/independent | 40132.677 ms | 29724.346 ms | 10408.327 ms | 896.082 MiB |
+| production combined/shared | 24874.299 ms | 19688.843 ms | 5185.451 ms | 640.047 MiB |
+
+The directly measured reduction is `15258.378 ms` (`38.0%`) with
+`256.035 MiB` less explicitly retained polynomial storage.
+
+Latest fixed-taxonomy timing:
+
+| layer | row | total | count |
+| --- | --- | ---: | ---: |
+| lowest | `polynomial.combination_without_multiplication` | 4.28 s | 49 |
+| lowest | `polynomial.combination_with_multiplication` | 16.88 s | 18 |
+| lowest | `polynomial.recursion` | 1.48 s | 1 |
+| lowest | `polynomial.evaluation` | 208 ms | 7 |
+| lowest | `polynomial.div_ruffini` | 393 ms | 2 |
+| lowest | `polynomial.div_vanishing` | 862 ms | 2 |
+| lowest | `polynomial.encode` | 92.51 s | 14 |
+| lowest | `binding.encode` | 1.75 s | 1 |
+| top | `field.operations` | 24.10 s | 79 |
+| top | `encode` | 94.27 s | 15 |
+| boundary | `init` | 2.91 s | 2 |
+| boundary | `stage.unclassified` | 6 ms | 1 |
+| boundary | `io` | 160 ms | 2 |
+| boundary | `verify` | 18 ms | 1 |
+| boundary | `output` | 2 ms | 1 |
+| total | prover stage total | 116.62 s | - |
+| total | total wall | 121.47 s | - |
+
+The immediately preceding accepted record was prover stage total `131.10 s`
+and total wall `135.92 s`. The observed reductions are `14.48 s` and
+`14.45 s`, respectively. The opening module itself changed from `42.98 s` to
+`28.21 s`, consistent with the eliminated four commitment jobs.
+
+Production and diagnostics type checks, field/polynomial/commitment parity,
+native testing-mode-style polynomial invariants, Node proof generation and
+verifier acceptance, production build, Chromium proof generation (`122.79 s`)
+and verification (`19 ms`), and package inspection passed. The package
+contains 253 files and no `test/`, `scripts/`, `fixtures/`, or `tmp/` paths.
