@@ -1705,3 +1705,24 @@ The combined path reduced the isolated complete boundary by `9976.689 ms`
 (`32.9%`) and reduced explicitly retained polynomial storage by approximately
 `128 MiB`. This is diagnostics-only evidence. Production opening construction
 remains unchanged pending the separate promotion decision and acceptance plan.
+
+## Shared M/N X Opening
+
+`bench-shared-mn-opening.ts` uses the prepared fixture's real blinded
+`R(X,Y)` opening polynomial. The current path computes the same X-axis
+Ruffini quotient and commitment independently for `M` and `N`. The candidate
+computes the shared X quotient and commitment once while retaining the two
+different Y-axis divisions and commitments.
+
+The benchmark checks that current `M_X` and `N_X` coefficient buffers are
+byte-identical, then checks every candidate quotient buffer and all four G1
+commitments against the current path. Two measured iterations produced:
+
+| candidate | median | min | max | X division | Y division | encode | explicit polynomial bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| current independent M/N | 10546.003 ms | 10529.465 ms | 10546.003 ms | 284.238 ms | 0.352 ms | 10261.389 ms | 256.031 MiB |
+| shared X quotient/commitment | 5290.750 ms | 5281.985 ms | 5290.750 ms | 129.684 ms | 0.425 ms | 5160.625 ms | 128.031 MiB |
+
+Sharing the X work reduced the isolated boundary by `5255.253 ms` (`49.8%`)
+and explicit quotient storage by approximately `128 MiB`. This remains a
+diagnostics-only result pending the separate promotion decision.
