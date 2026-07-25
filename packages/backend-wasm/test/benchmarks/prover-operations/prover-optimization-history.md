@@ -2098,3 +2098,65 @@ native testing-mode-style invariants, Node proof generation and verifier
 acceptance, production build, Chromium proof generation (`121.16 s`) and
 verification (`19 ms`), and package inspection passed. The package contains
 253 files and no `test/`, `scripts/`, `fixtures/`, or `tmp/` paths.
+
+## Recursion Same-Shape Clone Removal
+
+Related commit: `824db138`.
+
+The recursion commitment path previously called `resize(mI, sMax)` on both
+`fXY` and `gXY` even though both buffers already had exactly that shape.
+`BivariatePolynomialBuffer.resize(...)` intentionally clones same-shape
+buffers, so these calls copied `64 MiB` before two non-mutating NTTs.
+
+Production now validates both shapes before starting either transform and
+passes the immutable source buffers directly to `toRouEvals()`. The recursion
+equations, batch inverse and recurrence, inverse transform, blinding,
+commitment, and artifact formats are unchanged.
+
+The post-promotion benchmark compares the actual production recursion
+polynomial against the independent legacy resize path. ROU evaluations,
+production recursion coefficients, source immutability, small-shape behavior,
+and wrong-shape rejection all pass exactly.
+
+| candidate | median | shape/resize | f NTT | g NTT | explicit copied bytes |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| legacy same-shape resize | 690.316 ms | 3.019 ms | 337.949 ms | 349.261 ms | 64 MiB |
+| production shape assert/direct | 682.691 ms | 0.005 ms | 348.859 ms | 333.748 ms | 0 |
+
+Only the `3.014 ms` clone removal and `64 MiB` copy removal are directly
+attributed to this change. The complete-boundary difference is not treated as
+deterministic because the two NTT timings exchange runtime noise.
+
+Latest fixed-taxonomy timing:
+
+| layer | row | total | count |
+| --- | --- | ---: | ---: |
+| lowest | `polynomial.combination_without_multiplication` | 4.28 s | 49 |
+| lowest | `polynomial.combination_with_multiplication` | 15.77 s | 18 |
+| lowest | `polynomial.recursion` | 1.42 s | 1 |
+| lowest | `polynomial.evaluation` | 220 ms | 7 |
+| lowest | `polynomial.div_ruffini` | 391 ms | 2 |
+| lowest | `polynomial.div_vanishing` | 864 ms | 2 |
+| lowest | `polynomial.encode` | 91.97 s | 14 |
+| lowest | `binding.encode` | 1.59 s | 1 |
+| top | `field.operations` | 22.94 s | 79 |
+| top | `encode` | 93.56 s | 15 |
+| boundary | `init` | 2.73 s | 2 |
+| boundary | `stage.unclassified` | 10 ms | 1 |
+| boundary | `io` | 152 ms | 2 |
+| boundary | `verify` | 17 ms | 1 |
+| boundary | `output` | 2 ms | 1 |
+| total | prover stage total | 114.92 s | - |
+| total | total wall | 119.41 s | - |
+
+The immediately preceding accepted record had
+`polynomial.recursion = 1.42 s`, prover stage total `117.17 s`, and total wall
+`121.94 s`. The recursion
+row is unchanged at displayed precision; broader reductions are not
+attributed to this small clone removal.
+
+Production and diagnostics type checks, field/polynomial/commitment parity,
+native testing-mode-style invariants, Node proof generation and verifier
+acceptance, production build, Chromium proof generation (`120.86 s`) and
+verification (`25 ms`), and package inspection passed. The package contains
+253 files and no `test/`, `scripts/`, `fixtures/`, or `tmp/` paths.

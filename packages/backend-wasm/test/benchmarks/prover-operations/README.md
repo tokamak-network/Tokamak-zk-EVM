@@ -1803,8 +1803,24 @@ The total median was `30.274 ms` (`3.6%`) lower, but the broad overlapping
 ranges and the swapped per-NTT timing distribution show that most of that
 difference is runtime noise. The attributable result is removal of about
 `3.365 ms` of clone work and `64 MiB` of explicit coefficient copying. This is
-a low-impact, memory-positive promotion candidate; the report does not claim
-the noisy NTT difference as a clone-removal speedup.
+a low-impact, memory-positive optimization; the report does not claim the
+noisy NTT difference as a clone-removal speedup.
+
+The candidate was promoted to production in commit `824db138`. Production
+validates both recursion-polynomial shapes before either NTT, passes the
+immutable source buffers directly to `toRouEvals()`, and preserves the
+recursion equations and commitment path. The post-promotion benchmark also
+compares the actual production recursion polynomial against the legacy resize
+path byte-for-byte.
+
+| post-promotion candidate | median | shape/resize | explicit copied MiB |
+| --- | ---: | ---: | ---: |
+| legacy same-shape resize | 690.316 ms | 3.019 ms | 64.000 |
+| production shape assert/direct | 682.691 ms | 0.005 ms | 0 |
+
+The production run removes `3.014 ms` of directly attributable clone work and
+`64 MiB` of explicit coefficient copies. The broader `7.625 ms` median
+difference remains subject to NTT scheduling noise.
 
 ## Segmented 2D NTT Micro-Candidates
 
