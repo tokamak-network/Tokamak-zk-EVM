@@ -239,3 +239,38 @@ npm run bench:binding-scalar-conversion -- --iterations=3 --warmup=1 --json=tmp/
 Batch conversion is accepted as the common binding path. Its sub-millisecond
 small-input cost is outweighed by the representative `O_mid` and `O_prv`
 reductions, and it preserves the G1 result for every fixture-derived input.
+
+## Binding Zero-Compaction Benchmark
+
+Audience: backend-wasm developers deciding whether statement binding MSMs
+should omit zero scalar/base pairs before scalar conversion and MSM.
+
+The benchmark reproduces the complete production `msmG1(...)` caller boundary:
+binding selection, base/scalar collection, contiguous buffer construction,
+Montgomery conversion, and MSM. The candidate performs one selection scan into
+maximum-capacity typed buffers, omits zero pairs, batch-converts the active
+scalar prefix, and submits only the active prefix to the same MSM primitive.
+`A_free` is excluded because it already uses the separate zero-aware polynomial
+commitment path.
+
+```bash
+npm run bench:binding-zero-compaction
+```
+
+Environment: local Node.js with ffjavascript primitive parallelism, one warmup,
+three alternating-order measured iterations, and the prepared small runtime
+fixture.
+
+| binding | inputs | nonzero | density | current ms | compact ms | delta ms | reduction | current temporary MiB | compact temporary MiB |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `O_pub_free` | 109 | 56 | 0.514 | 1.282 | 1.590 | +0.308 | -24.0% | 0.017 | 0.015 |
+| `O_mid` | 6,820 | 4,391 | 0.644 | 14.051 | 13.296 | -0.755 | 5.4% | 1.041 | 0.967 |
+| `O_prv` | 650,925 | 352,160 | 0.541 | 1686.677 | 1597.912 | -88.765 | 5.3% | 99.323 | 90.206 |
+
+Exact G1 parity also passed for all-zero, first/last-nonzero, 25% dense,
+alternating-zero, 75% dense, and all-nonzero synthetic vectors. The candidate
+is recommended for Priority 33 promotion review only for `O_mid` and `O_prv`.
+It is rejected for `O_pub_free`, where fixed scan/allocation overhead exceeds
+the savings. The result includes both zero omission and the candidate's
+preallocated typed-buffer construction; production promotion must preserve
+that complete benchmarked boundary.

@@ -48,22 +48,7 @@ export async function buildPreparedProverContext(
   runtime: CurveRuntime,
   onProgress: (message: string) => void = () => undefined,
 ): Promise<PreparedProverContext> {
-  const runtimeDir = path.resolve("fixtures/small/runtime");
-  const proofWitnessManifest = await readManifest(
-    runtimeDir,
-    "prover-proof-witness-input/manifest.json",
-  );
-  const crsManifest = await readManifest(
-    runtimeDir,
-    "prover-crs-prepared-data/manifest.json",
-  );
-  onProgress("Loading prepared prover runtime input");
-  const input = await loadProverInputFromRuntimeBundles(
-    runtime,
-    proofWitnessManifest,
-    crsManifest,
-    (artifactPath) => readRuntimeFile(runtimeDir, artifactPath),
-  );
+  const input = await loadPreparedProverInput(runtime, onProgress);
   onProgress("Building witness polynomials");
   const witness = await buildWitnessPolynomials(runtime.Fr, input.witness);
   onProgress("Creating prover state");
@@ -114,6 +99,28 @@ export async function buildPreparedProverContext(
     zeta,
     kappa1,
   };
+}
+
+export async function loadPreparedProverInput(
+  runtime: CurveRuntime,
+  onProgress: (message: string) => void = () => undefined,
+): Promise<ProverRuntimeInput> {
+  const runtimeDir = path.resolve("fixtures/small/runtime");
+  const proofWitnessManifest = await readManifest(
+    runtimeDir,
+    "prover-proof-witness-input/manifest.json",
+  );
+  const crsManifest = await readManifest(
+    runtimeDir,
+    "prover-crs-prepared-data/manifest.json",
+  );
+  onProgress("Loading prepared prover runtime input");
+  return loadProverInputFromRuntimeBundles(
+    runtime,
+    proofWitnessManifest,
+    crsManifest,
+    (artifactPath) => readRuntimeFile(runtimeDir, artifactPath),
+  );
 }
 
 function collectThetaChallenges(
