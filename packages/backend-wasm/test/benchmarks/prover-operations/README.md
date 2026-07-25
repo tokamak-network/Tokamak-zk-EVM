@@ -1726,3 +1726,22 @@ commitments against the current path. Two measured iterations produced:
 Sharing the X work reduced the isolated boundary by `5255.253 ms` (`49.8%`)
 and explicit quotient storage by approximately `128 MiB`. This remains a
 diagnostics-only result pending the separate promotion decision.
+
+## Prover CRS In-Memory Representation
+
+`bench-crs-representation.ts` loads the real approximately `990 MiB`
+`prover-crs.v1` fixture under `--expose-gc`. It compares the current
+`10,815,983` retained per-point `Uint8Array` views with seven raw-section
+descriptors. It validates every section digest and sampled boundary/random
+point bytes before reporting measurements.
+
+| candidate | construction | 100k random accesses | 262144-point range copy | retained objects | heap delta | RSS delta |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| current per-point views | 635.692 ms | 18.381 ms | 3.201 ms | 10,815,983 | 1266.288 MiB | 1318.188 MiB |
+| raw-section descriptors | 0.167 ms | 11.326 ms | 0.007 ms | 7 | 0.138 MiB | 0.125 MiB |
+
+The descriptor representation removes approximately `1.24 GiB` of persistent
+JavaScript heap without changing the binary artifact layout. On-demand point
+views did not regress the measured random-access boundary, and direct
+contiguous slicing was substantially faster than copying individual retained
+point views. Production parsing remains unchanged pending promotion.
