@@ -2041,3 +2041,60 @@ native testing-mode-style invariants, Node proof generation and verifier
 acceptance, production build, Chromium proof generation (`122.82 s`) and
 verification (`19 ms`), and package inspection passed. The package contains
 253 files and no `test/`, `scripts/`, `fixtures/`, or `tmp/` paths.
+
+## Direct 2D NTT Task Shards
+
+Related commit: `4cd23c9e`.
+
+The small-segment ffjavascript FFT path previously allocated one full
+bit-reversed buffer and then allocated an owned slice for every worker-task
+segment. Production now writes bit-reversed elements directly into one
+contiguous shard per worker task and passes segment views from that shard.
+The ffjavascript worker primitive, transform order, inverse normalization,
+inverse output rotation, row-major transposes, and coset handling are
+unchanged.
+
+The post-promotion benchmark uses the production `biNttBuffer(...)` result as
+the correctness oracle. Exact forward, inverse, 1D edge, true 2D, and coset
+round-trip parity passed.
+
+| shape | direction | legacy current | production-equivalent direct shards | reduction | legacy allocation | direct-shard allocation |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| 4096x256 | forward | 353.885 ms | 321.557 ms | 9.1% | 128 MiB | 64 MiB |
+| 4096x256 | inverse | 376.121 ms | 343.988 ms | 8.5% | 192 MiB | 128 MiB |
+| 8192x512 | forward | 1415.507 ms | 1289.748 ms | 8.9% | 512 MiB | 256 MiB |
+| 8192x512 | inverse | 1450.114 ms | 1353.083 ms | 6.7% | 768 MiB | 512 MiB |
+
+Latest fixed-taxonomy timing:
+
+| layer | row | total | count |
+| --- | --- | ---: | ---: |
+| lowest | `polynomial.combination_without_multiplication` | 4.34 s | 49 |
+| lowest | `polynomial.combination_with_multiplication` | 16.18 s | 18 |
+| lowest | `polynomial.recursion` | 1.42 s | 1 |
+| lowest | `polynomial.evaluation` | 209 ms | 7 |
+| lowest | `polynomial.div_ruffini` | 383 ms | 2 |
+| lowest | `polynomial.div_vanishing` | 904 ms | 2 |
+| lowest | `polynomial.encode` | 93.73 s | 14 |
+| lowest | `binding.encode` | 1.69 s | 1 |
+| top | `field.operations` | 23.44 s | 79 |
+| top | `encode` | 95.42 s | 15 |
+| boundary | `init` | 2.89 s | 2 |
+| boundary | `stage.unclassified` | 9 ms | 1 |
+| boundary | `io` | 168 ms | 2 |
+| boundary | `verify` | 18 ms | 1 |
+| boundary | `output` | 2 ms | 1 |
+| total | prover stage total | 117.17 s | - |
+| total | total wall | 121.94 s | - |
+
+The immediately preceding accepted record had `field.operations = 23.84 s`,
+prover stage total `115.97 s`, and total wall `120.65 s`. Field operations
+decreased by `0.40 s`. The total-wall increase is caused by variation in the
+separate commitment-encode bucket and is not attributed to this NTT change;
+the direct transform benchmark is the primary attribution boundary.
+
+Production and diagnostics type checks, field/polynomial/commitment parity,
+native testing-mode-style invariants, Node proof generation and verifier
+acceptance, production build, Chromium proof generation (`121.16 s`) and
+verification (`19 ms`), and package inspection passed. The package contains
+253 files and no `test/`, `scripts/`, `fixtures/`, or `tmp/` paths.

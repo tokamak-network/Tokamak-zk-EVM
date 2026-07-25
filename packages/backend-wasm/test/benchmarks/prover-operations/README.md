@@ -1840,3 +1840,20 @@ largest inverse case and was slower for the other three, so it is also
 rejected. G3 consistently reduces the isolated inverse assembly copy, but its
 complete-boundary direction changed between repeated benchmark executions; it
 is not a production promotion candidate in this campaign.
+
+G2 was promoted to production in commit `4cd23c9e`. The post-promotion
+benchmark retained exact production parity for forward, inverse, 1D edge,
+true 2D, and coset round-trip cases:
+
+| shape | direction | legacy current ms | production-equivalent G2 ms | reduction |
+| --- | --- | ---: | ---: | ---: |
+| 4096x256 | forward | 353.885 | 321.557 | 9.1% |
+| 4096x256 | inverse | 376.121 | 343.988 | 8.5% |
+| 8192x512 | forward | 1415.507 | 1289.748 | 8.9% |
+| 8192x512 | inverse | 1450.114 | 1353.083 | 6.7% |
+
+Production now allocates one bit-reversed input shard per ffjavascript task
+and passes segment views from that shard. It does not cache bit-reversal
+tables or change inverse output assembly. The explicit allocation reductions
+remain `128 -> 64 MiB` and `192 -> 128 MiB` at `4096x256`, and
+`512 -> 256 MiB` and `768 -> 512 MiB` at `8192x512`.
