@@ -88,8 +88,9 @@ sharding.
 
 ## Persistent Packed CSR
 
-`bench-packed-r1cs.ts` isolates the repeated CSR construction that remains
-around the accepted sparse row-dot kernel. It compares rebuilding
+`bench-packed-r1cs.ts` isolates the repeated CSR construction that existed
+around the accepted sparse row-dot kernel before production promotion. It
+compares rebuilding
 `rowOffsets`, `columns`, and coefficient bytes for every placement/matrix with
 one immutable packed representation reused by all 234 placements.
 
@@ -102,13 +103,13 @@ polynomial coefficient bytes. Three measured iterations produced:
 | cached packed CSR | 329.357 ms | 323.437 ms | 330.283 ms | none | 228.378 ms | 3.459 MiB |
 
 Constructing the 42 cached matrices once took `6.892 ms`. Including that
-one-time diagnostic construction still leaves the candidate faster; a
-production generated representation would bake these buffers at build time.
+one-time diagnostic construction still left the candidate faster.
 The runtime boundary improved by `51.740 ms` (`13.6%`) and avoided
-approximately `92.5 MiB` of repeated packed-data construction. The current
-generated module still contains `172,032` row arrays and `81,624` entry
-objects, so removing generated object expansion remains part of the separate
-production plan rather than this diagnostics change.
+approximately `92.5 MiB` of repeated packed-data construction.
+
+Production now materializes the generated CSR arrays directly as immutable
+byte buffers at module initialization and reuses them for every placement. The
+legacy sparse-row object expansion remains diagnostics-only.
 
 ## Flat Witness Construction
 
@@ -152,3 +153,27 @@ RSS deltas are retained in the JSON report but are not used as an absolute peak
 comparison because the allocator reuses memory between candidates in the same
 process. The exact JavaScript entry and explicit-copy counts are the
 authoritative allocation metrics for promotion review.
+
+## Production Promotion
+
+The coordinated persistent-packed-CSR and direct-flat-output implementation is
+now the production witness path. `buildWitnessPolynomials(...)` consumes the
+build-generated packed matrices, gathers only placement-dependent active
+variables, and writes B/U/V/W evaluations directly into final row-major byte
+buffers. It does not rebuild CSR buffers, create placement-major field-element
+arrays, transpose object arrays, or concatenate final evaluation buffers.
+
+The post-promotion benchmark additionally compares the production function
+against the legacy object/transpose oracle. Exact B/U/V/W coefficient bytes
+match. One local three-iteration run measured:
+
+| candidate | median ms | JS array entries | explicit copied MiB |
+| --- | ---: | ---: | ---: |
+| legacy object/transpose | 3485.854 | 7,340,032 | 224.000 |
+| production-equivalent packed/direct-flat | 1940.198 | 0 | 87.750 |
+
+The fixed-taxonomy full-prover run measured `init = 2.87 s`, compared with
+`3.88 s` immediately before promotion. Full wall time changed from `135.74 s`
+to `135.92 s`, which is treated as run-to-run variation rather than an
+aggregate speedup claim. Chromium generated and verified the proof in
+`137.69 s` and `18 ms`, respectively.

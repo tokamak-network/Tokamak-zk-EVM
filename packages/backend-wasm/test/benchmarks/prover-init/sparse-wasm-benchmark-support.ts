@@ -6,10 +6,8 @@ import {
   installLinearBatchPlugin,
   type WasmModuleBuilder,
 } from "../../../src/core/field/linear-batch-plugin.js";
-import type {
-  ProverSparseMatrix,
-  ProverPlacementVariables,
-} from "../../../src/prover/internal/witness.js";
+import type { ProverPlacementVariables } from "../../../src/prover/internal/witness.js";
+import type { ProverSparseMatrix } from "./legacy-sparse-r1cs.js";
 
 const SPARSE_ROW_DOT = "tokamak_bench_sparseRowDot";
 

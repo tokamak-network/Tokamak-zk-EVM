@@ -3,6 +3,7 @@ import path from "node:path";
 
 import {
   BivariatePolynomialBuffer,
+  buildWitnessPolynomials,
   createCurveRuntime,
   type FieldElement,
   type FieldRuntime,
@@ -11,13 +12,16 @@ import {
 import type {
   ProverPlacementVariables,
   ProverSetupParams,
-  ProverSparseMatrix,
-  ProverSparseSubcircuitR1cs,
   ProverSubcircuitInfo,
-  ProverWitnessInput,
   WitnessPolynomials,
 } from "../../../src/prover/internal/witness.js";
 import { loadPreparedProverInput } from "../prover-operations/prepared-prover-context.js";
+import {
+  type LegacyProverWitnessInput,
+  type ProverSparseMatrix,
+  type ProverSparseSubcircuitR1cs,
+  withLegacySparseR1cs,
+} from "./legacy-sparse-r1cs.js";
 
 type Candidate = "current-object-transpose" | "flat-direct-output" | "packed-flat-combined";
 
@@ -89,35 +93,38 @@ async function main(): Promise<void> {
   const runtime = await createCurveRuntime();
   try {
     const input = await loadPreparedProverInput(runtime, (message) => console.log(message));
+    const legacyInput = withLegacySparseR1cs(input.witness);
     await assertSmallFixtureParity(runtime.Fr);
     const packedStarted = performance.now();
-    const packed = packAll(runtime.Fr, input.witness.r1csBySubcircuit, input.witness.setup.n);
+    const packed = packAll(runtime.Fr, legacyInput.r1csBySubcircuit, legacyInput.setup.n);
     const oneTimePackMs = performance.now() - packedStarted;
 
     console.log("Checking prepared-fixture parity");
     let currentOracle: RunResult | undefined = await runCandidate(
       runtime.Fr,
-      input.witness,
+      legacyInput,
       "current-object-transpose",
       undefined,
       true,
     );
     let flatOracle: RunResult | undefined = await runCandidate(
       runtime.Fr,
-      input.witness,
+      legacyInput,
       "flat-direct-output",
       undefined,
       true,
     );
     let combinedOracle: RunResult | undefined = await runCandidate(
       runtime.Fr,
-      input.witness,
+      legacyInput,
       "packed-flat-combined",
       packed,
       true,
     );
+    const productionWitness = await buildWitnessPolynomials(runtime.Fr, input.witness);
     assertWitnessEqual(requireWitness(currentOracle), requireWitness(flatOracle), "flat candidate");
     assertWitnessEqual(requireWitness(currentOracle), requireWitness(combinedOracle), "combined candidate");
+    assertWitnessEqual(requireWitness(currentOracle), productionWitness, "production packed/direct-flat witness");
     currentOracle = undefined;
     flatOracle = undefined;
     combinedOracle = undefined;
@@ -130,7 +137,7 @@ async function main(): Promise<void> {
     ];
     console.log("Warming candidates");
     for (const candidate of candidates) {
-      await runCandidate(runtime.Fr, input.witness, candidate, packed, false);
+      await runCandidate(runtime.Fr, legacyInput, candidate, packed, false);
       collectGarbage();
     }
 
@@ -139,7 +146,7 @@ async function main(): Promise<void> {
       const order = iteration % 2 === 0 ? candidates : [...candidates].reverse();
       for (const candidate of order) {
         console.log(`Measuring ${candidate}, iteration ${iteration + 1}`);
-        const run = await runCandidate(runtime.Fr, input.witness, candidate, packed, false);
+        const run = await runCandidate(runtime.Fr, legacyInput, candidate, packed, false);
         samples.get(candidate)?.push(run);
         collectGarbage();
       }
@@ -166,6 +173,7 @@ async function main(): Promise<void> {
       parity: {
         deterministicSmall: "pass",
         preparedFixture: "pass",
+        productionPackedDirectFlat: "pass",
         fields: ["bXY", "uXY", "vXY", "wXY"],
       },
       oneTimePackedCsrMs: oneTimePackMs,
@@ -183,7 +191,7 @@ async function main(): Promise<void> {
 
 async function runCandidate(
   field: FieldRuntime,
-  input: ProverWitnessInput,
+  input: LegacyProverWitnessInput,
   candidate: Candidate,
   packedEntries: readonly PackedSubcircuit[] | undefined,
   retainWitness: boolean,
@@ -233,7 +241,7 @@ async function runCandidate(
 
 async function buildBCurrent(
   field: FieldRuntime,
-  input: ProverWitnessInput,
+  input: LegacyProverWitnessInput,
   phases: PhaseTotals,
   tracker: MemoryTracker,
 ): Promise<BivariatePolynomialBuffer> {
@@ -261,7 +269,7 @@ async function buildBCurrent(
 
 async function buildBFlat(
   field: FieldRuntime,
-  input: ProverWitnessInput,
+  input: LegacyProverWitnessInput,
   phases: PhaseTotals,
   tracker: MemoryTracker,
 ): Promise<BivariatePolynomialBuffer> {
@@ -311,7 +319,7 @@ function fillBValues(
 
 async function buildUvwCurrent(
   field: FieldRuntime,
-  input: ProverWitnessInput,
+  input: LegacyProverWitnessInput,
   phases: PhaseTotals,
   tracker: MemoryTracker,
 ): Promise<Pick<WitnessPolynomials, "uXY" | "vXY" | "wXY">> {
@@ -361,7 +369,7 @@ async function buildUvwCurrent(
 
 async function buildUvwFlat(
   field: FieldRuntime,
-  input: ProverWitnessInput,
+  input: LegacyProverWitnessInput,
   phases: PhaseTotals,
   tracker: MemoryTracker,
   packedEntries: readonly PackedSubcircuit[] | undefined,
@@ -544,7 +552,7 @@ async function assertSmallFixtureParity(field: FieldRuntime): Promise<void> {
   assertWitnessEqual(requireWitness(current), requireWitness(combined), "small combined candidate");
 }
 
-function createSmallInput(field: FieldRuntime): ProverWitnessInput {
+function createSmallInput(field: FieldRuntime): LegacyProverWitnessInput {
   const setup: ProverSetupParams = {
     l_free: 1,
     l: 1,

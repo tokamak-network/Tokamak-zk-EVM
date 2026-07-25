@@ -14,8 +14,6 @@ import {
   type RuntimeArtifactBundleManifest,
 } from "../../../src/index.js";
 import type {
-  ProverSparseMatrix,
-  ProverSparseSubcircuitR1cs,
   WitnessPolynomials,
 } from "../../../src/prover/internal/witness.js";
 import {
@@ -25,6 +23,11 @@ import {
   evaluateSparseRowsWorkers,
   type SparseBenchmarkRuntimes,
 } from "./sparse-wasm-benchmark-support.js";
+import {
+  unpackPackedSparseR1cs,
+  type ProverSparseMatrix,
+  type ProverSparseSubcircuitR1cs,
+} from "./legacy-sparse-r1cs.js";
 
 type SparseEvaluator = (
   runtimes: SparseBenchmarkRuntimes,
@@ -90,7 +93,7 @@ async function runCandidate(
     input.witness.setup,
   );
   const r1csBySubcircuit = indexR1cs(
-    input.witness.r1csBySubcircuit,
+    unpackPackedSparseR1cs(input.witness.r1csBySubcircuit),
     input.witness.subcircuitInfos.length,
   );
   const setup = input.witness.setup;

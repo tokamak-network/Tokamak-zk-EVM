@@ -18,8 +18,6 @@ import type {
   ProverPermutationEntry,
   ProverPlacementVariables,
   ProverSetupParams,
-  ProverSparseMatrix,
-  ProverSparseSubcircuitR1cs,
   ProverSubcircuitInfo,
   WitnessPolynomials,
 } from "../../../src/prover/internal/witness.js";
@@ -28,6 +26,11 @@ import type {
   ProverMixer,
   ProverState,
 } from "../../../src/prover/internal/state.js";
+import {
+  unpackPackedSparseR1cs,
+  type ProverSparseMatrix,
+  type ProverSparseSubcircuitR1cs,
+} from "./legacy-sparse-r1cs.js";
 
 interface BenchmarkOptions {
   readonly runtimeDir: string;
@@ -97,6 +100,7 @@ async function main(): Promise<void> {
 
   try {
     const proverInput = await loadPreparedProverInput(runtime, options.runtimeDir);
+    const legacyR1cs = unpackPackedSparseR1cs(proverInput.witness.r1csBySubcircuit);
     const productionTiming = new TimingCollector();
     const production = await productionTiming.span("production.init", async () => {
       const witness = await buildWitnessPolynomials(runtime.Fr, proverInput.witness);
@@ -113,35 +117,50 @@ async function main(): Promise<void> {
 
     const profiledTiming = new TimingCollector();
     const profiled = await profiledTiming.span("profiled.init", async () => {
-      const witness = await buildWitnessPolynomialsProfiled(runtime.Fr, proverInput, profiledTiming);
+      const witness = await buildWitnessPolynomialsProfiled(runtime.Fr, proverInput, legacyR1cs, profiledTiming);
       const state = await createProverStateProfiled(runtime, proverInput, witness, profiledTiming);
 
       return { witness, state };
     });
     const flatTiming = new TimingCollector();
     const flat = await flatTiming.span("flat-buffer-candidate.init", async () => {
-      const witness = await buildWitnessPolynomialsFlatProfiled(runtime.Fr, proverInput, flatTiming);
+      const witness = await buildWitnessPolynomialsFlatProfiled(runtime.Fr, proverInput, legacyR1cs, flatTiming);
       const state = await createProverStateFlatProfiled(runtime, proverInput, witness, flatTiming);
 
       return { witness, state };
     });
     const directSparseTiming = new TimingCollector();
     const directSparse = await directSparseTiming.span("direct-sparse-candidate.init", async () => {
-      const witness = await buildWitnessPolynomialsDirectSparseProfiled(runtime.Fr, proverInput, directSparseTiming);
+      const witness = await buildWitnessPolynomialsDirectSparseProfiled(
+        runtime.Fr,
+        proverInput,
+        legacyR1cs,
+        directSparseTiming,
+      );
       const state = await createProverStateFlatProfiled(runtime, proverInput, witness, directSparseTiming);
 
       return { witness, state };
     });
     const rowMajorUvwTiming = new TimingCollector();
     const rowMajorUvw = await rowMajorUvwTiming.span("row-major-uvw-candidate.init", async () => {
-      const witness = await buildWitnessPolynomialsRowMajorUvwProfiled(runtime.Fr, proverInput, rowMajorUvwTiming);
+      const witness = await buildWitnessPolynomialsRowMajorUvwProfiled(
+        runtime.Fr,
+        proverInput,
+        legacyR1cs,
+        rowMajorUvwTiming,
+      );
       const state = await createProverStateFlatProfiled(runtime, proverInput, witness, rowMajorUvwTiming);
 
       return { witness, state };
     });
     const parallelRouTiming = new TimingCollector();
     const parallelRou = await parallelRouTiming.span("parallel-rou-candidate.init", async () => {
-      const witness = await buildWitnessPolynomialsParallelRouProfiled(runtime.Fr, proverInput, parallelRouTiming);
+      const witness = await buildWitnessPolynomialsParallelRouProfiled(
+        runtime.Fr,
+        proverInput,
+        legacyR1cs,
+        parallelRouTiming,
+      );
       const state = await createProverStateParallelRouProfiled(runtime, proverInput, witness, parallelRouTiming);
 
       return { witness, state };
@@ -215,6 +234,7 @@ async function main(): Promise<void> {
 async function buildWitnessPolynomialsFlatProfiled(
   field: FieldRuntime,
   input: ProverRuntimeInput,
+  legacyR1cs: readonly ProverSparseSubcircuitR1cs[],
   timing: TimingCollector,
 ): Promise<WitnessPolynomials> {
   const setup = input.witness.setup;
@@ -224,7 +244,7 @@ async function buildWitnessPolynomialsFlatProfiled(
     validatePlacements(input.witness.placementVariables, input.witness.subcircuitInfos, setup),
   );
   const r1csBySubcircuit = await timing.span("r1cs.index", async () =>
-    indexSparseR1cs(input.witness.r1csBySubcircuit, input.witness.subcircuitInfos, setup),
+    indexSparseR1cs(legacyR1cs, input.witness.subcircuitInfos, setup),
   );
   const bXY = await genBXYFlatProfiled(
     field,
@@ -253,6 +273,7 @@ async function buildWitnessPolynomialsFlatProfiled(
 async function buildWitnessPolynomialsDirectSparseProfiled(
   field: FieldRuntime,
   input: ProverRuntimeInput,
+  legacyR1cs: readonly ProverSparseSubcircuitR1cs[],
   timing: TimingCollector,
 ): Promise<WitnessPolynomials> {
   const setup = input.witness.setup;
@@ -262,7 +283,7 @@ async function buildWitnessPolynomialsDirectSparseProfiled(
     validatePlacements(input.witness.placementVariables, input.witness.subcircuitInfos, setup),
   );
   const r1csBySubcircuit = await timing.span("r1cs.index", async () =>
-    indexSparseR1cs(input.witness.r1csBySubcircuit, input.witness.subcircuitInfos, setup),
+    indexSparseR1cs(legacyR1cs, input.witness.subcircuitInfos, setup),
   );
   const bXY = await genBXYFlatProfiled(
     field,
@@ -291,6 +312,7 @@ async function buildWitnessPolynomialsDirectSparseProfiled(
 async function buildWitnessPolynomialsRowMajorUvwProfiled(
   field: FieldRuntime,
   input: ProverRuntimeInput,
+  legacyR1cs: readonly ProverSparseSubcircuitR1cs[],
   timing: TimingCollector,
 ): Promise<WitnessPolynomials> {
   const setup = input.witness.setup;
@@ -300,7 +322,7 @@ async function buildWitnessPolynomialsRowMajorUvwProfiled(
     validatePlacements(input.witness.placementVariables, input.witness.subcircuitInfos, setup),
   );
   const r1csBySubcircuit = await timing.span("r1cs.index", async () =>
-    indexSparseR1cs(input.witness.r1csBySubcircuit, input.witness.subcircuitInfos, setup),
+    indexSparseR1cs(legacyR1cs, input.witness.subcircuitInfos, setup),
   );
   const bXY = await genBXYFlatProfiled(
     field,
@@ -329,6 +351,7 @@ async function buildWitnessPolynomialsRowMajorUvwProfiled(
 async function buildWitnessPolynomialsParallelRouProfiled(
   field: FieldRuntime,
   input: ProverRuntimeInput,
+  legacyR1cs: readonly ProverSparseSubcircuitR1cs[],
   timing: TimingCollector,
 ): Promise<WitnessPolynomials> {
   const setup = input.witness.setup;
@@ -338,7 +361,7 @@ async function buildWitnessPolynomialsParallelRouProfiled(
     validatePlacements(input.witness.placementVariables, input.witness.subcircuitInfos, setup),
   );
   const r1csBySubcircuit = await timing.span("r1cs.index", async () =>
-    indexSparseR1cs(input.witness.r1csBySubcircuit, input.witness.subcircuitInfos, setup),
+    indexSparseR1cs(legacyR1cs, input.witness.subcircuitInfos, setup),
   );
   const bXYEvals = materializeBXYFlatEvals(
     field,
@@ -376,6 +399,7 @@ async function buildWitnessPolynomialsParallelRouProfiled(
 async function buildWitnessPolynomialsProfiled(
   field: FieldRuntime,
   input: ProverRuntimeInput,
+  legacyR1cs: readonly ProverSparseSubcircuitR1cs[],
   timing: TimingCollector,
 ): Promise<WitnessPolynomials> {
   const setup = input.witness.setup;
@@ -385,7 +409,7 @@ async function buildWitnessPolynomialsProfiled(
     validatePlacements(input.witness.placementVariables, input.witness.subcircuitInfos, setup),
   );
   const r1csBySubcircuit = await timing.span("r1cs.index", async () =>
-    indexSparseR1cs(input.witness.r1csBySubcircuit, input.witness.subcircuitInfos, setup),
+    indexSparseR1cs(legacyR1cs, input.witness.subcircuitInfos, setup),
   );
   const bXY = await genBXYProfiled(field, input.witness.placementVariables, input.witness.subcircuitInfos, setup, timing);
   const { uXY, vXY, wXY } = await genUvwXYProfiled(field, input.witness.placementVariables, r1csBySubcircuit, setup, timing);

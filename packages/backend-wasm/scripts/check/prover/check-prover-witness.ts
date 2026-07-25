@@ -11,6 +11,7 @@ import {
   RuntimeArtifactFileRole,
   type BinarySectionInput,
   type FieldElement,
+  type FieldRuntime,
 } from "../../../src/index.js";
 import {
   buildProverWitnessInputFromRuntimeArtifacts,
@@ -34,12 +35,28 @@ import { buildProverInstancePolynomials, createProverMixer, createProverState } 
 import { GENERATED_PROVER_SETUP_PARAMS } from "../../../src/prover/generated/subcircuit-library.generated.js";
 import {
   buildWitnessPolynomials,
+  type ProverPackedSparseMatrix,
+  type ProverPackedSparseSubcircuitR1cs,
   type ProverPlacementVariables,
   type ProverPermutationEntry,
   type ProverSetupParams,
-  type ProverSparseSubcircuitR1cs,
   type ProverSubcircuitInfo,
 } from "../../../src/prover/internal/witness.js";
+
+interface ProverSparseMatrix {
+  readonly activeWires: readonly number[];
+  readonly sparseRows: readonly (readonly {
+    readonly column: number;
+    readonly coefficient: FieldElement;
+  }[])[];
+}
+
+interface ProverSparseSubcircuitR1cs {
+  readonly subcircuitId: number;
+  readonly A: ProverSparseMatrix;
+  readonly B: ProverSparseMatrix;
+  readonly C: ProverSparseMatrix;
+}
 
 async function main(): Promise<void> {
   const runtime = await createCurveRuntime();
@@ -139,7 +156,7 @@ async function main(): Promise<void> {
       setup,
       subcircuitInfos,
       placementVariables,
-      r1csBySubcircuit,
+      r1csBySubcircuit: packSparseR1cs(runtime.Fr, r1csBySubcircuit, setup.n),
     });
 
     await assertRouEvals(witness.bXY, [5n, 7n, 0n, 11n], "bXY");
@@ -703,6 +720,51 @@ async function main(): Promise<void> {
       elementByteLength: 96,
     };
   }
+}
+
+function packSparseR1cs(
+  field: FieldRuntime,
+  entries: readonly ProverSparseSubcircuitR1cs[],
+  rowCount: number,
+): readonly ProverPackedSparseSubcircuitR1cs[] {
+  return entries.map((entry) => ({
+    subcircuitId: entry.subcircuitId,
+    A: packSparseMatrix(field, entry.A, rowCount),
+    B: packSparseMatrix(field, entry.B, rowCount),
+    C: packSparseMatrix(field, entry.C, rowCount),
+  }));
+}
+
+function packSparseMatrix(
+  field: FieldRuntime,
+  matrix: ProverSparseMatrix,
+  rowCount: number,
+): ProverPackedSparseMatrix {
+  const rowOffsets = [0];
+  const columns: number[] = [];
+  const coefficients: Uint8Array[] = [];
+
+  for (let row = 0; row < rowCount; row += 1) {
+    for (const entry of matrix.sparseRows[row] ?? []) {
+      columns.push(entry.column);
+      coefficients.push(entry.coefficient);
+    }
+    rowOffsets.push(columns.length);
+  }
+
+  for (const coefficient of coefficients) {
+    if (coefficient.byteLength !== field.byteLength) {
+      throw new Error("Synthetic sparse R1CS coefficient has an invalid field-element length.");
+    }
+  }
+
+  return {
+    activeWires: matrix.activeWires,
+    rowOffsets: encodeU32List(rowOffsets),
+    columns: encodeU32List(columns),
+    coefficients: concatBytes(coefficients),
+    rowCount,
+  };
 }
 
 function assertEqual(actual: unknown, expected: unknown, label: string): void {

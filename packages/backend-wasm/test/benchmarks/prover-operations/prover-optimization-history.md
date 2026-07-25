@@ -1860,3 +1860,63 @@ invariants, Node proof generation and verifier acceptance, build, Chromium
 proof generation (`136.89 s`) and verification (`19 ms`), and package
 inspection passed. The package contains 253 files and no `test/`, `scripts/`,
 `fixtures/`, or `tmp/` paths.
+
+## Persistent Packed CSR And Direct-Flat Witness
+
+Related benchmark commits: `5e91f369` and `e044165f`. Production promotion:
+this commit.
+
+The build-generated subcircuit R1CS now remains in packed CSR form as
+`rowOffsets`, `columns`, coefficient bytes, active-wire indexes, and row
+counts. Production no longer expands these matrices into JavaScript sparse-row
+objects or reconstructs the same CSR buffers for every placement.
+
+Witness construction allocates the final row-major B/U/V/W evaluation buffers
+once. Placement values and sparse row-dot results are written directly to
+their final offsets. The legacy placement-major field-element arrays,
+object-array transpose, and final concatenation are removed from production
+and retained only as diagnostics oracles.
+
+The approved pre-promotion combination benchmark measured the legacy boundary
+at `4143.801 ms` and packed/direct-flat at `2781.108 ms`, a `1362.693 ms`
+(`32.9%`) reduction. The post-promotion benchmark directly compared the
+production function against the legacy oracle and passed exact B/U/V/W
+coefficient parity.
+
+| post-promotion candidate | median | JS array entries | explicit copied bytes |
+| --- | ---: | ---: | ---: |
+| legacy object/transpose | 3485.854 ms | 7,340,032 | 224.000 MiB |
+| production-equivalent packed/direct-flat | 1940.198 ms | 0 | 87.750 MiB |
+
+Latest fixed-taxonomy timing:
+
+| layer | row | total | count |
+| --- | --- | ---: | ---: |
+| lowest | `polynomial.combination_without_multiplication` | 4.09 s | 48 |
+| lowest | `polynomial.combination_with_multiplication` | 16.72 s | 18 |
+| lowest | `polynomial.recursion` | 1.48 s | 1 |
+| lowest | `polynomial.evaluation` | 210 ms | 8 |
+| lowest | `polynomial.div_ruffini` | 678 ms | 5 |
+| lowest | `polynomial.div_vanishing` | 842 ms | 2 |
+| lowest | `polynomial.encode` | 107.07 s | 18 |
+| lowest | `binding.encode` | 1.77 s | 1 |
+| top | `field.operations` | 24.02 s | 82 |
+| top | `encode` | 108.85 s | 19 |
+| boundary | `init` | 2.87 s | 2 |
+| boundary | `stage.unclassified` | 5 ms | 1 |
+| boundary | `io` | 157 ms | 2 |
+| boundary | `verify` | 18 ms | 1 |
+| boundary | `output` | 2 ms | 1 |
+| total | prover stage total | 131.10 s | - |
+| total | total wall | 135.92 s | - |
+
+The immediately preceding accepted record was `init = 3.88 s`, prover stage
+total `129.93 s`, and total wall `135.74 s`. Init decreased by `1.01 s`; the
+stage and wall deltas are not attributed to this change because unrelated
+polynomial and encode variation exceeds the overall difference.
+
+Production and diagnostics type checks, field/polynomial/commitment parity,
+native testing-mode-style invariants, Node proof generation and verifier
+acceptance, production build, Chromium proof generation (`137.69 s`) and
+verification (`18 ms`), and package inspection passed. The package contains
+253 files and no `test/`, `scripts/`, `fixtures/`, or `tmp/` paths.

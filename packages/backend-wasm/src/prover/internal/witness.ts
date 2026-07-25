@@ -35,30 +35,26 @@ export interface ProverPermutationEntry {
   readonly Y: number;
 }
 
-export interface ProverSparseRowEntry {
-  readonly column: number;
-  readonly coefficient: FieldElement;
-}
-
-export type ProverSparseRows = readonly (readonly ProverSparseRowEntry[])[];
-
-export interface ProverSparseMatrix {
+export interface ProverPackedSparseMatrix {
   readonly activeWires: readonly number[];
-  readonly sparseRows: ProverSparseRows;
+  readonly rowOffsets: Uint8Array;
+  readonly columns: Uint8Array;
+  readonly coefficients: Uint8Array;
+  readonly rowCount: number;
 }
 
-export interface ProverSparseSubcircuitR1cs {
+export interface ProverPackedSparseSubcircuitR1cs {
   readonly subcircuitId: number;
-  readonly A: ProverSparseMatrix;
-  readonly B: ProverSparseMatrix;
-  readonly C: ProverSparseMatrix;
+  readonly A: ProverPackedSparseMatrix;
+  readonly B: ProverPackedSparseMatrix;
+  readonly C: ProverPackedSparseMatrix;
 }
 
 export interface ProverWitnessInput {
   readonly setup: ProverSetupParams;
   readonly subcircuitInfos: readonly ProverSubcircuitInfo[];
   readonly placementVariables: readonly ProverPlacementVariables[];
-  readonly r1csBySubcircuit: readonly ProverSparseSubcircuitR1cs[];
+  readonly r1csBySubcircuit: readonly ProverPackedSparseSubcircuitR1cs[];
 }
 
 export interface WitnessPolynomials {
@@ -76,7 +72,11 @@ export async function buildWitnessPolynomials(
   validateSetupParams(input.setup);
   validateSubcircuitInfos(input.subcircuitInfos);
   validatePlacements(input.placementVariables, input.subcircuitInfos, input.setup);
-  const r1csBySubcircuit = indexSparseR1cs(input.r1csBySubcircuit, input.subcircuitInfos, input.setup);
+  const r1csBySubcircuit = indexPackedSparseR1cs(
+    input.r1csBySubcircuit,
+    input.subcircuitInfos,
+    input.setup,
+  );
 
   const bXY = await genBXY(field, input.placementVariables, input.subcircuitInfos, input.setup);
   const { uXY, vXY, wXY } = await genUvwXY(
@@ -106,7 +106,7 @@ export async function genBXY(
   validatePlacements(placementVariables, subcircuitInfos, setup);
 
   const mI = setup.l_D - setup.l;
-  const evals = Array.from({ length: mI * setup.s_max }, () => field.zero);
+  const evals = field.createZeroBuffer(mI * setup.s_max);
 
   for (let placementIndex = 0; placementIndex < placementVariables.length; placementIndex += 1) {
     const placement = placementVariables[placementIndex];
@@ -116,18 +116,19 @@ export async function genBXY(
       const globalIndex = subcircuitInfo.flattenMap[localIndex];
       const value = placement.variables[localIndex];
       if (globalIndex >= setup.l && globalIndex < setup.l_D && !field.isZero(value)) {
-        evals[(globalIndex - setup.l) * setup.s_max + placementIndex] = value.slice();
+        const outputIndex = (globalIndex - setup.l) * setup.s_max + placementIndex;
+        evals.set(value, outputIndex * field.byteLength);
       }
     }
   }
 
-  return BivariatePolynomialBuffer.fromRouEvals(field, field.concat(evals), mI, setup.s_max);
+  return BivariatePolynomialBuffer.fromRouEvals(field, evals, mI, setup.s_max);
 }
 
 export async function genUvwXY(
   field: FieldRuntime,
   placementVariables: readonly ProverPlacementVariables[],
-  r1csBySubcircuit: readonly (ProverSparseSubcircuitR1cs | undefined)[],
+  r1csBySubcircuit: readonly (ProverPackedSparseSubcircuitR1cs | undefined)[],
   setup: ProverSetupParams,
 ): Promise<{
   readonly uXY: BivariatePolynomialBuffer;
@@ -139,9 +140,11 @@ export async function genUvwXY(
     throw new Error("placementVariables length exceeds s_max.");
   }
 
-  const uByPlacement = Array.from({ length: setup.s_max * setup.n }, () => field.zero);
-  const vByPlacement = Array.from({ length: setup.s_max * setup.n }, () => field.zero);
-  const wByPlacement = Array.from({ length: setup.s_max * setup.n }, () => field.zero);
+  const rowMajor = [
+    field.createZeroBuffer(setup.s_max * setup.n),
+    field.createZeroBuffer(setup.s_max * setup.n),
+    field.createZeroBuffer(setup.s_max * setup.n),
+  ];
 
   for (let placementIndex = 0; placementIndex < placementVariables.length; placementIndex += 1) {
     const placement = placementVariables[placementIndex];
@@ -150,51 +153,31 @@ export async function genUvwXY(
       throw new Error(`Missing sparse R1CS for subcircuit ${placement.subcircuitId}.`);
     }
 
-    await evaluateSparseMatrixRows(
-      field,
-      placement.variables,
-      r1cs.A,
-      setup.n,
-      uByPlacement,
-      placementIndex * setup.n,
-    );
-    await evaluateSparseMatrixRows(
-      field,
-      placement.variables,
-      r1cs.B,
-      setup.n,
-      vByPlacement,
-      placementIndex * setup.n,
-    );
-    await evaluateSparseMatrixRows(
-      field,
-      placement.variables,
-      r1cs.C,
-      setup.n,
-      wByPlacement,
-      placementIndex * setup.n,
-    );
+    for (const [matrixIndex, matrix] of [r1cs.A, r1cs.B, r1cs.C].entries()) {
+      const rows = await evaluatePackedSparseMatrixRows(field, placement.variables, matrix);
+      writePlacementColumn(
+        rowMajor[matrixIndex],
+        rows,
+        placementIndex,
+        setup.s_max,
+        setup.n,
+        field.byteLength,
+      );
+    }
   }
 
-  const uEvals = transposePlacementMajorToRowMajor(uByPlacement, setup.s_max, setup.n);
-  const vEvals = transposePlacementMajorToRowMajor(vByPlacement, setup.s_max, setup.n);
-  const wEvals = transposePlacementMajorToRowMajor(wByPlacement, setup.s_max, setup.n);
-
   return {
-    uXY: await BivariatePolynomialBuffer.fromRouEvals(field, field.concat(uEvals), setup.n, setup.s_max),
-    vXY: await BivariatePolynomialBuffer.fromRouEvals(field, field.concat(vEvals), setup.n, setup.s_max),
-    wXY: await BivariatePolynomialBuffer.fromRouEvals(field, field.concat(wEvals), setup.n, setup.s_max),
+    uXY: await BivariatePolynomialBuffer.fromRouEvals(field, rowMajor[0], setup.n, setup.s_max),
+    vXY: await BivariatePolynomialBuffer.fromRouEvals(field, rowMajor[1], setup.n, setup.s_max),
+    wXY: await BivariatePolynomialBuffer.fromRouEvals(field, rowMajor[2], setup.n, setup.s_max),
   };
 }
 
-async function evaluateSparseMatrixRows(
+async function evaluatePackedSparseMatrixRows(
   field: FieldRuntime,
   variables: readonly FieldElement[],
-  matrix: ProverSparseMatrix,
-  rowCount: number,
-  output: FieldElement[],
-  outputOffset: number,
-): Promise<void> {
+  matrix: ProverPackedSparseMatrix,
+): Promise<Uint8Array> {
   const activeVariables = new Uint8Array(matrix.activeWires.length * field.byteLength);
   for (let index = 0; index < matrix.activeWires.length; index += 1) {
     const localIndex = matrix.activeWires[index];
@@ -205,85 +188,45 @@ async function evaluateSparseMatrixRows(
     field.writeBufferElement(activeVariables, index, variables[localIndex]);
   }
 
-  const rowOffsets = new Uint32Array(rowCount + 1);
-  let entryCount = 0;
-  for (let rowIndex = 0; rowIndex < matrix.sparseRows.length; rowIndex += 1) {
-    if (rowIndex >= rowCount) {
-      throw new Error(`Sparse R1CS row ${rowIndex} exceeds the expected row count ${rowCount}.`);
-    }
-
-    entryCount += matrix.sparseRows[rowIndex].length;
-    rowOffsets[rowIndex + 1] = entryCount;
-  }
-  for (let rowIndex = matrix.sparseRows.length; rowIndex < rowCount; rowIndex += 1) {
-    rowOffsets[rowIndex + 1] = entryCount;
-  }
-
-  const columns = new Uint32Array(entryCount);
-  const coefficients = new Uint8Array(entryCount * field.byteLength);
-  let entryIndex = 0;
-  for (let rowIndex = 0; rowIndex < matrix.sparseRows.length; rowIndex += 1) {
-    for (const entry of matrix.sparseRows[rowIndex]) {
-      if (!Number.isSafeInteger(entry.column) || entry.column < 0 || entry.column >= matrix.activeWires.length) {
-        throw new Error(`Sparse R1CS column ${entry.column} is outside the active wire range.`);
-      }
-      columns[entryIndex] = entry.column;
-      field.writeBufferElement(coefficients, entryIndex, entry.coefficient);
-      entryIndex += 1;
-    }
-  }
-
-  const rows = await field.sparseRowDotBuffer(
-    uint32Bytes(rowOffsets),
-    uint32Bytes(columns),
-    coefficients,
+  return field.sparseRowDotBuffer(
+    matrix.rowOffsets,
+    matrix.columns,
+    matrix.coefficients,
     activeVariables,
-    rowCount,
+    matrix.rowCount,
   );
-  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
-    output[outputOffset + rowIndex] = field.readBufferElement(rows, rowIndex);
-  }
 }
 
-function uint32Bytes(values: Uint32Array): Uint8Array {
-  const output = new Uint8Array(values.length * 4);
-  const view = new DataView(output.buffer);
-  for (let index = 0; index < values.length; index += 1) {
-    view.setUint32(index * 4, values[index], true);
-  }
-  return output;
-}
-
-function transposePlacementMajorToRowMajor(
-  values: readonly FieldElement[],
+function writePlacementColumn(
+  output: Uint8Array,
+  rows: Uint8Array,
+  placementIndex: number,
   placementCount: number,
   rowCount: number,
-): FieldElement[] {
-  if (values.length !== placementCount * rowCount) {
-    throw new Error("Cannot transpose a buffer whose length does not match its shape.");
+  fieldByteLength: number,
+): void {
+  if (rows.byteLength !== rowCount * fieldByteLength) {
+    throw new Error("Sparse R1CS row result length does not match the expected row count.");
   }
 
-  const output: FieldElement[] = [];
   for (let row = 0; row < rowCount; row += 1) {
-    for (let placement = 0; placement < placementCount; placement += 1) {
-      output.push(values[placement * rowCount + row]);
-    }
+    const sourceOffset = row * fieldByteLength;
+    const targetOffset = (row * placementCount + placementIndex) * fieldByteLength;
+    output.set(rows.subarray(sourceOffset, sourceOffset + fieldByteLength), targetOffset);
   }
-
-  return output;
 }
 
-function indexSparseR1cs(
-  r1csEntries: readonly ProverSparseSubcircuitR1cs[],
+function indexPackedSparseR1cs(
+  r1csEntries: readonly ProverPackedSparseSubcircuitR1cs[],
   subcircuitInfos: readonly ProverSubcircuitInfo[],
   setup: ProverSetupParams,
-): (ProverSparseSubcircuitR1cs | undefined)[] {
-  const indexed: (ProverSparseSubcircuitR1cs | undefined)[] = Array.from({
+): (ProverPackedSparseSubcircuitR1cs | undefined)[] {
+  const indexed: (ProverPackedSparseSubcircuitR1cs | undefined)[] = Array.from({
     length: subcircuitInfos.length,
   });
 
   for (const entry of r1csEntries) {
-    validateSparseR1cs(entry, subcircuitInfos, setup);
+    validatePackedSparseR1cs(entry, subcircuitInfos, setup);
     if (indexed[entry.subcircuitId] !== undefined) {
       throw new Error(`Duplicate sparse R1CS for subcircuit ${entry.subcircuitId}.`);
     }
@@ -369,8 +312,8 @@ function validatePlacements(
   }
 }
 
-function validateSparseR1cs(
-  r1cs: ProverSparseSubcircuitR1cs,
+function validatePackedSparseR1cs(
+  r1cs: ProverPackedSparseSubcircuitR1cs,
   subcircuitInfos: readonly ProverSubcircuitInfo[],
   setup: ProverSetupParams,
 ): void {
@@ -378,22 +321,27 @@ function validateSparseR1cs(
     throw new Error(`Invalid sparse R1CS subcircuit id ${r1cs.subcircuitId}.`);
   }
 
-  validateSparseMatrix(r1cs.A, setup.n, `subcircuit ${r1cs.subcircuitId} A`);
-  validateSparseMatrix(r1cs.B, setup.n, `subcircuit ${r1cs.subcircuitId} B`);
-  validateSparseMatrix(r1cs.C, setup.n, `subcircuit ${r1cs.subcircuitId} C`);
+  validatePackedSparseMatrix(r1cs.A, setup.n, `subcircuit ${r1cs.subcircuitId} A`);
+  validatePackedSparseMatrix(r1cs.B, setup.n, `subcircuit ${r1cs.subcircuitId} B`);
+  validatePackedSparseMatrix(r1cs.C, setup.n, `subcircuit ${r1cs.subcircuitId} C`);
 }
 
-function validateSparseMatrix(matrix: ProverSparseMatrix, rowCount: number, label: string): void {
-  if (matrix.sparseRows.length > rowCount) {
-    throw new Error(`${label} sparse row count exceeds n.`);
+function validatePackedSparseMatrix(
+  matrix: ProverPackedSparseMatrix,
+  rowCount: number,
+  label: string,
+): void {
+  if (matrix.rowCount !== rowCount) {
+    throw new Error(`${label} row count does not match n.`);
   }
-
-  for (let rowIndex = 0; rowIndex < matrix.sparseRows.length; rowIndex += 1) {
-    for (const entry of matrix.sparseRows[rowIndex]) {
-      if (!Number.isSafeInteger(entry.column) || entry.column < 0 || entry.column >= matrix.activeWires.length) {
-        throw new Error(`${label} sparse row ${rowIndex} has an invalid column index.`);
-      }
-    }
+  if (matrix.rowOffsets.byteLength !== (rowCount + 1) * 4) {
+    throw new Error(`${label} row-offset byte length does not match n.`);
+  }
+  if (matrix.columns.byteLength % 4 !== 0) {
+    throw new Error(`${label} column byte length is not divisible by four.`);
+  }
+  if (matrix.coefficients.byteLength !== (matrix.columns.byteLength / 4) * 32) {
+    throw new Error(`${label} coefficient byte length does not match its columns.`);
   }
 }
 

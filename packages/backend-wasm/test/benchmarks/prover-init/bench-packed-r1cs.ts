@@ -9,14 +9,17 @@ import {
   type FieldRuntime,
 } from "../../../src/index.js";
 import {
+  GENERATED_PROVER_PACKED_R1CS,
   GENERATED_PROVER_SETUP_PARAMS,
-  GENERATED_PROVER_SPARSE_R1CS,
 } from "../../../src/prover/generated/subcircuit-library.generated.js";
 import type {
   ProverPlacementVariables,
-  ProverSparseMatrix,
-  ProverSparseSubcircuitR1cs,
 } from "../../../src/prover/internal/witness.js";
+import {
+  unpackPackedSparseR1cs,
+  type ProverSparseMatrix,
+  type ProverSparseSubcircuitR1cs,
+} from "./legacy-sparse-r1cs.js";
 
 interface PackedMatrix {
   readonly activeWires: readonly number[];
@@ -24,7 +27,6 @@ interface PackedMatrix {
   readonly columns: Uint8Array;
   readonly coefficients: Uint8Array;
   readonly rowCount: number;
-  readonly entryCount: number;
 }
 
 interface PackedSubcircuit {
@@ -51,17 +53,17 @@ async function main(): Promise<void> {
       await readFile("fixtures/small/runtime/prover-proof-witness-input/placement.bin"),
     );
     const placements = parseProverPlacementVariables(runtime, placementArtifact);
-    const packedStarted = performance.now();
-    const packed = packAll(runtime.Fr, GENERATED_PROVER_SPARSE_R1CS, GENERATED_PROVER_SETUP_PARAMS.n);
-    const oneTimePackMs = performance.now() - packedStarted;
-    const oracleCurrent = await runCurrent(runtime.Fr, placements, GENERATED_PROVER_SPARSE_R1CS);
+    const sparse = unpackPackedSparseR1cs(GENERATED_PROVER_PACKED_R1CS);
+    const packed = GENERATED_PROVER_PACKED_R1CS;
+    const oneTimePackMs = 0;
+    const oracleCurrent = await runCurrent(runtime.Fr, placements, sparse);
     const oracleCandidate = await runCached(runtime.Fr, placements, packed, oneTimePackMs);
     assertOutputsEqual(oracleCurrent.outputs, oracleCandidate.outputs);
     await assertPolynomialParity(runtime.Fr, oracleCurrent.outputs, oracleCandidate.outputs);
     const currentRuns: CandidateRun[] = [];
     const candidateRuns: CandidateRun[] = [];
     for (let iteration = 0; iteration < 3; iteration += 1) {
-      const current = await runCurrent(runtime.Fr, placements, GENERATED_PROVER_SPARSE_R1CS);
+      const current = await runCurrent(runtime.Fr, placements, sparse);
       const candidate = await runCached(runtime.Fr, placements, packed, oneTimePackMs);
       assertOutputsEqual(current.outputs, candidate.outputs);
       currentRuns.push(current);
@@ -77,8 +79,8 @@ async function main(): Promise<void> {
       fixture: "fixtures/small/runtime/prover-proof-witness-input/placement.bin",
       placementCount: placements.length,
       matrixCount: packed.length * 3,
-      rowObjectCount: countRows(GENERATED_PROVER_SPARSE_R1CS),
-      entryObjectCount: countEntries(GENERATED_PROVER_SPARSE_R1CS),
+      rowObjectCount: countRows(sparse),
+      entryObjectCount: countEntries(sparse),
       oneTimeCachedPackMs: oneTimePackMs,
       oneTimeCachedPackedBytes: packedBytes(packed),
       parity: "pass",
@@ -195,19 +197,6 @@ async function runCached(
   };
 }
 
-function packAll(
-  field: FieldRuntime,
-  entries: readonly ProverSparseSubcircuitR1cs[],
-  rowCount: number,
-): PackedSubcircuit[] {
-  return entries.map((entry) => ({
-    subcircuitId: entry.subcircuitId,
-    A: packMatrix(field, entry.A, rowCount),
-    B: packMatrix(field, entry.B, rowCount),
-    C: packMatrix(field, entry.C, rowCount),
-  }));
-}
-
 function packMatrix(field: FieldRuntime, matrix: ProverSparseMatrix, rowCount: number): PackedMatrix {
   const rowOffsets = new Uint32Array(rowCount + 1);
   let entryCount = 0;
@@ -234,7 +223,6 @@ function packMatrix(field: FieldRuntime, matrix: ProverSparseMatrix, rowCount: n
     columns: uint32Bytes(columns),
     coefficients,
     rowCount,
-    entryCount,
   };
 }
 

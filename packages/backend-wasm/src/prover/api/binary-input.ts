@@ -11,7 +11,7 @@ import {
 import { BinarySectionEncoding, BinarySectionType } from "../../artifacts/format/binary-format.js";
 import {
   GENERATED_PROVER_SETUP_PARAMS,
-  GENERATED_PROVER_SPARSE_R1CS,
+  GENERATED_PROVER_PACKED_R1CS,
   GENERATED_PROVER_SUBCIRCUIT_INFOS,
   NATIVE_BACKEND_VERSION,
   SUBCIRCUIT_LIBRARY_PACKAGE_VERSION,
@@ -143,7 +143,7 @@ export function buildProverInputFromRuntimeArtifacts(
       setup: parts.setup,
       placementVariables: parts.placementVariables,
       subcircuitInfos: GENERATED_PROVER_SUBCIRCUIT_INFOS,
-      r1csBySubcircuit: GENERATED_PROVER_SPARSE_R1CS,
+      r1csBySubcircuit: GENERATED_PROVER_PACKED_R1CS,
     },
     permutation: parts.permutation,
     publicInstance: parts.publicInstance,
@@ -173,7 +173,7 @@ export function buildProverWitnessInputFromRuntimeArtifacts(
     setup: parts.setup,
     placementVariables: parts.placementVariables,
     subcircuitInfos: GENERATED_PROVER_SUBCIRCUIT_INFOS,
-    r1csBySubcircuit: GENERATED_PROVER_SPARSE_R1CS,
+    r1csBySubcircuit: GENERATED_PROVER_PACKED_R1CS,
   };
 }
 
