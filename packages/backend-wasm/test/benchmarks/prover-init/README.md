@@ -85,3 +85,27 @@ effective, but row sharding is not: these sparse matrices do not provide enough
 work per task to amortize repeated packing and worker transfer. Production
 promotion should therefore use one worker task per matrix rather than row
 sharding.
+
+## Persistent Packed CSR
+
+`bench-packed-r1cs.ts` isolates the repeated CSR construction that remains
+around the accepted sparse row-dot kernel. It compares rebuilding
+`rowOffsets`, `columns`, and coefficient bytes for every placement/matrix with
+one immutable packed representation reused by all 234 placements.
+
+The benchmark checks exact U/V/W row-evaluation bytes and final U/V/W
+polynomial coefficient bytes. Three measured iterations produced:
+
+| candidate | median | min | max | repeated pack | sparse dot | packed bytes constructed |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| current repack per placement | 381.097 ms | 380.046 ms | 384.491 ms | 45.721 ms | 232.614 ms | 95.961 MiB |
+| cached packed CSR | 329.357 ms | 323.437 ms | 330.283 ms | none | 228.378 ms | 3.459 MiB |
+
+Constructing the 42 cached matrices once took `6.892 ms`. Including that
+one-time diagnostic construction still leaves the candidate faster; a
+production generated representation would bake these buffers at build time.
+The runtime boundary improved by `51.740 ms` (`13.6%`) and avoided
+approximately `92.5 MiB` of repeated packed-data construction. The current
+generated module still contains `172,032` row arrays and `81,624` entry
+objects, so removing generated object expansion remains part of the separate
+production plan rather than this diagnostics change.
