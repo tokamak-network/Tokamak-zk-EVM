@@ -38,6 +38,10 @@ interface DescriptorCrs {
   readonly sections: Readonly<Record<DynamicLabel, SectionDescriptor>>;
 }
 
+interface LegacyCrs {
+  readonly sections: Readonly<Record<DynamicLabel, readonly Uint8Array[]>>;
+}
+
 interface MemorySnapshot {
   readonly rss: number;
   readonly heapUsed: number;
@@ -65,9 +69,9 @@ async function main(): Promise<void> {
   const expectedDigests = sectionDigests(artifact);
 
   forceGc();
-  const descriptor = await measureDescriptor(artifact);
+  const production = await measureProduction(artifact);
   forceGc();
-  const current = await measureCurrent(artifact);
+  const legacy = await measureLegacy(artifact);
 
   const currentCrs = parseProverCrs(artifact);
   const descriptorCrs = buildDescriptorCrs(artifact);
@@ -82,7 +86,7 @@ async function main(): Promise<void> {
       DYNAMIC_LABELS.map((label) => [label, descriptorCrs.sections[label].count]),
     ),
     parity: "pass",
-    results: [current, descriptor],
+    results: [legacy, production],
   };
   console.table(report.results.map((result) => ({
     candidate: result.candidate,
@@ -100,28 +104,21 @@ async function main(): Promise<void> {
   console.log(`Wrote ${path.relative(process.cwd(), outputPath)}`);
 }
 
-async function measureCurrent(artifact: RuntimeArtifactFile): Promise<RepresentationResult> {
+async function measureLegacy(artifact: RuntimeArtifactFile): Promise<RepresentationResult> {
   forceGc();
   const before = memorySnapshot();
   const start = performance.now();
-  let value: ProverCrsRuntime | undefined = parseProverCrs(artifact);
+  let value: LegacyCrs | undefined = buildLegacyCrs(artifact);
   const constructionMs = performance.now() - start;
   const after = memorySnapshot();
-  const access = measureCurrentAccess(value);
-  const range = measureCurrentRangeCopy(value);
-  const retainedObjects =
-    value.sigma1.xyPowers.length +
-    value.sigma1.gammaInvOInst.length +
-    value.sigma1.etaInvLiOInterAlpha4Kj.length +
-    value.sigma1.deltaInvLiOPrv.length +
-    value.sigma1.deltaInvAlphakXhTx.length +
-    value.sigma1.deltaInvAlpha4XjTx.length +
-    value.sigma1.deltaInvAlphakYiTy.length;
+  const access = measureLegacyAccess(value);
+  const range = measureLegacyRangeCopy(value);
+  const retainedObjects = DYNAMIC_LABELS.reduce((sum, label) => sum + value!.sections[label].length, 0);
   value = undefined;
   forceGc();
 
   return {
-    candidate: "current-per-point-views",
+    candidate: "legacy-per-point-views",
     constructionMs,
     accessMs: access.ms,
     rangeCopyMs: range.ms,
@@ -133,21 +130,21 @@ async function measureCurrent(artifact: RuntimeArtifactFile): Promise<Representa
   };
 }
 
-async function measureDescriptor(artifact: RuntimeArtifactFile): Promise<RepresentationResult> {
+async function measureProduction(artifact: RuntimeArtifactFile): Promise<RepresentationResult> {
   forceGc();
   const before = memorySnapshot();
   const start = performance.now();
-  let value: DescriptorCrs | undefined = buildDescriptorCrs(artifact);
+  let value: ProverCrsRuntime | undefined = parseProverCrs(artifact);
   const constructionMs = performance.now() - start;
   const after = memorySnapshot();
-  const access = measureDescriptorAccess(value);
-  const range = measureDescriptorRangeCopy(value);
+  const access = measureProductionAccess(value);
+  const range = measureProductionRangeCopy(value);
   const retainedObjects = DYNAMIC_LABELS.length;
   value = undefined;
   forceGc();
 
   return {
-    candidate: "raw-section-descriptors",
+    candidate: "production-raw-section-descriptors",
     constructionMs,
     accessMs: access.ms,
     rangeCopyMs: range.ms,
@@ -156,6 +153,23 @@ async function measureDescriptor(artifact: RuntimeArtifactFile): Promise<Represe
     memoryAfter: after,
     memoryDelta: subtractMemory(after, before),
     checksum: access.checksum ^ range.checksum,
+  };
+}
+
+function buildLegacyCrs(artifact: RuntimeArtifactFile): LegacyCrs {
+  return {
+    sections: Object.fromEntries(
+      DYNAMIC_LABELS.map((label) => {
+        const section = requireG1Section(artifact, label);
+        return [
+          label,
+          Array.from({ length: section.data.byteLength / section.elementByteLength }, (_, index) => {
+            const offset = index * section.elementByteLength;
+            return section.data.subarray(offset, offset + section.elementByteLength);
+          }),
+        ];
+      }),
+    ) as unknown as Record<DynamicLabel, readonly Uint8Array[]>,
   };
 }
 
@@ -184,7 +198,7 @@ function buildDescriptorCrs(artifact: RuntimeArtifactFile): DescriptorCrs {
 }
 
 function assertRepresentationParity(current: ProverCrsRuntime, candidate: DescriptorCrs): void {
-  const currentSections: Record<DynamicLabel, readonly Uint8Array[]> = {
+  const currentSections: Record<DynamicLabel, SectionDescriptor> = {
     "sigma1.xy-powers": current.sigma1.xyPowers,
     "sigma1.gamma-inv-o-inst": current.sigma1.gammaInvOInst,
     "sigma1.eta-inv-li-o-inter-alpha4-kj": current.sigma1.etaInvLiOInterAlpha4Kj,
@@ -194,27 +208,35 @@ function assertRepresentationParity(current: ProverCrsRuntime, candidate: Descri
     "sigma1.delta-inv-alphak-yi-ty": current.sigma1.deltaInvAlphakYiTy,
   };
   for (const label of DYNAMIC_LABELS) {
-    const views = currentSections[label];
+    const production = currentSections[label];
     const descriptor = candidate.sections[label];
-    if (views.length !== descriptor.count) {
+    if (production.count !== descriptor.count) {
       throw new Error(`${label} count mismatch.`);
     }
     for (const index of sampleIndexes(descriptor.count)) {
-      assertBytesEqual(views[index], pointAt(descriptor, index), `${label}[${index}]`);
+      assertBytesEqual(pointAt(production, index), pointAt(descriptor, index), `${label}[${index}]`);
     }
-    const currentDigest = createHash("sha256");
-    for (const view of views) {
-      currentDigest.update(view);
-    }
+    const currentDigest = createHash("sha256").update(production.data).digest("hex");
     const descriptorDigest = createHash("sha256").update(descriptor.data).digest("hex");
-    if (currentDigest.digest("hex") !== descriptorDigest) {
+    if (currentDigest !== descriptorDigest) {
       throw new Error(`${label} complete digest mismatch.`);
     }
   }
 }
 
-function measureCurrentAccess(crs: ProverCrsRuntime): { readonly ms: number; readonly checksum: number } {
-  const sections = [
+function measureLegacyAccess(crs: LegacyCrs): { readonly ms: number; readonly checksum: number } {
+  let checksum = 0;
+  const start = performance.now();
+  for (let iteration = 0; iteration < 100_000; iteration += 1) {
+    const section = crs.sections[DYNAMIC_LABELS[iteration % DYNAMIC_LABELS.length]];
+    const point = section[(iteration * 2654435761) % section.length];
+    checksum ^= point[iteration % point.byteLength];
+  }
+  return { ms: performance.now() - start, checksum };
+}
+
+function measureProductionAccess(crs: ProverCrsRuntime): { readonly ms: number; readonly checksum: number } {
+  const sections: readonly SectionDescriptor[] = [
     crs.sigma1.xyPowers,
     crs.sigma1.gammaInvOInst,
     crs.sigma1.etaInvLiOInterAlpha4Kj,
@@ -226,26 +248,15 @@ function measureCurrentAccess(crs: ProverCrsRuntime): { readonly ms: number; rea
   let checksum = 0;
   const start = performance.now();
   for (let iteration = 0; iteration < 100_000; iteration += 1) {
-    const section = sections[iteration % sections.length];
-    const point = section[(iteration * 2654435761) % section.length];
-    checksum ^= point[iteration % point.byteLength];
-  }
-  return { ms: performance.now() - start, checksum };
-}
-
-function measureDescriptorAccess(crs: DescriptorCrs): { readonly ms: number; readonly checksum: number } {
-  let checksum = 0;
-  const start = performance.now();
-  for (let iteration = 0; iteration < 100_000; iteration += 1) {
-    const descriptor = crs.sections[DYNAMIC_LABELS[iteration % DYNAMIC_LABELS.length]];
+    const descriptor = sections[iteration % sections.length];
     const point = pointAt(descriptor, (iteration * 2654435761) % descriptor.count);
     checksum ^= point[iteration % point.byteLength];
   }
   return { ms: performance.now() - start, checksum };
 }
 
-function measureCurrentRangeCopy(crs: ProverCrsRuntime): { readonly ms: number; readonly checksum: number } {
-  const points = crs.sigma1.xyPowers;
+function measureLegacyRangeCopy(crs: LegacyCrs): { readonly ms: number; readonly checksum: number } {
+  const points = crs.sections["sigma1.xy-powers"];
   const width = points[0].byteLength;
   const rangePoints = 262_144;
   const output = new Uint8Array(rangePoints * width);
@@ -256,8 +267,8 @@ function measureCurrentRangeCopy(crs: ProverCrsRuntime): { readonly ms: number; 
   return { ms: performance.now() - start, checksum: output[output.byteLength - 1] };
 }
 
-function measureDescriptorRangeCopy(crs: DescriptorCrs): { readonly ms: number; readonly checksum: number } {
-  const descriptor = crs.sections["sigma1.xy-powers"];
+function measureProductionRangeCopy(crs: ProverCrsRuntime): { readonly ms: number; readonly checksum: number } {
+  const descriptor = crs.sigma1.xyPowers;
   const byteLength = 262_144 * descriptor.elementByteLength;
   const start = performance.now();
   const output = descriptor.data.slice(0, byteLength);

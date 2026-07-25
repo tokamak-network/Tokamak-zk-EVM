@@ -62,14 +62,19 @@ export interface ProverSigma1Runtime {
   readonly y: Uint8Array;
   readonly delta: Uint8Array;
   readonly eta: Uint8Array;
-  readonly xyPowersRaw: Uint8Array;
-  readonly xyPowers: readonly Uint8Array[];
-  readonly gammaInvOInst: readonly Uint8Array[];
-  readonly etaInvLiOInterAlpha4Kj: readonly Uint8Array[];
-  readonly deltaInvLiOPrv: readonly Uint8Array[];
-  readonly deltaInvAlphakXhTx: readonly Uint8Array[];
-  readonly deltaInvAlpha4XjTx: readonly Uint8Array[];
-  readonly deltaInvAlphakYiTy: readonly Uint8Array[];
+  readonly xyPowers: ProverCrsG1Section;
+  readonly gammaInvOInst: ProverCrsG1Section;
+  readonly etaInvLiOInterAlpha4Kj: ProverCrsG1Section;
+  readonly deltaInvLiOPrv: ProverCrsG1Section;
+  readonly deltaInvAlphakXhTx: ProverCrsG1Section;
+  readonly deltaInvAlpha4XjTx: ProverCrsG1Section;
+  readonly deltaInvAlphakYiTy: ProverCrsG1Section;
+}
+
+export interface ProverCrsG1Section {
+  readonly data: Uint8Array;
+  readonly count: number;
+  readonly elementByteLength: number;
 }
 
 export interface ProverSigma2Runtime {
@@ -282,7 +287,6 @@ export function parseProverPermutation(permutationFile: RuntimeArtifactFile): re
 
 export function parseProverCrs(crsFile: RuntimeArtifactFile): ProverCrsRuntime {
   const fixedPoints = loadProverCrsArtifact(crsFile).pointsByName;
-  const xyPowersSection = requireG1Section(crsFile, "sigma1.xy-powers");
 
   return {
     G: requireEntry(fixedPoints, "G"),
@@ -293,14 +297,13 @@ export function parseProverCrs(crsFile: RuntimeArtifactFile): ProverCrsRuntime {
       y: requireEntry(fixedPoints, "sigma1.y"),
       delta: requireEntry(fixedPoints, "sigma1.delta"),
       eta: requireEntry(fixedPoints, "sigma1.eta"),
-      xyPowersRaw: xyPowersSection.data,
-      xyPowers: splitElements(xyPowersSection.data, xyPowersSection.elementByteLength),
-      gammaInvOInst: splitG1Section(crsFile, "sigma1.gamma-inv-o-inst"),
-      etaInvLiOInterAlpha4Kj: splitG1Section(crsFile, "sigma1.eta-inv-li-o-inter-alpha4-kj"),
-      deltaInvLiOPrv: splitG1Section(crsFile, "sigma1.delta-inv-li-o-prv"),
-      deltaInvAlphakXhTx: splitG1Section(crsFile, "sigma1.delta-inv-alphak-xh-tx"),
-      deltaInvAlpha4XjTx: splitG1Section(crsFile, "sigma1.delta-inv-alpha4-xj-tx"),
-      deltaInvAlphakYiTy: splitG1Section(crsFile, "sigma1.delta-inv-alphak-yi-ty"),
+      xyPowers: describeG1Section(crsFile, "sigma1.xy-powers"),
+      gammaInvOInst: describeG1Section(crsFile, "sigma1.gamma-inv-o-inst"),
+      etaInvLiOInterAlpha4Kj: describeG1Section(crsFile, "sigma1.eta-inv-li-o-inter-alpha4-kj"),
+      deltaInvLiOPrv: describeG1Section(crsFile, "sigma1.delta-inv-li-o-prv"),
+      deltaInvAlphakXhTx: describeG1Section(crsFile, "sigma1.delta-inv-alphak-xh-tx"),
+      deltaInvAlpha4XjTx: describeG1Section(crsFile, "sigma1.delta-inv-alpha4-xj-tx"),
+      deltaInvAlphakYiTy: describeG1Section(crsFile, "sigma1.delta-inv-alphak-yi-ty"),
     },
     sigma2: {
       alpha: requireEntry(fixedPoints, "sigma2.alpha"),
@@ -330,10 +333,17 @@ function readU32List(data: Uint8Array, label: string): number[] {
   return output;
 }
 
-function splitG1Section(artifactFile: RuntimeArtifactFile, label: string): readonly Uint8Array[] {
+function describeG1Section(artifactFile: RuntimeArtifactFile, label: string): ProverCrsG1Section {
   const section = requireG1Section(artifactFile, label);
+  if (section.data.byteLength % section.elementByteLength !== 0) {
+    throw new Error(`${label} section byte length is not divisible by its point width.`);
+  }
 
-  return splitElements(section.data, section.elementByteLength);
+  return {
+    data: section.data,
+    count: section.data.byteLength / section.elementByteLength,
+    elementByteLength: section.elementByteLength,
+  };
 }
 
 function requireG1Section(artifactFile: RuntimeArtifactFile, label: string) {
@@ -357,19 +367,6 @@ function splitFieldElements(runtime: CurveRuntime, data: Uint8Array, label: stri
   return output;
 }
 
-function splitElements(data: Uint8Array, elementByteLength: number): Uint8Array[] {
-  if (data.byteLength % elementByteLength !== 0) {
-    throw new Error("Runtime artifact section byte length is not divisible by its element width.");
-  }
-
-  const output: Uint8Array[] = [];
-  for (let offset = 0; offset < data.byteLength; offset += elementByteLength) {
-    output.push(data.subarray(offset, offset + elementByteLength));
-  }
-
-  return output;
-}
-
 function requireEntry(entries: Readonly<Record<string, Uint8Array>>, name: string): Uint8Array {
   const entry = entries[name];
   if (entry === undefined) {
@@ -377,4 +374,32 @@ function requireEntry(entries: Readonly<Record<string, Uint8Array>>, name: strin
   }
 
   return entry;
+}
+
+export function proverCrsG1PointAt(section: ProverCrsG1Section, index: number): Uint8Array {
+  if (!Number.isSafeInteger(index) || index < 0 || index >= section.count) {
+    throw new Error(`Prover CRS G1 point index ${index} is out of range.`);
+  }
+
+  const offset = index * section.elementByteLength;
+  return section.data.subarray(offset, offset + section.elementByteLength);
+}
+
+export function proverCrsG1PointRange(
+  section: ProverCrsG1Section,
+  start: number,
+  count: number,
+): Uint8Array {
+  if (
+    !Number.isSafeInteger(start)
+    || !Number.isSafeInteger(count)
+    || start < 0
+    || count < 0
+    || start + count > section.count
+  ) {
+    throw new Error(`Prover CRS G1 point range [${start}, ${start + count}) is out of range.`);
+  }
+
+  const byteStart = start * section.elementByteLength;
+  return section.data.subarray(byteStart, byteStart + count * section.elementByteLength);
 }

@@ -16,6 +16,8 @@ import {
   buildProverWitnessInputFromRuntimeArtifacts,
   loadProverInputFromRuntimeBundles,
   loadProverRuntimeWitnessInputParts,
+  proverCrsG1PointAt,
+  proverCrsG1PointRange,
 } from "../../../src/prover/api/binary-input.js";
 import {
   buildProverBinding,
@@ -550,7 +552,22 @@ async function main(): Promise<void> {
       },
     );
     assertEqual(proverInput.witness.subcircuitInfos.length, 14, "bundle prover subcircuit info count");
-    assertEqual(proverInput.crs.sigma1.xyPowers.length, 2, "bundle prover CRS xy powers length");
+    assertEqual(proverInput.crs.sigma1.xyPowers.count, 2, "bundle prover CRS xy powers length");
+    assertEqual(
+      proverCrsG1PointAt(proverInput.crs.sigma1.xyPowers, 1).byteLength,
+      96,
+      "bundle prover CRS xy powers point width",
+    );
+    assertEqual(
+      proverCrsG1PointRange(proverInput.crs.sigma1.xyPowers, 0, 2).byteLength,
+      192,
+      "bundle prover CRS xy powers range width",
+    );
+    assertEqual(
+      proverCrsG1PointAt(proverInput.crs.sigma1.xyPowers, 0).buffer,
+      proverInput.crs.sigma1.xyPowers.data.buffer,
+      "bundle prover CRS point access backing buffer",
+    );
     assertEqual(proverInput.crs.sigma2.y.byteLength, 192, "bundle prover CRS sigma2.y byte length");
 
     const encodedPolynomial = await encodePolynomialBufferWithSigma1(
@@ -641,14 +658,17 @@ async function main(): Promise<void> {
         y: runtime.G1.generator,
         delta: runtime.G1.generator,
         eta: runtime.G1.generator,
-        xyPowersRaw: concatBytes(xyPowers),
-        xyPowers,
-        gammaInvOInst: Array.from({ length: setup.l }, () => runtime.G1.generator),
-        etaInvLiOInterAlpha4Kj: Array.from({ length: (setup.l_D - setup.l) * setup.s_max }, () => runtime.G1.generator),
-        deltaInvLiOPrv: Array.from({ length: (setup.m_D - setup.l_D) * setup.s_max }, () => runtime.G1.generator),
-        deltaInvAlphakXhTx: Array.from({ length: 9 }, () => runtime.G1.generator),
-        deltaInvAlpha4XjTx: Array.from({ length: 2 }, () => runtime.G1.generator),
-        deltaInvAlphakYiTy: Array.from({ length: 12 }, () => runtime.G1.generator),
+        xyPowers: g1Section(xyPowers),
+        gammaInvOInst: g1Section(Array.from({ length: setup.l }, () => runtime.G1.generator)),
+        etaInvLiOInterAlpha4Kj: g1Section(
+          Array.from({ length: (setup.l_D - setup.l) * setup.s_max }, () => runtime.G1.generator),
+        ),
+        deltaInvLiOPrv: g1Section(
+          Array.from({ length: (setup.m_D - setup.l_D) * setup.s_max }, () => runtime.G1.generator),
+        ),
+        deltaInvAlphakXhTx: g1Section(Array.from({ length: 9 }, () => runtime.G1.generator)),
+        deltaInvAlpha4XjTx: g1Section(Array.from({ length: 2 }, () => runtime.G1.generator)),
+        deltaInvAlphakYiTy: g1Section(Array.from({ length: 12 }, () => runtime.G1.generator)),
       },
       sigma2: {
         alpha: runtime.G2.generator,
@@ -674,6 +694,14 @@ async function main(): Promise<void> {
     const coefficients = Array.from({ length: xSize * ySize }, () => runtime.Fr.zero);
     coefficients[xIndex * ySize + yIndex] = coefficient;
     return BivariatePolynomialBuffer.fromCoeffs(runtime.Fr, coefficients, xSize, ySize);
+  }
+
+  function g1Section(points: readonly Uint8Array[]) {
+    return {
+      data: concatBytes(points),
+      count: points.length,
+      elementByteLength: 96,
+    };
   }
 }
 

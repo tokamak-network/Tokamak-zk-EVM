@@ -1805,3 +1805,58 @@ Type checks, polynomial operation parity, native testing-mode-style
 invariants, build, Chromium proof generation (`137.57 s`) and verification
 (`18 ms`), and package-content inspection passed. The package contains 253
 files and no `test/`, `scripts/`, or `tmp/` paths.
+
+## Raw Prover CRS Section Descriptors
+
+Related commits: `ceb619e2` (independent benchmark) and this production
+promotion commit.
+
+The prover CRS binary format, section order, point encoding, and validation
+ownership remain unchanged. Production parsing now retains the seven dynamic
+Sigma1 G1 sections as raw byte descriptors containing data, point count, and
+point width. Individual points and contiguous ranges are exposed as on-demand
+views over those bytes. It no longer constructs and retains one `Uint8Array`
+view for every dynamic CRS point.
+
+The post-promotion benchmark used the real approximately `990 MiB` prepared
+CRS and included complete section-digest parity plus deterministic point
+samples.
+
+| representation | construction | 100k point accesses | 262144-point range | retained objects | heap delta | RSS delta |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| legacy per-point views | 874.843 ms | 23.907 ms | 3.277 ms | 10,815,983 | 1155.280 MiB | 1227.500 MiB |
+| production raw descriptors | 0.209 ms | 10.484 ms | 0.005 ms | 7 | 0.263 MiB | 0.141 MiB |
+
+Latest fixed-taxonomy timing:
+
+| layer | row | total | count |
+| --- | --- | ---: | ---: |
+| lowest | `polynomial.combination_without_multiplication` | 4.10 s | 48 |
+| lowest | `polynomial.combination_with_multiplication` | 16.58 s | 18 |
+| lowest | `polynomial.recursion` | 1.46 s | 1 |
+| lowest | `polynomial.evaluation` | 211 ms | 8 |
+| lowest | `polynomial.div_ruffini` | 683 ms | 5 |
+| lowest | `polynomial.div_vanishing` | 708 ms | 2 |
+| lowest | `polynomial.encode` | 106.18 s | 18 |
+| lowest | `binding.encode` | 1.76 s | 1 |
+| top | `field.operations` | 23.74 s | 82 |
+| top | `encode` | 107.94 s | 19 |
+| boundary | `init` | 3.88 s | 2 |
+| boundary | `stage.unclassified` | 5 ms | 1 |
+| boundary | `io` | 147 ms | 2 |
+| boundary | `verify` | 17 ms | 1 |
+| boundary | `output` | 2 ms | 1 |
+| total | prover stage total | 129.93 s | - |
+| total | total wall | 135.74 s | - |
+
+The immediately preceding accepted full-run record was `135.07 s` prover
+stage total and `142.30 s` total wall. The new run is `5.14 s` and `6.56 s`
+lower respectively, but the representation benchmark is the attribution
+boundary for parser time and memory; full-run deltas are not treated as
+deterministic parser-only savings.
+
+Type checks, field/polynomial/commitment parity, native testing-mode-style
+invariants, Node proof generation and verifier acceptance, build, Chromium
+proof generation (`136.89 s`) and verification (`19 ms`), and package
+inspection passed. The package contains 253 files and no `test/`, `scripts/`,
+`fixtures/`, or `tmp/` paths.

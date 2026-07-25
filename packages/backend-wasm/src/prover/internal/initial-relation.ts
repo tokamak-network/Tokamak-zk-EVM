@@ -1,7 +1,12 @@
 import { BivariatePolynomialBuffer } from "../../core/polynomial/bivariate-polynomial-buffer.js";
 import type { CurveRuntime } from "../../core/curve/curve.js";
 import type { FieldElement } from "../../core/field/field.js";
-import type { ProverCrsRuntime } from "../api/binary-input.js";
+import {
+  proverCrsG1PointAt,
+  proverCrsG1PointRange,
+  type ProverCrsG1Section,
+  type ProverCrsRuntime,
+} from "../api/binary-input.js";
 import type {
   ProverPlacementVariables,
   ProverSetupParams,
@@ -74,8 +79,8 @@ export async function buildProverBinding(
     runtime.G1.mulAffineScalar(matrixAt(crs.sigma1.deltaInvAlphakXhTx, 3, 2, 0), mixer.rW_X[0]),
     runtime.G1.mulAffineScalar(matrixAt(crs.sigma1.deltaInvAlphakXhTx, 3, 2, 1), mixer.rW_X[1]),
     runtime.G1.mulAffineScalar(matrixAt(crs.sigma1.deltaInvAlphakXhTx, 3, 2, 2), mixer.rW_X[2]),
-    runtime.G1.mulAffineScalar(crs.sigma1.deltaInvAlpha4XjTx[0], mixer.rB_X[0]),
-    runtime.G1.mulAffineScalar(crs.sigma1.deltaInvAlpha4XjTx[1], mixer.rB_X[1]),
+    runtime.G1.mulAffineScalar(proverCrsG1PointAt(crs.sigma1.deltaInvAlpha4XjTx, 0), mixer.rB_X[0]),
+    runtime.G1.mulAffineScalar(proverCrsG1PointAt(crs.sigma1.deltaInvAlpha4XjTx, 1), mixer.rB_X[1]),
     runtime.G1.mulAffineScalar(matrixAt(crs.sigma1.deltaInvAlphakYiTy, 3, 0, 0), mixer.rU_Y),
     runtime.G1.mulAffineScalar(matrixAt(crs.sigma1.deltaInvAlphakYiTy, 3, 1, 0), mixer.rV_Y),
     runtime.G1.mulAffineScalar(matrixAt(crs.sigma1.deltaInvAlphakYiTy, 3, 2, 0), mixer.rW_Y[0]),
@@ -281,10 +286,7 @@ async function encodeSigma1Sparse(
       if (isZeroCoefficient(coefficientWords, polynomialIndex)) {
         continue;
       }
-      const base = crs.sigma1.xyPowers[referenceStringYSize * x + y];
-      if (base === undefined) {
-        throw new Error("Prover CRS sigma1.xy-powers section is shorter than the declared setup shape.");
-      }
+      const base = proverCrsG1PointAt(crs.sigma1.xyPowers, referenceStringYSize * x + y);
 
       bases.set(base, outputIndex * G1_AFFINE_BYTES);
       montgomeryScalars.set(
@@ -373,22 +375,23 @@ function prepareSigma1BaseChunk(
   ySize: number,
 ): Uint8Array {
   if (ySize === referenceStringYSize) {
-    const start = xStart * referenceStringYSize * G1_AFFINE_BYTES;
-    const end = (xStart + rowCount) * referenceStringYSize * G1_AFFINE_BYTES;
-    if (end > crs.sigma1.xyPowersRaw.byteLength) {
-      throw new Error("Prover CRS raw sigma1.xy-powers section is shorter than the declared setup shape.");
-    }
-    return crs.sigma1.xyPowersRaw.subarray(start, end);
+    return proverCrsG1PointRange(
+      crs.sigma1.xyPowers,
+      xStart * referenceStringYSize,
+      rowCount * referenceStringYSize,
+    );
   }
 
   const output = new Uint8Array(rowCount * ySize * G1_AFFINE_BYTES);
   for (let row = 0; row < rowCount; row += 1) {
-    const sourceStart = (xStart + row) * referenceStringYSize * G1_AFFINE_BYTES;
-    const sourceEnd = sourceStart + ySize * G1_AFFINE_BYTES;
-    if (sourceEnd > crs.sigma1.xyPowersRaw.byteLength) {
-      throw new Error("Prover CRS raw sigma1.xy-powers section is shorter than the declared setup shape.");
-    }
-    output.set(crs.sigma1.xyPowersRaw.subarray(sourceStart, sourceEnd), row * ySize * G1_AFFINE_BYTES);
+    output.set(
+      proverCrsG1PointRange(
+        crs.sigma1.xyPowers,
+        (xStart + row) * referenceStringYSize,
+        ySize,
+      ),
+      row * ySize * G1_AFFINE_BYTES,
+    );
   }
   return output;
 }
@@ -437,7 +440,7 @@ export async function encodeOPubFree(
 
     for (let localIndex = range.start; localIndex < range.end; localIndex += 1) {
       const globalIndex = subcircuitInfo.flattenMap[localIndex];
-      bases.push(crs.sigma1.gammaInvOInst[globalIndex]);
+      bases.push(proverCrsG1PointAt(crs.sigma1.gammaInvOInst, globalIndex));
       scalars.push(placement.variables[localIndex]);
     }
   }
@@ -569,13 +572,8 @@ function publicFreeRange(
   return undefined;
 }
 
-function matrixAt(values: readonly Uint8Array[], width: number, row: number, column: number): Uint8Array {
-  const value = values[row * width + column];
-  if (value === undefined) {
-    throw new Error(`Missing flattened prover CRS matrix entry at row ${row}, column ${column}.`);
-  }
-
-  return value;
+function matrixAt(section: ProverCrsG1Section, width: number, row: number, column: number): Uint8Array {
+  return proverCrsG1PointAt(section, row * width + column);
 }
 
 async function msmG1(

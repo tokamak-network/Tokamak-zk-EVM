@@ -4,7 +4,13 @@ import {
   BivariatePolynomialBuffer,
   createCurveRuntime,
 } from "../../../src/index.js";
-import type { CurveRuntime, FieldElement, ProverCrsRuntime, ProverSetupParams } from "../../../src/index.js";
+import {
+  proverCrsG1PointAt,
+  type CurveRuntime,
+  type FieldElement,
+  type ProverCrsRuntime,
+  type ProverSetupParams,
+} from "../../../src/index.js";
 import { encodePolynomialBufferWithSigma1 } from "../../../src/prover/internal/initial-relation.js";
 
 async function main(): Promise<void> {
@@ -163,10 +169,7 @@ async function encodeCompactRectangleWithSigma1(
   let outputIndex = 0;
   for (let x = 0; x < xSize; x += 1) {
     for (let y = 0; y < ySize; y += 1) {
-      const base = crs.sigma1.xyPowers[referenceStringYSize * x + y];
-      if (base === undefined) {
-        throw new Error("Synthetic CRS is shorter than the compact commitment oracle shape.");
-      }
+      const base = proverCrsG1PointAt(crs.sigma1.xyPowers, referenceStringYSize * x + y);
 
       bases.set(base, outputIndex * 96);
       scalars.set(runtime.Fr.toRawLittleEndian(polynomial.getCoeff(x, y)), outputIndex * runtime.Fr.byteLength);
@@ -187,8 +190,11 @@ function buildSyntheticCrs(runtime: CurveRuntime, count: number): ProverCrsRunti
 
   return {
     sigma1: {
-      xyPowersRaw: concatBytes(xyPowers),
-      xyPowers,
+      xyPowers: {
+        data: concatBytes(xyPowers),
+        count: xyPowers.length,
+        elementByteLength: 96,
+      },
     },
   } as unknown as ProverCrsRuntime;
 }

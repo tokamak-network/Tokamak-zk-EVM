@@ -367,11 +367,14 @@ function prepareRawSliceSparseMsm(runtime: CurveRuntime, benchmarkCase: Benchmar
       const crsIndex = referenceStringYSize * x + y;
       const baseOffset = crsIndex * G1_AFFINE_BYTES;
       const baseEnd = baseOffset + G1_AFFINE_BYTES;
-      if (baseEnd > benchmarkCase.crs.sigma1.xyPowersRaw.byteLength) {
+      if (baseEnd > benchmarkCase.crs.sigma1.xyPowers.data.byteLength) {
         throw new Error("Synthetic CRS raw xy-powers section is shorter than the raw-slice MSM shape.");
       }
 
-      bases.set(benchmarkCase.crs.sigma1.xyPowersRaw.subarray(baseOffset, baseEnd), outputIndex * G1_AFFINE_BYTES);
+      bases.set(
+        benchmarkCase.crs.sigma1.xyPowers.data.subarray(baseOffset, baseEnd),
+        outputIndex * G1_AFFINE_BYTES,
+      );
       scalars.set(runtime.Fr.toRawLittleEndian(scalar), outputIndex * runtime.Fr.byteLength);
       outputIndex += 1;
     }

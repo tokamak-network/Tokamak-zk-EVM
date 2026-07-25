@@ -1746,21 +1746,22 @@ any estimate formed by adding the two isolated benchmark deltas.
 ## Prover CRS In-Memory Representation
 
 `bench-crs-representation.ts` loads the real approximately `990 MiB`
-`prover-crs.v1` fixture under `--expose-gc`. It compares the current
-`10,815,983` retained per-point `Uint8Array` views with seven raw-section
-descriptors. It validates every section digest and sampled boundary/random
-point bytes before reporting measurements.
+`prover-crs.v1` fixture under `--expose-gc`. It compares the legacy
+`10,815,983` retained per-point `Uint8Array` views with the production
+seven-descriptor representation. It validates every section digest and
+sampled boundary/random point bytes before reporting measurements.
 
 | candidate | construction | 100k random accesses | 262144-point range copy | retained objects | heap delta | RSS delta |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| current per-point views | 635.692 ms | 18.381 ms | 3.201 ms | 10,815,983 | 1266.288 MiB | 1318.188 MiB |
-| raw-section descriptors | 0.167 ms | 11.326 ms | 0.007 ms | 7 | 0.138 MiB | 0.125 MiB |
+| legacy per-point views | 874.843 ms | 23.907 ms | 3.277 ms | 10,815,983 | 1155.280 MiB | 1227.500 MiB |
+| production raw descriptors | 0.209 ms | 10.484 ms | 0.005 ms | 7 | 0.263 MiB | 0.141 MiB |
 
 The descriptor representation removes approximately `1.24 GiB` of persistent
 JavaScript heap without changing the binary artifact layout. On-demand point
 views did not regress the measured random-access boundary, and direct
 contiguous slicing was substantially faster than copying individual retained
-point views. Production parsing remains unchanged pending promotion.
+point views. Production parsing now uses descriptors without changing the
+binary artifact layout or moving format validation into the prover algorithm.
 
 ## Recursion Same-Shape Clone Removal
 

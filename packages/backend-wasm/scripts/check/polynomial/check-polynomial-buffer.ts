@@ -48,8 +48,11 @@ async function checkBufferCommitmentEncoding(runtime: CurveRuntime): Promise<voi
   } as ProverSetupParams;
   const crs = {
     sigma1: {
-      xyPowersRaw: concatBytes(Array.from({ length: 16 }, () => runtime.G1.generator)),
-      xyPowers: Array.from({ length: 16 }, () => runtime.G1.generator),
+      xyPowers: {
+        data: concatBytes(Array.from({ length: 16 }, () => runtime.G1.generator)),
+        count: 16,
+        elementByteLength: 96,
+      },
     },
   } as unknown as ProverCrsRuntime;
   const actual = await encodePolynomialBufferWithSigma1(runtime, crs, setup, polynomial);
