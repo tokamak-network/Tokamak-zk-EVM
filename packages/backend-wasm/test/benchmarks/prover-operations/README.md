@@ -1745,3 +1745,26 @@ JavaScript heap without changing the binary artifact layout. On-demand point
 views did not regress the measured random-access boundary, and direct
 contiguous slicing was substantially faster than copying individual retained
 point views. Production parsing remains unchanged pending promotion.
+
+## Recursion Same-Shape Clone Removal
+
+`bench-recursion-clone-removal.ts` constructs representative `4096x256`
+`fXY` and `gXY` recursion inputs from the prepared witness and state. It
+compares the current same-shape `resize(...)` calls with explicit shape
+assertions followed by direct, non-mutating `toRouEvals()` calls.
+
+The benchmark uses two warmups and seven alternating-order measured
+iterations. Exact ROU-evaluation parity, source-buffer immutability, a small
+shape case, and wrong-shape rejection all pass.
+
+| candidate | median | min | max | shape/resize | f NTT | g NTT | explicit copied MiB |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| current same-shape resize | 841.304 ms | 756.513 ms | 1008.740 ms | 3.371 ms | 459.878 ms | 378.024 ms | 64.000 |
+| shape assert/direct | 811.030 ms | 737.142 ms | 920.786 ms | 0.006 ms | 346.040 ms | 464.962 ms | 0 |
+
+The total median was `30.274 ms` (`3.6%`) lower, but the broad overlapping
+ranges and the swapped per-NTT timing distribution show that most of that
+difference is runtime noise. The attributable result is removal of about
+`3.365 ms` of clone work and `64 MiB` of explicit coefficient copying. This is
+a low-impact, memory-positive promotion candidate; the report does not claim
+the noisy NTT difference as a clone-removal speedup.
