@@ -8,6 +8,11 @@ import {
   type ProverRuntimeInput,
   type ProverSubcircuitInfo,
 } from "../../../src/index.js";
+import {
+  encodeOMidNoZk,
+  encodeOPrvNoZk,
+} from "../../../src/prover/internal/initial-relation.js";
+import { proverCrsG1PointAt } from "../../../src/prover/api/binary-input.js";
 import { loadPreparedProverInput } from "../prover-operations/prepared-prover-context.js";
 
 const G1_AFFINE_BYTES = 96;
@@ -55,6 +60,7 @@ async function main(): Promise<void> {
       createStatementSource(input, "O_prv", input.witness.setup.l_D, input.witness.setup.m_D),
       ...createSyntheticSources(runtime),
     ];
+    await assertProductionStatementParity(runtime, input, sources[1], sources[2]);
     const summaries: Summary[] = [];
     for (const source of sources) {
       console.log(`Benchmarking ${source.label} (${source.maxCount} inputs)`);
@@ -89,6 +95,38 @@ async function main(): Promise<void> {
     console.log(`Wrote ${path.relative(process.cwd(), outputPath)}`);
   } finally {
     await runtime.terminate();
+  }
+}
+
+async function assertProductionStatementParity(
+  runtime: CurveRuntime,
+  input: ProverRuntimeInput,
+  midSource: BindingSource,
+  privateSource: BindingSource,
+): Promise<void> {
+  const [expectedMid, expectedPrivate] = await Promise.all([
+    runCandidate(runtime, midSource, "current-all-scalars"),
+    runCandidate(runtime, privateSource, "current-all-scalars"),
+  ]);
+  const productionMid = await encodeOMidNoZk(
+    runtime,
+    input.crs,
+    input.witness.setup,
+    input.witness.placementVariables,
+    input.witness.subcircuitInfos,
+  );
+  const productionPrivate = await encodeOPrvNoZk(
+    runtime,
+    input.crs,
+    input.witness.setup,
+    input.witness.placementVariables,
+    input.witness.subcircuitInfos,
+  );
+  if (!runtime.G1.eq(productionMid, expectedMid.result)) {
+    throw new Error("Production O_mid zero compaction changed the G1 result.");
+  }
+  if (!runtime.G1.eq(productionPrivate, expectedPrivate.result)) {
+    throw new Error("Production O_prv zero compaction changed the G1 result.");
   }
 }
 
@@ -207,7 +245,10 @@ function createPublicSource(input: ProverRuntimeInput): BindingSource {
         }
         for (let localIndex = range.start; localIndex < range.end; localIndex += 1) {
           const globalIndex = info.flattenMap[localIndex];
-          visitor(input.crs.sigma1.gammaInvOInst[globalIndex], placement.variables[localIndex]);
+          visitor(
+            proverCrsG1PointAt(input.crs.sigma1.gammaInvOInst, globalIndex),
+            placement.variables[localIndex],
+          );
         }
       }
     },
@@ -243,10 +284,10 @@ function createStatementSource(
           const flattened = info.flattenMap[localIndex];
           if (flattened >= globalStart && flattened < globalEnd) {
             const row = flattened - globalStart;
-            const base = bases[row * input.witness.setup.s_max + placementIndex];
-            if (base === undefined) {
-              throw new Error(`${label}: missing CRS base at row ${row}, placement ${placementIndex}.`);
-            }
+            const base = proverCrsG1PointAt(
+              bases,
+              row * input.witness.setup.s_max + placementIndex,
+            );
             visitor(base, placement.variables[localIndex]);
           }
         }

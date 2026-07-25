@@ -532,8 +532,10 @@ async function encodeStatement(
   subcircuitInfos: readonly ProverSubcircuitInfo[],
   baseAt: (globalIndex: number, placementIndex: number) => Uint8Array,
 ): Promise<Uint8Array> {
-  const bases: Uint8Array[] = [];
-  const scalars: FieldElement[] = [];
+  const bases = new Uint8Array(expectedVariableCount * G1_AFFINE_BYTES);
+  const scalars = new Uint8Array(expectedVariableCount * runtime.Fr.byteLength);
+  let variableCount = 0;
+  let nonzeroCount = 0;
 
   for (let placementIndex = 0; placementIndex < placementVariables.length; placementIndex += 1) {
     const placement = placementVariables[placementIndex];
@@ -542,17 +544,30 @@ async function encodeStatement(
       const flattened = subcircuitInfo.flattenMap[localIndex];
       if (flattened >= globalWireIndexOffset && flattened < globalWireIndexEnd) {
         const globalIndex = flattened - globalWireIndexOffset;
-        bases.push(baseAt(globalIndex, placementIndex));
-        scalars.push(placement.variables[localIndex]);
+        const scalar = placement.variables[localIndex];
+        variableCount += 1;
+        if (runtime.Fr.isZero(scalar)) {
+          continue;
+        }
+        bases.set(baseAt(globalIndex, placementIndex), nonzeroCount * G1_AFFINE_BYTES);
+        scalars.set(scalar, nonzeroCount * runtime.Fr.byteLength);
+        nonzeroCount += 1;
       }
     }
   }
 
-  if (bases.length !== expectedVariableCount) {
-    throw new Error(`Statement encoding variable count mismatch: expected ${expectedVariableCount}, got ${bases.length}.`);
+  if (variableCount !== expectedVariableCount) {
+    throw new Error(`Statement encoding variable count mismatch: expected ${expectedVariableCount}, got ${variableCount}.`);
   }
 
-  return msmG1(runtime, bases, scalars);
+  if (nonzeroCount === 0) {
+    return runtime.G1.zero;
+  }
+
+  const compactBases = bases.subarray(0, nonzeroCount * G1_AFFINE_BYTES);
+  const compactScalars = scalars.subarray(0, nonzeroCount * runtime.Fr.byteLength);
+  const rawScalars = await runtime.Fr.batchFromMontgomeryBuffer(compactScalars);
+  return runtime.G1.msmAffineRaw(compactBases, rawScalars);
 }
 
 function publicFreeRange(
