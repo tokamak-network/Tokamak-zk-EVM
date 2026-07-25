@@ -1727,6 +1727,22 @@ Sharing the X work reduced the isolated boundary by `5255.253 ms` (`49.8%`)
 and explicit quotient storage by approximately `128 MiB`. This remains a
 diagnostics-only result pending the separate promotion decision.
 
+## Combined Opening Winners
+
+`bench-opening-winners-combined.ts` measures the Priority 32B combined final
+Pi opening and Priority 32C shared M/N X opening in the same complete opening
+boundary. Two alternating-order iterations produced:
+
+| candidate | median | min | max | Pi | M/N | explicit polynomial MiB |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| current all openings | 40636.122 ms | 40619.648 ms | 40636.122 ms | 30155.639 ms | 10480.478 ms | 896.082 |
+| combined Pi + shared M/N | 25531.853 ms | 25369.920 ms | 25531.853 ms | 20325.928 ms | 5205.922 ms | 640.047 |
+
+All Pi and M/N quotient buffers and G1 commitments match exactly. The directly
+measured combination reduces this boundary by `15104.269 ms` (`37.2%`) and
+explicit polynomial storage by `256.035 MiB`. This measured result supersedes
+any estimate formed by adding the two isolated benchmark deltas.
+
 ## Prover CRS In-Memory Representation
 
 `bench-crs-representation.ts` loads the real approximately `990 MiB`
