@@ -125,3 +125,34 @@ approximately 0.96 GiB of observed peak total RSS. Retaining 262,144 points is
 the technical recommendation. The production constant remains unchanged while
 the project owner decides whether to accept that recommendation as the final
 default for unknown user hardware.
+
+## Final All-Approved Optimization Rerun
+
+After promoting every project-owner-approved Priority 32 candidate, the full
+active range was measured again on 2026-07-26. The method remained the same,
+except Chromium RSS was sampled every one second. Every row generated a
+2408-byte proof and passed verifier acceptance in the same browser session.
+The production constant was restored to `262144` immediately after the final
+run.
+
+| chunk points | prove binary time | peak total RSS | peak single RSS | verifier result |
+| ---: | ---: | ---: | ---: | --- |
+| 16,384 | 139.06 s | 9.88 GiB | 9.68 GiB | passed |
+| 32,768 | 129.57 s | 10.74 GiB | 10.54 GiB | passed |
+| 65,536 | 126.02 s | 9.86 GiB | 9.66 GiB | passed |
+| 131,072 | 124.52 s | 9.92 GiB | 9.73 GiB | passed |
+| 262,144 | 121.25 s | 10.22 GiB | 10.02 GiB | passed |
+| 524,288 | 121.39 s | 11.71 GiB | 11.51 GiB | passed |
+
+The lower-range RSS observations remain non-monotonic process-level samples.
+They cannot establish a portable memory formula for unknown user systems.
+The high-end comparison is decisive on this machine: `524288` is `0.14 s`
+slower than `262144` while increasing observed peak total RSS by `1.49 GiB`.
+Compared with `16384`, `262144` reduces proof time by `17.81 s` (`12.8%`)
+while the observed peak total RSS differs by `0.34 GiB`.
+
+The final technical recommendation remains `262144`. It is the fastest
+measured candidate, avoids the high-end RSS jump, and is already the production
+value. Selecting it as the final default still requires the project owner
+because this local result cannot guarantee safety for every browser and user
+hardware configuration.
