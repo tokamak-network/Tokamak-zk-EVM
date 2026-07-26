@@ -5,7 +5,6 @@ import {
   BINARY_DIGEST_ENTRY_BYTES,
   BINARY_FILE_KIND_TABLE_BYTES,
   BINARY_HEADER_BYTES,
-  BINARY_SOURCE_PACKAGE_VERSION_BYTES,
   BINARY_SECTION_ENTRY_BYTES,
   BINARY_SECTION_LABEL_BYTES,
   BINARY_VERSION_TABLE_BYTES,
@@ -20,6 +19,13 @@ import {
   expectedElementByteLength,
   isRuntimeReadyEncoding,
 } from "./binary-format.js";
+import {
+  align8,
+  bytesWithSelfDigestsZeroed,
+  readFixedAscii,
+  sha256,
+  validateSourcePackageVersion,
+} from "./binary-table-utils.js";
 
 const NO_SECTION_INDEX = 0xffff;
 const textEncoder = new TextEncoder();
@@ -247,18 +253,6 @@ function validateSectionInputs(sections: readonly BinarySectionInput[]): void {
   }
 }
 
-function validateSourcePackageVersion(sourcePackageVersion: string): void {
-  if (sourcePackageVersion.trim() !== sourcePackageVersion || sourcePackageVersion === "") {
-    throw new Error("Binary artifact sourcePackageVersion must be a non-empty trimmed string.");
-  }
-
-  if (textEncoder.encode(sourcePackageVersion).byteLength > BINARY_SOURCE_PACKAGE_VERSION_BYTES) {
-    throw new Error(
-      `Binary artifact sourcePackageVersion must fit in ${BINARY_SOURCE_PACKAGE_VERSION_BYTES} UTF-8 bytes.`,
-    );
-  }
-}
-
 function writeVersionTable(output: Uint8Array, offset: number, sourcePackageVersion: string): void {
   const view = new DataView(output.buffer, output.byteOffset, output.byteLength);
   const encoded = textEncoder.encode(sourcePackageVersion);
@@ -330,15 +324,6 @@ function validateLabel(label: string): void {
   }
 }
 
-async function sha256(data: Uint8Array): Promise<Uint8Array> {
-  if (globalThis.crypto?.subtle === undefined) {
-    throw new Error("SHA-256 digest support is required for binary artifact validation.");
-  }
-
-  const digestInput = data.slice().buffer as ArrayBuffer;
-  return new Uint8Array(await globalThis.crypto.subtle.digest("SHA-256", digestInput));
-}
-
 function writeFixedAscii(output: Uint8Array, offset: number, value: string, byteLength: number): void {
   const encoded = textEncoder.encode(value);
   if (encoded.byteLength > byteLength) {
@@ -348,32 +333,12 @@ function writeFixedAscii(output: Uint8Array, offset: number, value: string, byte
   output.set(encoded, offset);
 }
 
-function readFixedAscii(input: Uint8Array, offset: number, byteLength: number): string {
-  const end = input.indexOf(0, offset);
-  const actualEnd = end === -1 || end > offset + byteLength ? offset + byteLength : end;
-  return textDecoder.decode(input.subarray(offset, actualEnd));
-}
-
 function normalizeBytes(bytes: Uint8Array): Uint8Array {
   if (bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength) {
     return bytes;
   }
 
   return bytes.slice();
-}
-
-function bytesWithSelfDigestsZeroed(input: Uint8Array, digestTableOffset: number, digestEntryCount: number): Uint8Array {
-  const copy = input.slice();
-  const view = new DataView(copy.buffer, copy.byteOffset, copy.byteLength);
-
-  for (let index = 0; index < digestEntryCount; index += 1) {
-    const entryOffset = digestTableOffset + index * BINARY_DIGEST_ENTRY_BYTES;
-    if (view.getUint16(entryOffset, true) === BinaryDigestEntryType.SelfDigest) {
-      copy.fill(0, entryOffset + 8, entryOffset + 8 + BINARY_DIGEST_BYTES);
-    }
-  }
-
-  return copy;
 }
 
 function readUint16(input: Uint8Array, offset: number, label: string): number {
@@ -389,8 +354,4 @@ function assertByteRange(byteLength: number, offset: number, length: number, lab
   if (length > byteLength - offset) {
     throw new Error(`${label} extends outside the binary artifact input.`);
   }
-}
-
-function align8(value: number): number {
-  return (value + 7) & ~7;
 }
