@@ -34,6 +34,8 @@ import { buildProverInstancePolynomials, createProverMixer, createProverState } 
 import { GENERATED_PROVER_SETUP_PARAMS } from "../../../src/prover/generated/subcircuit-library.generated.js";
 import {
   buildWitnessPolynomials,
+  placementCount,
+  placementVariableAt,
   type ProverPackedSparseMatrix,
   type ProverPackedSparseSubcircuitR1cs,
   type ProverPlacementVariables,
@@ -92,7 +94,7 @@ async function main(): Promise<void> {
         flattenMap: [1, 2, 3],
       },
     ];
-    const placementVariables: ProverPlacementVariables[] = [
+    const placementEntries = [
       {
         subcircuitId: 0,
         variables: [fr(2n), fr(5n), fr(0n)],
@@ -102,6 +104,7 @@ async function main(): Promise<void> {
         variables: [fr(3n), fr(7n), fr(11n)],
       },
     ];
+    const placementVariables = packPlacementVariables(runtime.Fr.byteLength, placementEntries);
     const permutation: ProverPermutationEntry[] = [
       { row: 0, col: 0, X: 1, Y: 1 },
       { row: 1, col: 1, X: 0, Y: 0 },
@@ -269,7 +272,7 @@ async function main(): Promise<void> {
       runtime,
       smallCrs,
       prove0Setup,
-      [],
+      emptyPlacementVariables(runtime.Fr.byteLength),
       [],
       smallProverState.instance.aFreeX,
       smallProverState.mixer,
@@ -304,25 +307,25 @@ async function main(): Promise<void> {
               type: BinarySectionType.Placement,
               encoding: BinarySectionEncoding.Bytes,
               label: "placement.subcircuit_ids",
-              elementCount: placementVariables.length,
+              elementCount: placementVariables.subcircuitIds.length,
               elementByteLength: 4,
-              data: encodeU32List(placementVariables.map((placement) => placement.subcircuitId)),
+              data: encodeU32List([...placementVariables.subcircuitIds]),
             },
             {
               type: BinarySectionType.Placement,
               encoding: BinarySectionEncoding.Bytes,
               label: "placement.variable_offsets",
-              elementCount: placementVariables.length + 1,
+              elementCount: placementVariables.variableOffsets.length,
               elementByteLength: 4,
-              data: encodeU32List(placementVariableOffsets(placementVariables)),
+              data: encodeU32List([...placementVariables.variableOffsets]),
             },
             {
               type: BinarySectionType.Placement,
               encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
               label: "placement.variables",
-              elementCount: placementVariables.reduce((sum, placement) => sum + placement.variables.length, 0),
+              elementCount: placementVariables.variables.byteLength / runtime.Fr.byteLength,
               elementByteLength: runtime.Fr.byteLength,
-              data: concatBytes(placementVariables.flatMap((placement) => [...placement.variables])),
+              data: placementVariables.variables,
             },
           ],
         }),
@@ -362,10 +365,18 @@ async function main(): Promise<void> {
     };
     const binaryParts = loadProverRuntimeWitnessInputParts(runtime, binaryArtifacts);
     assertEqual(binaryParts.setup.l_free, GENERATED_PROVER_SETUP_PARAMS.l_free, "binary setup l_free");
-    assertEqual(binaryParts.placementVariables.length, placementVariables.length, "binary placement count");
+    assertEqual(
+      placementCount(binaryParts.placementVariables),
+      placementCount(placementVariables),
+      "binary placement count",
+    );
     assertEqual(binaryParts.permutation.length, permutation.length, "binary permutation count");
     assertEqual(binaryParts.permutation[0].X, permutation[0].X, "binary permutation X");
-    assertFieldEqual(binaryParts.placementVariables[1].variables[2], fr(11n), "binary placement variable");
+    assertFieldEqual(
+      placementVariableAt(binaryParts.placementVariables, 1, 2),
+      fr(11n),
+      "binary placement variable",
+    );
     assertEqual(binaryParts.publicInstance.length, 2, "binary public instance length");
     assertFieldEqual(binaryParts.publicInstance[1], fr(17n), "binary public instance value");
 
@@ -567,7 +578,7 @@ async function main(): Promise<void> {
       runtime,
       proverInput.crs,
       GENERATED_PROVER_SETUP_PARAMS,
-      [],
+      emptyPlacementVariables(runtime.Fr.byteLength),
       proverInput.witness.subcircuitInfos,
       generatedInstancePolynomials.aFreeX,
       generatedMixer,
@@ -732,13 +743,36 @@ function assertEqual(actual: unknown, expected: unknown, label: string): void {
   }
 }
 
-function placementVariableOffsets(placements: readonly ProverPlacementVariables[]): number[] {
-  const offsets = [0];
-  for (const placement of placements) {
-    offsets.push(offsets[offsets.length - 1] + placement.variables.length);
+function packPlacementVariables(
+  fieldByteLength: number,
+  placements: readonly {
+    readonly subcircuitId: number;
+    readonly variables: readonly FieldElement[];
+  }[],
+): ProverPlacementVariables {
+  const subcircuitIds = Uint32Array.from(placements, (placement) => placement.subcircuitId);
+  const variableOffsets = new Uint32Array(placements.length + 1);
+  const variables: FieldElement[] = [];
+  for (let index = 0; index < placements.length; index += 1) {
+    variables.push(...placements[index].variables);
+    variableOffsets[index + 1] = variables.length;
   }
 
-  return offsets;
+  return {
+    subcircuitIds,
+    variableOffsets,
+    variables: concatBytes(variables),
+    fieldByteLength,
+  };
+}
+
+function emptyPlacementVariables(fieldByteLength: number): ProverPlacementVariables {
+  return {
+    subcircuitIds: new Uint32Array(),
+    variableOffsets: Uint32Array.of(0),
+    variables: new Uint8Array(),
+    fieldByteLength,
+  };
 }
 
 function encodeU32List(values: readonly number[]): Uint8Array {

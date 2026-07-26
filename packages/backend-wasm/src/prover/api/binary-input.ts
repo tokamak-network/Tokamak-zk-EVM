@@ -44,7 +44,7 @@ export interface ProverWitnessBinaryArtifactFiles {
 
 export interface ProverRuntimeWitnessInputParts {
   readonly setup: ProverSetupParams;
-  readonly placementVariables: readonly ProverPlacementVariables[];
+  readonly placementVariables: ProverPlacementVariables;
   readonly permutation: readonly ProverPermutationEntry[];
   readonly publicInstance: readonly FieldElement[];
 }
@@ -166,7 +166,7 @@ export function buildProverWitnessInputFromBinaryArtifacts(
 export function parseProverPlacementVariables(
   runtime: CurveRuntime,
   placementFile: BinaryArtifactFileView,
-): readonly ProverPlacementVariables[] {
+): ProverPlacementVariables {
   const idsSection = requireBinaryArtifactSection(placementFile, {
     type: BinarySectionType.Placement,
     encoding: BinarySectionEncoding.Bytes,
@@ -182,9 +182,13 @@ export function parseProverPlacementVariables(
     encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
     label: "placement.variables",
   });
-  const subcircuitIds = readU32List(idsSection.data, "placement.subcircuit_ids");
-  const variableOffsets = readU32List(offsetsSection.data, "placement.variable_offsets");
-  const variables = splitFieldElements(runtime, variablesSection.data, "placement.variables");
+  const subcircuitIds = readU32Array(idsSection.data, "placement.subcircuit_ids");
+  const variableOffsets = readU32Array(offsetsSection.data, "placement.variable_offsets");
+  const variables = variablesSection.data;
+
+  if (variables.byteLength % runtime.Fr.byteLength !== 0) {
+    throw new Error("placement.variables byte length is not divisible by the field element width.");
+  }
 
   if (variableOffsets.length !== subcircuitIds.length + 1) {
     throw new Error("placement.variable_offsets length must be placement.subcircuit_ids length plus one.");
@@ -194,22 +198,22 @@ export function parseProverPlacementVariables(
     throw new Error("placement.variable_offsets must start at zero.");
   }
 
-  if (variableOffsets[variableOffsets.length - 1] !== variables.length) {
+  if (variableOffsets[variableOffsets.length - 1] !== variables.byteLength / runtime.Fr.byteLength) {
     throw new Error("placement.variable_offsets final value must equal placement.variables element count.");
   }
 
-  return subcircuitIds.map((subcircuitId, index): ProverPlacementVariables => {
-    const start = variableOffsets[index];
-    const end = variableOffsets[index + 1];
-    if (end < start) {
+  for (let index = 0; index < variableOffsets.length - 1; index += 1) {
+    if (variableOffsets[index + 1] < variableOffsets[index]) {
       throw new Error(`placement.variable_offsets must be monotonic at index ${index}.`);
     }
+  }
 
-    return {
-      subcircuitId,
-      variables: variables.slice(start, end),
-    };
-  });
+  return {
+    subcircuitIds,
+    variableOffsets,
+    variables,
+    fieldByteLength: runtime.Fr.byteLength,
+  };
 }
 
 export function parseProverPublicInstance(
@@ -284,15 +288,15 @@ export function parseProverCrs(crsFile: BinaryArtifactFileView): ProverCrsRuntim
   };
 }
 
-function readU32List(data: Uint8Array, label: string): number[] {
+function readU32Array(data: Uint8Array, label: string): Uint32Array {
   if (data.byteLength % 4 !== 0) {
     throw new Error(`${label} byte length must be divisible by 4.`);
   }
 
+  const output = new Uint32Array(data.byteLength / 4);
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
-  const output: number[] = [];
-  for (let offset = 0; offset < data.byteLength; offset += 4) {
-    output.push(view.getUint32(offset, true));
+  for (let index = 0; index < output.length; index += 1) {
+    output[index] = view.getUint32(index * 4, true);
   }
 
   return output;

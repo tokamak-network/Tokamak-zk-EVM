@@ -2442,3 +2442,53 @@ native testing-mode-style invariants, Node proof generation and verifier
 acceptance, production build, Chromium proof generation (`120.86 s`) and
 verification (`25 ms`), and package inspection passed. The package contains
 253 files and no `test/`, `scripts/`, `fixtures/`, or `tmp/` paths.
+
+## Direct Witness Conversion And Flat Placement Storage
+
+The witness converter previously retained 658,454 converted field-element
+arrays and concatenated them after conversion. Runtime loading then retained
+one subarray object per field element plus one variable array per placement.
+
+Production now writes converted field values directly into the final
+preallocated section buffer. Runtime input keeps the section as one contiguous
+buffer with `Uint32Array` subcircuit IDs and placement offsets; prover
+consumers create short-lived field-element views only when reading a value.
+The named witness input and its three-section binary layout are unchanged.
+
+The real 234-placement, 658,454-variable selection benchmark produced:
+
+| operation | previous | promoted | time reduction | peak RSS reduction |
+| --- | ---: | ---: | ---: | ---: |
+| witness conversion | 1007.05 ms / 669.61 MiB | 932.46 ms / 544.08 MiB | 7.4% | 125.53 MiB |
+| placement loading | 44.24 ms / 521.42 MiB | 0.10 ms / 423.12 MiB | 99.8% | 98.30 MiB |
+
+The complete artifact matched byte-for-byte before promotion, and both loader
+representations produced the same ordered traversal checksum (`69,544,477`).
+
+Post-promotion fixed-taxonomy timing:
+
+| layer | row | total | count |
+| --- | --- | ---: | ---: |
+| lowest | `polynomial.combination_without_multiplication` | 4.40 s | 49 |
+| lowest | `polynomial.combination_with_multiplication` | 15.61 s | 18 |
+| lowest | `polynomial.recursion` | 1.37 s | 1 |
+| lowest | `polynomial.evaluation` | 209 ms | 7 |
+| lowest | `polynomial.div_ruffini` | 389 ms | 2 |
+| lowest | `polynomial.div_vanishing` | 867 ms | 2 |
+| lowest | `polynomial.encode` | 92.07 s | 14 |
+| lowest | `binding.encode` | 1.59 s | 1 |
+| top | `field.operations` | 22.85 s | 79 |
+| top | `encode` | 93.66 s | 15 |
+| boundary | `init` | 2.70 s | 2 |
+| boundary | `stage.unclassified` | 4 ms | 1 |
+| boundary | `io` | 162 ms | 2 |
+| boundary | `verify` | 17 ms | 1 |
+| boundary | `output` | 2 ms | 1 |
+| total | prover stage total | 114.92 s | - |
+| total | total wall | 119.40 s | - |
+
+The preceding accepted record was `119.41 s` total wall and `114.92 s`
+prover-stage total, so the representation change introduced no material
+time regression. Type checks, binary and witness checks, Node proof generation,
+testing-mode invariants, verifier acceptance, and Chromium proof generation
+(`120.57 s`) and verification (`20 ms`) passed.

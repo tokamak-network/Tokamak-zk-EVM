@@ -38,7 +38,6 @@
     "typecheck": "npm run subcircuit-library:check && npm run verifier-crs:check && tsc -p tsconfig.json --pretty false --noEmit",
     "typecheck:scripts": "tsc -p tsconfig.dev.json --pretty false",
     "binary:check": "tsx test/checks/binary/check-binary-artifacts.ts && tsx test/checks/binary/check-prover-crs-conversion.ts",
-    "benchmark:witness-conversion:node": "tsx test/benchmarks/witness-conversion/benchmark-node.ts",
     "benchmark:prover-init-buffers": "node --expose-gc --import tsx test/benchmarks/prover-init-buffers/benchmark.ts",
     "fixtures:copy": "tsx scripts/fixtures/copy-fixtures.ts fixtures/small/copy-manifest.json",
     "fixtures:prepare": "tsx scripts/fixtures/prepare-runtime-fixtures.ts fixtures/small/copy-manifest.json",

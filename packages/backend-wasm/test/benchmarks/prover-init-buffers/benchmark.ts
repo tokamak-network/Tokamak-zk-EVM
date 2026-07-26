@@ -10,6 +10,12 @@ import {
   GENERATED_PROVER_SETUP_PARAMS,
   GENERATED_PROVER_SUBCIRCUIT_INFOS,
 } from "../../../src/prover/generated/subcircuit-library.generated.js";
+import {
+  placementCount,
+  placementSubcircuitId,
+  placementVariableAt,
+  placementVariableCount,
+} from "../../../src/prover/protocol/witness.js";
 import { createCurveRuntime } from "../../../src/runtime/curve/curve.js";
 import type { FieldRuntime } from "../../../src/runtime/field/field-types.js";
 import { BivariatePolynomialBuffer } from "../../../src/runtime/polynomial/bivariate-polynomial-buffer.js";
@@ -212,14 +218,19 @@ function collectMidAssignments(
   const setup = GENERATED_PROVER_SETUP_PARAMS;
   const indices: number[] = [];
   const values: Uint8Array[] = [];
-  for (let placementIndex = 0; placementIndex < placements.length; placementIndex += 1) {
-    const placement = placements[placementIndex];
-    const info = GENERATED_PROVER_SUBCIRCUIT_INFOS[placement.subcircuitId];
-    for (let localIndex = 0; localIndex < placement.variables.length; localIndex += 1) {
+  for (let placementIndex = 0; placementIndex < placementCount(placements); placementIndex += 1) {
+    const info = GENERATED_PROVER_SUBCIRCUIT_INFOS[
+      placementSubcircuitId(placements, placementIndex)
+    ];
+    for (
+      let localIndex = 0;
+      localIndex < placementVariableCount(placements, placementIndex);
+      localIndex += 1
+    ) {
       const globalIndex = info.flattenMap[localIndex];
       if (globalIndex >= setup.l && globalIndex < setup.l_D) {
         indices.push((globalIndex - setup.l) * setup.s_max + placementIndex);
-        values.push(placement.variables[localIndex]);
+        values.push(placementVariableAt(placements, placementIndex, localIndex));
       }
     }
   }

@@ -7,10 +7,13 @@ import {
   type ProverCrsRuntime,
 } from "../api/binary-input.js";
 import type { ProverMixer } from "../protocol/state.js";
-import type {
-  ProverPlacementVariables,
-  ProverSetupParams,
-  ProverSubcircuitInfo,
+import {
+  placementCount,
+  placementSubcircuitId,
+  placementVariableAt,
+  type ProverPlacementVariables,
+  type ProverSetupParams,
+  type ProverSubcircuitInfo,
 } from "../protocol/witness.js";
 import { G1_AFFINE_BYTES } from "./commitment-layout.js";
 import {
@@ -29,7 +32,7 @@ export async function buildProverBinding(
   runtime: CurveRuntime,
   crs: ProverCrsRuntime,
   setup: ProverSetupParams,
-  placementVariables: readonly ProverPlacementVariables[],
+  placementVariables: ProverPlacementVariables,
   subcircuitInfos: readonly ProverSubcircuitInfo[],
   aFreeX: BivariatePolynomialBuffer,
   mixer: ProverMixer,
@@ -70,14 +73,14 @@ export async function buildProverBinding(
 export async function encodeOPubFree(
   runtime: CurveRuntime,
   crs: ProverCrsRuntime,
-  placementVariables: readonly ProverPlacementVariables[],
+  placementVariables: ProverPlacementVariables,
   subcircuitInfos: readonly ProverSubcircuitInfo[],
 ): Promise<Uint8Array> {
   const bases: Uint8Array[] = [];
   const scalars: FieldElement[] = [];
 
-  for (const placement of placementVariables) {
-    const subcircuitInfo = subcircuitInfos[placement.subcircuitId];
+  for (let placementIndex = 0; placementIndex < placementCount(placementVariables); placementIndex += 1) {
+    const subcircuitInfo = subcircuitInfos[placementSubcircuitId(placementVariables, placementIndex)];
     if (subcircuitInfo.name === "bufferEVMIn") {
       continue;
     }
@@ -90,7 +93,7 @@ export async function encodeOPubFree(
     for (let localIndex = range.start; localIndex < range.end; localIndex += 1) {
       const globalIndex = subcircuitInfo.flattenMap[localIndex];
       bases.push(proverCrsG1PointAt(crs.sigma1.gammaInvOInst, globalIndex));
-      scalars.push(placement.variables[localIndex]);
+      scalars.push(placementVariableAt(placementVariables, placementIndex, localIndex));
     }
   }
 
@@ -98,12 +101,12 @@ export async function encodeOPubFree(
 }
 
 export function countOMidVariables(
-  placementVariables: readonly ProverPlacementVariables[],
+  placementVariables: ProverPlacementVariables,
   subcircuitInfos: readonly ProverSubcircuitInfo[],
 ): number {
   let count = 0;
-  for (const placement of placementVariables) {
-    const subcircuitInfo = subcircuitInfos[placement.subcircuitId];
+  for (let placementIndex = 0; placementIndex < placementCount(placementVariables); placementIndex += 1) {
+    const subcircuitInfo = subcircuitInfos[placementSubcircuitId(placementVariables, placementIndex)];
     if (subcircuitInfo.name === "bufferPubOut") {
       count += subcircuitInfo.In_idx[1];
     } else if (
@@ -122,12 +125,12 @@ export function countOMidVariables(
 }
 
 export function countOPrvVariables(
-  placementVariables: readonly ProverPlacementVariables[],
+  placementVariables: ProverPlacementVariables,
   subcircuitInfos: readonly ProverSubcircuitInfo[],
 ): number {
   let count = 0;
-  for (const placement of placementVariables) {
-    const subcircuitInfo = subcircuitInfos[placement.subcircuitId];
+  for (let placementIndex = 0; placementIndex < placementCount(placementVariables); placementIndex += 1) {
+    const subcircuitInfo = subcircuitInfos[placementSubcircuitId(placementVariables, placementIndex)];
     count += subcircuitInfo.Nwires - subcircuitInfo.In_idx[1] - subcircuitInfo.Out_idx[1] - 1;
   }
 
@@ -138,7 +141,7 @@ export async function encodeOMidNoZk(
   runtime: CurveRuntime,
   crs: ProverCrsRuntime,
   setup: ProverSetupParams,
-  placementVariables: readonly ProverPlacementVariables[],
+  placementVariables: ProverPlacementVariables,
   subcircuitInfos: readonly ProverSubcircuitInfo[],
 ): Promise<Uint8Array> {
   return encodeStatement(
@@ -157,7 +160,7 @@ export async function encodeOPrvNoZk(
   runtime: CurveRuntime,
   crs: ProverCrsRuntime,
   setup: ProverSetupParams,
-  placementVariables: readonly ProverPlacementVariables[],
+  placementVariables: ProverPlacementVariables,
   subcircuitInfos: readonly ProverSubcircuitInfo[],
 ): Promise<Uint8Array> {
   return encodeStatement(
@@ -177,7 +180,7 @@ async function encodeStatement(
   globalWireIndexOffset: number,
   globalWireIndexEnd: number,
   expectedVariableCount: number,
-  placementVariables: readonly ProverPlacementVariables[],
+  placementVariables: ProverPlacementVariables,
   subcircuitInfos: readonly ProverSubcircuitInfo[],
   baseAt: (globalIndex: number, placementIndex: number) => Uint8Array,
 ): Promise<Uint8Array> {
@@ -186,14 +189,13 @@ async function encodeStatement(
   let variableCount = 0;
   let nonzeroCount = 0;
 
-  for (let placementIndex = 0; placementIndex < placementVariables.length; placementIndex += 1) {
-    const placement = placementVariables[placementIndex];
-    const subcircuitInfo = subcircuitInfos[placement.subcircuitId];
+  for (let placementIndex = 0; placementIndex < placementCount(placementVariables); placementIndex += 1) {
+    const subcircuitInfo = subcircuitInfos[placementSubcircuitId(placementVariables, placementIndex)];
     for (let localIndex = 0; localIndex < subcircuitInfo.Nwires; localIndex += 1) {
       const flattened = subcircuitInfo.flattenMap[localIndex];
       if (flattened >= globalWireIndexOffset && flattened < globalWireIndexEnd) {
         const globalIndex = flattened - globalWireIndexOffset;
-        const scalar = placement.variables[localIndex];
+        const scalar = placementVariableAt(placementVariables, placementIndex, localIndex);
         variableCount += 1;
         if (runtime.Fr.isZero(scalar)) {
           continue;

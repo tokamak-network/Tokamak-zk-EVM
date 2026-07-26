@@ -24,8 +24,10 @@ export interface ProverSubcircuitInfo {
 }
 
 export interface ProverPlacementVariables {
-  readonly subcircuitId: number;
-  readonly variables: readonly FieldElement[];
+  readonly subcircuitIds: Uint32Array;
+  readonly variableOffsets: Uint32Array;
+  readonly variables: Uint8Array;
+  readonly fieldByteLength: number;
 }
 
 export interface ProverPermutationEntry {
@@ -53,7 +55,7 @@ export interface ProverPackedSparseSubcircuitR1cs {
 export interface ProverWitnessInput {
   readonly setup: ProverSetupParams;
   readonly subcircuitInfos: readonly ProverSubcircuitInfo[];
-  readonly placementVariables: readonly ProverPlacementVariables[];
+  readonly placementVariables: ProverPlacementVariables;
   readonly r1csBySubcircuit: readonly ProverPackedSparseSubcircuitR1cs[];
 }
 
@@ -97,7 +99,7 @@ export async function buildWitnessPolynomials(
 
 export async function genBXY(
   field: FieldRuntime,
-  placementVariables: readonly ProverPlacementVariables[],
+  placementVariables: ProverPlacementVariables,
   subcircuitInfos: readonly ProverSubcircuitInfo[],
   setup: ProverSetupParams,
 ): Promise<BivariatePolynomialBuffer> {
@@ -108,13 +110,13 @@ export async function genBXY(
   const mI = setup.l_D - setup.l;
   const evals = field.createZeroBuffer(mI * setup.s_max);
 
-  for (let placementIndex = 0; placementIndex < placementVariables.length; placementIndex += 1) {
-    const placement = placementVariables[placementIndex];
-    const subcircuitInfo = subcircuitInfos[placement.subcircuitId];
+  for (let placementIndex = 0; placementIndex < placementCount(placementVariables); placementIndex += 1) {
+    const subcircuitInfo = subcircuitInfos[placementSubcircuitId(placementVariables, placementIndex)];
+    const variableCount = placementVariableCount(placementVariables, placementIndex);
 
-    for (let localIndex = 0; localIndex < placement.variables.length; localIndex += 1) {
+    for (let localIndex = 0; localIndex < variableCount; localIndex += 1) {
       const globalIndex = subcircuitInfo.flattenMap[localIndex];
-      const value = placement.variables[localIndex];
+      const value = placementVariableAt(placementVariables, placementIndex, localIndex);
       if (globalIndex >= setup.l && globalIndex < setup.l_D && !field.isZero(value)) {
         const outputIndex = (globalIndex - setup.l) * setup.s_max + placementIndex;
         evals.set(value, outputIndex * field.byteLength);
@@ -127,7 +129,7 @@ export async function genBXY(
 
 export async function genUvwXY(
   field: FieldRuntime,
-  placementVariables: readonly ProverPlacementVariables[],
+  placementVariables: ProverPlacementVariables,
   r1csBySubcircuit: readonly (ProverPackedSparseSubcircuitR1cs | undefined)[],
   setup: ProverSetupParams,
 ): Promise<{
@@ -136,7 +138,7 @@ export async function genUvwXY(
   readonly wXY: BivariatePolynomialBuffer;
 }> {
   validateSetupParams(setup);
-  if (placementVariables.length > setup.s_max) {
+  if (placementCount(placementVariables) > setup.s_max) {
     throw new Error("placementVariables length exceeds s_max.");
   }
 
@@ -146,15 +148,20 @@ export async function genUvwXY(
     field.createZeroBuffer(setup.s_max * setup.n),
   ];
 
-  for (let placementIndex = 0; placementIndex < placementVariables.length; placementIndex += 1) {
-    const placement = placementVariables[placementIndex];
-    const r1cs = r1csBySubcircuit[placement.subcircuitId];
+  for (let placementIndex = 0; placementIndex < placementCount(placementVariables); placementIndex += 1) {
+    const subcircuitId = placementSubcircuitId(placementVariables, placementIndex);
+    const r1cs = r1csBySubcircuit[subcircuitId];
     if (r1cs === undefined) {
-      throw new Error(`Missing sparse R1CS for subcircuit ${placement.subcircuitId}.`);
+      throw new Error(`Missing sparse R1CS for subcircuit ${subcircuitId}.`);
     }
 
     for (const [matrixIndex, matrix] of [r1cs.A, r1cs.B, r1cs.C].entries()) {
-      const rows = await evaluatePackedSparseMatrixRows(field, placement.variables, matrix);
+      const rows = await evaluatePackedSparseMatrixRows(
+        field,
+        placementVariables,
+        placementIndex,
+        matrix,
+      );
       writePlacementColumn(
         rowMajor[matrixIndex],
         rows,
@@ -175,17 +182,23 @@ export async function genUvwXY(
 
 async function evaluatePackedSparseMatrixRows(
   field: FieldRuntime,
-  variables: readonly FieldElement[],
+  placementVariables: ProverPlacementVariables,
+  placementIndex: number,
   matrix: ProverPackedSparseMatrix,
 ): Promise<Uint8Array> {
+  const variableCount = placementVariableCount(placementVariables, placementIndex);
   const activeVariables = new Uint8Array(matrix.activeWires.length * field.byteLength);
   for (let index = 0; index < matrix.activeWires.length; index += 1) {
     const localIndex = matrix.activeWires[index];
-    if (!Number.isSafeInteger(localIndex) || localIndex < 0 || localIndex >= variables.length) {
+    if (!Number.isSafeInteger(localIndex) || localIndex < 0 || localIndex >= variableCount) {
       throw new Error(`Sparse R1CS active wire ${localIndex} is outside the placement variable range.`);
     }
 
-    field.writeBufferElement(activeVariables, index, variables[localIndex]);
+    field.writeBufferElement(
+      activeVariables,
+      index,
+      placementVariableAt(placementVariables, placementIndex, localIndex),
+    );
   }
 
   return field.sparseRowDotBuffer(
@@ -287,29 +300,95 @@ function validateSubcircuitInfos(subcircuitInfos: readonly ProverSubcircuitInfo[
 }
 
 function validatePlacements(
-  placementVariables: readonly ProverPlacementVariables[],
+  placementVariables: ProverPlacementVariables,
   subcircuitInfos: readonly ProverSubcircuitInfo[],
   setup: ProverSetupParams,
 ): void {
-  if (placementVariables.length > setup.s_max) {
+  if (placementVariables.fieldByteLength <= 0) {
+    throw new Error("placementVariables fieldByteLength must be positive.");
+  }
+  if (placementVariables.variables.byteLength % placementVariables.fieldByteLength !== 0) {
+    throw new Error("placementVariables data is not aligned to fieldByteLength.");
+  }
+  if (placementVariables.variableOffsets.length !== placementVariables.subcircuitIds.length + 1) {
+    throw new Error("placementVariables offsets length must be placement count plus one.");
+  }
+  if (placementVariables.variableOffsets[0] !== 0) {
+    throw new Error("placementVariables offsets must start at zero.");
+  }
+  if (
+    placementVariables.variableOffsets[placementVariables.variableOffsets.length - 1]
+    !== placementVariables.variables.byteLength / placementVariables.fieldByteLength
+  ) {
+    throw new Error("placementVariables final offset must match the variable count.");
+  }
+  if (placementCount(placementVariables) > setup.s_max) {
     throw new Error("placementVariables length exceeds s_max.");
   }
 
-  for (let index = 0; index < placementVariables.length; index += 1) {
-    const placement = placementVariables[index];
+  for (let index = 0; index < placementCount(placementVariables); index += 1) {
+    const subcircuitId = placementSubcircuitId(placementVariables, index);
     if (
-      !Number.isSafeInteger(placement.subcircuitId) ||
-      placement.subcircuitId < 0 ||
-      placement.subcircuitId >= subcircuitInfos.length
+      subcircuitId < 0 ||
+      subcircuitId >= subcircuitInfos.length
     ) {
       throw new Error(`Invalid subcircuit id in placement ${index}.`);
     }
 
-    const info = subcircuitInfos[placement.subcircuitId];
-    if (placement.variables.length !== info.flattenMap.length) {
+    const info = subcircuitInfos[subcircuitId];
+    if (placementVariableCount(placementVariables, index) !== info.flattenMap.length) {
       throw new Error(`Placement ${index} variable count does not match subcircuit ${info.id}.`);
     }
   }
+}
+
+export function placementCount(placements: ProverPlacementVariables): number {
+  return placements.subcircuitIds.length;
+}
+
+export function placementSubcircuitId(
+  placements: ProverPlacementVariables,
+  placementIndex: number,
+): number {
+  const subcircuitId = placements.subcircuitIds[placementIndex];
+  if (subcircuitId === undefined) {
+    throw new Error(`Placement index ${placementIndex} is out of bounds.`);
+  }
+  return subcircuitId;
+}
+
+export function placementVariableCount(
+  placements: ProverPlacementVariables,
+  placementIndex: number,
+): number {
+  const start = placements.variableOffsets[placementIndex];
+  const end = placements.variableOffsets[placementIndex + 1];
+  if (start === undefined || end === undefined || end < start) {
+    throw new Error(`Placement variable range ${placementIndex} is invalid.`);
+  }
+  return end - start;
+}
+
+export function placementVariableAt(
+  placements: ProverPlacementVariables,
+  placementIndex: number,
+  localIndex: number,
+): FieldElement {
+  const start = placements.variableOffsets[placementIndex];
+  const end = placements.variableOffsets[placementIndex + 1];
+  const variableIndex = start === undefined ? -1 : start + localIndex;
+  if (
+    end === undefined
+    || !Number.isSafeInteger(localIndex)
+    || localIndex < 0
+    || variableIndex < 0
+    || variableIndex >= end
+  ) {
+    throw new Error(`Placement variable index ${placementIndex}:${localIndex} is out of bounds.`);
+  }
+
+  const byteOffset = variableIndex * placements.fieldByteLength;
+  return placements.variables.subarray(byteOffset, byteOffset + placements.fieldByteLength);
 }
 
 function validatePackedSparseR1cs(
