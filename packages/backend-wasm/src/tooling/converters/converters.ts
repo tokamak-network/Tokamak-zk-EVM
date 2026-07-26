@@ -4,6 +4,10 @@ export { convertPermutation } from "./permutation-converter.js";
 export { convertProof } from "./proof-converter.js";
 export { convertVerifierPreprocess } from "./verifier-preprocess-converter.js";
 export { convertWitness } from "./witness-converter.js";
+export {
+  validateBinary,
+  type RuntimeArtifactFileValidationResult,
+} from "../validators/validators.js";
 
 export {
   convertCombinedSigmaRkyvToProverCrsBinary,
