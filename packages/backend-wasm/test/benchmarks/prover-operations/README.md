@@ -1,37 +1,18 @@
-# Prover Operation Benchmark Matrix
+# Prover Operation Benchmarks
 
-Audience: backend-wasm developers selecting measured prover hot-path optimizations before changing production prover code.
+Audience: backend-wasm developers measuring and regression-testing production
+prover hot-path optimizations.
 
-This benchmark is diagnostics-only. It is not imported by `src/`, is not part of package distribution, and writes structured reports under ignored `tmp/timing/`.
+The retained focused benchmarks are diagnostics-only. They are not imported by
+`src/`, are not part of package distribution, and write structured reports
+under ignored `tmp/`.
 
 For chronological full-prover optimization history, related commits, and before/after timing tables, see [`docs/optimization/prover-optimization-history.md`](../../../docs/optimization/prover-optimization-history.md).
 
-The matrix covers the optimization candidate groups currently required by `tmp/planning.md`:
-
-- `2d-ntt`: current 2D ROU conversion, direct `biNttBuffer`, transpose-scheduled row/column NTT, and transpose overhead for future contiguous row/column candidates.
-- `field-vector-mul`: allocation-heavy split/map/concat multiplication versus a tight indexed buffer loop.
-- `polynomial-mul`: current `BivariatePolynomialBuffer.mul` versus generic full 2D NTT references, including benchmark-only concurrent-input ROU and transpose-scheduled candidates.
-- `evaluation`: current scaled-polynomial materialization plus evaluation versus adjusted-point direct evaluation.
-- `linear-combination`: current add/sub/scale/addScaled/linear-combination paths versus diagnostics-only same-shape flat-buffer candidates.
-- `division`: current Ruffini opening division and native-style vanishing quotient recurrence with reconstruction checks.
-- `materialization`: buffer clone, dense roundtrip, and public `fromBuffer` copy boundary costs.
-
-Every benchmark candidate is checked against an equivalent implementation before timing is reported. This script is a candidate-selection gate only; it must not directly rewrite integrated prover hot paths.
-
-## Usage
-
-```bash
-npm run bench:prover-ops -- --shapes=16x16,32x16 --iterations=2 --warmup=1
-```
-
-Useful options:
-
-- `--shapes=16x16,32x16`: comma-separated bivariate polynomial shapes.
-- `--groups=2d-ntt,field-vector-mul`: comma-separated benchmark groups. Valid groups are `2d-ntt`, `field-vector-mul`, `polynomial-mul`, `evaluation`, `linear-combination`, `division`, and `materialization`.
-- `--iterations=2`: measured iterations per candidate.
-- `--warmup=1`: warmup iterations per candidate.
-- `--seed=0x544f4b414d414b`: deterministic pseudo-random seed.
-- `--json=tmp/timing/prover-operation-matrix.json`: structured report path.
+The broad `bench:prover-ops` candidate matrix was removed after its accepted
+coverage was transferred to focused NTT, multiplication, evaluation, linear,
+division, and materialization benchmarks. Commands using that name later in
+this file are historical invocation records, not current package scripts.
 
 ## Dedicated K0 Multiplication Benchmark
 
