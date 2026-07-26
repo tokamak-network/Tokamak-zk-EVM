@@ -2,12 +2,15 @@ import { BivariatePolynomialBuffer } from "../../runtime/polynomial/bivariate-po
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import type { FieldElement } from "../../runtime/field/field-runtime.js";
 import type { ProverCrsRuntime } from "../api/binary-input.js";
-import { encodePolynomialBufferWithSigma1, type ProverOperationOptions } from "./initial-relation.js";
+import type { ProverOperationOptions } from "./initial-relation.js";
+import { encodePolynomialBufferWithSigma1 } from "../commitments/sigma1-encoder.js";
 import {
-  computeRecursionEvalsBuffer,
   constantPolynomialBuffer,
   linearCombinationBufferBatch,
-} from "../polynomial/polynomial-ops.js";
+} from "../polynomial/linear-combinations.js";
+import {
+  computeRecursionEvalsBuffer,
+} from "../polynomial/recursion.js";
 import type { ProverState } from "./state.js";
 
 export interface RecursionCommitment {

@@ -14,16 +14,16 @@ import {
 } from "../../../src/index.js";
 import { readProverRuntimeInput } from "../../support/runtime-inputs.js";
 import {
-  buildProverBinding,
   computeInitialRelationCommitments,
-  encodePolynomialBufferWithSigma1,
 } from "../../../src/prover/protocol/initial-relation.js";
+import { buildProverBinding } from "../../../src/prover/commitments/binding-commitments.js";
+import { encodePolynomialBufferWithSigma1 } from "../../../src/prover/commitments/sigma1-encoder.js";
 import { computeCopyQuotientCommitments } from "../../../src/prover/protocol/copy-quotient.js";
 import {
-  computeRecursionEvalsBuffer,
   constantPolynomialBuffer,
   linearCombinationBuffer,
-} from "../../../src/prover/polynomial/polynomial-ops.js";
+} from "../../../src/prover/polynomial/linear-combinations.js";
+import { computeRecursionEvalsBuffer } from "../../../src/prover/polynomial/recursion.js";
 
 interface DetailTiming {
   readonly section: string;

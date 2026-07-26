@@ -8,9 +8,11 @@ import type {
 } from "./witness.js";
 import {
   linearCombinationBufferBatch,
+} from "../polynomial/linear-combinations.js";
+import {
   lowDegreeXTimesVanishingBuffer,
   lowDegreeYTimesVanishingBuffer,
-} from "../polynomial/polynomial-ops.js";
+} from "../polynomial/shifted-products.js";
 import {
   encodeSigma1CommitmentBarrier,
   requireCommitment,
@@ -18,17 +20,6 @@ import {
 } from "../commitments/commitment-encoder.js";
 import { encodePolynomialBufferWithSigma1 } from "../commitments/sigma1-encoder.js";
 import type { ProverState } from "./state.js";
-
-export { encodePolynomialBufferWithSigma1 } from "../commitments/sigma1-encoder.js";
-export {
-  buildProverBinding,
-  countOMidVariables,
-  countOPrvVariables,
-  encodeOMidNoZk,
-  encodeOPubFree,
-  encodeOPrvNoZk,
-  type ProverBinding,
-} from "../commitments/binding-commitments.js";
 
 export interface InitialRelationCommitments {
   readonly U: Uint8Array;

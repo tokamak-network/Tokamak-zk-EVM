@@ -14,10 +14,8 @@ import {
   type ProverRuntimeInput,
 } from "../../../src/index.js";
 import { readProverRuntimeInput, readVerifierBinaryInput } from "../../support/runtime-inputs.js";
-import {
-  buildProverBinding,
-  computeInitialRelationCommitments,
-} from "../../../src/prover/protocol/initial-relation.js";
+import { buildProverBinding } from "../../../src/prover/commitments/binding-commitments.js";
+import { computeInitialRelationCommitments } from "../../../src/prover/protocol/initial-relation.js";
 import { computeRecursionCommitment } from "../../../src/prover/protocol/recursion-commitment.js";
 import { computeCopyQuotientCommitments } from "../../../src/prover/protocol/copy-quotient.js";
 import { evaluateChallengePoints } from "../../../src/prover/protocol/challenge-evaluations.js";

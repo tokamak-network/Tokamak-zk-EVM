@@ -10,13 +10,15 @@ import {
   ntt2d,
 } from "../../../src/index.js";
 import type { CurveRuntime, FieldElement, FieldRuntime, ProverCrsRuntime, ProverSetupParams } from "../../../src/index.js";
-import { encodePolynomialBufferWithSigma1 } from "../../../src/prover/protocol/initial-relation.js";
+import { encodePolynomialBufferWithSigma1 } from "../../../src/prover/commitments/sigma1-encoder.js";
 import {
   lowDegreeXTimesVanishingBuffer,
   lowDegreeYTimesVanishingBuffer,
+} from "../../../src/prover/polynomial/shifted-products.js";
+import {
   mulByLinearX,
   mulByLinearY,
-} from "../../../src/prover/polynomial/polynomial-ops.js";
+} from "../../../src/prover/polynomial/special-products.js";
 
 async function main(): Promise<void> {
   const runtime = await createCurveRuntime();

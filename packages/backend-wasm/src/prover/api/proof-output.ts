@@ -5,7 +5,8 @@ import {
   BinarySectionType,
 } from "../../artifacts/binary/binary-format.js";
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
-import type { ProverBinding, InitialRelationComputation } from "../protocol/initial-relation.js";
+import type { ProverBinding } from "../commitments/binding-commitments.js";
+import type { InitialRelationComputation } from "../protocol/initial-relation.js";
 import type { RecursionComputation } from "../protocol/recursion-commitment.js";
 import type { CopyQuotientComputation } from "../protocol/copy-quotient.js";
 import type { ChallengeEvaluations } from "../protocol/challenge-evaluations.js";

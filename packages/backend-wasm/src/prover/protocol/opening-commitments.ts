@@ -4,14 +4,21 @@ import type { FieldElement } from "../../runtime/field/field-runtime.js";
 import type { ProverCrsRuntime } from "../api/binary-input.js";
 import {
   constantPolynomialBuffer,
+  linearCombinationBufferBatch,
+} from "../polynomial/linear-combinations.js";
+import {
   evaluateAtScaledChallengeSetBatch,
   evaluateLagrangeK0At,
-  linearCombinationBufferBatch,
+} from "../polynomial/evaluation.js";
+import {
   mulByOneMinusX,
   mulByTerm9,
+} from "../polynomial/special-products.js";
+import {
   multiplyByLagrangeK0,
-} from "../polynomial/polynomial-ops.js";
-import { encodePolynomialBufferWithSigma1, type InitialRelationComputation, type ProverOperationOptions } from "./initial-relation.js";
+} from "../polynomial/recursion.js";
+import type { InitialRelationComputation, ProverOperationOptions } from "./initial-relation.js";
+import { encodePolynomialBufferWithSigma1 } from "../commitments/sigma1-encoder.js";
 import { encodeSigma1CommitmentBarrier, requireCommitment } from "../commitments/commitment-encoder.js";
 import type { CopyQuotientComputation } from "./copy-quotient.js";
 import type { ChallengeEvaluations } from "./challenge-evaluations.js";

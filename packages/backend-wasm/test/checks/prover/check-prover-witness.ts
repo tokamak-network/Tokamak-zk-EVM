@@ -19,10 +19,10 @@ import {
   proverCrsG1PointRange,
 } from "../../../src/prover/api/binary-input.js";
 import {
-  buildProverBinding,
   computeInitialRelationCommitments,
-  encodePolynomialBufferWithSigma1,
 } from "../../../src/prover/protocol/initial-relation.js";
+import { buildProverBinding } from "../../../src/prover/commitments/binding-commitments.js";
+import { encodePolynomialBufferWithSigma1 } from "../../../src/prover/commitments/sigma1-encoder.js";
 import { computeRecursionCommitment } from "../../../src/prover/protocol/recursion-commitment.js";
 import { computeCopyQuotientCommitments } from "../../../src/prover/protocol/copy-quotient.js";
 import { evaluateChallengePoints } from "../../../src/prover/protocol/challenge-evaluations.js";

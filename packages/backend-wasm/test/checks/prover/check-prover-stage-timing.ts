@@ -19,33 +19,41 @@ import {
 } from "../../../src/index.js";
 import { readProverRuntimeInput, readVerifierBinaryInput } from "../../support/runtime-inputs.js";
 import {
-  buildProverBinding,
-  encodePolynomialBufferWithSigma1,
   type InitialRelationComputation,
   type InitialRelationCommitments,
 } from "../../../src/prover/protocol/initial-relation.js";
+import { buildProverBinding } from "../../../src/prover/commitments/binding-commitments.js";
+import { encodePolynomialBufferWithSigma1 } from "../../../src/prover/commitments/sigma1-encoder.js";
 import type { RecursionComputation } from "../../../src/prover/protocol/recursion-commitment.js";
 import { type CopyQuotientComputation, type CopyQuotientCommitments } from "../../../src/prover/protocol/copy-quotient.js";
 import type { ChallengeEvaluations } from "../../../src/prover/protocol/challenge-evaluations.js";
 import type { OpeningCommitmentsComputation } from "../../../src/prover/protocol/opening-commitments.js";
 import {
-  buildLagrangeKl,
-  combineLinearXWithScaled,
-  combineLinearYWithScaled,
   constantPolynomialBuffer,
-  computeRecursionEvalsBuffer,
+  linearCombinationBufferBatch,
+} from "../../../src/prover/polynomial/linear-combinations.js";
+import {
   evaluateAtScaledChallengeSetBatch,
   evaluateLagrangeK0At,
-  linearCombinationBufferBatch,
-  lowDegreeXTimesVanishingBuffer,
-  lowDegreeYTimesVanishingBuffer,
+} from "../../../src/prover/polynomial/evaluation.js";
+import {
+  combineLinearXWithScaled,
+  combineLinearYWithScaled,
   mulByOneMinusX,
   mulByTerm9,
   mulByXMinusOne,
+} from "../../../src/prover/polynomial/special-products.js";
+import {
+  buildLagrangeKl,
+  computeRecursionEvalsBuffer,
   multiplyByLagrangeK0,
   multiplyByLagrangeKl,
+} from "../../../src/prover/polynomial/recursion.js";
+import {
+  lowDegreeXTimesVanishingBuffer,
+  lowDegreeYTimesVanishingBuffer,
   multiplyOmegaShiftedProducts,
-} from "../../../src/prover/polynomial/polynomial-ops.js";
+} from "../../../src/prover/polynomial/shifted-products.js";
 
 interface SizeInfo {
   readonly label: string;

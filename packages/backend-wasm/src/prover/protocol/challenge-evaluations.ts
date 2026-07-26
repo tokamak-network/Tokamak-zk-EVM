@@ -3,8 +3,10 @@ import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import type { FieldElement } from "../../runtime/field/field-runtime.js";
 import {
   evaluateAtScaledChallengeSetBatch,
+} from "../polynomial/evaluation.js";
+import {
   linearCombinationBufferBatch,
-} from "../polynomial/polynomial-ops.js";
+} from "../polynomial/linear-combinations.js";
 import type { ProverState } from "./state.js";
 
 export interface ChallengeEvaluations {

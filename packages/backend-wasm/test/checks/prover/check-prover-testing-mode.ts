@@ -21,27 +21,33 @@ import {
 } from "../../../src/index.js";
 import { readProverRuntimeInput, readVerifierBinaryInput } from "../../support/runtime-inputs.js";
 import {
-  buildProverBinding,
-  encodePolynomialBufferWithSigma1,
   computeInitialRelationCommitments,
   type InitialRelationComputation,
 } from "../../../src/prover/protocol/initial-relation.js";
+import { buildProverBinding } from "../../../src/prover/commitments/binding-commitments.js";
+import { encodePolynomialBufferWithSigma1 } from "../../../src/prover/commitments/sigma1-encoder.js";
 import { computeRecursionCommitment, type RecursionComputation } from "../../../src/prover/protocol/recursion-commitment.js";
 import { computeCopyQuotientCommitments, type CopyQuotientComputation } from "../../../src/prover/protocol/copy-quotient.js";
 import { evaluateChallengePoints, type ChallengeEvaluations } from "../../../src/prover/protocol/challenge-evaluations.js";
 import { computeOpeningCommitments } from "../../../src/prover/protocol/opening-commitments.js";
 import {
-  buildLagrangeK0,
-  buildLagrangeKl,
-  computeRecursionEvalsBuffer,
   constantPolynomialBuffer,
   linearCombinationBuffer,
+} from "../../../src/prover/polynomial/linear-combinations.js";
+import {
   lowDegreeXTimesVanishingBuffer,
   lowDegreeYTimesVanishingBuffer,
+} from "../../../src/prover/polynomial/shifted-products.js";
+import {
   mulByOneMinusX,
   mulByTerm9,
   mulByXMinusOne,
-} from "../../../src/prover/polynomial/polynomial-ops.js";
+} from "../../../src/prover/polynomial/special-products.js";
+import {
+  buildLagrangeK0,
+  buildLagrangeKl,
+  computeRecursionEvalsBuffer,
+} from "../../../src/prover/polynomial/recursion.js";
 
 interface ProverTestingModeOutput {
   readonly proofArtifact: Uint8Array;

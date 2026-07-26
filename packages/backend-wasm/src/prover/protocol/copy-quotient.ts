@@ -2,19 +2,26 @@ import { BivariatePolynomialBuffer } from "../../runtime/polynomial/bivariate-po
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import type { FieldElement } from "../../runtime/field/field-runtime.js";
 import type { ProverCrsRuntime } from "../api/binary-input.js";
-import { encodePolynomialBufferWithSigma1, type ProverOperationOptions } from "./initial-relation.js";
+import type { ProverOperationOptions } from "./initial-relation.js";
 import { encodeSigma1CommitmentBarrier, requireCommitment } from "../commitments/commitment-encoder.js";
+import { encodePolynomialBufferWithSigma1 } from "../commitments/sigma1-encoder.js";
 import {
-  buildLagrangeKl,
-  combineLinearXWithScaled,
-  combineLinearYWithScaled,
   constantPolynomialBuffer,
   linearCombinationBufferBatch,
+} from "../polynomial/linear-combinations.js";
+import {
+  combineLinearXWithScaled,
+  combineLinearYWithScaled,
   mulByXMinusOne,
+} from "../polynomial/special-products.js";
+import {
+  buildLagrangeKl,
   multiplyByLagrangeK0,
   multiplyByLagrangeKl,
+} from "../polynomial/recursion.js";
+import {
   multiplyOmegaShiftedProducts,
-} from "../polynomial/polynomial-ops.js";
+} from "../polynomial/shifted-products.js";
 import type { ProverState } from "./state.js";
 
 export interface CopyQuotientCommitments {

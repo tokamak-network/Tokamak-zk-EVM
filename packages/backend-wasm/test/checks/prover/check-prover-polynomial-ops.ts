@@ -3,26 +3,34 @@ import { fileURLToPath } from "node:url";
 import { BivariatePolynomialBuffer, createCurveRuntime, DensePolynomialExt } from "../../../src/index.js";
 import type { FieldElement, FieldRuntime } from "../../../src/index.js";
 import {
-  buildLagrangeK0,
-  buildLagrangeKl,
-  computeRecursionEvalsBuffer,
   constantPolynomialBuffer,
+  linearCombinationBuffer,
+} from "../../../src/prover/polynomial/linear-combinations.js";
+import {
   evaluateAtScaledChallengeSet,
   evaluateAtScaledChallengeSetBatch,
   evaluateLagrangeK0At,
-  linearCombinationBuffer,
+} from "../../../src/prover/polynomial/evaluation.js";
+import {
   lowDegreeXTimesVanishingBuffer,
   lowDegreeYTimesVanishingBuffer,
+  multiplyOmegaShiftedProducts,
+} from "../../../src/prover/polynomial/shifted-products.js";
+import {
   mulByLinearX,
   mulByLinearY,
   mulByOneMinusX,
   mulByTerm9,
   mulByXMinusOne,
+} from "../../../src/prover/polynomial/special-products.js";
+import {
+  buildLagrangeK0,
+  buildLagrangeKl,
+  computeRecursionEvalsBuffer,
   multiplyByLagrangeK0,
   multiplyByLagrangeKl,
-  multiplyOmegaShiftedProducts,
   transposeRowMajorBuffer,
-} from "../../../src/prover/polynomial/polynomial-ops.js";
+} from "../../../src/prover/polynomial/recursion.js";
 
 async function main(): Promise<void> {
   const runtime = await createCurveRuntime();

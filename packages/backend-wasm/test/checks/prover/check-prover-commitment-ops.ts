@@ -11,7 +11,7 @@ import {
   type ProverCrsRuntime,
   type ProverSetupParams,
 } from "../../../src/index.js";
-import { encodePolynomialBufferWithSigma1 } from "../../../src/prover/protocol/initial-relation.js";
+import { encodePolynomialBufferWithSigma1 } from "../../../src/prover/commitments/sigma1-encoder.js";
 
 async function main(): Promise<void> {
   const runtime = await createCurveRuntime();
