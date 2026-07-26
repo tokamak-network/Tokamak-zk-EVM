@@ -1,23 +1,27 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { BinaryArtifactFileKind } from "../../../src/artifacts/binary/binary-format.js";
+import { loadRuntimeArtifactFile } from "../../../src/artifacts/runtime/loaders.js";
+import { RollingKeccakTranscript } from "../../../src/runtime/crypto/transcript.js";
 import {
-  BinaryArtifactFileKind,
-  BivariatePolynomialBuffer,
-  RollingKeccakTranscript,
-  buildWitnessPolynomials,
   createCurveRuntime,
-  createProverState,
-  createVerifierProofArtifactFromProverOutput,
-  loadRuntimeArtifactFile,
-  verifyBinary,
   type CurveRuntime,
-  type FieldElement,
+} from "../../../src/runtime/curve/curve.js";
+import type { FieldElement } from "../../../src/runtime/field/field-runtime.js";
+import { BivariatePolynomialBuffer } from "../../../src/runtime/polynomial/bivariate-polynomial-buffer.js";
+import {
   type ProverCrsRuntime,
   type ProverRuntimeInput,
+} from "../../../src/prover/api/binary-input.js";
+import { createVerifierProofArtifactFromProverOutput } from "../../../src/prover/api/proof-output.js";
+import {
+  createProverState,
   type ProverState,
-} from "../../../src/index.js";
+} from "../../../src/prover/protocol/state.js";
+import { buildWitnessPolynomials } from "../../../src/prover/protocol/witness.js";
 import { readProverRuntimeInput, readVerifierBinaryInput } from "../../support/runtime-inputs.js";
+import { verifyBinaryForTest } from "../../support/verifier/verify-binary.js";
 import {
   type InitialRelationComputation,
   type InitialRelationCommitments,
@@ -495,7 +499,7 @@ async function main(): Promise<void> {
 
     const verifierInput = await readVerifierBinaryInput(runtimeDir, generatedProof);
     const verificationResult = await timing.span("verify generated proof", "verify", () =>
-      verifyBinary(
+      verifyBinaryForTest(
         runtime,
         verifierInput,
         {

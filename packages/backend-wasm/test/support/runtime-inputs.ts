@@ -1,8 +1,13 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-import type { CurveRuntime, ProverBinaryInput, ProverRuntimeInput, VerifierBinaryInput } from "../../src/index.js";
-import { loadProverInputFromBinaryInput } from "../../src/index.js";
+import type { CurveRuntime } from "../../src/runtime/curve/curve.js";
+import {
+  loadProverInputFromBinaryInput,
+  type ProverBinaryInput,
+  type ProverRuntimeInput,
+} from "../../src/prover/api/binary-input.js";
+import type { VerifierBinaryInput } from "../../src/verifier/api/binary-input.js";
 
 export async function readRuntimeBinary(runtimeRoot: string, fileName: string): Promise<Uint8Array> {
   const filePath = path.resolve(runtimeRoot, fileName);

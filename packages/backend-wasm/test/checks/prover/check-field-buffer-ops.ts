@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 
-import { createCurveRuntime } from "../../../src/index.js";
-import type { FieldElement, FieldRuntime } from "../../../src/index.js";
+import { createCurveRuntime } from "../../../src/runtime/curve/curve.js";
+import type { FieldElement, FieldRuntime } from "../../../src/runtime/field/field-runtime.js";
 
 async function main(): Promise<void> {
   const runtime = await createCurveRuntime();

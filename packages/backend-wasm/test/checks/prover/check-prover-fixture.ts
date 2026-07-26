@@ -1,19 +1,19 @@
 import path from "node:path";
 
+import { BinaryArtifactFileKind } from "../../../src/artifacts/binary/binary-format.js";
+import { loadRuntimeArtifactFile } from "../../../src/artifacts/runtime/loaders.js";
+import { RollingKeccakTranscript } from "../../../src/runtime/crypto/transcript.js";
 import {
-  BinaryArtifactFileKind,
-  RollingKeccakTranscript,
-  buildWitnessPolynomials,
   createCurveRuntime,
-  createProverState,
-  createVerifierProofArtifactFromProverOutput,
-  loadRuntimeArtifactFile,
-  verifyBinary,
   type CurveRuntime,
-  type FieldElement,
-  type ProverRuntimeInput,
-} from "../../../src/index.js";
+} from "../../../src/runtime/curve/curve.js";
+import type { FieldElement } from "../../../src/runtime/field/field-runtime.js";
+import type { ProverRuntimeInput } from "../../../src/prover/api/binary-input.js";
+import { createVerifierProofArtifactFromProverOutput } from "../../../src/prover/api/proof-output.js";
+import { createProverState } from "../../../src/prover/protocol/state.js";
+import { buildWitnessPolynomials } from "../../../src/prover/protocol/witness.js";
 import { readProverRuntimeInput, readVerifierBinaryInput } from "../../support/runtime-inputs.js";
+import { verifyBinaryForTest } from "../../support/verifier/verify-binary.js";
 import { buildProverBinding } from "../../../src/prover/commitments/binding-commitments.js";
 import { computeInitialRelationCommitments } from "../../../src/prover/protocol/initial-relation.js";
 import { computeRecursionCommitment } from "../../../src/prover/protocol/recursion-commitment.js";
@@ -39,7 +39,7 @@ async function main(): Promise<void> {
 
     const verifierInput = await readVerifierBinaryInput(runtimeDir, generatedProof);
     const verificationResult = await timed("verify generated proof", () =>
-      verifyBinary(
+      verifyBinaryForTest(
         runtime,
         verifierInput,
         {

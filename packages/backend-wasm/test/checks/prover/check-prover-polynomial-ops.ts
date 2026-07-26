@@ -1,7 +1,8 @@
 import { fileURLToPath } from "node:url";
 
-import { BivariatePolynomialBuffer, createCurveRuntime } from "../../../src/index.js";
-import type { FieldElement, FieldRuntime } from "../../../src/index.js";
+import { createCurveRuntime } from "../../../src/runtime/curve/curve.js";
+import type { FieldElement, FieldRuntime } from "../../../src/runtime/field/field-runtime.js";
+import { BivariatePolynomialBuffer } from "../../../src/runtime/polynomial/bivariate-polynomial-buffer.js";
 import { DensePolynomialExt } from "../../support/polynomial/dense-polynomial.js";
 import {
   bivariateBufferFromDense,

@@ -39,7 +39,6 @@
     "fixtures:copy": "tsx scripts/fixtures/copy-fixtures.ts fixtures/small/copy-manifest.json",
     "fixtures:prepare": "tsx scripts/fixtures/prepare-runtime-fixtures.ts fixtures/small/copy-manifest.json",
     "fixtures:check:native-verifier": "tsx test/checks/fixtures/check-native-verifier-fixture.ts fixtures/small/copy-manifest.json",
-    "fixtures:diagnose:verifier": "tsx test/diagnostics/diagnose-verifier-fixture.ts fixtures/small/copy-manifest.json",
     "polynomial:buffer:check": "tsx test/checks/polynomial/check-polynomial-buffer.ts",
     "prover:ops:check": "npm run prover:ops:field && npm run polynomial:buffer:check && npm run prover:ops:polynomial && npm run prover:ops:commitment",
     "prover:ops:commitment": "tsx test/checks/prover/check-prover-commitment-ops.ts",

@@ -1,22 +1,26 @@
 import path from "node:path";
 
+import { loadRuntimeArtifactFile } from "../../../src/artifacts/runtime/loaders.js";
 import {
-  buildDomainContext,
-  collectChallenges,
   createCurveRuntime,
+  type CurveRuntime,
+} from "../../../src/runtime/curve/curve.js";
+import type { FieldElement } from "../../../src/runtime/field/field-runtime.js";
+import {
+  loadVerifierInputFromBinaryInput,
+  type VerifierBinaryInput,
+} from "../../../src/verifier/api/binary-input.js";
+import { collectChallenges } from "../../../src/verifier/protocol/challenges.js";
+import { buildDomainContext } from "../../../src/verifier/protocol/domain-context.js";
+import {
   evalLagrangeK0,
   lhsCopy,
   lhsCopyMsm,
-  loadRuntimeArtifactFile,
-  loadVerifierInputFromBinaryInput,
-  verifyBinary,
-  type CurveRuntime,
-  type FieldElement,
-  type VerifierBinaryInput,
-} from "../../../src/index.js";
+} from "../../../src/verifier/protocol/equations.js";
 import { createVerifierPublicPolynomial } from "../../../src/verifier/protocol/public-instance-polynomial.js";
 import { verifySnark, type VerifierInput } from "../../../src/verifier/protocol/verify-snark.js";
 import { readVerifierBinaryInput } from "../../support/runtime-inputs.js";
+import { verifyBinaryForTest } from "../../support/verifier/verify-binary.js";
 
 interface BinaryVerifierFixture {
   readonly binaryInput: VerifierBinaryInput;
@@ -33,7 +37,7 @@ async function main(): Promise<void> {
     await checkLagrangeK0Formula(runtime, binaryFixture.verifierInput);
     await checkG1CombinationCandidates(runtime, binaryFixture.verifierInput);
 
-    const binaryResult = await verifyBinary(
+    const binaryResult = await verifyBinaryForTest(
       runtime,
       binaryFixture.binaryInput,
       {
@@ -44,7 +48,7 @@ async function main(): Promise<void> {
       randomScalar: () => runtime.Fr.one,
     });
     const flippedProof = await flipProofScalarBit(binaryFixture.binaryInput.proof);
-    const flippedResult = await verifyBinary(
+    const flippedResult = await verifyBinaryForTest(
       runtime,
       { ...binaryFixture.binaryInput, proof: flippedProof },
       {

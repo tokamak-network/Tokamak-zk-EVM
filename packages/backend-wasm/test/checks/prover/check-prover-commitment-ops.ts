@@ -1,16 +1,16 @@
 import { fileURLToPath } from "node:url";
 
 import {
-  BivariatePolynomialBuffer,
   createCurveRuntime,
-} from "../../../src/index.js";
+  type CurveRuntime,
+} from "../../../src/runtime/curve/curve.js";
+import type { FieldElement } from "../../../src/runtime/field/field-runtime.js";
+import { BivariatePolynomialBuffer } from "../../../src/runtime/polynomial/bivariate-polynomial-buffer.js";
 import {
   proverCrsG1PointAt,
-  type CurveRuntime,
-  type FieldElement,
   type ProverCrsRuntime,
-  type ProverSetupParams,
-} from "../../../src/index.js";
+} from "../../../src/prover/api/binary-input.js";
+import type { ProverSetupParams } from "../../../src/prover/protocol/witness.js";
 import { encodePolynomialBufferWithSigma1 } from "../../../src/prover/commitments/sigma1-encoder.js";
 
 async function main(): Promise<void> {

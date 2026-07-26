@@ -1,7 +1,11 @@
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { createCurveRuntime, type AffinePointJson, type CurveRuntime } from "../../src/index.js";
+import {
+  createCurveRuntime,
+  type CurveRuntime,
+} from "../../src/runtime/curve/curve.js";
+import type { AffinePointJson } from "../../src/runtime/group/group.js";
 import type { VerifierInput } from "../../src/verifier/protocol/verify-snark.js";
 
 const backendWasmRoot = path.resolve(import.meta.dirname, "../..");

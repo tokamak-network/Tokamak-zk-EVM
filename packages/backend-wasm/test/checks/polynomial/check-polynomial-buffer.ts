@@ -1,19 +1,23 @@
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 
+import { createCurveRuntime, type CurveRuntime } from "../../../src/runtime/curve/curve.js";
+import type { FieldElement, FieldRuntime } from "../../../src/runtime/field/field-runtime.js";
 import {
   BivariatePolynomialBuffer,
   biNttBuffer,
-  createCurveRuntime,
-  intt2d,
-  ntt2d,
-} from "../../../src/index.js";
+} from "../../../src/runtime/polynomial/bivariate-polynomial-buffer.js";
 import { DensePolynomialExt } from "../../support/polynomial/dense-polynomial.js";
 import {
   bivariateBufferFromDense,
   denseFromBivariateBuffer,
 } from "../../support/polynomial/dense-buffer-adapter.js";
-import type { CurveRuntime, FieldElement, FieldRuntime, ProverCrsRuntime, ProverSetupParams } from "../../../src/index.js";
+import type { ProverCrsRuntime } from "../../../src/prover/api/binary-input.js";
+import type { ProverSetupParams } from "../../../src/prover/protocol/witness.js";
+import {
+  intt2dReference,
+  ntt2dReference,
+} from "../../support/polynomial/ntt-reference.js";
 import { encodePolynomialBufferWithSigma1 } from "../../../src/prover/commitments/sigma1-encoder.js";
 import {
   lowDegreeXTimesVanishingBuffer,
@@ -297,15 +301,15 @@ async function checkOperationParityMatrix(field: FieldRuntime): Promise<readonly
       records,
       "biNtt forward",
       testCase.label,
-      async () => formatFields(field, await ntt2d(field, testCase.coefficients, testCase.xSize, testCase.ySize)),
+      async () => formatFields(field, await ntt2dReference(field, testCase.coefficients, testCase.xSize, testCase.ySize)),
       async () => formatFields(field, field.split(await biNttBuffer(field, field.concat(testCase.coefficients), testCase.xSize, testCase.ySize, "forward"))),
     );
-    const denseNttEvals = await ntt2d(field, testCase.coefficients, testCase.xSize, testCase.ySize);
+    const denseNttEvals = await ntt2dReference(field, testCase.coefficients, testCase.xSize, testCase.ySize);
     await recordOperation(
       records,
       "biNtt inverse",
       testCase.label,
-      async () => formatFields(field, await intt2d(field, denseNttEvals, testCase.xSize, testCase.ySize)),
+      async () => formatFields(field, await intt2dReference(field, denseNttEvals, testCase.xSize, testCase.ySize)),
       async () => formatFields(field, field.split(await biNttBuffer(field, field.concat(denseNttEvals), testCase.xSize, testCase.ySize, "inverse"))),
     );
     await recordOperation(

@@ -2,15 +2,14 @@ import {
   BinaryArtifactFileKind,
   BinarySectionEncoding,
   BinarySectionType,
-  createBinaryArtifactFile,
-  createCurveRuntime,
-  BivariatePolynomialBuffer,
-  loadVerifierProofArtifact,
-  loadRuntimeArtifactFile,
   type BinarySectionInput,
-  type FieldElement,
-  type FieldRuntime,
-} from "../../../src/index.js";
+} from "../../../src/artifacts/binary/binary-format.js";
+import { createBinaryArtifactFile } from "../../../src/artifacts/binary/binary-artifact-file.js";
+import { loadRuntimeArtifactFile } from "../../../src/artifacts/runtime/loaders.js";
+import { loadVerifierProofArtifact } from "../../../src/artifacts/runtime/prepared-data.js";
+import { createCurveRuntime } from "../../../src/runtime/curve/curve.js";
+import type { FieldElement, FieldRuntime } from "../../../src/runtime/field/field-runtime.js";
+import { BivariatePolynomialBuffer } from "../../../src/runtime/polynomial/bivariate-polynomial-buffer.js";
 import {
   buildProverWitnessInputFromRuntimeArtifacts,
   loadProverInputFromBinaryInput,

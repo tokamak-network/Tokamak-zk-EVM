@@ -7,16 +7,20 @@ import {
   BinaryArtifactFileKind,
   BinarySectionEncoding,
   BinarySectionType,
-  createBinaryArtifactFile,
-  createCurveRuntime,
-  loadProverCrsArtifact,
-  loadRuntimeArtifactFile,
-  loadSigmaVerifyArtifact,
-  loadVerifierPreprocessArtifact,
   type BinarySectionInput,
+} from "../../../src/artifacts/binary/binary-format.js";
+import { createBinaryArtifactFile } from "../../../src/artifacts/binary/binary-artifact-file.js";
+import { loadRuntimeArtifactBySpec } from "../../../src/artifacts/specs/format-spec-loader.js";
+import {
+  loadProverCrsArtifact,
+  loadVerifierPreprocessArtifact,
+} from "../../../src/artifacts/runtime/prepared-data.js";
+import { loadRuntimeArtifactFile } from "../../../src/artifacts/runtime/loaders.js";
+import {
+  createCurveRuntime,
   type CurveRuntime,
-  validateRuntimeArtifactFile,
-} from "../../../src/index.js";
+} from "../../../src/runtime/curve/curve.js";
+import { validateRuntimeArtifactFile } from "../../../src/tooling/validators/validators.js";
 
 async function main(): Promise<void> {
   const runtime = await createCurveRuntime();
@@ -61,7 +65,7 @@ async function checkSigmaVerifyArtifact(runtime: CurveRuntime): Promise<void> {
   await validateRuntimeArtifactFile(binary, SIGMA_VERIFY_V1_SPEC, {
     expectedKind: BinaryArtifactFileKind.VerifierCrs,
   });
-  const sigma = loadSigmaVerifyArtifact(artifactFile);
+  const sigma = loadRuntimeArtifactBySpec(artifactFile, SIGMA_VERIFY_V1_SPEC);
 
   assertEqual(sigma.sections.length, 2, "sigma_verify section count");
   assertEqual(sigma.pointsByName.G.byteLength, 96, "sigma_verify G byte length");

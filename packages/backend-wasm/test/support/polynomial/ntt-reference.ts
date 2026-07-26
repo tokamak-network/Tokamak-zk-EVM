@@ -1,34 +1,27 @@
-import type { FieldElement, FieldRuntime } from "../field/field-runtime.js";
+import type {
+  FieldElement,
+  FieldRuntime,
+} from "../../../src/runtime/field/field-runtime.js";
 
-export type NttInput = readonly FieldElement[];
-
-export function ntt1d(field: FieldRuntime, values: NttInput): Promise<FieldElement[]> {
-  return field.fft(values);
-}
-
-export function intt1d(field: FieldRuntime, values: NttInput): Promise<FieldElement[]> {
-  return field.ifft(values);
-}
-
-export function ntt2d(
+export function ntt2dReference(
   field: FieldRuntime,
-  values: NttInput,
+  values: readonly FieldElement[],
   xSize: number,
   ySize: number,
 ): Promise<FieldElement[]> {
-  return biNtt(field, values, xSize, ySize, "forward");
+  return biNttReference(field, values, xSize, ySize, "forward");
 }
 
-export function intt2d(
+export function intt2dReference(
   field: FieldRuntime,
-  values: NttInput,
+  values: readonly FieldElement[],
   xSize: number,
   ySize: number,
 ): Promise<FieldElement[]> {
-  return biNtt(field, values, xSize, ySize, "inverse");
+  return biNttReference(field, values, xSize, ySize, "inverse");
 }
 
-async function biNtt(
+async function biNttReference(
   field: FieldRuntime,
   values: readonly FieldElement[],
   xSize: number,

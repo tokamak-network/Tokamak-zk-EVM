@@ -1,25 +1,29 @@
 import path from "node:path";
 
+import { BinaryArtifactFileKind } from "../../../src/artifacts/binary/binary-format.js";
+import { loadRuntimeArtifactFile } from "../../../src/artifacts/runtime/loaders.js";
+import { RollingKeccakTranscript } from "../../../src/runtime/crypto/transcript.js";
 import {
-  BinaryArtifactFileKind,
-  BivariatePolynomialBuffer,
-  RollingKeccakTranscript,
-  buildWitnessPolynomials,
   createCurveRuntime,
-  createProverState,
-  createVerifierProofArtifactFromProverOutput,
-  g1AddMany,
-  loadRuntimeArtifactFile,
-  loadVerifierInputFromBinaryInput,
-  verifyBinary,
   type CurveRuntime,
-  type FieldElement,
-  type G1Point,
+} from "../../../src/runtime/curve/curve.js";
+import type { FieldElement } from "../../../src/runtime/field/field-runtime.js";
+import type { G1Point } from "../../../src/runtime/group/group.js";
+import { BivariatePolynomialBuffer } from "../../../src/runtime/polynomial/bivariate-polynomial-buffer.js";
+import {
   type ProverCrsRuntime,
   type ProverRuntimeInput,
+} from "../../../src/prover/api/binary-input.js";
+import { createVerifierProofArtifactFromProverOutput } from "../../../src/prover/api/proof-output.js";
+import {
+  createProverState,
   type ProverState,
-} from "../../../src/index.js";
+} from "../../../src/prover/protocol/state.js";
+import { buildWitnessPolynomials } from "../../../src/prover/protocol/witness.js";
+import { loadVerifierInputFromBinaryInput } from "../../../src/verifier/api/binary-input.js";
+import { g1AddMany } from "../../../src/verifier/protocol/equations.js";
 import { readProverRuntimeInput, readVerifierBinaryInput } from "../../support/runtime-inputs.js";
+import { verifyBinaryForTest } from "../../support/verifier/verify-binary.js";
 import {
   computeInitialRelationCommitments,
   type InitialRelationComputation,
@@ -76,7 +80,7 @@ async function main(): Promise<void> {
       loadVerifierInputFromBinaryInput(runtime, verifierBinaryInput),
     );
     const verificationResult = await timed("verify generated proof", () =>
-      verifyBinary(runtime, verifierBinaryInput, {
+      verifyBinaryForTest(runtime, verifierBinaryInput, {
         randomScalar: () => runtime.Fr.one,
       }),
     );
