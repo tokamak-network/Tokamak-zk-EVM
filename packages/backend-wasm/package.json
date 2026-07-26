@@ -22,6 +22,8 @@
   "files": [
     "dist/backend-wasm-error.js",
     "dist/backend-wasm-error.d.ts",
+    "dist/version.js",
+    "dist/version.d.ts",
     "dist/artifacts",
     "dist/runtime",
     "dist/prover",
