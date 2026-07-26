@@ -2,24 +2,20 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
 import path from "node:path";
 
+import { getCurveFromName } from "ffjavascript";
+
 import {
   BivariatePolynomialBuffer,
+  createFieldRuntime,
+  type FfCurve,
   type FieldElement,
+  type FieldRuntime,
 } from "../../../src/index.js";
+import { installLinearBatchPlugin } from "../../../src/core/field/linear-batch-plugin.js";
 import {
   evaluateAtScaledChallengeSet,
   evaluateAtScaledChallengeSetBatch,
 } from "../../../src/prover/internal/polynomial-ops.js";
-import {
-  createEvaluationBenchmarkRuntimes,
-  evaluateFusedWasmTask,
-  evaluateFusedWasmWorkers,
-  evaluateSingleWasmTask,
-  evaluateSingleWasmWorkers,
-  evaluationTaskTemporaryBytes,
-  evaluationWorkerTemporaryBytes,
-  type EvaluationBenchmarkRuntimes,
-} from "./evaluation-wasm-benchmark-support.js";
 
 interface Shape {
   readonly xSize: number;
@@ -45,8 +41,14 @@ interface Record {
   readonly temporaryBytes: number;
 }
 
+interface EvaluationBenchmarkRuntime {
+  readonly field: FieldRuntime;
+  readonly workerCount: number;
+  terminate(): Promise<void>;
+}
+
 type SingleRunner = (
-  runtime: EvaluationBenchmarkRuntimes,
+  runtime: EvaluationBenchmarkRuntime,
   polynomial: BivariatePolynomialBuffer,
   xPoint: FieldElement,
   scaledXPoint: FieldElement,
@@ -64,18 +66,6 @@ const SINGLE_CANDIDATES: readonly { readonly name: string; readonly run: SingleR
   {
     name: "scalar-js-baseline",
     run: async (_runtime, polynomial, xPoint, _scaledX, yPoint) => [polynomial.eval(xPoint, yPoint)],
-  },
-  {
-    name: "wasm-single-task",
-    run: async (runtime, polynomial, xPoint, _scaledX, yPoint) => [
-      await evaluateSingleWasmTask(runtime, polynomial, xPoint, yPoint),
-    ],
-  },
-  {
-    name: "worker-kernel-mirror",
-    run: async (runtime, polynomial, xPoint, _scaledX, yPoint) => [
-      await evaluateSingleWasmWorkers(runtime, polynomial, xPoint, yPoint),
-    ],
   },
 ];
 
@@ -104,21 +94,13 @@ const FUSED_CANDIDATES: readonly { readonly name: string; readonly run: SingleRu
         scaledYPoint,
       ),
   },
-  {
-    name: "wasm-single-task-fused",
-    run: evaluateFusedWasmTask,
-  },
-  {
-    name: "worker-kernel-mirror-fused",
-    run: evaluateFusedWasmWorkers,
-  },
 ];
 
 let sink = 0;
 
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2));
-  const runtime = await createEvaluationBenchmarkRuntimes();
+  const runtime = await createEvaluationBenchmarkRuntime();
   try {
     const records: Record[] = [];
     for (const shape of options.shapes) {
@@ -147,7 +129,7 @@ async function main(): Promise<void> {
 }
 
 async function benchmarkShape(
-  runtime: EvaluationBenchmarkRuntimes,
+  runtime: EvaluationBenchmarkRuntime,
   shape: Shape,
   options: Options,
 ): Promise<Record[]> {
@@ -213,23 +195,45 @@ async function measureCandidates(
       maxMs: values[values.length - 1],
       samplesMs: samples.get(candidate.name)!,
       inputBytes,
-      temporaryBytes:
-        candidate.name.includes("current-production") || candidate.name.includes("worker-kernel-mirror")
-          ? evaluationWorkerTemporaryBytes(
-              inputBytes,
-              shape.xSize,
-              args[0].field.byteLength,
-              workload === "fused",
-            )
-          : candidate.name.includes("wasm")
-            ? evaluationTaskTemporaryBytes(inputBytes, args[0].field.byteLength)
-            : 0,
+      temporaryBytes: candidate.name.includes("current-production")
+        ? productionEvaluationTemporaryBytes(
+            inputBytes,
+            shape.xSize,
+            args[0].field.byteLength,
+            workload === "fused",
+          )
+        : 0,
     };
   });
 }
 
+async function createEvaluationBenchmarkRuntime(): Promise<EvaluationBenchmarkRuntime> {
+  const curve = (await getCurveFromName(
+    "bls12381",
+    false,
+    installLinearBatchPlugin,
+  )) as FfCurve;
+  return {
+    field: createFieldRuntime(curve.Fr),
+    workerCount: curve.Fr.tm.concurrency,
+    async terminate() {
+      await curve.terminate?.();
+    },
+  };
+}
+
+function productionEvaluationTemporaryBytes(
+  inputBytes: number,
+  xSize: number,
+  elementBytes: number,
+  fused: boolean,
+): number {
+  const rowBytes = xSize * elementBytes * (fused ? 2 : 1);
+  return inputBytes * 2 + rowBytes * 3 + elementBytes * 12;
+}
+
 function deterministicPolynomial(
-  runtime: EvaluationBenchmarkRuntimes,
+  runtime: EvaluationBenchmarkRuntime,
   shape: Shape,
 ): BivariatePolynomialBuffer {
   const patternElements = Math.min(1024, shape.xSize * shape.ySize);
@@ -253,7 +257,7 @@ function deterministicPolynomial(
 }
 
 function assertValues(
-  runtime: EvaluationBenchmarkRuntimes,
+  runtime: EvaluationBenchmarkRuntime,
   actual: readonly FieldElement[],
   expected: readonly FieldElement[],
   label: string,

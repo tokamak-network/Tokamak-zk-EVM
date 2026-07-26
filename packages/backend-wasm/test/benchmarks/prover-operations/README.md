@@ -1232,9 +1232,9 @@ Interpretation:
 ## Whole-Loop WASM Polynomial Evaluation
 
 `bench-polynomial-evaluation.ts` measures the complete caller boundary for
-single-point and fused base/scaled-X/scaled-XY Horner evaluation. It compares
-the retained scalar JavaScript implementation, one caller-thread WASM task,
-and row-sharded worker execution followed by one ordered X reduction.
+single-point and fused base/scaled-X/scaled-XY Horner evaluation. The retained
+executable compares current production with the independent scalar JavaScript
+Horner implementation and writes both workloads to one JSON timing report.
 
 Pre-promotion command:
 
@@ -1253,12 +1253,11 @@ Representative medians:
 | fused | `8192x512` | 2550.235 ms | 606.148 ms | 93.428 ms | 96.3% |
 | fused | `16384x512` | 5170.854 ms | 1229.728 ms | 173.258 ms | 96.6% |
 
-The benchmark includes polynomial-buffer copying into ffjavascript tasks,
-worker result assembly, and final X reduction. All candidates pass exact field
-parity at edge and representative shapes. After promotion, the script names
-the worker implementation `current-production`, retains the old paths as
-`scalar-js-baseline` and `wasm-single-task`, and keeps an independent
-`worker-kernel-mirror`.
+The production measurement includes polynomial-buffer copying into
+ffjavascript tasks, worker result assembly, and final X reduction. The
+caller-thread and benchmark-local worker-kernel implementations used during
+selection were removed after promotion; their measurements above are
+historical records.
 
 Related commit: `19e46791` (`Parallelize prover polynomial evaluation`).
 
