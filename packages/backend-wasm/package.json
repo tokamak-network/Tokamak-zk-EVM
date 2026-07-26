@@ -53,6 +53,7 @@
     "verifier:browser:check": "tsx test/checks/browser/check-verifier-browser.ts",
     "verifier:check": "tsx test/checks/verifier/check-verifier-fixture.ts",
     "clean": "rm -rf dist",
+    "clean:temp": "node scripts/package/clean-temporary.mjs",
     "prover:stage-timing:check": "tsx test/checks/prover/check-prover-stage-timing.ts"
   },
   "dependencies": {

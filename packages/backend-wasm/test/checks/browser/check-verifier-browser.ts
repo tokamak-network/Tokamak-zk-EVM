@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { chromium } from "playwright";
 
-const OUTPUT_DIR = "tmp/browser-verifier-check";
+const OUTPUT_DIR = "tmp/browser/verifier";
 const BUNDLE_PATH = path.join(OUTPUT_DIR, "verifier-entry.js");
 
 async function main(): Promise<void> {

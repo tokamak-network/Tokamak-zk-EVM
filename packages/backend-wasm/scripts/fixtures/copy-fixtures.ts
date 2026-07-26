@@ -102,10 +102,10 @@ function resolveSourcePath(repositoryRoot: string, backendWasmRoot: string, sour
 
 function resolveWorkDirectory(repositoryRoot: string, backendWasmRoot: string, workDirectory: string): string {
   const workDirectoryPath = path.resolve(repositoryRoot, workDirectory);
-  const allowedRoot = path.resolve(backendWasmRoot, "tmp", "fixture-work");
+  const allowedRoot = path.resolve(backendWasmRoot, "tmp", "fixtures");
 
   if (!isPathInside(workDirectoryPath, allowedRoot)) {
-    throw new Error(`Copy manifest workDirectory must stay under packages/backend-wasm/tmp/fixture-work: ${workDirectory}`);
+    throw new Error(`Copy manifest workDirectory must stay under packages/backend-wasm/tmp/fixtures: ${workDirectory}`);
   }
 
   return workDirectoryPath;

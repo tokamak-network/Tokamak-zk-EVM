@@ -2,7 +2,7 @@
   "schemaVersion": 2,
   "suite": "small",
   "description": "Copy source artifacts from existing owner package outputs into backend-wasm's ignored fixture work area. This manifest does not write final test fixtures.",
-  "workDirectory": "packages/backend-wasm/tmp/fixture-work/small/source",
+  "workDirectory": "packages/backend-wasm/tmp/fixtures/small/source",
   "sources": [
     {
       "source": "packages/frontend/synthesizer/outputs/instance.json",

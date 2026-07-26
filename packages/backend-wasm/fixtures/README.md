@@ -18,7 +18,7 @@ npm run fixtures:copy
 ```
 
 The copy stage writes the owner-package artifacts to the ignored
-`tmp/fixture-work/<suite>/source/` directory. It does not write final runtime
+`tmp/fixtures/<suite>/source/` directory. It does not write final runtime
 fixtures.
 
 Run the conversion stage with:

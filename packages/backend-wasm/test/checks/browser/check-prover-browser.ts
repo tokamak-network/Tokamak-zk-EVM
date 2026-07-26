@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { chromium } from "playwright";
 
-const OUTPUT_DIR = "tmp/browser-prover-check";
+const OUTPUT_DIR = "tmp/browser/prover";
 const BUNDLE_PATH = path.join(OUTPUT_DIR, "prover-entry.js");
 const DEFAULT_TIMEOUT_MS = 1_800_000;
 

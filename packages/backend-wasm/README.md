@@ -119,7 +119,7 @@ Local fixture and generated-source maintenance wrappers.
 - `scripts/generate/`: generated TypeScript source updaters for artifact specs, subcircuit-library data, and verifier CRS.
 - `scripts/package/`: package build steps for browser Worker and WASM assets.
 
-`scripts/fixtures/copy-fixtures.ts` performs only the first fixture update stage. It copies source artifacts from existing owner package outputs under `packages/` into the package-local ignored work area under `packages/backend-wasm/tmp/fixture-work/`. It must not generate missing artifacts and must not write final runtime fixture files. `scripts/fixtures/prepare-runtime-fixtures.ts` is the local file I/O wrapper for the current verifier runtime fixture conversion stage and delegates artifact conversion to `src/tooling/converters/`.
+`scripts/fixtures/copy-fixtures.ts` performs only the first fixture update stage. It copies source artifacts from existing owner package outputs under `packages/` into the package-local ignored work area under `packages/backend-wasm/tmp/fixtures/`. It must not generate missing artifacts and must not write final runtime fixture files. `scripts/fixtures/prepare-runtime-fixtures.ts` is the local file I/O wrapper for the current verifier runtime fixture conversion stage and delegates artifact conversion to `src/tooling/converters/`.
 
 ### `fixtures/`
 
@@ -188,7 +188,7 @@ npm run build
 npm run clean
 ```
 
-Use `npm run fixtures:copy` only after the existing owner package output files listed in `fixtures/small/copy-manifest.json` have been prepared by their owning packages. The command copies those files into `packages/backend-wasm/tmp/fixture-work/`; it does not convert them or write final runtime fixture files.
+Use `npm run fixtures:copy` only after the existing owner package output files listed in `fixtures/small/copy-manifest.json` have been prepared by their owning packages. The command copies those files into `packages/backend-wasm/tmp/fixtures/`; it does not convert them or write final runtime fixture files.
 
 Use `npm run fixtures:prepare` after `fixtures:copy` to convert the copied source artifacts into the ignored `fixtures/small/runtime/` files `witness.bin`, `permutation.bin`, `instance.bin`, `prover-crs.bin`, `proof.bin`, and `verifier-preprocess.bin`.
 
