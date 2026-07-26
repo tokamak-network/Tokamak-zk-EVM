@@ -1,5 +1,4 @@
 import { createBinaryArtifactFile, decodeBinaryArtifactFile } from "../../artifacts/binary/binary-artifact-file.js";
-import { GENERATED_PROVER_SETUP_PARAMS } from "../../prover/generated/subcircuit-library.generated.js";
 import { BACKEND_WASM_PACKAGE_VERSION } from "../../prover/api/version.js";
 import {
   BinaryArtifactFileKind,
@@ -16,6 +15,7 @@ import type {
   ConvertProofJsonInput,
 } from "./types.js";
 export { inspectBinary } from "./binary-inspection.js";
+export { convertInstance } from "./instance-converter.js";
 export { convertPermutation } from "./permutation-converter.js";
 import {
   convertCombinedSigmaRkyvToProverCrsBinary,
@@ -61,15 +61,6 @@ export async function convertVerifierPreprocess(preprocess: unknown): Promise<Ui
   const runtime = await createCurveRuntime();
   try {
     return createVerifierPreprocessArtifact(runtime, preprocess, BACKEND_WASM_PACKAGE_VERSION);
-  } finally {
-    await runtime.terminate();
-  }
-}
-
-export async function convertInstance(instance: unknown): Promise<Uint8Array> {
-  const runtime = await createCurveRuntime();
-  try {
-    return createInstanceArtifact(runtime, instance, BACKEND_WASM_PACKAGE_VERSION);
   } finally {
     await runtime.terminate();
   }
@@ -125,16 +116,6 @@ async function convertProofBinaryToNativeJson(proof: Uint8Array): Promise<Conver
   } finally {
     await runtime.terminate();
   }
-}
-
-interface VerifierSetupParamsJson {
-  readonly l_free: number;
-  readonly l_user: number;
-}
-
-interface InstanceJson {
-  readonly a_pub_user: readonly string[];
-  readonly a_pub_block: readonly string[];
 }
 
 interface NativePlacementVariablesJson {
@@ -256,47 +237,6 @@ async function createProverPlacementVariablesArtifact(
   });
 }
 
-async function createInstanceArtifact(
-  runtime: CurveRuntime,
-  raw: unknown,
-  sourcePackageVersion: string,
-): Promise<Uint8Array> {
-  const publicInstance = readPublicInstance(runtime, raw, GENERATED_PROVER_SETUP_PARAMS);
-
-  return createBinaryArtifactFile({
-    kind: BinaryArtifactFileKind.Instance,
-    sourcePackageVersion,
-    sections: [
-      {
-        type: BinarySectionType.Instance,
-        encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
-        label: "instance.public",
-        elementCount: publicInstance.length,
-        elementByteLength: runtime.Fr.byteLength,
-        data: concatBytes(publicInstance),
-      },
-    ],
-  });
-}
-
-function readPublicInstance(
-  runtime: CurveRuntime,
-  raw: unknown,
-  setup: VerifierSetupParamsJson,
-): readonly Uint8Array[] {
-  const instance = parseInstanceJson(raw);
-  const publicInstance = [
-    ...instance.a_pub_user.slice(0, setup.l_user),
-    ...instance.a_pub_block.slice(0, setup.l_free - setup.l_user),
-  ];
-
-  if (publicInstance.length !== setup.l_free) {
-    throw new Error("Verifier public instance length does not match setupParams.l_free.");
-  }
-
-  return publicInstance.map((value) => runtime.Fr.fromHex(value));
-}
-
 function parseNativePlacementVariablesJson(raw: unknown): readonly NativePlacementVariablesJson[] {
   if (!Array.isArray(raw)) {
     throw new Error("Native placementVariables JSON must be an array.");
@@ -322,17 +262,6 @@ function placementVariableOffsets(placementVariables: readonly NativePlacementVa
   }
 
   return offsets;
-}
-
-function parseInstanceJson(raw: unknown): InstanceJson {
-  if (!isRecord(raw)) {
-    throw new Error("Verifier instance JSON must be an object.");
-  }
-
-  return {
-    a_pub_user: parseHexStringArray(raw.a_pub_user, "instance.a_pub_user"),
-    a_pub_block: parseHexStringArray(raw.a_pub_block, "instance.a_pub_block"),
-  };
 }
 
 function parseFormattedPreprocessJson(raw: unknown): FormattedPreprocessJson {
