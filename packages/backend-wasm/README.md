@@ -119,10 +119,10 @@ Development-only verification assets that are excluded from the package:
   fixtures, polynomial operations, prover behavior, and verifier behavior.
 - `test/diagnostics/`: targeted diagnostic programs that are not production
   runtime code.
-- `test/benchmarks/`: retained performance regression and dependency
-  characterization programs.
 
-Reserved test directories for browser, benchmark, unit, parity, and integration coverage as the package grows. Benchmark code lives under `test/benchmarks/`, not under `src/`, so it cannot be mistaken for distributable runtime source.
+The prover timing-table generator remains under `test/checks/prover/` and is
+available through `npm run prover:stage-timing:check`. It is development-only
+and excluded from the published package.
 
 ### `tools/`
 

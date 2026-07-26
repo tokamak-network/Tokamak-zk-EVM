@@ -18,6 +18,7 @@ even when the benchmark implementation that produced it is removed.
   representative commands, timing, memory evidence, and rejection reasons for
   removed candidate implementations.
 
-Executable benchmarks and suite-specific usage documentation remain under
-`test/benchmarks`. Production optimization changes must update the chronological
-history after correctness and end-to-end timing checks pass.
+Executable optimization benchmarks have been removed. The prover timing-table
+generator remains available as `npm run prover:stage-timing:check`. Production
+optimization changes must update the chronological history after correctness and
+end-to-end timing checks pass.
