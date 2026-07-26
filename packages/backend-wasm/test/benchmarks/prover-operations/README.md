@@ -558,9 +558,11 @@ Do not promote a candidate into production prover code from this benchmark alone
 ## Whole-Loop WASM Vanishing Division
 
 `bench-vanishing-division.ts` constructs exactly divisible numerators and
-measures the complete optimized vanishing-division boundary, including shape
-optimization, block-row extraction, task input copying, corrected numerator
-assembly, column extraction, and quotient assembly.
+measures actual production `divByVanishingOptBatch(...)` against the
+independent scalar `divByVanishingOpt(...)` implementation. The production
+boundary includes shape optimization, task input copying, corrected numerator
+assembly, and quotient assembly, and both quotient buffers are checked exactly
+before JSON timing is recorded.
 
 ```bash
 npm run bench:vanishing -- --cases=8192x512:4096x256,16384x512:4096x256 --iterations=3 --warmup=1 --json=tmp/timing/vanishing-division-representative.json
@@ -579,6 +581,10 @@ production runtime, worker shards beat one worker at both real prover shapes.
 Every candidate passes exact quotient-byte parity and reconstruction on small
 and representative cases. Conservative explicit-allocation bounds are 832 MiB
 and 1472 MiB respectively; they are not measured process peaks.
+
+The caller-thread, one-worker, and worker-shard implementations used to select
+the production path were removed from the retained executable. Their
+measurements above are historical records.
 
 Related commit: `72c8c379` (`Parallelize prover vanishing division`).
 

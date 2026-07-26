@@ -4,16 +4,10 @@ import path from "node:path";
 
 import {
   BivariatePolynomialBuffer,
+  createCurveRuntime,
   type BivariateBufferVanishingQuotientResult,
+  type CurveRuntime,
 } from "../../../src/index.js";
-import {
-  createVanishingBenchmarkRuntimes,
-  divideVanishingWasmSingle,
-  divideVanishingWasmOneWorker,
-  divideVanishingWasmWorkers,
-  vanishingTemporaryBytes,
-  type VanishingBenchmarkRuntimes,
-} from "./vanishing-wasm-benchmark-support.js";
 
 interface Case {
   readonly xSize: number;
@@ -31,47 +25,51 @@ interface Options {
 
 const CANDIDATES = [
   {
-    name: "current-js",
+    name: "current-production",
     run: async (
-      _runtime: VanishingBenchmarkRuntimes,
+      polynomial: BivariatePolynomialBuffer,
+      xDegree: number,
+      yDegree: number,
+    ) => await polynomial.divByVanishingOptBatch(xDegree, yDegree),
+  },
+  {
+    name: "scalar-js-baseline",
+    run: async (
       polynomial: BivariatePolynomialBuffer,
       xDegree: number,
       yDegree: number,
     ) => polynomial.divByVanishingOpt(xDegree, yDegree),
   },
-  { name: "wasm-single-task", run: divideVanishingWasmSingle },
-  { name: "wasm-one-worker", run: divideVanishingWasmOneWorker },
-  { name: "wasm-workers", run: divideVanishingWasmWorkers },
 ] as const;
 
 let sink = 0;
 
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2));
-  const runtime = await createVanishingBenchmarkRuntimes();
+  const runtime = await createCurveRuntime();
   try {
     const records = [];
     for (const testCase of options.cases) {
       const polynomial = buildDivisibleNumerator(runtime, testCase);
-      const expected = CANDIDATES[0].run(runtime, polynomial, testCase.xDegree, testCase.yDegree);
+      const expected = await CANDIDATES[0].run(polynomial, testCase.xDegree, testCase.yDegree);
       for (const candidate of CANDIDATES.slice(1)) {
         assertEqual(
-          await candidate.run(runtime, polynomial, testCase.xDegree, testCase.yDegree),
-          await expected,
+          await candidate.run(polynomial, testCase.xDegree, testCase.yDegree),
+          expected,
           `${formatCase(testCase)} ${candidate.name}`,
         );
       }
       const samples = new Map(CANDIDATES.map((candidate) => [candidate.name, [] as number[]]));
       for (let iteration = 0; iteration < options.warmup; iteration += 1) {
         for (const candidate of CANDIDATES) {
-          consume(await candidate.run(runtime, polynomial, testCase.xDegree, testCase.yDegree));
+          consume(await candidate.run(polynomial, testCase.xDegree, testCase.yDegree));
         }
       }
       for (let iteration = 0; iteration < options.iterations; iteration += 1) {
         const ordered = iteration % 2 === 0 ? CANDIDATES : [...CANDIDATES].reverse();
         for (const candidate of ordered) {
           const start = performance.now();
-          consume(await candidate.run(runtime, polynomial, testCase.xDegree, testCase.yDegree));
+          consume(await candidate.run(polynomial, testCase.xDegree, testCase.yDegree));
           samples.get(candidate.name)!.push(performance.now() - start);
         }
       }
@@ -84,15 +82,15 @@ async function main(): Promise<void> {
           minMs: values[0],
           maxMs: values[values.length - 1],
           samplesMs: samples.get(candidate.name),
-          inputBytes: testCase.xSize * testCase.ySize * runtime.field.byteLength,
-          temporaryBytes: candidate.name === "current-js"
-            ? 0
-            : vanishingTemporaryBytes(
+          inputBytes: testCase.xSize * testCase.ySize * runtime.Fr.byteLength,
+          temporaryBytes: candidate.name === "current-production"
+            ? vanishingTemporaryBytes(
                 testCase.xSize,
                 testCase.ySize,
                 testCase.xDegree,
-                runtime.field.byteLength,
-              ),
+                runtime.Fr.byteLength,
+              )
+            : 0,
         });
       }
     }
@@ -107,7 +105,6 @@ async function main(): Promise<void> {
     await mkdir(path.dirname(path.resolve(options.jsonPath)), { recursive: true });
     await writeFile(path.resolve(options.jsonPath), `${JSON.stringify({
       generatedAt: new Date().toISOString(),
-      workerCount: runtime.workerCount,
       options,
       records,
     }, null, 2)}\n`);
@@ -118,10 +115,10 @@ async function main(): Promise<void> {
 }
 
 function buildDivisibleNumerator(
-  runtime: VanishingBenchmarkRuntimes,
+  runtime: CurveRuntime,
   testCase: Case,
 ): BivariatePolynomialBuffer {
-  const field = runtime.field;
+  const field = runtime.Fr;
   const coefficients = field.createZeroBuffer(testCase.xSize * testCase.ySize);
   const pattern = Array.from({ length: 256 }, (_, index) =>
     field.fromBigInt(BigInt((index * 65537 + 19) % 1000003)));
@@ -159,6 +156,18 @@ function buildDivisibleNumerator(
     testCase.xSize,
     testCase.ySize,
   );
+}
+
+function vanishingTemporaryBytes(
+  xSize: number,
+  ySize: number,
+  xDegree: number,
+  elementBytes: number,
+): number {
+  const input = xSize * ySize * elementBytes;
+  const quotientX = input;
+  const quotientY = xDegree * ySize * elementBytes;
+  return input * 3 + quotientX * 2 + quotientY * 3;
 }
 
 function assertEqual(
