@@ -20,7 +20,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "npm run subcircuit-library:generate && npm run verifier-crs:generate && tsc -p tsconfig.json --pretty false",
+    "build": "npm run subcircuit-library:generate && npm run verifier-crs:generate && npm run rkyv-decoder:build && tsc -p tsconfig.json --pretty false && npm run converter-worker:build",
     "prepack": "npm run clean && npm run build",
     "typecheck": "npm run subcircuit-library:check && npm run verifier-crs:check && tsc -p tsconfig.json --pretty false --noEmit",
     "typecheck:scripts": "tsc -p tsconfig.dev.json --pretty false",
@@ -41,6 +41,8 @@
     "prover:witness:check": "tsx test/checks/prover/check-prover-witness.ts",
     "rkyv-decoder:build": "npm --prefix tools/rkyv-decoder-wasm run build",
     "rkyv-decoder:check-tools": "npm --prefix tools/rkyv-decoder-wasm run check:build-tools",
+    "converter-worker:build": "node scripts/package/build-converter-worker.mjs",
+    "converter:browser:check": "npm run build && tsx test/checks/browser/check-prover-crs-converter-browser.ts",
     "rkyv:payload:check": "tsx test/checks/binary/check-rkyv-decoder-payload.ts",
     "specs:check": "tsx scripts/generate/generate-format-specs.ts --check",
     "specs:generate": "tsx scripts/generate/generate-format-specs.ts",

@@ -3,15 +3,17 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  BACKEND_WASM_PACKAGE_VERSION,
   convertInstance,
   convertPermutation,
   convertProof,
   convertVerifierPreprocess,
   convertWitness,
+} from "../../src/tooling/converters/converters.js";
+import {
   convertCombinedSigmaRkyvToProverCrsBinary,
   createCombinedSigmaRkyvPayloadDecoder,
-} from "../../src/index.js";
+} from "../../src/tooling/converters/rkyv-to-binary.js";
+import { BACKEND_WASM_PACKAGE_VERSION } from "../../src/prover/api/version.js";
 import { loadCombinedSigmaPayloadDecoder } from "../../tools/rkyv-decoder-wasm/src/node.js";
 
 interface CopyManifest {

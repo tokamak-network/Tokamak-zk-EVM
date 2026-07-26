@@ -60,19 +60,20 @@ npm run check:build-tools
 
 ## Browser API
 
-The browser wrapper lazy-loads the generated wasm-bindgen package and exposes the
-payload decoder. It does not create backend-wasm runtime artifact files itself.
+The published backend-wasm converter owns browser decoder loading. Its
+`convertProverCrs` function transfers the source buffer to a temporary Worker,
+loads the generated decoder WASM there, produces the Prover CRS artifact, and
+terminates the Worker.
 
 ```js
-import { createCombinedSigmaRkyvPayloadDecoder } from "@tokamak-zk-evm/backend-wasm";
-import { loadCombinedSigmaPayloadDecoder } from "./tools/rkyv-decoder-wasm/src/browser.js";
+import { convertProverCrs } from "@tokamak-zk-evm/backend-wasm/converter";
 
-const payloadDecoder = await loadCombinedSigmaPayloadDecoder();
-const decoder = createCombinedSigmaRkyvPayloadDecoder(payloadDecoder.decodeCombinedSigmaPayload);
+const proverCrs = await convertProverCrs(combinedSigmaRkyv);
 ```
 
-Pass `decoder` to `convertCombinedSigmaRkyvToProverCrsBinary`. Prover and verifier
-runtime modules must not import this package.
+The transfer detaches `combinedSigmaRkyv`. Pass
+`combinedSigmaRkyv.slice()` when the application must retain the source.
+Prover and verifier runtime modules must not import this decoder package.
 
 ## Node.js Fixture API
 
@@ -80,7 +81,9 @@ The Node.js wrapper is for local fixture preparation only. It reads the generate
 WASM file from `pkg/` and exposes the same payload decoder shape:
 
 ```js
-import { createCombinedSigmaRkyvPayloadDecoder } from "@tokamak-zk-evm/backend-wasm";
+import {
+  createCombinedSigmaRkyvPayloadDecoder,
+} from "../../src/tooling/converters/rkyv-to-binary.js";
 import { loadCombinedSigmaPayloadDecoder } from "./tools/rkyv-decoder-wasm/src/node.js";
 
 const payloadDecoder = await loadCombinedSigmaPayloadDecoder();

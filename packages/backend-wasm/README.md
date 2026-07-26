@@ -92,6 +92,21 @@ The prover port should preserve the native backend's accepted algorithmic struct
 
 Web-compatible tooling libraries that are not imported by prover or verifier runtime orchestration. Artifact converters live here so applications or local CLIs can build conversion workflows without putting conversion work in runtime prove/verify paths.
 
+`convertProverCrs(rkyvBytes)` consumes a `Uint8Array` containing the native
+`combined_sigma.rkyv` artifact. It transfers the input buffer to a temporary
+module Worker without copying it, performs the complete conversion there, and
+terminates the Worker after receiving either a result or an error. The transfer
+detaches the caller's input buffer. An application that must retain the source
+must explicitly pass a copy:
+
+```ts
+const proverCrs = await convertProverCrs(combinedSigmaRkyv.slice());
+```
+
+This explicit ownership rule avoids an unavoidable hidden copy of the complete
+CRS. Applications should not run multiple large converter calls concurrently
+unless they have budgeted for the resulting CPU and peak-memory contention.
+
 ### `src/utils/`
 
 Small generic helpers shared by implementation modules. Protocol logic, artifact conversion, and runtime arithmetic should not be hidden here.
@@ -102,6 +117,7 @@ Local fixture and generated-source maintenance wrappers.
 
 - `scripts/fixtures/`: local fixture copy, conversion, and preparation wrappers.
 - `scripts/generate/`: generated TypeScript source updaters for artifact specs, subcircuit-library data, and verifier CRS.
+- `scripts/package/`: package build steps for browser Worker and WASM assets.
 
 `scripts/fixtures/copy-fixtures.ts` performs only the first fixture update stage. It copies source artifacts from existing owner package outputs under `packages/` into the package-local ignored work area under `packages/backend-wasm/tmp/fixture-work/`. It must not generate missing artifacts and must not write final runtime fixture files. `scripts/fixtures/prepare-runtime-fixtures.ts` is the local file I/O wrapper for the current verifier runtime fixture conversion stage and delegates artifact conversion to `src/tooling/converters/`.
 
@@ -126,7 +142,11 @@ and excluded from the published package.
 
 ### `tools/`
 
-Independent helper packages that are built separately from the TypeScript runtime. `tools/rkyv-decoder-wasm/` owns the Rust/WASM rkyv decoder used by converter tooling and must not be imported by prover or verifier runtime algorithms.
+Independent helper sources that are built separately from the TypeScript
+runtime. `tools/rkyv-decoder-wasm/` owns the Rust/WASM rkyv decoder used by
+converter tooling. The package build bundles its generated glue into the
+temporary Prover CRS converter Worker and publishes the decoder WASM beside that
+Worker. Prover and verifier runtime algorithms must not import the decoder.
 
 ## Artifact Policy
 
