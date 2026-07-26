@@ -1,7 +1,7 @@
 import path from "node:path";
 
 import { BinaryArtifactFileKind } from "../../../src/artifacts/binary/binary-format.js";
-import { loadRuntimeArtifactFile } from "../../../src/artifacts/runtime/loaders.js";
+import { decodeBinaryArtifactFile } from "../../../src/artifacts/binary/binary-artifact-file.js";
 import { RollingKeccakTranscript } from "../../../src/runtime/crypto/transcript.js";
 import {
   createCurveRuntime,
@@ -31,7 +31,7 @@ async function main(): Promise<void> {
     );
     const generatedProof = await provePreparedInputWithTimings(runtime, proverInput);
 
-    await timed("load generated proof artifact", () => loadRuntimeArtifactFile(generatedProof)).then((artifact) => {
+    await timed("load generated proof artifact", () => decodeBinaryArtifactFile(generatedProof)).then((artifact) => {
       if (artifact.kind !== BinaryArtifactFileKind.VerifierProof) {
         throw new Error(`Prover output artifact kind mismatch: ${artifact.kind}.`);
       }

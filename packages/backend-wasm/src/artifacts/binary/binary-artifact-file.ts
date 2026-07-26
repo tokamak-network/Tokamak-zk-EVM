@@ -31,6 +31,12 @@ const NO_SECTION_INDEX = 0xffff;
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
+export interface BinaryArtifactSectionQuery {
+  readonly type: BinarySectionView["type"];
+  readonly encoding?: BinarySectionView["encoding"];
+  readonly label?: string;
+}
+
 export async function createBinaryArtifactFile(input: BinaryArtifactFileInput): Promise<Uint8Array> {
   const { kind, sourcePackageVersion, sections } = input;
 
@@ -176,6 +182,32 @@ export async function decodeBinaryArtifactFile(bytes: Uint8Array): Promise<Binar
     digests,
     sections,
   };
+}
+
+export function findBinaryArtifactSection(
+  artifactFile: BinaryArtifactFileView,
+  query: BinaryArtifactSectionQuery,
+): BinarySectionView | undefined {
+  return artifactFile.sections.find((section) => {
+    return (
+      section.type === query.type
+      && (query.encoding === undefined || section.encoding === query.encoding)
+      && (query.label === undefined || section.label === query.label)
+    );
+  });
+}
+
+export function requireBinaryArtifactSection(
+  artifactFile: BinaryArtifactFileView,
+  query: BinaryArtifactSectionQuery,
+): BinarySectionView {
+  const section = findBinaryArtifactSection(artifactFile, query);
+
+  if (section === undefined) {
+    throw new Error(`Missing binary artifact section: ${JSON.stringify(query)}.`);
+  }
+
+  return section;
 }
 
 async function createDigestEntries(

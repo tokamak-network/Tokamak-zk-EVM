@@ -9,13 +9,11 @@ import {
   BinarySectionType,
   type BinarySectionInput,
 } from "../../../src/artifacts/binary/binary-format.js";
-import { createBinaryArtifactFile } from "../../../src/artifacts/binary/binary-artifact-file.js";
-import { loadRuntimeArtifactBySpec } from "../../../src/artifacts/specs/format-spec-loader.js";
 import {
-  loadProverCrsArtifact,
-  loadVerifierPreprocessArtifact,
-} from "../../../src/artifacts/runtime/prepared-data.js";
-import { loadRuntimeArtifactFile } from "../../../src/artifacts/runtime/loaders.js";
+  createBinaryArtifactFile,
+  decodeBinaryArtifactFile,
+} from "../../../src/artifacts/binary/binary-artifact-file.js";
+import { loadRuntimeArtifactBySpec } from "../../../src/artifacts/specs/format-spec-loader.js";
 import {
   createCurveRuntime,
   type CurveRuntime,
@@ -61,7 +59,7 @@ async function checkSigmaVerifyArtifact(runtime: CurveRuntime): Promise<void> {
       },
     ],
   });
-  const artifactFile = await loadRuntimeArtifactFile(binary);
+  const artifactFile = await decodeBinaryArtifactFile(binary);
   await validateRuntimeArtifactFile(binary, SIGMA_VERIFY_V1_SPEC, {
     expectedKind: BinaryArtifactFileKind.VerifierCrs,
   });
@@ -87,11 +85,11 @@ async function checkVerifierPreprocessArtifact(runtime: CurveRuntime): Promise<v
       },
     ],
   });
-  const artifactFile = await loadRuntimeArtifactFile(binary);
+  const artifactFile = await decodeBinaryArtifactFile(binary);
   await validateRuntimeArtifactFile(binary, VERIFIER_PREPROCESS_V1_SPEC, {
     expectedKind: BinaryArtifactFileKind.VerifierPreprocess,
   });
-  const preprocess = loadVerifierPreprocessArtifact(artifactFile);
+  const preprocess = loadRuntimeArtifactBySpec(artifactFile, VERIFIER_PREPROCESS_V1_SPEC);
 
   assertEqual(preprocess.sections.length, 1, "verifier_preprocess section count");
   assertEqual(preprocess.pointsByName.s0.byteLength, 96, "verifier_preprocess s0 byte length");
@@ -121,11 +119,11 @@ async function checkProverCrsArtifact(runtime: CurveRuntime): Promise<void> {
       },
     ],
   });
-  const artifactFile = await loadRuntimeArtifactFile(binary);
+  const artifactFile = await decodeBinaryArtifactFile(binary);
   await validateRuntimeArtifactFile(binary, PROVER_CRS_V1_SPEC, {
     expectedKind: BinaryArtifactFileKind.ProverCrs,
   });
-  const proverCrs = loadProverCrsArtifact(artifactFile);
+  const proverCrs = loadRuntimeArtifactBySpec(artifactFile, PROVER_CRS_V1_SPEC);
 
   assertEqual(proverCrs.sections.length, 9, "prover_crs section count");
   assertEqual(proverCrs.pointsByName.G.byteLength, 96, "prover_crs G byte length");

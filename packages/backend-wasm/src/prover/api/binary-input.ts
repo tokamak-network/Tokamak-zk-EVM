@@ -1,6 +1,10 @@
-import { loadRuntimeArtifactFile, requireRuntimeSection } from "../../artifacts/runtime/loaders.js";
-import { loadProverCrsArtifact } from "../../artifacts/runtime/prepared-data.js";
-import type { RuntimeArtifactFile } from "../../artifacts/runtime/types.js";
+import {
+  decodeBinaryArtifactFile,
+  requireBinaryArtifactSection,
+} from "../../artifacts/binary/binary-artifact-file.js";
+import type { BinaryArtifactFileView } from "../../artifacts/binary/binary-format.js";
+import { loadRuntimeArtifactBySpec } from "../../artifacts/specs/format-spec-loader.js";
+import { PROVER_CRS_V1_SPEC } from "../../artifacts/specs/prover-crs.v1.generated.js";
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import type { FieldElement } from "../../runtime/field/field-runtime.js";
 import { BinarySectionEncoding, BinarySectionType } from "../../artifacts/binary/binary-format.js";
@@ -18,11 +22,11 @@ import type {
   ProverWitnessInput,
 } from "../protocol/witness.js";
 
-export interface ProverRuntimeArtifactFiles {
-  readonly placementVariables: RuntimeArtifactFile;
-  readonly permutation: RuntimeArtifactFile;
-  readonly instance: RuntimeArtifactFile;
-  readonly crs: RuntimeArtifactFile;
+export interface ProverBinaryArtifactFiles {
+  readonly placementVariables: BinaryArtifactFileView;
+  readonly permutation: BinaryArtifactFileView;
+  readonly instance: BinaryArtifactFileView;
+  readonly crs: BinaryArtifactFileView;
 }
 
 export interface ProverBinaryInput {
@@ -32,17 +36,11 @@ export interface ProverBinaryInput {
   readonly proverCrs: Uint8Array;
 }
 
-export interface ProverProofWitnessRuntimeArtifactFiles {
-  readonly placementVariables: RuntimeArtifactFile;
-  readonly permutation: RuntimeArtifactFile;
-  readonly instance: RuntimeArtifactFile;
+export interface ProverWitnessBinaryArtifactFiles {
+  readonly placementVariables: BinaryArtifactFileView;
+  readonly permutation: BinaryArtifactFileView;
+  readonly instance: BinaryArtifactFileView;
 }
-
-export interface ProverCrsPreparedDataRuntimeArtifactFiles {
-  readonly crs: RuntimeArtifactFile;
-}
-
-export type ProverWitnessRuntimeArtifactFiles = ProverProofWitnessRuntimeArtifactFiles;
 
 export interface ProverRuntimeWitnessInputParts {
   readonly setup: ProverSetupParams;
@@ -105,24 +103,24 @@ export async function loadProverInputFromBinaryInput(
   input: ProverBinaryInput,
 ): Promise<ProverRuntimeInput> {
   const [placementVariables, permutation, instance, crs] = await Promise.all([
-    loadRuntimeArtifactFile(input.witness),
-    loadRuntimeArtifactFile(input.permutation),
-    loadRuntimeArtifactFile(input.instance),
-    loadRuntimeArtifactFile(input.proverCrs),
+    decodeBinaryArtifactFile(input.witness),
+    decodeBinaryArtifactFile(input.permutation),
+    decodeBinaryArtifactFile(input.instance),
+    decodeBinaryArtifactFile(input.proverCrs),
   ]);
-  const artifacts: ProverRuntimeArtifactFiles = {
+  const artifacts: ProverBinaryArtifactFiles = {
     placementVariables,
     permutation,
     instance,
     crs,
   };
 
-  return buildProverInputFromRuntimeArtifacts(runtime, artifacts);
+  return buildProverInputFromBinaryArtifacts(runtime, artifacts);
 }
 
-export function buildProverInputFromRuntimeArtifacts(
+export function buildProverInputFromBinaryArtifacts(
   runtime: CurveRuntime,
-  artifacts: ProverRuntimeArtifactFiles,
+  artifacts: ProverBinaryArtifactFiles,
 ): ProverRuntimeInput {
   const parts = loadProverRuntimeWitnessInputParts(runtime, artifacts);
 
@@ -141,7 +139,7 @@ export function buildProverInputFromRuntimeArtifacts(
 
 export function loadProverRuntimeWitnessInputParts(
   runtime: CurveRuntime,
-  artifacts: ProverWitnessRuntimeArtifactFiles,
+  artifacts: ProverWitnessBinaryArtifactFiles,
 ): ProverRuntimeWitnessInputParts {
   return {
     setup: GENERATED_PROVER_SETUP_PARAMS,
@@ -151,9 +149,9 @@ export function loadProverRuntimeWitnessInputParts(
   };
 }
 
-export function buildProverWitnessInputFromRuntimeArtifacts(
+export function buildProverWitnessInputFromBinaryArtifacts(
   runtime: CurveRuntime,
-  artifacts: ProverWitnessRuntimeArtifactFiles,
+  artifacts: ProverWitnessBinaryArtifactFiles,
 ): ProverWitnessInput {
   const parts = loadProverRuntimeWitnessInputParts(runtime, artifacts);
 
@@ -167,19 +165,19 @@ export function buildProverWitnessInputFromRuntimeArtifacts(
 
 export function parseProverPlacementVariables(
   runtime: CurveRuntime,
-  placementFile: RuntimeArtifactFile,
+  placementFile: BinaryArtifactFileView,
 ): readonly ProverPlacementVariables[] {
-  const idsSection = requireRuntimeSection(placementFile, {
+  const idsSection = requireBinaryArtifactSection(placementFile, {
     type: BinarySectionType.Placement,
     encoding: BinarySectionEncoding.Bytes,
     label: "placement.subcircuit_ids",
   });
-  const offsetsSection = requireRuntimeSection(placementFile, {
+  const offsetsSection = requireBinaryArtifactSection(placementFile, {
     type: BinarySectionType.Placement,
     encoding: BinarySectionEncoding.Bytes,
     label: "placement.variable_offsets",
   });
-  const variablesSection = requireRuntimeSection(placementFile, {
+  const variablesSection = requireBinaryArtifactSection(placementFile, {
     type: BinarySectionType.Placement,
     encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
     label: "placement.variables",
@@ -216,9 +214,9 @@ export function parseProverPlacementVariables(
 
 export function parseProverPublicInstance(
   runtime: CurveRuntime,
-  instanceFile: RuntimeArtifactFile,
+  instanceFile: BinaryArtifactFileView,
 ): readonly FieldElement[] {
-  const section = requireRuntimeSection(instanceFile, {
+  const section = requireBinaryArtifactSection(instanceFile, {
     type: BinarySectionType.Instance,
     encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
     label: "instance.public",
@@ -227,8 +225,8 @@ export function parseProverPublicInstance(
   return splitFieldElements(runtime, section.data, "instance.public");
 }
 
-export function parseProverPermutation(permutationFile: RuntimeArtifactFile): readonly ProverPermutationEntry[] {
-  const section = requireRuntimeSection(permutationFile, {
+export function parseProverPermutation(permutationFile: BinaryArtifactFileView): readonly ProverPermutationEntry[] {
+  const section = requireBinaryArtifactSection(permutationFile, {
     type: BinarySectionType.Permutation,
     encoding: BinarySectionEncoding.Bytes,
     label: "permutation.entries",
@@ -252,8 +250,8 @@ export function parseProverPermutation(permutationFile: RuntimeArtifactFile): re
   return entries;
 }
 
-export function parseProverCrs(crsFile: RuntimeArtifactFile): ProverCrsRuntime {
-  const fixedPoints = loadProverCrsArtifact(crsFile).pointsByName;
+export function parseProverCrs(crsFile: BinaryArtifactFileView): ProverCrsRuntime {
+  const fixedPoints = loadRuntimeArtifactBySpec(crsFile, PROVER_CRS_V1_SPEC).pointsByName;
 
   return {
     G: requireEntry(fixedPoints, "G"),
@@ -300,7 +298,7 @@ function readU32List(data: Uint8Array, label: string): number[] {
   return output;
 }
 
-function describeG1Section(artifactFile: RuntimeArtifactFile, label: string): ProverCrsG1Section {
+function describeG1Section(artifactFile: BinaryArtifactFileView, label: string): ProverCrsG1Section {
   const section = requireG1Section(artifactFile, label);
   if (section.data.byteLength % section.elementByteLength !== 0) {
     throw new Error(`${label} section byte length is not divisible by its point width.`);
@@ -313,8 +311,8 @@ function describeG1Section(artifactFile: RuntimeArtifactFile, label: string): Pr
   };
 }
 
-function requireG1Section(artifactFile: RuntimeArtifactFile, label: string) {
-  return requireRuntimeSection(artifactFile, {
+function requireG1Section(artifactFile: BinaryArtifactFileView, label: string) {
+  return requireBinaryArtifactSection(artifactFile, {
     type: BinarySectionType.CrsG1,
     encoding: BinarySectionEncoding.FfjsG1Affine96,
     label,

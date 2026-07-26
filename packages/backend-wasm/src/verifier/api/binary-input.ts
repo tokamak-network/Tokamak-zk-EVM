@@ -1,9 +1,11 @@
-import { loadRuntimeArtifactFile } from "../../artifacts/runtime/loaders.js";
 import {
-  loadVerifierPreprocessArtifact,
-  loadVerifierProofArtifact,
-} from "../../artifacts/runtime/prepared-data.js";
-import type { RuntimeArtifactFile } from "../../artifacts/runtime/types.js";
+  decodeBinaryArtifactFile,
+  requireBinaryArtifactSection,
+} from "../../artifacts/binary/binary-artifact-file.js";
+import type { BinaryArtifactFileView } from "../../artifacts/binary/binary-format.js";
+import { loadRuntimeArtifactBySpec } from "../../artifacts/specs/format-spec-loader.js";
+import { VERIFIER_PREPROCESS_V1_SPEC } from "../../artifacts/specs/verifier-preprocess.v1.generated.js";
+import { VERIFIER_PROOF_V1_SPEC } from "../../artifacts/specs/verifier-proof.v1.generated.js";
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import type { FieldElement } from "../../runtime/field/field-runtime.js";
 import { BinarySectionEncoding, BinarySectionType } from "../../artifacts/binary/binary-format.js";
@@ -13,10 +15,10 @@ import { GENERATED_VERIFIER_SIGMA } from "../generated/sigma-verify.generated.js
 import type { VerifierInput, VerifierProof } from "../protocol/verify-snark.js";
 import { createVerifierPublicPolynomial } from "../protocol/public-instance-polynomial.js";
 
-export interface VerifierRuntimeArtifactFiles {
-  readonly instance: RuntimeArtifactFile;
-  readonly proof: RuntimeArtifactFile;
-  readonly preprocess: RuntimeArtifactFile;
+export interface VerifierBinaryArtifactFiles {
+  readonly instance: BinaryArtifactFileView;
+  readonly proof: BinaryArtifactFileView;
+  readonly preprocess: BinaryArtifactFileView;
 }
 
 export interface VerifierBinaryInput {
@@ -30,22 +32,22 @@ export async function loadVerifierInputFromBinaryInput(
   input: VerifierBinaryInput,
 ): Promise<VerifierInput> {
   const [instance, proof, preprocess] = await Promise.all([
-    loadRuntimeArtifactFile(input.instance),
-    loadRuntimeArtifactFile(input.proof),
-    loadRuntimeArtifactFile(input.verifierPreprocess),
+    decodeBinaryArtifactFile(input.instance),
+    decodeBinaryArtifactFile(input.proof),
+    decodeBinaryArtifactFile(input.verifierPreprocess),
   ]);
-  const artifacts: VerifierRuntimeArtifactFiles = {
+  const artifacts: VerifierBinaryArtifactFiles = {
     instance,
     proof,
     preprocess,
   };
 
-  return buildVerifierInputFromRuntimeArtifacts(runtime, artifacts);
+  return buildVerifierInputFromBinaryArtifacts(runtime, artifacts);
 }
 
-export async function buildVerifierInputFromRuntimeArtifacts(
+export async function buildVerifierInputFromBinaryArtifacts(
   runtime: CurveRuntime,
-  artifacts: VerifierRuntimeArtifactFiles,
+  artifacts: VerifierBinaryArtifactFiles,
 ): Promise<VerifierInput> {
   const setup = GENERATED_PROVER_SETUP_PARAMS satisfies VerifierSetupParams;
   const publicInstance = parsePublicInstance(runtime, artifacts.instance);
@@ -61,9 +63,9 @@ export async function buildVerifierInputFromRuntimeArtifacts(
 
 function parsePublicInstance(
   runtime: CurveRuntime,
-  instanceFile: RuntimeArtifactFile,
+  instanceFile: BinaryArtifactFileView,
 ): readonly FieldElement[] {
-  const section = requireSection(instanceFile, {
+  const section = requireBinaryArtifactSection(instanceFile, {
     type: BinarySectionType.Instance,
     encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
     label: "instance.public",
@@ -72,8 +74,8 @@ function parsePublicInstance(
   return splitElements(section.data, runtime.Fr.byteLength);
 }
 
-function parseVerifierPreprocess(preprocessFile: RuntimeArtifactFile): VerifierInput["preprocess"] {
-  const preprocess = loadVerifierPreprocessArtifact(preprocessFile).pointsByName;
+function parseVerifierPreprocess(preprocessFile: BinaryArtifactFileView): VerifierInput["preprocess"] {
+  const preprocess = loadRuntimeArtifactBySpec(preprocessFile, VERIFIER_PREPROCESS_V1_SPEC).pointsByName;
 
   return {
     s0: requireEntry(preprocess, "s0"),
@@ -82,8 +84,8 @@ function parseVerifierPreprocess(preprocessFile: RuntimeArtifactFile): VerifierI
   };
 }
 
-function parseVerifierProof(proofFile: RuntimeArtifactFile): VerifierProof {
-  const proof = loadVerifierProofArtifact(proofFile).pointsByName;
+function parseVerifierProof(proofFile: BinaryArtifactFileView): VerifierProof {
+  const proof = loadRuntimeArtifactBySpec(proofFile, VERIFIER_PROOF_V1_SPEC).pointsByName;
 
   return {
     binding: {
@@ -122,26 +124,6 @@ function parseVerifierProof(proofFile: RuntimeArtifactFile): VerifierProof {
       N_Y: requireEntry(proof, "proof4.N_Y"),
     },
   };
-}
-
-function requireSection(
-  artifactFile: RuntimeArtifactFile,
-  query: {
-    readonly type: BinarySectionType;
-    readonly encoding: BinarySectionEncoding;
-    readonly label: string;
-  },
-): RuntimeArtifactFile["sections"][number] {
-  const section = artifactFile.sections.find(
-    (candidate) =>
-      candidate.type === query.type && candidate.encoding === query.encoding && candidate.label === query.label,
-  );
-
-  if (section === undefined) {
-    throw new Error(`Missing runtime artifact section: ${JSON.stringify(query)}.`);
-  }
-
-  return section;
 }
 
 function requireEntry(entries: Readonly<Record<string, Uint8Array>>, name: string): Uint8Array {

@@ -4,14 +4,17 @@ import {
   BinarySectionType,
   type BinarySectionInput,
 } from "../../../src/artifacts/binary/binary-format.js";
-import { createBinaryArtifactFile } from "../../../src/artifacts/binary/binary-artifact-file.js";
-import { loadRuntimeArtifactFile } from "../../../src/artifacts/runtime/loaders.js";
-import { loadVerifierProofArtifact } from "../../../src/artifacts/runtime/prepared-data.js";
+import {
+  createBinaryArtifactFile,
+  decodeBinaryArtifactFile,
+} from "../../../src/artifacts/binary/binary-artifact-file.js";
+import { loadRuntimeArtifactBySpec } from "../../../src/artifacts/specs/format-spec-loader.js";
+import { VERIFIER_PROOF_V1_SPEC } from "../../../src/artifacts/specs/verifier-proof.v1.generated.js";
 import { createCurveRuntime } from "../../../src/runtime/curve/curve.js";
 import type { FieldElement, FieldRuntime } from "../../../src/runtime/field/field-runtime.js";
 import { BivariatePolynomialBuffer } from "../../../src/runtime/polynomial/bivariate-polynomial-buffer.js";
 import {
-  buildProverWitnessInputFromRuntimeArtifacts,
+  buildProverWitnessInputFromBinaryArtifacts,
   loadProverInputFromBinaryInput,
   loadProverRuntimeWitnessInputParts,
   proverCrsG1PointAt,
@@ -271,7 +274,7 @@ async function main(): Promise<void> {
       smallProverState.instance.aFreeX,
       smallProverState.mixer,
     );
-    const verifierProofArtifact = await loadRuntimeArtifactFile(
+    const verifierProofArtifact = await decodeBinaryArtifactFile(
       await createVerifierProofArtifactFromProverOutput({
         runtime,
         binding: smallBinding,
@@ -284,7 +287,7 @@ async function main(): Promise<void> {
     );
     assertEqual(verifierProofArtifact.kind, BinaryArtifactFileKind.VerifierProof, "prover output artifact kind");
     assertEqual(verifierProofArtifact.sourcePackageVersion, "2.1.1", "prover output source package version");
-    const verifierProof = loadVerifierProofArtifact(verifierProofArtifact);
+    const verifierProof = loadRuntimeArtifactBySpec(verifierProofArtifact, VERIFIER_PROOF_V1_SPEC);
     assertEqual(verifierProof.sections[0]?.section.data.byteLength, 19 * 96, "prover output proof.g1 byte length");
     assertEqual(verifierProof.sections[1]?.section.data.byteLength, 4 * 32, "prover output proof.evals byte length");
     assertBytesEqual(verifierProof.pointsByName["proof0.U"], runtime.G1.toAffine(smallProve0.commitments.U), "proof0.U affine output");
@@ -292,7 +295,7 @@ async function main(): Promise<void> {
     assertBytesEqual(verifierProof.pointsByName["proof4.N_X"], runtime.G1.toAffine(smallProve4.commitments.N_X), "proof4.N_X affine output");
     assertBytesEqual(verifierProof.pointsByName["proof3.V_eval"], smallProve3.V_eval, "proof3.V_eval output");
     const binaryArtifacts = {
-      placementVariables: await loadRuntimeArtifactFile(
+      placementVariables: await decodeBinaryArtifactFile(
         await createBinaryArtifactFile({
           kind: BinaryArtifactFileKind.ProverPlacementVariables,
           sourcePackageVersion: "0.0.0",
@@ -324,7 +327,7 @@ async function main(): Promise<void> {
           ],
         }),
       ),
-      permutation: await loadRuntimeArtifactFile(
+      permutation: await decodeBinaryArtifactFile(
         await createBinaryArtifactFile({
           kind: BinaryArtifactFileKind.ProverPermutation,
           sourcePackageVersion: "0.0.0",
@@ -340,7 +343,7 @@ async function main(): Promise<void> {
           ],
         }),
       ),
-      instance: await loadRuntimeArtifactFile(
+      instance: await decodeBinaryArtifactFile(
         await createBinaryArtifactFile({
           kind: BinaryArtifactFileKind.Instance,
           sourcePackageVersion: "0.0.0",
@@ -366,8 +369,8 @@ async function main(): Promise<void> {
     assertEqual(binaryParts.publicInstance.length, 2, "binary public instance length");
     assertFieldEqual(binaryParts.publicInstance[1], fr(17n), "binary public instance value");
 
-    const bakedInput = buildProverWitnessInputFromRuntimeArtifacts(runtime, {
-      placementVariables: await loadRuntimeArtifactFile(
+    const bakedInput = buildProverWitnessInputFromBinaryArtifacts(runtime, {
+      placementVariables: await decodeBinaryArtifactFile(
         await createBinaryArtifactFile({
           kind: BinaryArtifactFileKind.ProverPlacementVariables,
           sourcePackageVersion: "0.0.0",
@@ -399,7 +402,7 @@ async function main(): Promise<void> {
           ],
         }),
       ),
-      permutation: await loadRuntimeArtifactFile(
+      permutation: await decodeBinaryArtifactFile(
         await createBinaryArtifactFile({
           kind: BinaryArtifactFileKind.ProverPermutation,
           sourcePackageVersion: "0.0.0",
@@ -415,7 +418,7 @@ async function main(): Promise<void> {
           ],
         }),
       ),
-      instance: await loadRuntimeArtifactFile(
+      instance: await decodeBinaryArtifactFile(
         await createBinaryArtifactFile({
           kind: BinaryArtifactFileKind.Instance,
           sourcePackageVersion: "0.0.0",

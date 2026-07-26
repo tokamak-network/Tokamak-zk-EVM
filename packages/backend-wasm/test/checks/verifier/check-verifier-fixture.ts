@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { loadRuntimeArtifactFile } from "../../../src/artifacts/runtime/loaders.js";
+import { decodeBinaryArtifactFile } from "../../../src/artifacts/binary/binary-artifact-file.js";
 import {
   createCurveRuntime,
   type CurveRuntime,
@@ -171,7 +171,7 @@ async function loadPreparedBinaryVerifierFixture(
 
 async function flipProofScalarBit(proof: Uint8Array): Promise<Uint8Array> {
   const flipped = proof.slice();
-  const proofFile = await loadRuntimeArtifactFile(flipped);
+  const proofFile = await decodeBinaryArtifactFile(flipped);
   const evalSection = proofFile.sections.find((section) => section.label === "proof.evals");
 
   if (evalSection === undefined) {

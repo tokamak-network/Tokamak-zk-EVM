@@ -1,7 +1,7 @@
 import type { BinarySectionView } from "../binary/binary-format.js";
-import { requireRuntimeSection } from "../runtime/loaders.js";
+import { requireBinaryArtifactSection } from "../binary/binary-artifact-file.js";
+import type { BinaryArtifactFileView } from "../binary/binary-format.js";
 import type { RuntimeArtifactFormatSpec, RuntimeArtifactSectionSpec } from "./types.js";
-import type { RuntimeArtifactFile } from "../runtime/types.js";
 
 export interface LoadedRuntimeArtifactSpec {
   readonly spec: RuntimeArtifactFormatSpec;
@@ -22,7 +22,7 @@ export interface LoadedRuntimeArtifactPoint {
 }
 
 export function loadRuntimeArtifactBySpec(
-  artifactFile: RuntimeArtifactFile,
+  artifactFile: BinaryArtifactFileView,
   spec: RuntimeArtifactFormatSpec,
 ): LoadedRuntimeArtifactSpec {
   const sections = spec.sections.map((sectionSpec) => loadRuntimeArtifactSection(artifactFile, sectionSpec));
@@ -46,10 +46,10 @@ export function loadRuntimeArtifactBySpec(
 }
 
 function loadRuntimeArtifactSection(
-  artifactFile: RuntimeArtifactFile,
+  artifactFile: BinaryArtifactFileView,
   spec: RuntimeArtifactSectionSpec,
 ): LoadedRuntimeArtifactSection {
-  const section = requireRuntimeSection(artifactFile, {
+  const section = requireBinaryArtifactSection(artifactFile, {
     type: spec.type,
     encoding: spec.encoding,
     label: spec.label,

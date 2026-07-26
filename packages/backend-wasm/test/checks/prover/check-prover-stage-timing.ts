@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { BinaryArtifactFileKind } from "../../../src/artifacts/binary/binary-format.js";
-import { loadRuntimeArtifactFile } from "../../../src/artifacts/runtime/loaders.js";
+import { decodeBinaryArtifactFile } from "../../../src/artifacts/binary/binary-artifact-file.js";
 import { RollingKeccakTranscript } from "../../../src/runtime/crypto/transcript.js";
 import {
   createCurveRuntime,
@@ -489,7 +489,7 @@ async function main(): Promise<void> {
     );
     const generatedProof = await provePreparedInputWithStrictTimings(runtime, proverInput);
 
-    await timing.span("load generated proof artifact", "io", () => loadRuntimeArtifactFile(generatedProof)).then(
+    await timing.span("load generated proof artifact", "io", () => decodeBinaryArtifactFile(generatedProof)).then(
       (artifact) => {
         if (artifact.kind !== BinaryArtifactFileKind.VerifierProof) {
           throw new Error(`Prover output artifact kind mismatch: ${artifact.kind}.`);
