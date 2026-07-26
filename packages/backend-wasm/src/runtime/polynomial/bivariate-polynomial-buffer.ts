@@ -217,17 +217,22 @@ export class BivariatePolynomialBuffer {
       return this.clone();
     }
 
-    const output = new BivariatePolynomialBuffer(this.field, this.field.createZeroBuffer(xSize * ySize), {
-      xSize,
-      ySize,
-    });
-    for (let x = 0; x < Math.min(this.xSize, xSize); x += 1) {
-      for (let y = 0; y < Math.min(this.ySize, ySize); y += 1) {
-        output.setCoeff(x, y, this.getCoeff(x, y));
-      }
+    const output = this.field.createZeroBuffer(xSize * ySize);
+    const copyXSize = Math.min(this.xSize, xSize);
+    const copyYBytes = Math.min(this.ySize, ySize) * this.field.byteLength;
+    const sourceRowBytes = this.ySize * this.field.byteLength;
+    const targetRowBytes = ySize * this.field.byteLength;
+    for (let x = 0; x < copyXSize; x += 1) {
+      output.set(
+        this.coefficients.subarray(
+          x * sourceRowBytes,
+          x * sourceRowBytes + copyYBytes,
+        ),
+        x * targetRowBytes,
+      );
     }
 
-    return output;
+    return BivariatePolynomialBuffer.fromOwnedBuffer(this.field, output, xSize, ySize);
   }
 
   eval(xPoint: FieldElement, yPoint: FieldElement): FieldElement {
