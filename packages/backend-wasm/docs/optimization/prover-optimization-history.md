@@ -140,8 +140,8 @@ owner explicitly reopens one with new benchmark and correctness evidence.
   public extension boundaries and fail explicitly when required pinned exports
   are unavailable.
 - A separate backend-wasm Web Worker wrapper around complete MSM jobs is not a
-  production strategy. Its executable experiments are scheduled for removal
-  after their evidence was preserved in
+  production strategy. Its executable experiments were removed after their
+  evidence was preserved in
   [`rejected/outer-worker-msm.md`](./rejected/outer-worker-msm.md).
 
 ### Commitment And MSM

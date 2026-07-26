@@ -150,7 +150,7 @@ Interpretation:
 ## Rejected Worker Wrapper Design
 
 The independent-process, browser worker-pool, and browser CRS-sharded worker
-experiments are scheduled for removal now that their evidence is preserved in the
+experiments were removed after their evidence was preserved in the
 [outer-worker MSM report](../../../docs/optimization/rejected/outer-worker-msm.md).
 Current production prover code uses ffjavascript primitive parallelism instead
 of backend-wasm-managed worker commitment scheduling.

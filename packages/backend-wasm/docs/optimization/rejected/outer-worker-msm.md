@@ -6,11 +6,10 @@ Audience: backend-wasm developers reviewing historical prover MSM parallelizatio
 
 The backend-wasm worker-parallelized prover commitment plan was investigated because large independent MSM jobs dominated the early prover timing data. The experiments showed that browser Web Workers can parallelize independent MSM jobs, but the production plan was discarded after the codebase switched to using ffjavascript primitive parallelism directly through `createCurveRuntime()` with `singleThread: false` by default.
 
-The executable worker experiments are scheduled for removal now that their
-durable evidence is preserved in this report. The commands below are historical
-invocation records and will no longer exist in `package.json` after that
-cleanup. The current production prover path does not expose or inject a browser
-worker commitment encoder.
+The executable worker experiments were removed after their durable evidence was
+preserved in this report. The commands below are historical invocation records
+and no longer exist in `package.json`. The current production prover path does
+not expose or inject a browser worker commitment encoder.
 
 ## Motivation
 
@@ -194,7 +193,7 @@ Production runtime status:
 Benchmark status:
 
 - The independent-process, browser worker-pool, and browser CRS-sharding
-  executable experiments are deprecated and scheduled for deletion.
+  executable experiments are not retained.
 - Their representative commands, environments, timing, memory-transfer data,
   parity result, and rejection rationale are preserved above.
 - Reconsideration requires a new benchmark designed against the current
