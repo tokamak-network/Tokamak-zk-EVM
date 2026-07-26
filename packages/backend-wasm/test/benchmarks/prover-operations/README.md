@@ -16,11 +16,16 @@ this file are historical invocation records, not current package scripts.
 
 ## Dedicated K0 Multiplication Benchmark
 
-`bench-k0-multiplication.ts` isolates `Lagrange K0(X) * P(X,Y)` from the four measured prover call sites. Candidate implementations remain diagnostics-only until all independent candidates and compatible combinations have been measured.
+`bench-k0-multiplication.ts` isolates `Lagrange K0(X) * P(X,Y)` from the
+four measured prover call sites. The retained executable benchmark compares
+the current production operation with the former generic FFT path and checks
+small cases against an independent direct-convolution oracle. The candidate
+measurements below are historical records; their benchmark-local
+implementations were removed after the selected recurrence was promoted.
 
 The shape syntax is `<mI>x<inputXSize>x<inputYSize>`. The benchmark checks small cases against both current production and a direct dense convolution oracle before representative timing.
 
-### Candidate A: Sequential Raw-Buffer Data Path
+### Historical Candidate A: Sequential Raw-Buffer Data Path
 
 Candidate A preserves the current per-Y-column forward FFT, pointwise multiplication, inverse FFT, and sequential scheduling. It changes only coefficient access and ownership:
 
@@ -42,7 +47,7 @@ npm run bench:k0-mul -- --shapes=4096x8192x512,4096x8192x256,4096x4096x512 --can
 
 The four-call total counts `4096x8192x512` twice and each other shape once. Candidate A passes exact byte parity and the independent small-shape convolution oracle. The gain is positive but too small for standalone production promotion; retain it only for compatibility review after the batch and K0-specific candidates are measured.
 
-### Candidate B: Batched X-Univariate Multiplication
+### Historical Candidate B: Batched X-Univariate Multiplication
 
 Candidate B packs all X columns into contiguous segments once, invokes one batched forward transform and one batched inverse transform, applies the shared X-factor evaluations to every segment, and restores row-major output.
 
@@ -61,7 +66,7 @@ npm run bench:k0-mul -- --shapes=4096x8192x512,4096x8192x256,4096x4096x512 --can
 
 Candidate B passes exact byte parity and the independent small-shape convolution oracle. The result confirms that batching the independent X transforms removes material scheduling overhead. It remains diagnostics-only until the K0-specific sliding-window candidate and later compatible combinations are measured. The temporary-byte column covers caller-owned full-size buffers and factor evaluations; internal `batchFftBuffer(...)` worker-task allocations can increase the actual peak further.
 
-### Candidate C: K0 Sliding-Window Convolution
+### Historical Candidate C: K0 Sliding-Window Convolution
 
 Candidate C uses the exact K0 identity:
 

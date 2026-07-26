@@ -96,30 +96,6 @@ export async function createStructuredBenchmarkRuntimes(): Promise<StructuredBen
   };
 }
 
-export async function multiplyK0WasmSingle(
-  runtime: StructuredBenchmarkRuntimes,
-  polynomial: BivariatePolynomialBuffer,
-  mI: number,
-): Promise<BivariatePolynomialBuffer> {
-  return multiplyK0(runtime, runtime.singleField, polynomial, mI, 1);
-}
-
-export async function multiplyK0WasmOneWorker(
-  runtime: StructuredBenchmarkRuntimes,
-  polynomial: BivariatePolynomialBuffer,
-  mI: number,
-): Promise<BivariatePolynomialBuffer> {
-  return multiplyK0(runtime, runtime.multiField, polynomial, mI, 1);
-}
-
-export async function multiplyK0WasmWorkers(
-  runtime: StructuredBenchmarkRuntimes,
-  polynomial: BivariatePolynomialBuffer,
-  mI: number,
-): Promise<BivariatePolynomialBuffer> {
-  return multiplyK0(runtime, runtime.multiField, polynomial, mI, runtime.workerCount);
-}
-
 export function k0TemporaryBytes(
   inputXSize: number,
   inputYSize: number,
@@ -278,60 +254,6 @@ export async function multiplyFusedLinearWasmWorkers(
     addendScale,
     axis,
     runtime.workerCount,
-  );
-}
-
-async function multiplyK0(
-  runtime: StructuredBenchmarkRuntimes,
-  rawField: FfField,
-  polynomial: BivariatePolynomialBuffer,
-  mI: number,
-  taskCount: number,
-): Promise<BivariatePolynomialBuffer> {
-  const degree = polynomial.findDegree();
-  if (degree.xDegree < 0 || degree.yDegree < 0) {
-    return BivariatePolynomialBuffer.zero(runtime.field);
-  }
-  const outputXSize = nextPowerOfTwo(degree.xDegree + mI);
-  const outputYSize = nextPowerOfTwo(degree.yDegree + 1);
-  const ranges = splitRanges(outputYSize, taskCount);
-  const tasks = ranges.map(({ start, count }) => {
-    const input = ranges.length === 1
-      ? polynomial.coefficients
-      : extractColumns(
-          polynomial.coefficients,
-          polynomial.xSize,
-          polynomial.ySize,
-          start,
-          count,
-          runtime.field.byteLength,
-        );
-    return rawField.tm.queueAction(buildK0Task(
-      input,
-      polynomial.xSize,
-      count,
-      outputXSize,
-      mI,
-      runtime.field.byteLength,
-    ));
-  });
-  const taskResults = await Promise.all(tasks);
-  const unscaled = ranges.length === 1
-    ? requireOutputs(taskResults[0], 1, "K0 recurrence")[0]
-    : assembleColumns(
-        taskResults.map((result) => requireOutputs(result, 1, "K0 recurrence")[0]),
-        ranges,
-        outputXSize,
-        outputYSize,
-        runtime.field.byteLength,
-      );
-  const inverseMI = runtime.field.inv(runtime.field.fromBigInt(BigInt(mI)));
-  const output = await rawField.batchApplyKey(unscaled, inverseMI, runtime.field.one);
-  return BivariatePolynomialBuffer.fromOwnedBuffer(
-    runtime.field,
-    output,
-    outputXSize,
-    outputYSize,
   );
 }
 
@@ -1137,36 +1059,6 @@ function klYPointer(
       code.i32_const(32),
     ),
   );
-}
-
-function buildK0Task(
-  input: Uint8Array,
-  inputXSize: number,
-  localYSize: number,
-  outputXSize: number,
-  mI: number,
-  elementBytes: number,
-): FfWorkerCommand[] {
-  const outputBytes = outputXSize * localYSize * elementBytes;
-  return [
-    { cmd: "ALLOCSET", var: 0, buff: input },
-    { cmd: "ALLOC", var: 1, len: localYSize * elementBytes },
-    { cmd: "ALLOC", var: 2, len: outputBytes },
-    {
-      cmd: "CALL",
-      fnName: K0_RECURRENCE,
-      params: [
-        { var: 0 },
-        { val: inputXSize },
-        { val: localYSize },
-        { val: outputXSize },
-        { val: mI },
-        { var: 1 },
-        { var: 2 },
-      ],
-    },
-    { cmd: "GET", out: 0, var: 2, len: outputBytes },
-  ];
 }
 
 function buildKlXTask(
