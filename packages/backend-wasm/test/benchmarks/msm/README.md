@@ -11,7 +11,7 @@ This directory contains a standalone benchmark for comparing four ways to comput
 
 The benchmark asserts that all methods return the same G1 point before it reports timing.
 
-Historical note: [deprecated/parallel-worker-wrapper/worker-parallelization-report.md](./deprecated/parallel-worker-wrapper/worker-parallelization-report.md) records the discarded browser worker MSM parallelization plan, the measurements that motivated it, and why the current production path uses ffjavascript primitive parallelism instead.
+Historical note: [the worker parallelization report](../../../docs/optimization/worker-parallelization-report.md) records the discarded browser worker MSM parallelization plan, the measurements that motivated it, and why the current production path uses ffjavascript primitive parallelism instead.
 
 ## Usage
 

@@ -249,18 +249,18 @@ than trigger fixture regeneration or a fallback path.
 This history is the primary optimization record. The following focused reports
 retain larger benchmark tables or deprecated implementation details:
 
-- `test/benchmarks/msm/prover-chunk-size-benchmark.md`: final dense MSM chunk
+- [`prover-chunk-size-benchmark.md`](./prover-chunk-size-benchmark.md): final dense MSM chunk
   selection, Chromium timing/RSS results, and the unbounded-call timeout.
-- `test/benchmarks/msm/README.md`: primitive MSM, sparse/dense commitment, and
+- [`test/benchmarks/msm/README.md`](../../test/benchmarks/msm/README.md): primitive MSM, sparse/dense commitment, and
   scalar-conversion benchmarks.
-- `test/benchmarks/prover-operations/priority-32-promotion-review.md`:
+- [`priority-32-promotion-review.md`](./priority-32-promotion-review.md):
   independent Priority 32 candidate and combination evidence.
-- `test/benchmarks/prover-init/README.md`: witness initialization, packed CSR,
+- [`test/benchmarks/prover-init/README.md`](../../test/benchmarks/prover-init/README.md): witness initialization, packed CSR,
   and flat-buffer construction evidence.
-- `test/benchmarks/msm/deprecated/parallel-worker-wrapper/worker-parallelization-report.md`:
+- [`worker-parallelization-report.md`](./worker-parallelization-report.md):
   the complete history and rejection rationale for the outer worker-wrapper
   MSM design.
-- `test/benchmarks/prover-operations/README.md`: commands and operation-level
+- [`test/benchmarks/prover-operations/README.md`](../../test/benchmarks/prover-operations/README.md): commands and operation-level
   benchmark coverage.
 
 ## Reporting Rules

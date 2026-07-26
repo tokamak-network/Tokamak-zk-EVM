@@ -2,7 +2,7 @@
 
 Audience: backend-wasm developers inspecting the discarded outer-worker MSM parallelization experiments.
 
-This directory contains the deprecated worker-wrapper benchmark code and report that used to live directly under `test/benchmarks/msm/`. The active production prover direction is ffjavascript primitive parallelism through `createCurveRuntime()` with `singleThread: false`, not backend-wasm-managed worker commitment scheduling.
+This directory contains the deprecated worker-wrapper benchmark code that used to live directly under `test/benchmarks/msm/`. The durable report is retained under `docs/optimization`. The active production prover direction is ffjavascript primitive parallelism through `createCurveRuntime()` with `singleThread: false`, not backend-wasm-managed worker commitment scheduling.
 
 ## Files
 
@@ -13,7 +13,7 @@ This directory contains the deprecated worker-wrapper benchmark code and report 
 - `bench-browser-crs-sharded-msm.ts`: Chromium CRS-sharded partial-MSM benchmark with real prepared CRS bytes.
 - `browser-crs-sharded-msm-entry.ts`: browser main-thread entry for the CRS-sharded benchmark.
 - `browser-crs-sharded-msm-worker.ts`: browser worker implementation for the CRS-sharded benchmark.
-- `worker-parallelization-report.md`: historical report explaining the motivation, attempts, results, and reason for discarding the production worker-wrapper plan.
+- [`docs/optimization/worker-parallelization-report.md`](../../../../../docs/optimization/worker-parallelization-report.md): historical report explaining the motivation, attempts, results, and reason for discarding the production worker-wrapper plan.
 
 ## Commands
 
