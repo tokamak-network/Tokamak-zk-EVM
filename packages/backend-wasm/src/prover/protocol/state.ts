@@ -105,26 +105,29 @@ async function buildPermutationPolynomials(
   const omegaSMax = field.rootOfUnity(setup.s_max);
   const xPowers = powerTable(field, omegaMI, mI);
   const yPowers = powerTable(field, omegaSMax, setup.s_max);
-  const s0Evals = Array.from({ length: mI * setup.s_max }, () => field.zero);
-  const s1Evals = Array.from({ length: mI * setup.s_max }, () => field.zero);
+  const rowBytes = setup.s_max * field.byteLength;
+  const s0Evals = field.createZeroBuffer(mI * setup.s_max);
+  const s1Evals = field.createZeroBuffer(mI * setup.s_max);
+  const yRow = field.concat(yPowers);
 
   for (let row = 0; row < mI; row += 1) {
-    const rowStart = row * setup.s_max;
+    const rowOffset = row * rowBytes;
+    const xValue = xPowers[row];
     for (let col = 0; col < setup.s_max; col += 1) {
-      s0Evals[rowStart + col] = xPowers[row];
-      s1Evals[rowStart + col] = yPowers[col];
+      s0Evals.set(xValue, rowOffset + col * field.byteLength);
     }
+    s1Evals.set(yRow, rowOffset);
   }
 
   for (const entry of permutation) {
-    const index = entry.row * setup.s_max + entry.col;
-    s0Evals[index] = xPowers[entry.X];
-    s1Evals[index] = yPowers[entry.Y];
+    const byteOffset = (entry.row * setup.s_max + entry.col) * field.byteLength;
+    s0Evals.set(xPowers[entry.X], byteOffset);
+    s1Evals.set(yPowers[entry.Y], byteOffset);
   }
 
   return [
-    await BivariatePolynomialBuffer.fromRouEvals(field, field.concat(s0Evals), mI, setup.s_max),
-    await BivariatePolynomialBuffer.fromRouEvals(field, field.concat(s1Evals), mI, setup.s_max),
+    await BivariatePolynomialBuffer.fromRouEvals(field, s0Evals, mI, setup.s_max),
+    await BivariatePolynomialBuffer.fromRouEvals(field, s1Evals, mI, setup.s_max),
   ];
 }
 
