@@ -5,6 +5,7 @@ import {
   BinarySectionType,
 } from "../../artifacts/binary/binary-format.js";
 import { BACKEND_WASM_PACKAGE_VERSION } from "../../prover/api/version.js";
+import { isRecord, parseU32 } from "./conversion-utils.js";
 
 interface NativePermutationEntry {
   readonly row: number;
@@ -65,16 +66,4 @@ function encodePermutationEntries(entries: readonly NativePermutationEntry[]): U
   }
 
   return output;
-}
-
-function parseU32(value: unknown, label: string): number {
-  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0 || value > 0xffffffff) {
-    throw new Error(`${label} must be an unsigned 32-bit integer.`);
-  }
-
-  return value;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

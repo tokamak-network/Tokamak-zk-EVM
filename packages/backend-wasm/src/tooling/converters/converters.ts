@@ -14,6 +14,14 @@ import type {
   ConvertProofInput,
   ConvertProofJsonInput,
 } from "./types.js";
+import {
+  concatBytes,
+  encodeU32List,
+  isRecord,
+  parseHexStringArray,
+  parseU32,
+  stripHex,
+} from "./conversion-utils.js";
 export { inspectBinary } from "./binary-inspection.js";
 export { convertInstance } from "./instance-converter.js";
 export { convertPermutation } from "./permutation-converter.js";
@@ -309,16 +317,6 @@ function recoverG1Points(
   return points;
 }
 
-function encodeU32List(values: readonly number[]): Uint8Array {
-  const output = new Uint8Array(values.length * 4);
-  const view = new DataView(output.buffer, output.byteOffset, output.byteLength);
-  for (let index = 0; index < values.length; index += 1) {
-    view.setUint32(index * 4, values[index], true);
-  }
-
-  return output;
-}
-
 function requireBinarySection(
   artifactFile: BinaryArtifactFileView,
   query: {
@@ -360,52 +358,4 @@ function appendSplitG1Coordinate(part1: string[], part2: string[], coordinate: s
 
 function joinG1Coordinate(part1: string, part2: string): string {
   return `0x${stripHex(part1).padStart(32, "0")}${stripHex(part2).padStart(64, "0")}`;
-}
-
-function parseHexStringArray(value: unknown, label: string): readonly string[] {
-  if (!Array.isArray(value)) {
-    throw new Error(`${label} must be an array.`);
-  }
-
-  return value.map((entry, index) => parseHexString(entry, `${label}[${index}]`));
-}
-
-function parseHexString(value: unknown, label: string): string {
-  if (typeof value !== "string") {
-    throw new Error(`${label} must be a hexadecimal string.`);
-  }
-
-  stripHex(value);
-  return value;
-}
-
-function stripHex(value: string): string {
-  if (!/^0x[0-9a-fA-F]*$/.test(value)) {
-    throw new Error("Expected a 0x-prefixed hexadecimal string.");
-  }
-
-  return value.slice(2);
-}
-
-function parseU32(value: unknown, label: string): number {
-  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0 || value > 0xffffffff) {
-    throw new Error(`${label} must be an unsigned 32-bit integer.`);
-  }
-
-  return value;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function concatBytes(chunks: readonly Uint8Array[]): Uint8Array {
-  const output = new Uint8Array(chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0));
-  let offset = 0;
-  for (const chunk of chunks) {
-    output.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-
-  return output;
 }

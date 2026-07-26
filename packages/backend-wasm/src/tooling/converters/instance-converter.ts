@@ -7,6 +7,7 @@ import {
 import { BACKEND_WASM_PACKAGE_VERSION } from "../../prover/api/version.js";
 import { GENERATED_PROVER_SETUP_PARAMS } from "../../prover/generated/subcircuit-library.generated.js";
 import { createCurveRuntime, type CurveRuntime } from "../../runtime/curve/curve.js";
+import { concatBytes, isRecord, parseHexStringArray } from "./conversion-utils.js";
 
 interface VerifierSetupParamsJson {
   readonly l_free: number;
@@ -77,35 +78,4 @@ function parseInstanceJson(raw: unknown): InstanceJson {
     a_pub_user: parseHexStringArray(raw.a_pub_user, "instance.a_pub_user"),
     a_pub_block: parseHexStringArray(raw.a_pub_block, "instance.a_pub_block"),
   };
-}
-
-function parseHexStringArray(value: unknown, label: string): readonly string[] {
-  if (!Array.isArray(value)) {
-    throw new Error(`${label} must be an array.`);
-  }
-
-  return value.map((entry, index) => parseHexString(entry, `${label}[${index}]`));
-}
-
-function parseHexString(value: unknown, label: string): string {
-  if (typeof value !== "string" || !/^0x[0-9a-fA-F]*$/.test(value)) {
-    throw new Error(`${label} must be a 0x-prefixed hexadecimal string.`);
-  }
-
-  return value;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function concatBytes(chunks: readonly Uint8Array[]): Uint8Array {
-  const output = new Uint8Array(chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0));
-  let offset = 0;
-  for (const chunk of chunks) {
-    output.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-
-  return output;
 }
