@@ -1,23 +1,18 @@
 # Prover CRS Conversion Benchmark
 
-> The digest portions of this historical benchmark predate the final
-> self-digest-only binary policy. Source and section digests are no longer part
-> of generated Prover CRS artifacts; the point-conversion results remain
-> applicable.
-
 ## Audience
 
-This report is for backend-wasm maintainers and performance engineers deciding
-whether to replace the current per-point Prover CRS coordinate conversion.
+This report is for backend-wasm maintainers and performance engineers reviewing
+the production Prover CRS coordinate conversion.
 
 ## Scope
 
-The benchmark compares the production conversion of native
-`combined_sigma.rkyv` points with a batch field-conversion candidate. It does
-not change production code. The real source and expected output are:
+The benchmark compared the former production conversion of native
+`combined_sigma.rkyv` points with the batch field-conversion implementation
+that was subsequently promoted. The real source and expected output are:
 
 - `tmp/fixtures/small/source/setup/combined_sigma.rkyv`: 1,038,543,880 bytes;
-- `fixtures/small/runtime/prover-crs.bin`: 1,038,338,352 bytes.
+- `fixtures/small/runtime/prover-crs.bin`: 1,038,337,912 bytes.
 
 The source is an ignored local copy prepared by the fixture-copy workflow. The
 expected binary is the existing baseline converter output.
@@ -50,11 +45,10 @@ The Node benchmark runs each case in a fresh child process and samples the RSS
 sum of that process and all ffjavascript worker descendants. Both cases:
 
 1. read and decode the same real RKYV source;
-2. calculate the same source digest;
-3. build the complete Prover CRS binary through the production artifact
+2. build the complete self-digest-only Prover CRS binary through the artifact
    builder;
-4. compare the complete output byte-for-byte with the expected artifact;
-5. compare all nine section labels, types, encodings, counts, widths, and bytes.
+3. compare the complete output byte-for-byte with the expected artifact;
+4. compare all nine section labels, types, encodings, counts, widths, and bytes.
 
 The Chromium benchmark runs each case in a fresh browser. Both use a dedicated
 module Worker, transfer and detach the source buffer, and transfer the completed
@@ -68,20 +62,24 @@ diagnostic context and is not used for the memory conclusion.
 
 | Runtime | Technique | Elapsed | Relative speed | Peak process-tree RSS |
 | --- | --- | ---: | ---: | ---: |
-| Node | Per-point BigInt/hex/parseAffine baseline | 61.493 s | 1.00x | 11.323 GiB |
-| Node | F1 batch Montgomery candidate | 2.773 s | 22.18x | 12.378 GiB |
-| Chromium | Per-point BigInt/hex/parseAffine baseline | 57.174 s | 1.00x | 11.367 GiB |
-| Chromium | F1 batch Montgomery candidate | 2.685 s | 21.29x | 12.847 GiB |
+| Node | Per-point BigInt/hex/parseAffine baseline | 60.496 s | 1.00x | 10.890 GiB |
+| Node | F1 batch Montgomery candidate | 2.367 s | 25.56x | 13.275 GiB |
+| Chromium | Per-point BigInt/hex/parseAffine baseline | 57.517 s | 1.00x | 11.333 GiB |
+| Chromium | F1 batch Montgomery candidate | 2.081 s | 27.64x | 12.824 GiB |
 
-The candidate increased peak process-tree RSS by about 1.05 GiB in Node and
-1.48 GiB in Chromium. Both browser cases detached the 1,038,543,880-byte input
-buffer and returned a 1,038,338,352-byte artifact.
+The candidate increased peak process-tree RSS by about 2.385 GiB in Node and
+1.491 GiB in Chromium. Both browser cases detached the 1,038,543,880-byte input
+buffer and returned a 1,038,337,912-byte artifact.
+
+After promotion, an independent production run completed in 1.838 seconds in
+Node and 2.086 seconds in Chromium. The complete production artifact still
+matched the expected file byte-for-byte.
 
 ## Parity
 
 Both Node cases matched the existing artifact byte-for-byte. This comparison
-also covers the final artifact digest table because it is part of the compared
-file. Every generated section matched independently:
+also covers the final self digest because it is part of the compared file.
+Every generated section matched independently:
 
 | Section | Points | Bytes |
 | --- | ---: | ---: |
@@ -97,8 +95,8 @@ file. Every generated section matched independently:
 
 ## Conclusion
 
-The batch Montgomery candidate has a decisive conversion-time advantage and
-exact output parity, but it raises peak memory materially. Production remains
-unchanged during the independent benchmark phase. Promotion must evaluate this
-tradeoff together with the digest-memory result and reproduce the measurements
-after integration.
+The project owner accepted the peak-memory increase in exchange for the
+decisive conversion-time reduction. `F1.batchToMontgomery()` is now the
+production conversion path. Temporary candidate and benchmark programs were
+removed after preserving these results; the permanent binary check retains
+zero, generator, negated-generator, repeated-point, and G2 ordering coverage.
