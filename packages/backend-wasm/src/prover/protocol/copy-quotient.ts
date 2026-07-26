@@ -3,7 +3,6 @@ import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import type { FieldElement } from "../../runtime/field/field-runtime.js";
 import type { ProverCrsRuntime } from "../api/binary-input.js";
 import type { ProverOperationOptions } from "./initial-relation.js";
-import { encodeSigma1CommitmentBarrier, requireCommitment } from "../commitments/commitment-encoder.js";
 import { encodePolynomialBufferWithSigma1 } from "../commitments/sigma1-encoder.js";
 import {
   constantPolynomialBuffer,
@@ -67,13 +66,13 @@ export async function computeCopyQuotientCommitments(input: {
   const yMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 1, 2);
   const theta2 = constantPolynomialBuffer(field, thetas[2]);
   const fXY = await linearCombinationBufferBatch(field, [
-    [field.one, state.witnessBuffers.bXY],
-    [thetas[0], state.instanceBuffers.s0XY],
-    [thetas[1], state.instanceBuffers.s1XY],
+    [field.one, state.witness.bXY],
+    [thetas[0], state.instance.s0XY],
+    [thetas[1], state.instance.s1XY],
     [field.one, theta2],
   ]);
   const gXY = await linearCombinationBufferBatch(field, [
-    [field.one, state.witnessBuffers.bXY],
+    [field.one, state.witness.bXY],
     [thetas[0], xMonomial],
     [thetas[1], yMonomial],
     [field.one, theta2],
@@ -130,24 +129,14 @@ export async function computeCopyQuotientCommitments(input: {
     [kappa0Sq, qCyTerm3],
   ]);
 
-  const commitments = await encodeSigma1CommitmentBarrier(
-    options.commitmentEncoder ?? {
-      parallelSafe: false,
-      encodeSigma1PolynomialBuffer(job) {
-        return encodePolynomialBufferWithSigma1(runtime, crs, state.setup, job.polynomial);
-      },
-    },
-    [
-      { label: "Q_CX", polynomial: qCxXY },
-      { label: "Q_CY", polynomial: qCyXY },
-    ],
-  );
+  const encode = options.commitmentEncoder
+    ?? ((polynomial: BivariatePolynomialBuffer) =>
+      encodePolynomialBufferWithSigma1(runtime, crs, state.setup, polynomial));
+  const Q_CX = await encode(qCxXY);
+  const Q_CY = await encode(qCyXY);
 
   return {
-    commitments: {
-      Q_CX: requireCommitment(commitments, "Q_CX"),
-      Q_CY: requireCommitment(commitments, "Q_CY"),
-    },
+    commitments: { Q_CX, Q_CY },
     q2XY,
     q3XY,
     lagrangeKlXY,

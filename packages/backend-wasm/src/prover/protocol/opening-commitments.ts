@@ -19,7 +19,6 @@ import {
 } from "../polynomial/recursion.js";
 import type { InitialRelationComputation, ProverOperationOptions } from "./initial-relation.js";
 import { encodePolynomialBufferWithSigma1 } from "../commitments/sigma1-encoder.js";
-import { encodeSigma1CommitmentBarrier, requireCommitment } from "../commitments/commitment-encoder.js";
 import type { CopyQuotientComputation } from "./copy-quotient.js";
 import type { ChallengeEvaluations } from "./challenge-evaluations.js";
 import type { ProverState } from "./state.js";
@@ -81,25 +80,25 @@ export async function computeOpeningCommitments(input: {
   const kappa1Fourth = field.square(kappa1Sq);
   const tNEval = state.instance.tN.eval(chi, field.one);
   const tSMaxEval = state.instance.tSMax.eval(field.one, zeta);
-  const smallVEval = await state.witnessBuffers.vXY.evalBatch(chi, zeta);
+  const smallVEval = await state.witness.vXY.evalBatch(chi, zeta);
   const rW_X = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_X, state.mixer.rW_X.length, 1);
   const rW_Y = BivariatePolynomialBuffer.fromCoeffs(field, state.mixer.rW_Y, 1, state.mixer.rW_Y.length);
   const VXY = await linearCombinationBufferBatch(field, [
-    [field.one, state.witnessBuffers.vXY],
-    [state.mixer.rV_X, state.instanceBuffers.tN],
-    [state.mixer.rV_Y, state.instanceBuffers.tSMax],
+    [field.one, state.witness.vXY],
+    [state.mixer.rV_X, state.instance.tN],
+    [state.mixer.rV_Y, state.instance.tSMax],
   ]);
   const pAXY = await linearCombinationBufferBatch(field, [
     [kappa1, VXY],
-    [smallVEval, state.witnessBuffers.uXY],
-    [field.neg(field.one), state.witnessBuffers.wXY],
+    [smallVEval, state.witness.uXY],
+    [field.neg(field.one), state.witness.wXY],
     [field.neg(tNEval), initialRelation.q0XY],
     [field.neg(tSMaxEval), initialRelation.q1XY],
-    [field.mul(smallVEval, state.mixer.rU_X), state.instanceBuffers.tN],
-    [field.mul(smallVEval, state.mixer.rU_Y), state.instanceBuffers.tSMax],
+    [field.mul(smallVEval, state.mixer.rU_X), state.instance.tN],
+    [field.mul(smallVEval, state.mixer.rU_Y), state.instance.tSMax],
     [
       field.neg(field.add(field.mul(state.mixer.rU_X, tNEval), field.mul(state.mixer.rU_Y, tSMaxEval))),
-      state.witnessBuffers.vXY,
+      state.witness.vXY,
     ],
     [tNEval, rW_X],
     [tSMaxEval, rW_Y],
@@ -107,8 +106,8 @@ export async function computeOpeningCommitments(input: {
   ]);
   const RXY = await linearCombinationBufferBatch(field, [
     [field.one, rXY],
-    [state.mixer.rR_X, state.instanceBuffers.tMi],
-    [state.mixer.rR_Y, state.instanceBuffers.tSMax],
+    [state.mixer.rR_X, state.instance.tMi],
+    [state.mixer.rR_Y, state.instance.tSMax],
   ]);
   const sharedXDivision = await field.ruffiniXBuffer(
     RXY.coefficients,
@@ -164,30 +163,18 @@ export async function computeOpeningCommitments(input: {
   const combinedPiNumerator = await linearCombinationBufferBatch(field, [
     [field.one, pAXY],
     [field.one, copyOpeningNumerator],
-    [kappa1Fourth, state.instanceBuffers.aFreeX],
+    [kappa1Fourth, state.instance.aFreeX],
   ]);
   const combinedPiDivision = await combinedPiNumerator.divByRuffiniBatch(chi, zeta);
-  const commitments = await encodeSigma1CommitmentBarrier(
-    options.commitmentEncoder ?? {
-      parallelSafe: false,
-      encodeSigma1PolynomialBuffer(job) {
-        return encodePolynomialBufferWithSigma1(runtime, crs, state.setup, job.polynomial);
-      },
-    },
-    [
-      { label: "Pi_X", polynomial: combinedPiDivision.quotientX },
-      { label: "Pi_Y", polynomial: combinedPiDivision.quotientY },
-      { label: "M_X", polynomial: sharedXQuotient },
-      { label: "M_Y", polynomial: mYQuotient },
-      { label: "N_Y", polynomial: nYQuotient },
-    ],
-  );
-  const Pi_X = requireCommitment(commitments, "Pi_X");
-  const Pi_Y = requireCommitment(commitments, "Pi_Y");
-  const M_X = requireCommitment(commitments, "M_X");
-  const M_Y = requireCommitment(commitments, "M_Y");
+  const encode = options.commitmentEncoder
+    ?? ((polynomial: BivariatePolynomialBuffer) =>
+      encodePolynomialBufferWithSigma1(runtime, crs, state.setup, polynomial));
+  const Pi_X = await encode(combinedPiDivision.quotientX);
+  const Pi_Y = await encode(combinedPiDivision.quotientY);
+  const M_X = await encode(sharedXQuotient);
+  const M_Y = await encode(mYQuotient);
   const N_X = M_X;
-  const N_Y = requireCommitment(commitments, "N_Y");
+  const N_Y = await encode(nYQuotient);
 
   return {
     commitments: {
@@ -249,13 +236,13 @@ async function buildCopyOpeningNumerator(input: {
   const yMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 1, 2);
   const theta2 = constantPolynomialBuffer(field, thetas[2]);
   const fXY = await linearCombinationBufferBatch(field, [
-    [field.one, state.witnessBuffers.bXY],
-    [thetas[0], state.instanceBuffers.s0XY],
-    [thetas[1], state.instanceBuffers.s1XY],
+    [field.one, state.witness.bXY],
+    [thetas[0], state.instance.s0XY],
+    [thetas[1], state.instance.s1XY],
     [field.one, theta2],
   ]);
   const gXY = await linearCombinationBufferBatch(field, [
-    [field.one, state.witnessBuffers.bXY],
+    [field.one, state.witness.bXY],
     [thetas[0], xMonomial],
     [thetas[1], yMonomial],
     [field.one, theta2],

@@ -45,7 +45,7 @@ export async function runIntegratedProver(
     input.witness.setup,
     input.witness.placementVariables,
     input.witness.subcircuitInfos,
-    state.instanceBuffers.aFreeX,
+    state.instance.aFreeX,
     state.mixer,
     commitmentEncoder,
   );

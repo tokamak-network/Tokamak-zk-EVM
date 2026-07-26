@@ -544,7 +544,7 @@ async function provePreparedInputWithStrictTimings(runtime: CurveRuntime, input:
       input.witness.setup,
       input.witness.placementVariables,
       input.witness.subcircuitInfos,
-      state.instanceBuffers.aFreeX,
+      state.instance.aFreeX,
       state.mixer,
     ),
   );
@@ -738,13 +738,13 @@ async function prove1Timed(
   const yMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 1, 2);
   const theta2 = constantPolynomialBuffer(field, thetas[2]);
   const fXY = await polynomialLinearCombination("prove1.fXY", field, [
-    [field.one, state.witnessBuffers.bXY],
-    [thetas[0], state.instanceBuffers.s0XY],
-    [thetas[1], state.instanceBuffers.s1XY],
+    [field.one, state.witness.bXY],
+    [thetas[0], state.instance.s0XY],
+    [thetas[1], state.instance.s1XY],
     [field.one, theta2],
   ]);
   const gXY = await polynomialLinearCombination("prove1.gXY", field, [
-    [field.one, state.witnessBuffers.bXY],
+    [field.one, state.witness.bXY],
     [thetas[0], xMonomial],
     [thetas[1], yMonomial],
     [field.one, theta2],
@@ -767,8 +767,8 @@ async function prove1Timed(
   );
   const RXY = await polynomialLinearCombination("prove1.R", field, [
     [field.one, rXY],
-    [state.mixer.rR_X, state.instanceBuffers.tMi],
-    [state.mixer.rR_Y, state.instanceBuffers.tSMax],
+    [state.mixer.rR_X, state.instance.tMi],
+    [state.mixer.rR_Y, state.instance.tSMax],
   ]);
 
   return {
@@ -964,7 +964,7 @@ async function prove4Timed(input: {
   const tSMaxEval = evaluatePolynomialAt("prove4.tSMax_eval", state.instance.tSMax, field.one, zeta);
   const smallVEval = await evaluatePolynomialAtBatch(
     "prove4.V_eval",
-    state.witnessBuffers.vXY,
+    state.witness.vXY,
     chi,
     zeta,
   );
@@ -1281,14 +1281,14 @@ async function evaluateChallengePointsTimed(input: {
   const omegaMI = field.rootOfUnity(mI);
   const omegaSMax = field.rootOfUnity(state.setup.s_max);
   const VXY = await polynomialLinearCombination("prove3.V", field, [
-    [field.one, state.witnessBuffers.vXY],
-    [state.mixer.rV_X, state.instanceBuffers.tN],
-    [state.mixer.rV_Y, state.instanceBuffers.tSMax],
+    [field.one, state.witness.vXY],
+    [state.mixer.rV_X, state.instance.tN],
+    [state.mixer.rV_Y, state.instance.tSMax],
   ]);
   const RXY = await polynomialLinearCombination("prove3.R", field, [
     [field.one, rXY],
-    [state.mixer.rR_X, state.instanceBuffers.tMi],
-    [state.mixer.rR_Y, state.instanceBuffers.tSMax],
+    [state.mixer.rR_X, state.instance.tMi],
+    [state.mixer.rR_Y, state.instance.tSMax],
   ]);
   const scaledChi = field.mul(field.inv(omegaMI), chi);
   const scaledZeta = field.mul(field.inv(omegaSMax), zeta);

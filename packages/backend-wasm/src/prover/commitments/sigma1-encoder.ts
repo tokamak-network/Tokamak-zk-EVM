@@ -202,18 +202,13 @@ export function createSigma1CommitmentEncoder(
   setup: ProverSetupParams,
   denseMsmChunkPoints = SIGMA1_DENSE_MSM_CHUNK_POINTS,
 ): ProverCommitmentEncoder {
-  return {
-    parallelSafe: false,
-    encodeSigma1PolynomialBuffer(job) {
-      return encodePolynomialBufferWithSigma1(
-        runtime,
-        crs,
-        setup,
-        job.polynomial,
-        denseMsmChunkPoints,
-      );
-    },
-  };
+  return (polynomial) => encodePolynomialBufferWithSigma1(
+    runtime,
+    crs,
+    setup,
+    polynomial,
+    denseMsmChunkPoints,
+  );
 }
 
 function prepareSigma1BaseChunk(

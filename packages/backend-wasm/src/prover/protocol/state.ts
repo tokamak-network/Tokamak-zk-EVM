@@ -12,23 +12,6 @@ export interface ProverInstancePolynomials {
   readonly s1XY: BivariatePolynomialBuffer;
 }
 
-export interface ProverInstancePolynomialBuffers {
-  readonly aFreeX: BivariatePolynomialBuffer;
-  readonly tN: BivariatePolynomialBuffer;
-  readonly tMi: BivariatePolynomialBuffer;
-  readonly tSMax: BivariatePolynomialBuffer;
-  readonly s0XY: BivariatePolynomialBuffer;
-  readonly s1XY: BivariatePolynomialBuffer;
-}
-
-export interface WitnessPolynomialBuffers {
-  readonly bXY: BivariatePolynomialBuffer;
-  readonly uXY: BivariatePolynomialBuffer;
-  readonly vXY: BivariatePolynomialBuffer;
-  readonly wXY: BivariatePolynomialBuffer;
-  readonly rXY: BivariatePolynomialBuffer;
-}
-
 export interface ProverMixer {
   readonly rU_X: FieldElement;
   readonly rU_Y: FieldElement;
@@ -46,9 +29,7 @@ export interface ProverMixer {
 export interface ProverState {
   readonly setup: ProverSetupParams;
   readonly instance: ProverInstancePolynomials;
-  readonly instanceBuffers: ProverInstancePolynomialBuffers;
   readonly witness: WitnessPolynomials;
-  readonly witnessBuffers: WitnessPolynomialBuffers;
   readonly mixer: ProverMixer;
 }
 
@@ -109,9 +90,7 @@ export async function createProverState(input: {
   return {
     setup: input.setup,
     instance,
-    instanceBuffers: instance,
     witness: input.witness,
-    witnessBuffers: input.witness,
     mixer: await createProverMixer(input.runtime),
   };
 }

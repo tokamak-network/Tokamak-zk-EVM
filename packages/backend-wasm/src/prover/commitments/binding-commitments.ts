@@ -35,10 +35,7 @@ export async function buildProverBinding(
   mixer: ProverMixer,
   commitmentEncoder: ProverCommitmentEncoder = createSigma1CommitmentEncoder(runtime, crs, setup),
 ): Promise<ProverBinding> {
-  const A_free = await commitmentEncoder.encodeSigma1PolynomialBuffer({
-    label: "A_free",
-    polynomial: aFreeX,
-  });
+  const A_free = await commitmentEncoder(aFreeX);
   const O_pub_free = await encodeOPubFree(runtime, crs, placementVariables, subcircuitInfos);
   const O_mid_core = await encodeOMidNoZk(runtime, crs, setup, placementVariables, subcircuitInfos);
   const O_mid = runtime.G1.add(O_mid_core, runtime.G1.mulAffineScalar(crs.sigma1.delta, mixer.rO_mid));

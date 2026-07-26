@@ -29,14 +29,14 @@ export async function evaluateChallengePoints(input: {
   const omegaMI = field.rootOfUnity(mI);
   const omegaSMax = field.rootOfUnity(state.setup.s_max);
   const VXY = await linearCombinationBufferBatch(field, [
-    [field.one, state.witnessBuffers.vXY],
-    [state.mixer.rV_X, state.instanceBuffers.tN],
-    [state.mixer.rV_Y, state.instanceBuffers.tSMax],
+    [field.one, state.witness.vXY],
+    [state.mixer.rV_X, state.instance.tN],
+    [state.mixer.rV_Y, state.instance.tSMax],
   ]);
   const RXY = await linearCombinationBufferBatch(field, [
     [field.one, rXY],
-    [state.mixer.rR_X, state.instanceBuffers.tMi],
-    [state.mixer.rR_Y, state.instanceBuffers.tSMax],
+    [state.mixer.rR_X, state.instance.tMi],
+    [state.mixer.rR_Y, state.instance.tSMax],
   ]);
   const scaledChi = field.mul(field.inv(omegaMI), chi);
   const scaledZeta = field.mul(field.inv(omegaSMax), zeta);

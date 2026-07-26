@@ -268,7 +268,7 @@ async function main(): Promise<void> {
       prove0Setup,
       [],
       [],
-      smallProverState.instanceBuffers.aFreeX,
+      smallProverState.instance.aFreeX,
       smallProverState.mixer,
     );
     const verifierProofArtifact = await loadRuntimeArtifactFile(

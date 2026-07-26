@@ -40,13 +40,13 @@ export async function computeRecursionCommitment(
   const yMonomial = BivariatePolynomialBuffer.fromCoeffs(field, [field.zero, field.one], 1, 2);
   const theta2 = constantPolynomialBuffer(field, thetas[2]);
   const fXY = await linearCombinationBufferBatch(field, [
-    [field.one, state.witnessBuffers.bXY],
-    [thetas[0], state.instanceBuffers.s0XY],
-    [thetas[1], state.instanceBuffers.s1XY],
+    [field.one, state.witness.bXY],
+    [thetas[0], state.instance.s0XY],
+    [thetas[1], state.instance.s1XY],
     [field.one, theta2],
   ]);
   const gXY = await linearCombinationBufferBatch(field, [
-    [field.one, state.witnessBuffers.bXY],
+    [field.one, state.witness.bXY],
     [thetas[0], xMonomial],
     [thetas[1], yMonomial],
     [field.one, theta2],
@@ -59,16 +59,16 @@ export async function computeRecursionCommitment(
   const rXY = await BivariatePolynomialBuffer.fromRouEvals(field, rXYEvals, mI, sMax);
   const RXY = await linearCombinationBufferBatch(field, [
     [field.one, rXY],
-    [state.mixer.rR_X, state.instanceBuffers.tMi],
-    [state.mixer.rR_Y, state.instanceBuffers.tSMax],
+    [state.mixer.rR_X, state.instance.tMi],
+    [state.mixer.rR_Y, state.instance.tSMax],
   ]);
 
   return {
     commitment: {
-      R: await (options.commitmentEncoder?.encodeSigma1PolynomialBuffer({
-        label: "R",
-        polynomial: RXY,
-      }) ?? encodePolynomialBufferWithSigma1(runtime, crs, state.setup, RXY)),
+      R: await (
+        options.commitmentEncoder?.(RXY)
+        ?? encodePolynomialBufferWithSigma1(runtime, crs, state.setup, RXY)
+      ),
     },
     rXY,
   };
