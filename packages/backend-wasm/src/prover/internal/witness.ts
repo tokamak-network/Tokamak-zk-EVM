@@ -1,5 +1,5 @@
-import { BivariatePolynomialBuffer } from "../../core/polynomial/bivariate-polynomial-buffer.js";
-import type { FieldElement, FieldRuntime } from "../../core/field/field.js";
+import { BivariatePolynomialBuffer } from "../../runtime/polynomial/bivariate-polynomial-buffer.js";
+import type { FieldElement, FieldRuntime } from "../../runtime/field/field.js";
 
 export interface ProverSetupParams {
   readonly l_free: number;

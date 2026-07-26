@@ -4,9 +4,9 @@ import {
   loadVerifierProofArtifact,
 } from "../../artifacts/loaders/prepared-data.js";
 import type { RuntimeArtifactFile } from "../../artifacts/loaders/types.js";
-import { DensePolynomialExt } from "../../core/polynomial/dense-polynomial.js";
-import type { CurveRuntime } from "../../core/curve/curve.js";
-import type { FieldElement } from "../../core/field/field.js";
+import { DensePolynomialExt } from "../../runtime/polynomial/dense-polynomial.js";
+import type { CurveRuntime } from "../../runtime/curve/curve.js";
+import type { FieldElement } from "../../runtime/field/field.js";
 import { BinarySectionEncoding, BinarySectionType } from "../../artifacts/format/binary-format.js";
 import { GENERATED_PROVER_SETUP_PARAMS } from "../../prover/generated/subcircuit-library.generated.js";
 import type { VerifierSetupParams } from "../equations/domain-context.js";

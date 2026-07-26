@@ -9,7 +9,7 @@ import {
   FIELD_BATCH_SCALE_Y,
   installLinearBatchPlugin,
   type WasmModuleBuilder,
-} from "../../../src/core/field/linear-batch-plugin.js";
+} from "../../../src/runtime/field/linear-batch-plugin.js";
 
 interface BenchmarkOptions {
   readonly shape: readonly [number, number];

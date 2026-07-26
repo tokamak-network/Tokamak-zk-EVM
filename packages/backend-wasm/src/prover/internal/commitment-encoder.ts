@@ -1,5 +1,5 @@
-import type { G1Point } from "../../core/group/group.js";
-import type { BivariatePolynomialBuffer } from "../../core/polynomial/bivariate-polynomial-buffer.js";
+import type { G1Point } from "../../runtime/group/group.js";
+import type { BivariatePolynomialBuffer } from "../../runtime/polynomial/bivariate-polynomial-buffer.js";
 
 export interface ProverCommitmentJob {
   readonly label: string;

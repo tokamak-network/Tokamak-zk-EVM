@@ -187,7 +187,7 @@ Production runtime status:
 
 - `src/prover` does not contain the browser worker commitment encoder.
 - `proveSnark(...)` does not accept a worker commitment encoder option.
-- `src/prover`, `src/core`, and package entrypoints do not create browser workers.
+- `src/prover`, `src/runtime`, and package entrypoints do not create browser workers.
 - `createCurveRuntime()` defaults to ffjavascript primitive parallel mode through `singleThread: false`.
 
 Benchmark status:

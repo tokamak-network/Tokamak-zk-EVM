@@ -1,6 +1,6 @@
-import { BivariatePolynomialBuffer } from "../../core/polynomial/bivariate-polynomial-buffer.js";
-import type { CurveRuntime } from "../../core/curve/curve.js";
-import type { FieldElement } from "../../core/field/field.js";
+import { BivariatePolynomialBuffer } from "../../runtime/polynomial/bivariate-polynomial-buffer.js";
+import type { CurveRuntime } from "../../runtime/curve/curve.js";
+import type { FieldElement } from "../../runtime/field/field.js";
 
 export function constantPolynomialBuffer(field: CurveRuntime["Fr"], value: FieldElement): BivariatePolynomialBuffer {
   return BivariatePolynomialBuffer.fromCoeffs(field, [value], 1, 1);

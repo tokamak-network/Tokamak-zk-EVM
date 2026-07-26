@@ -1,4 +1,4 @@
-import type { CurveRuntime } from "../../core/curve/curve.js";
+import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import { runIntegratedProver } from "../internal/integrated-prover.js";
 import { createVerifierProofArtifactFromProverOutput } from "./proof-output.js";
 import type { ProverRuntimeInput } from "./binary-input.js";

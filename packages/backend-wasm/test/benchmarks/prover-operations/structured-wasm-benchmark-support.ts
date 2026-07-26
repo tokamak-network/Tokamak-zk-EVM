@@ -1,11 +1,11 @@
 import { getCurveFromName } from "ffjavascript";
 
-import type { FfField } from "../../../src/core/curve/curve.js";
-import { createFieldRuntime, type FieldRuntime } from "../../../src/core/field/field.js";
+import type { FfField } from "../../../src/runtime/curve/curve.js";
+import { createFieldRuntime, type FieldRuntime } from "../../../src/runtime/field/field.js";
 import {
   installLinearBatchPlugin,
   type WasmModuleBuilder,
-} from "../../../src/core/field/linear-batch-plugin.js";
+} from "../../../src/runtime/field/linear-batch-plugin.js";
 
 interface RawCurve {
   readonly Fr: FfField;

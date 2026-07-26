@@ -3,8 +3,8 @@ import path from "node:path";
 import { Buffer } from "node:buffer";
 import { createRequire } from "node:module";
 
-import { createCurveRuntime } from "../../src/core/curve/curve.js";
-import type { FieldElement } from "../../src/core/field/field.js";
+import { createCurveRuntime } from "../../src/runtime/curve/curve.js";
+import type { FieldElement } from "../../src/runtime/field/field.js";
 import type {
   ProverSetupParams,
   ProverSubcircuitInfo,

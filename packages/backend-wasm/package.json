@@ -11,7 +11,7 @@
     "dist/index.js",
     "dist/index.d.ts",
     "dist/artifacts",
-    "dist/core",
+    "dist/runtime",
     "dist/prover",
     "dist/tooling",
     "dist/utils",

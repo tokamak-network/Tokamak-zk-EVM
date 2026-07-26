@@ -6,7 +6,7 @@ import {
   BinarySectionType,
   type BinarySectionInput,
 } from "../../artifacts/format/binary-format.js";
-import { createCurveRuntime, type CurveRuntime } from "../../core/curve/curve.js";
+import { createCurveRuntime, type CurveRuntime } from "../../runtime/curve/curve.js";
 
 const G1_AFFINE_BYTES = 96;
 const G2_AFFINE_BYTES = 192;

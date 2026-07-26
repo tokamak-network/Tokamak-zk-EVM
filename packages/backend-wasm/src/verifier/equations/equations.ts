@@ -1,6 +1,6 @@
-import type { DensePolynomialExt } from "../../core/polynomial/dense-polynomial.js";
-import type { FieldElement, FieldRuntime } from "../../core/field/field.js";
-import type { G1Point, G1Runtime } from "../../core/group/group.js";
+import type { DensePolynomialExt } from "../../runtime/polynomial/dense-polynomial.js";
+import type { FieldElement, FieldRuntime } from "../../runtime/field/field.js";
+import type { G1Point, G1Runtime } from "../../runtime/group/group.js";
 import type { VerifierChallenges } from "./challenges.js";
 import type { VerifierDomainContext } from "./domain-context.js";
 import type { VerifierInput, VerifierProof } from "../internal/verify-snark.js";

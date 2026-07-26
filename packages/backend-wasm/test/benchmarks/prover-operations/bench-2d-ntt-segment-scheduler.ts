@@ -9,7 +9,7 @@ import {
   type FfCurve,
   type FieldRuntime,
 } from "../../../src/index.js";
-import { installLinearBatchPlugin } from "../../../src/core/field/linear-batch-plugin.js";
+import { installLinearBatchPlugin } from "../../../src/runtime/field/linear-batch-plugin.js";
 
 interface BenchmarkOptions {
   readonly shapes: readonly Shape[];

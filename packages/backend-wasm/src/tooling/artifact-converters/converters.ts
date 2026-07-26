@@ -8,7 +8,7 @@ import {
   BinarySectionType,
   type BinarySectionView,
 } from "../../artifacts/format/binary-format.js";
-import { createCurveRuntime, type CurveRuntime } from "../../core/curve/curve.js";
+import { createCurveRuntime, type CurveRuntime } from "../../runtime/curve/curve.js";
 import type {
   BinaryArtifactInspection,
   BinaryDigestInspection,

@@ -4,7 +4,7 @@ import {
   BinarySectionEncoding,
   BinarySectionType,
 } from "../../artifacts/format/binary-format.js";
-import type { CurveRuntime } from "../../core/curve/curve.js";
+import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import type { ProverBinding, InitialRelationComputation } from "../internal/initial-relation.js";
 import type { RecursionComputation } from "../internal/recursion-commitment.js";
 import type { CopyQuotientComputation } from "../internal/copy-quotient.js";

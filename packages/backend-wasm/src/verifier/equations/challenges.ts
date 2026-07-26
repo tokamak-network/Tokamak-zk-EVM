@@ -1,7 +1,7 @@
-import { RollingKeccakTranscript } from "../../core/crypto/transcript.js";
-import type { FieldElement, FieldRuntime } from "../../core/field/field.js";
-import type { G1Runtime } from "../../core/group/group.js";
-import type { RandomScalarSource } from "../../core/random/random.js";
+import { RollingKeccakTranscript } from "../../runtime/crypto/transcript.js";
+import type { FieldElement, FieldRuntime } from "../../runtime/field/field.js";
+import type { G1Runtime } from "../../runtime/group/group.js";
+import type { RandomScalarSource } from "../../runtime/random/random.js";
 import type { VerifierProof } from "../internal/verify-snark.js";
 
 export interface VerifierChallenges {

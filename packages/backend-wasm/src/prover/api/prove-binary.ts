@@ -1,4 +1,4 @@
-import type { CurveRuntime } from "../../core/curve/curve.js";
+import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import {
   loadProverInputFromBinaryInput,
   type ProverBinaryInput,

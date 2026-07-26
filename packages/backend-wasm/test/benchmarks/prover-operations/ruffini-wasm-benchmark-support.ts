@@ -5,12 +5,12 @@ import {
   type BivariateBufferRuffiniDivisionResult,
   type FieldElement,
 } from "../../../src/index.js";
-import type { FfField, FfWorkerCommand } from "../../../src/core/curve/curve.js";
-import { createFieldRuntime, type FieldRuntime } from "../../../src/core/field/field.js";
+import type { FfField, FfWorkerCommand } from "../../../src/runtime/curve/curve.js";
+import { createFieldRuntime, type FieldRuntime } from "../../../src/runtime/field/field.js";
 import {
   installLinearBatchPlugin,
   type WasmModuleBuilder,
-} from "../../../src/core/field/linear-batch-plugin.js";
+} from "../../../src/runtime/field/linear-batch-plugin.js";
 
 const RUFFINI_X = "tokamak_bench_ruffiniX";
 const RUFFINI_Y = "tokamak_bench_ruffiniY";

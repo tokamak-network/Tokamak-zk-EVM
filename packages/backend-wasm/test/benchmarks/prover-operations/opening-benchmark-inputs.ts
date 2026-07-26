@@ -1,6 +1,6 @@
-import { BivariatePolynomialBuffer } from "../../../src/core/polynomial/bivariate-polynomial-buffer.js";
-import type { CurveRuntime } from "../../../src/core/curve/curve.js";
-import type { FieldElement } from "../../../src/core/field/field.js";
+import { BivariatePolynomialBuffer } from "../../../src/runtime/polynomial/bivariate-polynomial-buffer.js";
+import type { CurveRuntime } from "../../../src/runtime/curve/curve.js";
+import type { FieldElement } from "../../../src/runtime/field/field.js";
 import {
   constantPolynomialBuffer,
   evaluateAtScaledChallengeSetBatch,

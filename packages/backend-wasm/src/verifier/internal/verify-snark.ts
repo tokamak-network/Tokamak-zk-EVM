@@ -1,8 +1,8 @@
-import type { DensePolynomialExt } from "../../core/polynomial/dense-polynomial.js";
-import type { CurveRuntime } from "../../core/curve/curve.js";
-import type { FieldElement } from "../../core/field/field.js";
-import type { G1Point, G2Point } from "../../core/group/group.js";
-import type { RandomScalarSource } from "../../core/random/random.js";
+import type { DensePolynomialExt } from "../../runtime/polynomial/dense-polynomial.js";
+import type { CurveRuntime } from "../../runtime/curve/curve.js";
+import type { FieldElement } from "../../runtime/field/field.js";
+import type { G1Point, G2Point } from "../../runtime/group/group.js";
+import type { RandomScalarSource } from "../../runtime/random/random.js";
 import { collectChallenges } from "../equations/challenges.js";
 import { buildDomainContext, type VerifierSetupParams } from "../equations/domain-context.js";
 import {

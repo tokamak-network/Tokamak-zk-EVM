@@ -1,4 +1,4 @@
-import type { FieldElement } from "../../../src/core/field/field.js";
+import type { FieldElement } from "../../../src/runtime/field/field.js";
 import type {
   ProverPackedSparseSubcircuitR1cs,
   ProverWitnessInput,

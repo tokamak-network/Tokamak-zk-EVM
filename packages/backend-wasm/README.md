@@ -50,7 +50,7 @@ packages/backend-wasm/
   tools/
 ```
 
-### `src/core/`
+### `src/runtime/`
 
 Runtime primitives that `src/prover` and `src/verifier` may directly depend on.
 
@@ -75,7 +75,7 @@ Verifier orchestration for the custom Tokamak protocol.
 - `generated/`: build-generated verifier CRS data.
 - `internal/`: decoded-input verifier core used by the public API and diagnostics.
 
-This layer composes `src/core/` and `src/artifacts/` primitives and should not parse JSON, decode rkyv, or perform import/export formatting.
+This layer composes `src/runtime/` and `src/artifacts/` primitives and should not parse JSON, decode rkyv, or perform import/export formatting.
 
 ### `src/prover/`
 

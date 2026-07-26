@@ -1,8 +1,8 @@
 import { loadRuntimeArtifactFile, requireRuntimeSection } from "../../artifacts/loaders/loaders.js";
 import { loadProverCrsArtifact } from "../../artifacts/loaders/prepared-data.js";
 import type { RuntimeArtifactFile } from "../../artifacts/loaders/types.js";
-import type { CurveRuntime } from "../../core/curve/curve.js";
-import type { FieldElement } from "../../core/field/field.js";
+import type { CurveRuntime } from "../../runtime/curve/curve.js";
+import type { FieldElement } from "../../runtime/field/field.js";
 import { BinarySectionEncoding, BinarySectionType } from "../../artifacts/format/binary-format.js";
 import {
   GENERATED_PROVER_SETUP_PARAMS,
