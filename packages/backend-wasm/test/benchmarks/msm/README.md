@@ -170,9 +170,6 @@ Candidates:
 - `scalar-two-scan`: retained pre-Priority-24B scalar field zero tests.
 - `current-production`: direct zero tests over the validated all-zero
   Montgomery representation.
-- `single-scan`: one caller-thread scan with maximum-size compact buffers.
-- `wasm-single-scan`: one backend-owned WASM compaction task.
-- `wasm-worker-scan`: ffjavascript-worker-sharded WASM compaction.
 
 Usage:
 
@@ -213,9 +210,10 @@ alternating-order iterations after one warmup.
 | 1.00 | dense | 75.41 | 2.98 | 4602.13 | 4530.95 | 1.5% |
 
 The raw-byte two-scan candidate won every density without increasing explicit
-temporary storage. Single-scan JavaScript over-allocated 128 MiB. WASM
-compaction used 397-512 MiB because the existing ffjavascript worker model
-copies inputs and maximum-size outputs. Those alternatives were rejected.
+temporary storage. Rejected single-scan and WASM compaction evidence is
+preserved in the
+[rejected candidate summary](../../../docs/optimization/rejected/rejected-candidate-summary.md);
+their executable implementations are not retained.
 
 ## Binding Scalar Conversion Benchmark
 

@@ -1,14 +1,12 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { BivariatePolynomialBuffer, type FieldElement } from "../../../src/index.js";
 import {
-  compactSparseSingleTask,
-  compactSparseWorkerShards,
-  createCompactionBenchmarkRuntime,
-  type CompactionBenchmarkRuntime,
-  type CompactedInput,
-} from "./sparse-compaction-benchmark-support.js";
+  BivariatePolynomialBuffer,
+  createCurveRuntime,
+  type CurveRuntime,
+  type FieldElement,
+} from "../../../src/index.js";
 
 const G1_AFFINE_BYTES = 96;
 const DENSE_CHUNK_POINTS = 1 << 18;
@@ -16,10 +14,7 @@ const DENSE_MIN_DENSITY = 0.75;
 
 type Candidate =
   | "scalar-two-scan"
-  | "current-production"
-  | "single-scan"
-  | "wasm-single-scan"
-  | "wasm-worker-scan";
+  | "current-production";
 
 interface Shape {
   readonly xSize: number;
@@ -47,6 +42,12 @@ interface BenchmarkCase {
 interface MsmChunk {
   readonly bases: Uint8Array;
   readonly montgomeryScalars: Uint8Array;
+}
+
+interface CompactedInput {
+  readonly bases: Uint8Array;
+  readonly montgomeryScalars: Uint8Array;
+  readonly nonzeroCount: number;
 }
 
 interface PreparedCommitment {
@@ -80,7 +81,6 @@ interface TimingRow {
   readonly density: number;
   readonly path: PreparedCommitment["path"];
   readonly nonzeroCount: number;
-  readonly workerCount: number;
   readonly preparationMs: Summary;
   readonly conversionMs: Summary;
   readonly msmMs: Summary;
@@ -91,7 +91,7 @@ interface TimingRow {
 
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2));
-  const runtime = await createCompactionBenchmarkRuntime(options.singleThread);
+  const runtime = await createCurveRuntime({ singleThread: options.singleThread });
 
   try {
     await checkSmallParity(runtime);
@@ -113,7 +113,7 @@ async function main(): Promise<void> {
 }
 
 async function benchmarkCaseCandidates(
-  runtime: CompactionBenchmarkRuntime,
+  runtime: CurveRuntime,
   benchmarkCase: BenchmarkCase,
   options: BenchmarkOptions,
 ): Promise<TimingRow[]> {
@@ -162,7 +162,6 @@ async function benchmarkCaseCandidates(
       density: benchmarkCase.density,
       path: values[0].path,
       nonzeroCount: values[0].nonzeroCount,
-      workerCount: runtime.workerCount,
       preparationMs: summarize(values.map((value) => value.preparationMs)),
       conversionMs: summarize(values.map((value) => value.conversionMs)),
       msmMs: summarize(values.map((value) => value.msmMs)),
@@ -174,7 +173,7 @@ async function benchmarkCaseCandidates(
 }
 
 async function runCandidate(
-  runtime: CompactionBenchmarkRuntime,
+  runtime: CurveRuntime,
   benchmarkCase: BenchmarkCase,
   candidate: Candidate,
 ): Promise<RunMetrics> {
@@ -215,7 +214,7 @@ async function runCandidate(
 }
 
 async function prepareCandidate(
-  runtime: CompactionBenchmarkRuntime,
+  runtime: CurveRuntime,
   benchmarkCase: BenchmarkCase,
   candidate: Candidate,
 ): Promise<PreparedCommitment> {
@@ -224,17 +223,11 @@ async function prepareCandidate(
       return prepareTwoScan(runtime, benchmarkCase, false);
     case "current-production":
       return prepareTwoScan(runtime, benchmarkCase, true);
-    case "single-scan":
-      return prepareSingleScan(runtime, benchmarkCase);
-    case "wasm-single-scan":
-      return await prepareWasmScan(runtime, benchmarkCase, false);
-    case "wasm-worker-scan":
-      return await prepareWasmScan(runtime, benchmarkCase, true);
   }
 }
 
 function prepareTwoScan(
-  runtime: CompactionBenchmarkRuntime,
+  runtime: CurveRuntime,
   benchmarkCase: BenchmarkCase,
   rawZeroTest: boolean,
 ): PreparedCommitment {
@@ -265,98 +258,6 @@ function prepareTwoScan(
     rawZeroTest,
   );
   return sparsePrepared(compact, compact.bases.byteLength + compact.montgomeryScalars.byteLength);
-}
-
-function prepareSingleScan(
-  runtime: CompactionBenchmarkRuntime,
-  benchmarkCase: BenchmarkCase,
-): PreparedCommitment {
-  const degree = benchmarkCase.polynomial.findDegree();
-  if (degree.xDegree < 0 || degree.yDegree < 0) {
-    return zeroPrepared();
-  }
-  const xSize = degree.xDegree + 1;
-  const ySize = degree.yDegree + 1;
-  const maxCount = xSize * ySize;
-  const bases = new Uint8Array(maxCount * G1_AFFINE_BYTES);
-  const scalars = new Uint8Array(maxCount * runtime.Fr.byteLength);
-  let nonzeroCount = 0;
-  for (let x = 0; x < xSize; x += 1) {
-    for (let y = 0; y < ySize; y += 1) {
-      const scalar = benchmarkCase.polynomial.getCoeff(x, y);
-      if (runtime.Fr.isZero(scalar)) {
-        continue;
-      }
-      const sourceIndex = x * benchmarkCase.shape.ySize + y;
-      bases.set(
-        benchmarkCase.rawBases.subarray(
-          sourceIndex * G1_AFFINE_BYTES,
-          (sourceIndex + 1) * G1_AFFINE_BYTES,
-        ),
-        nonzeroCount * G1_AFFINE_BYTES,
-      );
-      scalars.set(scalar, nonzeroCount * runtime.Fr.byteLength);
-      nonzeroCount += 1;
-    }
-  }
-  const allocatedBytes = bases.byteLength + scalars.byteLength;
-  if (shouldUseDense(maxCount, nonzeroCount)) {
-    const dense = prepareDense(benchmarkCase, xSize, ySize, nonzeroCount);
-    return {
-      ...dense,
-      explicitTemporaryBytes: dense.explicitTemporaryBytes + allocatedBytes,
-    };
-  }
-  return sparsePrepared({
-    bases: bases.subarray(0, nonzeroCount * G1_AFFINE_BYTES),
-    montgomeryScalars: scalars.subarray(0, nonzeroCount * runtime.Fr.byteLength),
-    nonzeroCount,
-  }, allocatedBytes);
-}
-
-async function prepareWasmScan(
-  runtime: CompactionBenchmarkRuntime,
-  benchmarkCase: BenchmarkCase,
-  workers: boolean,
-): Promise<PreparedCommitment> {
-  const degree = benchmarkCase.polynomial.findDegree();
-  if (degree.xDegree < 0 || degree.yDegree < 0) {
-    return zeroPrepared();
-  }
-  const xSize = degree.xDegree + 1;
-  const ySize = degree.yDegree + 1;
-  const activeBases = extractActiveRows(
-    benchmarkCase.rawBases,
-    benchmarkCase.shape.ySize,
-    xSize,
-    ySize,
-    G1_AFFINE_BYTES,
-  );
-  const activeScalars = extractActiveRows(
-    benchmarkCase.polynomial.coefficients,
-    benchmarkCase.shape.ySize,
-    xSize,
-    ySize,
-    runtime.Fr.byteLength,
-  );
-  const compact = workers
-    ? await compactSparseWorkerShards(runtime.rawFr, activeBases, activeScalars)
-    : await compactSparseSingleTask(runtime.rawFr, activeBases, activeScalars);
-  const workerTransferBytes = (activeBases.byteLength + activeScalars.byteLength) * 2;
-  const outputBytes = compact.bases.byteLength + compact.montgomeryScalars.byteLength;
-  if (shouldUseDense(xSize * ySize, compact.nonzeroCount)) {
-    const dense = prepareDense(benchmarkCase, xSize, ySize, compact.nonzeroCount);
-    return {
-      ...dense,
-      explicitTemporaryBytes:
-        dense.explicitTemporaryBytes + activeBases.byteLength + activeScalars.byteLength
-        + workerTransferBytes + outputBytes,
-    };
-  }
-  return sparsePrepared(
-    compact,
-    activeBases.byteLength + activeScalars.byteLength + workerTransferBytes + outputBytes,
-  );
 }
 
 function prepareDense(
@@ -403,7 +304,7 @@ function prepareDense(
 }
 
 function compactInJavaScript(
-  runtime: CompactionBenchmarkRuntime,
+  runtime: CurveRuntime,
   benchmarkCase: BenchmarkCase,
   xSize: number,
   ySize: number,
@@ -445,7 +346,7 @@ function compactInJavaScript(
 }
 
 function countNonzero(
-  runtime: CompactionBenchmarkRuntime,
+  runtime: CurveRuntime,
   polynomial: BivariatePolynomialBuffer,
   xSize: number,
   ySize: number,
@@ -532,16 +433,6 @@ function shouldUseDense(pointCount: number, nonzeroCount: number): boolean {
   return pointCount > DENSE_CHUNK_POINTS && nonzeroCount / pointCount >= DENSE_MIN_DENSITY;
 }
 
-function extractActiveRows(
-  source: Uint8Array,
-  sourceYSize: number,
-  xSize: number,
-  ySize: number,
-  elementBytes: number,
-): Uint8Array {
-  return extractRowRange(source, sourceYSize, 0, xSize, ySize, elementBytes);
-}
-
 function extractRowRange(
   source: Uint8Array,
   sourceYSize: number,
@@ -568,7 +459,7 @@ function extractRowRange(
 }
 
 function buildBenchmarkCase(
-  runtime: CompactionBenchmarkRuntime,
+  runtime: CurveRuntime,
   shape: Shape,
   density: number,
   seed: bigint,
@@ -588,7 +479,7 @@ function buildBenchmarkCase(
 }
 
 function buildPatternedAffineBases(
-  runtime: CompactionBenchmarkRuntime,
+  runtime: CurveRuntime,
   length: number,
 ): Uint8Array {
   const patternLength = Math.min(length, 256);
@@ -606,7 +497,7 @@ function buildPatternedAffineBases(
 }
 
 function buildCoefficientBuffer(
-  runtime: CompactionBenchmarkRuntime,
+  runtime: CurveRuntime,
   shape: Shape,
   density: number,
   seed: bigint,
@@ -626,21 +517,14 @@ function buildCoefficientBuffer(
   return output;
 }
 
-async function checkSmallParity(runtime: CompactionBenchmarkRuntime): Promise<void> {
+async function checkSmallParity(runtime: CurveRuntime): Promise<void> {
   const rawBases = buildPatternedAffineBases(runtime, 32);
   for (const density of [0, 0.1, 0.5, 1]) {
     const benchmarkCase = buildBenchmarkCase(runtime, { xSize: 8, ySize: 4 }, density, 0x504152495459n, rawBases);
     const current = await runCandidate(runtime, benchmarkCase, "current-production");
-    for (const candidate of [
-      "scalar-two-scan",
-      "single-scan",
-      "wasm-single-scan",
-      "wasm-worker-scan",
-    ] as const) {
-      const actual = await runCandidate(runtime, benchmarkCase, candidate);
-      if (!runtime.G1.eq(actual.result, current.result)) {
-        throw new Error(`Small commitment parity failed for ${candidate} at density ${density}.`);
-      }
+    const actual = await runCandidate(runtime, benchmarkCase, "scalar-two-scan");
+    if (!runtime.G1.eq(actual.result, current.result)) {
+      throw new Error(`Small commitment parity failed at density ${density}.`);
     }
   }
 }
@@ -664,7 +548,7 @@ function parseOptions(args: readonly string[]): BenchmarkOptions {
     densities: parseDensities(values.get("densities") ?? "0,0.1,0.25,0.5,0.75,1"),
     candidates: parseCandidates(
       values.get("candidates")
-      ?? "scalar-two-scan,current-production,single-scan,wasm-single-scan,wasm-worker-scan",
+      ?? "scalar-two-scan,current-production",
     ),
     iterations: parsePositiveInteger(values.get("iterations") ?? "3", "iterations"),
     warmup: parseNonNegativeInteger(values.get("warmup") ?? "1", "warmup"),
@@ -700,9 +584,6 @@ function parseCandidates(value: string): Candidate[] {
   const valid = new Set<Candidate>([
     "scalar-two-scan",
     "current-production",
-    "single-scan",
-    "wasm-single-scan",
-    "wasm-worker-scan",
   ]);
   const candidates = value.split(",").map((entry) => entry.trim() as Candidate);
   if (!candidates.includes("current-production")) {
@@ -758,7 +639,7 @@ function randomUnit(random: () => bigint): number {
 }
 
 function randomFieldElement(
-  runtime: CompactionBenchmarkRuntime,
+  runtime: CurveRuntime,
   random: () => bigint,
 ): FieldElement {
   let value = 0n;
@@ -791,7 +672,6 @@ function printRows(rows: readonly TimingRow[], options: BenchmarkOptions): void 
     density: row.density.toFixed(2),
     path: row.path,
     nonzero: row.nonzeroCount,
-    workers: row.workerCount,
     "prep ms": row.preparationMs.median.toFixed(3),
     "convert ms": row.conversionMs.median.toFixed(3),
     "msm ms": row.msmMs.median.toFixed(3),
