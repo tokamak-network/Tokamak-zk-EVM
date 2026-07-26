@@ -601,7 +601,6 @@ export function createFieldRuntime(field: FfField): FieldRuntime {
             xSize,
             count,
             xDegree,
-            field.n8,
           ),
         )),
       );
@@ -1811,7 +1810,6 @@ function buildVanishingXTask(
   xSize: number,
   yColumns: number,
   xDegree: number,
-  elementBytes: number,
 ): FfWorkerCommand[] {
   return [
     { cmd: "ALLOCSET", var: 0, buff: input },

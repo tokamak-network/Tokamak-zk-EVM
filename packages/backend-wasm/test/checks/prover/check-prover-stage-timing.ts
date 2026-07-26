@@ -31,17 +31,13 @@ import {
 import type { RecursionComputation } from "../../../src/prover/internal/recursion-commitment.js";
 import { type CopyQuotientComputation, type CopyQuotientCommitments } from "../../../src/prover/internal/copy-quotient.js";
 import type { ChallengeEvaluations } from "../../../src/prover/internal/challenge-evaluations.js";
-import {
-  type OpeningCommitmentsComputation,
-  type OpeningProofCommitments,
-} from "../../../src/prover/internal/opening-commitments.js";
+import type { OpeningCommitmentsComputation } from "../../../src/prover/internal/opening-commitments.js";
 import {
   buildLagrangeKl,
   combineLinearXWithScaled,
   combineLinearYWithScaled,
   constantPolynomialBuffer,
   computeRecursionEvalsBuffer,
-  evaluateAtScaledChallengeSet,
   evaluateAtScaledChallengeSetBatch,
   evaluateLagrangeK0At,
   linearCombinationBufferBatch,
@@ -473,20 +469,6 @@ async function polynomialLinearCombination(
     () => linearCombinationBufferBatch(field, terms),
     terms.map(([, polynomial], index) => shapeSize(`term_${index}`, polynomial.xSize, polynomial.ySize)),
   );
-}
-
-function createPolynomialFromTimingBuffer(
-  field: CurveRuntime["Fr"],
-  coefficients: Uint8Array,
-  xSize: number,
-  ySize: number,
-): BivariatePolynomialBuffer {
-  const constructor = BivariatePolynomialBuffer as unknown as {
-    fromOwnedBuffer?: (field: CurveRuntime["Fr"], coefficients: Uint8Array, xSize: number, ySize: number) => BivariatePolynomialBuffer;
-    fromBuffer: (field: CurveRuntime["Fr"], coefficients: Uint8Array, xSize: number, ySize: number) => BivariatePolynomialBuffer;
-  };
-
-  return constructor.fromOwnedBuffer?.(field, coefficients, xSize, ySize) ?? constructor.fromBuffer(field, coefficients, xSize, ySize);
 }
 
 async function main(): Promise<void> {
@@ -1362,10 +1344,6 @@ async function encodePolynomialBufferWithSigma1Timed(
   );
 }
 
-function constantPolynomial(field: CurveRuntime["Fr"], value: FieldElement): BivariatePolynomialBuffer {
-  return BivariatePolynomialBuffer.fromCoeffs(field, [value], 1, 1);
-}
-
 function collectThetaChallenges(
   runtime: CurveRuntime,
   transcript: RollingKeccakTranscript,
@@ -2091,10 +2069,6 @@ function categoryCount(totals: readonly TimingTotal[], category: string): number
 
 function shapeSize(label: string, xSize: number, ySize: number): SizeInfo {
   return { label, dims: [xSize, ySize] };
-}
-
-function flatSize(label: string, count: number): SizeInfo {
-  return { label, dims: [count] };
 }
 
 function formatDuration(milliseconds: number): string {

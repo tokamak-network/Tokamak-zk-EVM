@@ -2,20 +2,16 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import {
-  BinaryArtifactFileKind,
   BivariatePolynomialBuffer,
   RollingKeccakTranscript,
-  RuntimeArtifactFileRole,
   buildWitnessPolynomials,
   createCurveRuntime,
   createProverState,
   loadProverInputFromRuntimeBundles,
-  loadRuntimeArtifactFile,
   parseRuntimeArtifactBundleManifest,
   type CurveRuntime,
   type FieldElement,
   type ProverCrsRuntime,
-  type ProverRuntimeInput,
   type ProverState,
   type RuntimeArtifactBundleManifest,
 } from "../../../src/index.js";

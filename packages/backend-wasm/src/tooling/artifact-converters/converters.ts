@@ -13,7 +13,6 @@ import {
   type BinarySectionView,
 } from "../../artifacts/format/binary-format.js";
 import { createCurveRuntime, type CurveRuntime } from "../../core/curve/curve.js";
-import type { AffinePointJson } from "../../core/group/group.js";
 import type {
   ArtifactConverterCommand,
   ArtifactConverterOutput,
@@ -36,9 +35,6 @@ import {
   createCombinedSigmaRkyvPayloadDecoder,
   createUnavailableRkyvArchiveDecoder,
   decodeCombinedSigmaRkyvPayload,
-  type DecodedCombinedSigmaRkyv,
-  type RkyvArchiveDecoder,
-  type RkyvToBinaryConverterOptions,
 } from "./rkyv-to-binary.js";
 
 export { ARTIFACT_CONVERTER_COMMANDS };
@@ -307,10 +303,6 @@ export async function executeArtifactConverter(
     case "binary-to-debug-json":
       return convertBinaryArtifactFileToDebugJson(request.input as BinaryArtifactFileToDebugJsonInput);
   }
-}
-
-function converterNotImplemented(command: ArtifactConverterCommand): Error {
-  return new Error(`Artifact converter '${command}' is defined but not implemented in this milestone.`);
 }
 
 interface VerifierArtifacts {
@@ -701,25 +693,6 @@ function appendSplitG1Coordinate(part1: string[], part2: string[], coordinate: s
 
 function joinG1Coordinate(part1: string, part2: string): string {
   return `0x${stripHex(part1).padStart(32, "0")}${stripHex(part2).padStart(64, "0")}`;
-}
-
-function parseAffinePointJson(raw: unknown, label: string): AffinePointJson {
-  if (!isRecord(raw)) {
-    throw new Error(`${label} must be an affine point object.`);
-  }
-
-  return {
-    x: parseHexString(raw.x, `${label}.x`),
-    y: parseHexString(raw.y, `${label}.y`),
-  };
-}
-
-function requireRecord(value: unknown, label: string): Record<string, unknown> {
-  if (!isRecord(value)) {
-    throw new Error(`${label} must be an object.`);
-  }
-
-  return value;
 }
 
 function parseHexStringArray(value: unknown, label: string): readonly string[] {

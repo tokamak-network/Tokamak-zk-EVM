@@ -113,7 +113,7 @@ export async function verifySnark(
   const domain = buildDomainContext(runtime.Fr, input.setup, challenges);
   const lagrangeK0Eval = evalLagrangeK0(runtime.Fr, domain, challenges);
   const aEval = evalAPub(input.aPubX, challenges);
-  const lhsA = lhsArith(runtime.Fr, runtime.G1, input, domain, challenges);
+  const lhsA = lhsArith(runtime.G1, input, domain, challenges);
   const lhsC = await lhsCopyMsm(runtime.Fr, runtime.G1, input, domain, challenges, lagrangeK0Eval);
   const lhsB = lhsBinding(runtime.Fr, runtime.G1, input.proof, input.sigma.G, challenges, aEval);
   const lhs = runtime.G1.add(lhsB, runtime.G1.mulScalar(runtime.G1.add(lhsA, lhsC), challenges.kappa2));

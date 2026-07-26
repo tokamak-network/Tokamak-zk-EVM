@@ -87,7 +87,7 @@ async function main(): Promise<void> {
     );
 
     const proofResolver = createGeneratedProofResolver(runtimeDir, verifierProofInput, proverOutput.proofArtifact);
-    const verifierInput = await timed("load verifier runtime bundles with generated proof", () =>
+    await timed("load verifier runtime bundles with generated proof", () =>
       loadVerifierInputFromRuntimeBundles(runtime, verifierProofInput, verifierSetupInput, proofResolver),
     );
     const verificationResult = await timed("verify generated proof", () =>

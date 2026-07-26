@@ -31,7 +31,7 @@ export async function buildOpeningBenchmarkInputs(
   runtime: CurveRuntime,
   context: PreparedProverContext,
 ): Promise<OpeningBenchmarkInputs> {
-  const { state, initialRelation, copyQuotient, evaluations, thetas, kappa0, chi, zeta, kappa1 } = context;
+  const { state, initialRelation, evaluations, kappa0, chi, zeta, kappa1 } = context;
   const field = runtime.Fr;
   const mI = state.setup.l_D - state.setup.l;
   const sMax = state.setup.s_max;
@@ -110,7 +110,7 @@ async function buildCopyOpeningNumerator(
     readonly kappa1Cube: FieldElement;
   },
 ): Promise<BivariatePolynomialBuffer> {
-  const { state, initialRelation, copyQuotient, evaluations, thetas, kappa0, chi, zeta, kappa1 } = context;
+  const { state, initialRelation, copyQuotient, thetas, kappa0, chi, zeta } = context;
   const { rXYWithBlinding, omegaMIInv, omegaSMaxInv, kappa0Sq, kappa1Sq, kappa1Cube } = values;
   const field = runtime.Fr;
   const mI = state.setup.l_D - state.setup.l;

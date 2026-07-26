@@ -23,7 +23,6 @@ export function evalAPub(aPubX: DensePolynomialExt, challenges: VerifierChalleng
 }
 
 export function lhsArith(
-  field: FieldRuntime,
   g1: G1Runtime,
   input: VerifierInput,
   domain: VerifierDomainContext,

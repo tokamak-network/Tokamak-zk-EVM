@@ -58,7 +58,7 @@ export async function buildVerifierInputFromRuntimeArtifacts(
   artifacts: VerifierRuntimeArtifactFiles,
 ): Promise<VerifierInput> {
   const setup = GENERATED_PROVER_SETUP_PARAMS satisfies VerifierSetupParams;
-  const publicInstance = parsePublicInstance(runtime, artifacts.instance, setup);
+  const publicInstance = parsePublicInstance(runtime, artifacts.instance);
 
   return {
     setup,
@@ -94,7 +94,6 @@ function requireSingleRoleFile(
 function parsePublicInstance(
   runtime: CurveRuntime,
   instanceFile: RuntimeArtifactFile,
-  setup: VerifierSetupParams,
 ): readonly FieldElement[] {
   const section = requireSection(instanceFile, {
     type: BinarySectionType.Instance,

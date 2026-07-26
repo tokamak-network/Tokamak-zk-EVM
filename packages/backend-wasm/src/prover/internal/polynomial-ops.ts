@@ -698,10 +698,6 @@ async function multiplyShiftedEvals(
   return BivariatePolynomialBuffer.fromRouEvals(field, outputEvals, xSize, ySize);
 }
 
-function modulo(value: number, modulus: number): number {
-  return ((value % modulus) + modulus) % modulus;
-}
-
 function nextPowerOfTwo(value: number): number {
   if (!Number.isSafeInteger(value) || value <= 0) {
     throw new Error("Cannot compute power-of-two size for a non-positive value.");

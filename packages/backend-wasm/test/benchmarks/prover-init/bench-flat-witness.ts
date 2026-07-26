@@ -7,7 +7,6 @@ import {
   createCurveRuntime,
   type FieldElement,
   type FieldRuntime,
-  type ProverRuntimeInput,
 } from "../../../src/index.js";
 import type {
   ProverPlacementVariables,
