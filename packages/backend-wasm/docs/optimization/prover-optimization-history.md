@@ -28,32 +28,31 @@ The current production prover is one integrated binary-input prover. Historical
 protocol terminology; they are not production modules, public APIs, scheduling
 boundaries, or separate prover implementations.
 
-Latest accepted fixed-taxonomy Node timing after all approved Priority 32
-promotions:
+Latest accepted fixed-taxonomy Node timing at the final publication gate:
 
 | layer | row | total | count |
 | --- | --- | ---: | ---: |
-| lowest | `polynomial.combination_without_multiplication` | 4.34 s | 49 |
-| lowest | `polynomial.combination_with_multiplication` | 15.62 s | 18 |
-| lowest | `polynomial.recursion` | 1.39 s | 1 |
-| lowest | `polynomial.evaluation` | 207 ms | 7 |
-| lowest | `polynomial.div_ruffini` | 384 ms | 2 |
-| lowest | `polynomial.div_vanishing` | 877 ms | 2 |
-| lowest | `polynomial.encode` | 92.11 s | 14 |
+| lowest | `polynomial.combination_without_multiplication` | 4.32 s | 49 |
+| lowest | `polynomial.combination_with_multiplication` | 15.27 s | 18 |
+| lowest | `polynomial.recursion` | 1.35 s | 1 |
+| lowest | `polynomial.evaluation` | 209 ms | 7 |
+| lowest | `polynomial.div_ruffini` | 382 ms | 2 |
+| lowest | `polynomial.div_vanishing` | 872 ms | 2 |
+| lowest | `polynomial.encode` | 91.77 s | 14 |
 | lowest | `binding.encode` | 1.60 s | 1 |
-| top | `field.operations` | 22.81 s | 79 |
-| top | `encode` | 93.71 s | 15 |
-| boundary | `init` | 2.69 s | 2 |
+| top | `field.operations` | 22.42 s | 79 |
+| top | `encode` | 93.36 s | 15 |
+| boundary | `init` | 2.57 s | 2 |
 | boundary | `stage.unclassified` | 4 ms | 1 |
-| boundary | `io` | 214 ms | 2 |
+| boundary | `io` | 162 ms | 2 |
 | boundary | `verify` | 17 ms | 1 |
 | boundary | `output` | 2 ms | 1 |
-| total | prover stage total | 114.93 s | - |
-| total | total wall | 119.45 s | - |
+| total | prover stage total | 114.19 s | - |
+| total | total wall | 118.53 s | - |
 
-The final pre-publication Chromium check generated and verified a 2408-byte
-proof at the selected `262144`-point dense Sigma1 MSM chunk size in `121.19 s`,
-with observed peak total RSS `10.19 GiB` and largest-process RSS `9.99 GiB`.
+The final publication-gate Chromium check generated and verified a 2328-byte
+proof at the selected `262144`-point dense Sigma1 MSM chunk size in `118.82 s`,
+with observed peak total RSS `10.03 GiB` and largest-process RSS `9.83 GiB`.
 These RSS values are local process-level observations, not a portable browser
 memory guarantee.
 
@@ -100,9 +99,11 @@ of measured production states.
 | Direct 2D NTT task shards | `4cd23c9e` | 121.94 s | Isolated NTT improved; no full-wall reduction is claimed. |
 | Recursion same-shape clone removal | `824db138` | 119.41 s | 64 MiB copy removed; broad wall delta is not attributed. |
 | Pre-publication API and ownership cleanup | `e8ecb234` | 119.45 s | Public lifecycle and chunk configuration were wired without a material default-path regression. |
+| Direct witness conversion and flat placement storage | `f4d30bdf` | 119.40 s | Conversion/loading allocations fell without a material prover-time regression. |
+| Direct permutation buffers and row-prefix resize | `86189e69`, `35542a4f` | 118.53 s | Isolated initialization and resize boundaries improved; proof verified. |
 
 Across the stable corrected-taxonomy endpoints, total wall decreased from
-`381.08 s` to `119.41 s`, a `261.67 s` (`68.7%`) reduction. This endpoint
+`381.08 s` to `118.53 s`, a `262.55 s` (`68.9%`) reduction. This endpoint
 comparison describes the campaign result; it must not be used to infer the
 effect of an individual optimization.
 
@@ -2546,3 +2547,25 @@ consistent but is not used to attribute more than the isolated boundary
 evidence. Type checks, operation and polynomial parity, native testing-mode
 invariants, Node verifier acceptance, and Chromium proof generation
 (`120.18 s`) and verification (`20 ms`) passed.
+
+## Final Publication Gate
+
+The final gate passed:
+
+- generated-source freshness, production and development type checks, artifact
+  specs, binary formats, RKYV payload handling, and build-tool availability;
+- field, polynomial, commitment, witness, native testing-mode, Node prover,
+  native verifier, backend-wasm verifier, and Chromium verifier checks;
+- Chromium proof generation in `118.82 s`, verification in `19 ms`, peak total
+  RSS `10.03 GiB`, and peak single-process RSS `9.83 GiB`;
+- production build and actual npm tarball inspection.
+
+The preceding frozen browser snapshot was `121.19 s` with `10.19 GiB` peak
+total RSS and `9.99 GiB` peak single-process RSS, so the final code has no
+unexplained material time or memory regression.
+
+The actual `2.1.1` tarball is 1,006,510 bytes compressed, 11,428,801 bytes
+unpacked, and contains 336 files. Its exports are exactly `./converter`,
+`./prover`, and `./verifier`. Required public entry points, the converter
+Worker, and decoder WASM are present. No `test`, `scripts`, `fixtures`, `tmp`,
+or `tools` path is included.
