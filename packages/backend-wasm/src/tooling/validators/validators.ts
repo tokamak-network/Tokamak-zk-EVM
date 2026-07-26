@@ -23,10 +23,9 @@ import {
 } from "../../artifacts/binary/binary-table-utils.js";
 import type { RuntimeArtifactFormatSpec, RuntimeArtifactSectionSpec } from "../../artifacts/specs/types.js";
 import { PROVER_CRS_V1_SPEC } from "../../artifacts/specs/prover-crs.v1.generated.js";
-import { PROVER_INSTANCE_V1_SPEC } from "../../artifacts/specs/prover-instance.v1.generated.js";
+import { INSTANCE_V1_SPEC } from "../../artifacts/specs/instance.v1.generated.js";
 import { PROVER_PERMUTATION_V1_SPEC } from "../../artifacts/specs/prover-permutation.v1.generated.js";
 import { PROVER_PLACEMENT_VARIABLES_V1_SPEC } from "../../artifacts/specs/prover-placement-variables.v1.generated.js";
-import { VERIFIER_INSTANCE_V1_SPEC } from "../../artifacts/specs/verifier-instance.v1.generated.js";
 import { VERIFIER_PREPROCESS_V1_SPEC } from "../../artifacts/specs/verifier-preprocess.v1.generated.js";
 import { VERIFIER_PROOF_V1_SPEC } from "../../artifacts/specs/verifier-proof.v1.generated.js";
 
@@ -76,8 +75,8 @@ export async function validateProverPermutationArtifactFile(
 
 function specForKind(kind: BinaryArtifactFileKind): RuntimeArtifactFormatSpec {
   switch (kind) {
-    case BinaryArtifactFileKind.VerifierInstance:
-      return VERIFIER_INSTANCE_V1_SPEC;
+    case BinaryArtifactFileKind.Instance:
+      return INSTANCE_V1_SPEC;
     case BinaryArtifactFileKind.VerifierProof:
       return VERIFIER_PROOF_V1_SPEC;
     case BinaryArtifactFileKind.VerifierPreprocess:
@@ -86,8 +85,6 @@ function specForKind(kind: BinaryArtifactFileKind): RuntimeArtifactFormatSpec {
       return PROVER_PLACEMENT_VARIABLES_V1_SPEC;
     case BinaryArtifactFileKind.ProverCrs:
       return PROVER_CRS_V1_SPEC;
-    case BinaryArtifactFileKind.ProverInstance:
-      return PROVER_INSTANCE_V1_SPEC;
     case BinaryArtifactFileKind.ProverPermutation:
       return PROVER_PERMUTATION_V1_SPEC;
     case BinaryArtifactFileKind.VerifierCrs:

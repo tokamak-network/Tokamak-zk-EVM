@@ -24,9 +24,9 @@ const SPEC_JOBS: readonly SpecJob[] = [
     constName: "VERIFIER_PROOF_V1_SPEC",
   },
   {
-    jsonPath: "src/artifacts/specs/verifier-instance.v1.json",
-    generatedPath: "src/artifacts/specs/verifier-instance.v1.generated.ts",
-    constName: "VERIFIER_INSTANCE_V1_SPEC",
+    jsonPath: "src/artifacts/specs/instance.v1.json",
+    generatedPath: "src/artifacts/specs/instance.v1.generated.ts",
+    constName: "INSTANCE_V1_SPEC",
   },
   {
     jsonPath: "src/artifacts/specs/prover-crs.v1.json",
@@ -42,11 +42,6 @@ const SPEC_JOBS: readonly SpecJob[] = [
     jsonPath: "src/artifacts/specs/prover-permutation.v1.json",
     generatedPath: "src/artifacts/specs/prover-permutation.v1.generated.ts",
     constName: "PROVER_PERMUTATION_V1_SPEC",
-  },
-  {
-    jsonPath: "src/artifacts/specs/prover-instance.v1.json",
-    generatedPath: "src/artifacts/specs/prover-instance.v1.generated.ts",
-    constName: "PROVER_INSTANCE_V1_SPEC",
   },
 ];
 
@@ -106,11 +101,10 @@ function parseRawSpec(raw: unknown, sourcePath: string): RawSpec {
     raw.name !== "sigma_verify" &&
     raw.name !== "verifier_preprocess" &&
     raw.name !== "verifier_proof" &&
-    raw.name !== "verifier_instance" &&
+    raw.name !== "instance" &&
     raw.name !== "prover_crs" &&
     raw.name !== "prover_placement_variables" &&
     raw.name !== "prover_permutation" &&
-    raw.name !== "prover_instance" &&
     raw.name !== "prover_setup_params"
   ) {
     throw new Error(`${sourcePath} has unsupported spec name: ${String(raw.name)}.`);

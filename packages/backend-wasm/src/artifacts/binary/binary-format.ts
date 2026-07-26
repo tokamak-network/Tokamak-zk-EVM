@@ -10,13 +10,12 @@ export const BINARY_SECTION_LABEL_BYTES = 40;
 export const BINARY_DIGEST_BYTES = 32;
 
 export enum BinaryArtifactFileKind {
-  VerifierInstance = 1,
+  Instance = 1,
   VerifierProof = 2,
   VerifierCrs = 3,
   VerifierPreprocess = 4,
   ProverPlacementVariables = 5,
   ProverCrs = 6,
-  ProverInstance = 7,
   ProverPermutation = 9,
 }
 

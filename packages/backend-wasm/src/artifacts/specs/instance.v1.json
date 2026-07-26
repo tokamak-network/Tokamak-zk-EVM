@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "name": "prover_instance",
+  "name": "instance",
   "sections": [
     {
       "label": "instance.public",

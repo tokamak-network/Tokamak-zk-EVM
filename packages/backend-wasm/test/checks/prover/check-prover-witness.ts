@@ -343,7 +343,7 @@ async function main(): Promise<void> {
       ),
       instance: await loadRuntimeArtifactFile(
         await createBinaryArtifactFile({
-          kind: BinaryArtifactFileKind.ProverInstance,
+          kind: BinaryArtifactFileKind.Instance,
           sourcePackageVersion: "0.0.0",
           sections: [
             {
@@ -418,7 +418,7 @@ async function main(): Promise<void> {
       ),
       instance: await loadRuntimeArtifactFile(
         await createBinaryArtifactFile({
-          kind: BinaryArtifactFileKind.ProverInstance,
+          kind: BinaryArtifactFileKind.Instance,
           sourcePackageVersion: "0.0.0",
           sections: [
             {
@@ -481,7 +481,7 @@ async function main(): Promise<void> {
       ],
     });
     const instanceBytes = await createBinaryArtifactFile({
-      kind: BinaryArtifactFileKind.ProverInstance,
+      kind: BinaryArtifactFileKind.Instance,
       sourcePackageVersion: "0.0.0",
       sections: [
         {

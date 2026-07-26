@@ -70,7 +70,7 @@ export async function convertVerifierPreprocess(preprocess: unknown): Promise<Ui
 export async function convertInstance(instance: unknown): Promise<Uint8Array> {
   const runtime = await createCurveRuntime();
   try {
-    return createProverInstanceArtifact(runtime, instance, BACKEND_WASM_PACKAGE_VERSION);
+    return createInstanceArtifact(runtime, instance, BACKEND_WASM_PACKAGE_VERSION);
   } finally {
     await runtime.terminate();
   }
@@ -183,7 +183,7 @@ interface VerifierSetupParamsJson {
   readonly l_user: number;
 }
 
-interface VerifierInstanceJson {
+interface InstanceJson {
   readonly a_pub_user: readonly string[];
   readonly a_pub_block: readonly string[];
 }
@@ -307,7 +307,7 @@ async function createProverPlacementVariablesArtifact(
   });
 }
 
-async function createProverInstanceArtifact(
+async function createInstanceArtifact(
   runtime: CurveRuntime,
   raw: unknown,
   sourcePackageVersion: string,
@@ -315,7 +315,7 @@ async function createProverInstanceArtifact(
   const publicInstance = readPublicInstance(runtime, raw, GENERATED_PROVER_SETUP_PARAMS);
 
   return createBinaryArtifactFile({
-    kind: BinaryArtifactFileKind.ProverInstance,
+    kind: BinaryArtifactFileKind.Instance,
     sourcePackageVersion,
     sections: [
       {
@@ -335,7 +335,7 @@ function readPublicInstance(
   raw: unknown,
   setup: VerifierSetupParamsJson,
 ): readonly Uint8Array[] {
-  const instance = parseVerifierInstanceJson(raw);
+  const instance = parseInstanceJson(raw);
   const publicInstance = [
     ...instance.a_pub_user.slice(0, setup.l_user),
     ...instance.a_pub_block.slice(0, setup.l_free - setup.l_user),
@@ -375,7 +375,7 @@ function placementVariableOffsets(placementVariables: readonly NativePlacementVa
   return offsets;
 }
 
-function parseVerifierInstanceJson(raw: unknown): VerifierInstanceJson {
+function parseInstanceJson(raw: unknown): InstanceJson {
   if (!isRecord(raw)) {
     throw new Error("Verifier instance JSON must be an object.");
   }
