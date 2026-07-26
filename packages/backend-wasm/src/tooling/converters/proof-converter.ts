@@ -15,9 +15,7 @@ import { concatBytes, isRecord, parseHexStringArray } from "./conversion-utils.j
 import { appendSplitG1Coordinate, recoverG1Points } from "./g1-coordinate-format.js";
 import type {
   ConverterArtifactJson,
-  ConvertProofBinaryInput,
   ConvertProofInput,
-  ConvertProofJsonInput,
 } from "./types.js";
 
 interface FormattedProofJson {
@@ -25,8 +23,6 @@ interface FormattedProofJson {
   readonly proof_entries_part2: readonly string[];
 }
 
-export function convertProof(input: ConvertProofJsonInput): Promise<Uint8Array>;
-export function convertProof(input: ConvertProofBinaryInput): Promise<ConverterArtifactJson>;
 export async function convertProof(input: ConvertProofInput): Promise<Uint8Array | ConverterArtifactJson> {
   if (input.sourceFormat === "binary") {
     return convertProofBinaryToNativeJson(input.proof);

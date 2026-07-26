@@ -17,7 +17,7 @@ const COMBINED_SIGMA_PAYLOAD_SECTION_COUNT = 9;
 
 export interface RkyvToBinaryConverterOptions {
   readonly sourcePackageVersion: string;
-  readonly decoder?: RkyvArchiveDecoder;
+  readonly decoder: RkyvArchiveDecoder;
 }
 
 export interface RkyvArchiveDecoder {
@@ -40,12 +40,6 @@ export async function convertCombinedSigmaRkyvToProverCrsBinary(
   input: Uint8Array,
   options: RkyvToBinaryConverterOptions,
 ): Promise<Uint8Array> {
-  if (options.decoder === undefined) {
-    throw new Error(
-      "combined_sigma.rkyv conversion requires a browser-compatible rkyv decoder. Pass options.decoder from tools/rkyv-decoder-wasm.",
-    );
-  }
-
   const decoded = await options.decoder.decodeCombinedSigma(input);
   const sourceDigest = await sha256(input);
   const runtime = await createCurveRuntime();
@@ -79,16 +73,6 @@ export async function convertCombinedSigmaRkyvToProverCrsBinary(
   } finally {
     await runtime.terminate();
   }
-}
-
-export function createUnavailableRkyvArchiveDecoder(): RkyvArchiveDecoder {
-  return {
-    decodeCombinedSigma() {
-      throw new Error(
-        "tools/rkyv-decoder-wasm is not built or not supplied. Build the rkyv decoder WASM package and pass it as options.decoder.",
-      );
-    },
-  };
 }
 
 export function createCombinedSigmaRkyvPayloadDecoder(

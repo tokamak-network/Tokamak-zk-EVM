@@ -37,9 +37,6 @@ export async function convertProof(
     );
   }
 
-  if (input.sourceFormat === "binary") {
-    return runConverter("convertProof", () => convertProofInternal(input));
-  }
   return runConverter("convertProof", () => convertProofInternal(input));
 }
 

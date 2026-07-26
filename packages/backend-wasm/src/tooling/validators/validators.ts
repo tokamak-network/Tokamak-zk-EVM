@@ -18,9 +18,12 @@ export interface RuntimeArtifactFileValidationResult {
 }
 
 export async function validateBinary(bytes: Uint8Array): Promise<RuntimeArtifactFileValidationResult> {
+  validateBinaryHeaderAndTables(bytes);
   const artifactFile = await decodeBinaryArtifactFile(bytes);
   const spec = specForKind(artifactFile.kind);
-  return validateRuntimeArtifactFile(bytes, spec, { expectedKind: artifactFile.kind });
+  return validateDecodedRuntimeArtifactFile(bytes, artifactFile, spec, {
+    expectedKind: artifactFile.kind,
+  });
 }
 
 export async function validateRuntimeArtifactFile(
@@ -30,7 +33,15 @@ export async function validateRuntimeArtifactFile(
 ): Promise<RuntimeArtifactFileValidationResult> {
   validateBinaryHeaderAndTables(bytes);
   const artifactFile = await decodeBinaryArtifactFile(bytes);
+  return validateDecodedRuntimeArtifactFile(bytes, artifactFile, spec, options);
+}
 
+async function validateDecodedRuntimeArtifactFile(
+  bytes: Uint8Array,
+  artifactFile: BinaryArtifactFileView,
+  spec: RuntimeArtifactFormatSpec | undefined,
+  options: RuntimeArtifactFileValidationOptions,
+): Promise<RuntimeArtifactFileValidationResult> {
   if (options.expectedKind !== undefined && artifactFile.kind !== options.expectedKind) {
     throw new Error(`Binary artifact kind mismatch: expected ${options.expectedKind}, got ${artifactFile.kind}.`);
   }
