@@ -729,7 +729,10 @@ Command:
 npm run bench:2d-ntt -- --shapes=1024x256,4096x256 --modes=single,parallel --directions=forward,inverse --iterations=1 --warmup=0 --json=tmp/timing/2d-ntt-segment-scheduler.json
 ```
 
-The script parity-checks every candidate against production `biNttBuffer()` before timing. After production promotion it compares the old sequential implementation, the production implementation, and the benchmark-local batched implementation.
+The retained script parity-checks the production `biNttBuffer()` against the
+old sequential implementation before timing both paths. The benchmark-local
+batched implementation used during selection was removed after promotion; its
+measurements below are historical records.
 
 Pre-promotion benchmark result:
 
@@ -1795,8 +1798,9 @@ difference remains subject to NTT scheduling noise.
 Production `biNttBuffer()` allocates one bit-reversed input shard per
 ffjavascript task and passes segment views from that shard. The retained
 `bench-2d-ntt-segment-scheduler.ts` benchmark checks the production direct-shard
-path byte-for-byte against the legacy sequential transform and an independent
-batched implementation in forward and inverse modes.
+path byte-for-byte against the legacy sequential transform in forward and
+inverse modes. The legacy path remains an independent composition of public
+one-dimensional transforms.
 
 The rejected bit-reversal cache, direct inverse-output assembly, and combined
 candidate measurements are preserved in the

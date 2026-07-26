@@ -7,7 +7,6 @@ import {
   biNttBuffer,
   createFieldRuntime,
   type FfCurve,
-  type FfField,
   type FieldRuntime,
 } from "../../../src/index.js";
 import { installLinearBatchPlugin } from "../../../src/core/field/linear-batch-plugin.js";
@@ -52,44 +51,6 @@ interface BenchmarkReport {
   readonly records: readonly BenchmarkRecord[];
 }
 
-interface FfThreadManager {
-  readonly concurrency: number;
-  queueAction(actionData: readonly FfWorkerCommand[]): Promise<Uint8Array[]>;
-}
-
-interface FfFieldWithWorkerTasks extends FfField {
-  readonly prefix: string;
-  readonly tm: FfThreadManager;
-}
-
-type FfWorkerCommand =
-  | {
-      readonly cmd: "ALLOCSET";
-      readonly var: number;
-      readonly buff: Uint8Array;
-    }
-  | {
-      readonly cmd: "CALL";
-      readonly fnName: string;
-      readonly params: readonly FfWorkerCallParam[];
-    }
-  | {
-      readonly cmd: "GET";
-      readonly out: number;
-      readonly var: number;
-      readonly len: number;
-    };
-
-type FfWorkerCallParam =
-  | {
-      readonly var: number;
-    }
-  | {
-      readonly val: number;
-    };
-
-const MAX_FFT_MIX_BITS_PER_BATCH_TASK = 14;
-
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2));
   const records: BenchmarkRecord[] = [];
@@ -106,7 +67,7 @@ async function main(): Promise<void> {
       for (const shape of options.shapes) {
         const values = randomFieldBuffer(field, shape.xSize * shape.ySize, options.seed + BigInt(shape.xSize * 257 + shape.ySize));
         for (const direction of options.directions) {
-          await assertCandidateParity(raw.Fr as FfFieldWithWorkerTasks, field, values, shape, direction);
+          await assertCandidateParity(field, values, shape, direction);
           records.push(
             await benchmarkCandidate(options, mode, direction, "legacy-sequential-biNttBuffer", shape, () =>
               legacyBiNttBuffer(field, values, shape.xSize, shape.ySize, direction),
@@ -115,11 +76,6 @@ async function main(): Promise<void> {
           records.push(
             await benchmarkCandidate(options, mode, direction, "production-biNttBuffer", shape, () =>
               biNttBuffer(field, values, shape.xSize, shape.ySize, direction),
-            ),
-          );
-          records.push(
-            await benchmarkCandidate(options, mode, direction, "batched-segment-biNttBuffer", shape, () =>
-              biNttBufferViaBatchedSegments(raw.Fr as FfFieldWithWorkerTasks, field, values, shape.xSize, shape.ySize, direction),
             ),
           );
         }
@@ -134,7 +90,6 @@ async function main(): Promise<void> {
 }
 
 async function assertCandidateParity(
-  rawField: FfFieldWithWorkerTasks,
   field: FieldRuntime,
   values: Uint8Array,
   shape: Shape,
@@ -142,12 +97,8 @@ async function assertCandidateParity(
 ): Promise<void> {
   const expected = await biNttBuffer(field, values, shape.xSize, shape.ySize, direction);
   const legacy = await legacyBiNttBuffer(field, values, shape.xSize, shape.ySize, direction);
-  const actual = await biNttBufferViaBatchedSegments(rawField, field, values, shape.xSize, shape.ySize, direction);
   if (!buffersEqual(expected, legacy)) {
     throw new Error(`Legacy 2D NTT mismatch for ${shape.xSize}x${shape.ySize} ${direction}.`);
-  }
-  if (!buffersEqual(expected, actual)) {
-    throw new Error(`Batched 2D NTT mismatch for ${shape.xSize}x${shape.ySize} ${direction}.`);
   }
 }
 
@@ -216,241 +167,6 @@ async function legacyBiNttBuffer(
     }
   }
 
-  return output;
-}
-
-async function biNttBufferViaBatchedSegments(
-  rawField: FfFieldWithWorkerTasks,
-  field: FieldRuntime,
-  values: Uint8Array,
-  xSize: number,
-  ySize: number,
-  direction: NttDirection,
-): Promise<Uint8Array> {
-  validateShape(xSize, ySize);
-  if (field.bufferElementCount(values) !== xSize * ySize) {
-    throw new Error("NTT input count does not match the bivariate shape.");
-  }
-
-  if (xSize === 1 || ySize === 1) {
-    return await batchFftSegments(rawField, values, xSize * ySize, direction);
-  }
-
-  const yTransformed = await batchFftSegments(rawField, values, ySize, direction);
-  const transposed = transposeRowMajorBuffer(field, yTransformed, xSize, ySize);
-  const xTransformedTransposed = await batchFftSegments(rawField, transposed, xSize, direction);
-  return transposeRowMajorBuffer(field, xTransformedTransposed, ySize, xSize);
-}
-
-async function batchFftSegments(
-  field: FfFieldWithWorkerTasks,
-  buffer: Uint8Array,
-  segmentSize: number,
-  direction: NttDirection,
-): Promise<Uint8Array> {
-  const segmentBits = checkedPowerOfTwoLog(segmentSize);
-  if (buffer.byteLength % field.n8 !== 0) {
-    throw new Error("Field buffer byte length is not divisible by the field width.");
-  }
-  const elementCount = buffer.byteLength / field.n8;
-  if (elementCount % segmentSize !== 0) {
-    throw new Error("Batch FFT input count must be divisible by the segment size.");
-  }
-
-  if (segmentSize === 1 || elementCount === 0) {
-    return buffer.slice();
-  }
-
-  if (segmentBits > MAX_FFT_MIX_BITS_PER_BATCH_TASK) {
-    return await transformLargeSegmentsWithPublicFft(field, buffer, segmentSize, direction);
-  }
-
-  return await transformSmallSegmentsWithWorkerTasks(field, buffer, segmentSize, segmentBits, direction);
-}
-
-async function transformLargeSegmentsWithPublicFft(
-  field: FfField,
-  buffer: Uint8Array,
-  segmentSize: number,
-  direction: NttDirection,
-): Promise<Uint8Array> {
-  const transform = direction === "forward" ? field.fft.bind(field) : field.ifft.bind(field);
-  const segmentByteLength = segmentSize * field.n8;
-  const segmentCount = buffer.byteLength / segmentByteLength;
-  const output = new Uint8Array(buffer.byteLength);
-
-  for (let segmentIndex = 0; segmentIndex < segmentCount; segmentIndex += 1) {
-    const start = segmentIndex * segmentByteLength;
-    output.set(await transform(buffer.slice(start, start + segmentByteLength)), start);
-  }
-
-  return output;
-}
-
-async function transformSmallSegmentsWithWorkerTasks(
-  field: FfFieldWithWorkerTasks,
-  buffer: Uint8Array,
-  segmentSize: number,
-  segmentBits: number,
-  direction: NttDirection,
-): Promise<Uint8Array> {
-  const segmentByteLength = segmentSize * field.n8;
-  const segmentCount = buffer.byteLength / segmentByteLength;
-  const output = new Uint8Array(buffer.byteLength);
-  const taskCount = Math.min(Math.max(1, field.tm.concurrency), segmentCount);
-  const segmentsPerTask = Math.ceil(segmentCount / taskCount);
-  const reversed = bitReverseSegments(buffer, segmentSize, field.n8);
-  const promises: Promise<Uint8Array[]>[] = [];
-  const taskStarts: number[] = [];
-
-  for (let taskIndex = 0; taskIndex < taskCount; taskIndex += 1) {
-    const startSegment = taskIndex * segmentsPerTask;
-    const endSegment = Math.min(segmentCount, startSegment + segmentsPerTask);
-    if (startSegment >= endSegment) {
-      continue;
-    }
-
-    taskStarts.push(startSegment);
-    promises.push(
-      field.tm.queueAction(
-        buildBatchFftTask(field, reversed, segmentByteLength, startSegment, endSegment, segmentSize, segmentBits, direction),
-      ),
-    );
-  }
-
-  const results = await Promise.all(promises);
-  for (let taskIndex = 0; taskIndex < results.length; taskIndex += 1) {
-    const startSegment = taskStarts[taskIndex];
-    const taskResult = results[taskIndex];
-    for (let localIndex = 0; localIndex < taskResult.length; localIndex += 1) {
-      const segmentOutput =
-        direction === "inverse" ? rotateInverseFftSegment(taskResult[localIndex], field.n8) : taskResult[localIndex];
-      output.set(segmentOutput, (startSegment + localIndex) * segmentByteLength);
-    }
-  }
-
-  return output;
-}
-
-function buildBatchFftTask(
-  field: FfFieldWithWorkerTasks,
-  reversed: Uint8Array,
-  segmentByteLength: number,
-  startSegment: number,
-  endSegment: number,
-  segmentSize: number,
-  segmentBits: number,
-  direction: NttDirection,
-): FfWorkerCommand[] {
-  const task: FfWorkerCommand[] = [];
-  const inverseFactorVar = 0;
-  const firstSegmentVar = direction === "inverse" ? 1 : 0;
-
-  if (direction === "inverse") {
-    task.push({
-      cmd: "ALLOCSET",
-      var: inverseFactorVar,
-      buff: field.inv(field.e(segmentSize)),
-    });
-  }
-
-  for (let segmentIndex = startSegment; segmentIndex < endSegment; segmentIndex += 1) {
-    const localIndex = segmentIndex - startSegment;
-    const variable = firstSegmentVar + localIndex;
-    const segmentStart = segmentIndex * segmentByteLength;
-    task.push({
-      cmd: "ALLOCSET",
-      var: variable,
-      buff: reversed.slice(segmentStart, segmentStart + segmentByteLength),
-    });
-
-    for (let mixBits = 1; mixBits <= segmentBits; mixBits += 1) {
-      task.push({
-        cmd: "CALL",
-        fnName: `${field.prefix}_fftMix`,
-        params: [{ var: variable }, { val: segmentSize }, { val: mixBits }],
-      });
-    }
-
-    if (direction === "inverse") {
-      task.push({
-        cmd: "CALL",
-        fnName: `${field.prefix}_fftFinal`,
-        params: [{ var: variable }, { val: segmentSize }, { var: inverseFactorVar }],
-      });
-    }
-
-    task.push({
-      cmd: "GET",
-      out: localIndex,
-      var: variable,
-      len: segmentByteLength,
-    });
-  }
-
-  return task;
-}
-
-function transposeRowMajorBuffer(
-  field: FieldRuntime,
-  values: Uint8Array,
-  rowCount: number,
-  columnCount: number,
-): Uint8Array {
-  if (field.bufferElementCount(values) !== rowCount * columnCount) {
-    throw new Error("Cannot transpose a buffer whose length does not match its shape.");
-  }
-
-  const output = new Uint8Array(values.byteLength);
-  for (let row = 0; row < rowCount; row += 1) {
-    for (let column = 0; column < columnCount; column += 1) {
-      output.set(
-        values.subarray(
-          (row * columnCount + column) * field.byteLength,
-          (row * columnCount + column + 1) * field.byteLength,
-        ),
-        (column * rowCount + row) * field.byteLength,
-      );
-    }
-  }
-
-  return output;
-}
-
-function bitReverseSegments(buffer: Uint8Array, segmentSize: number, elementByteLength: number): Uint8Array {
-  const segmentByteLength = segmentSize * elementByteLength;
-  const segmentCount = buffer.byteLength / segmentByteLength;
-  const bits = checkedPowerOfTwoLog(segmentSize);
-  const output = new Uint8Array(buffer.byteLength);
-
-  for (let segmentIndex = 0; segmentIndex < segmentCount; segmentIndex += 1) {
-    const segmentStart = segmentIndex * segmentByteLength;
-    for (let index = 0; index < segmentSize; index += 1) {
-      const reversedIndex = reverseBits(index, bits);
-      output.set(
-        buffer.subarray(segmentStart + index * elementByteLength, segmentStart + (index + 1) * elementByteLength),
-        segmentStart + reversedIndex * elementByteLength,
-      );
-    }
-  }
-
-  return output;
-}
-
-function reverseBits(value: number, bits: number): number {
-  let output = 0;
-  for (let index = 0; index < bits; index += 1) {
-    output = (output << 1) | (value & 1);
-    value >>= 1;
-  }
-  return output;
-}
-
-function rotateInverseFftSegment(segment: Uint8Array, elementByteLength: number): Uint8Array {
-  const elementCount = segment.byteLength / elementByteLength;
-  const output = new Uint8Array(segment.byteLength);
-  output.set(segment.subarray((elementCount - 1) * elementByteLength), 0);
-  output.set(segment.subarray(0, (elementCount - 1) * elementByteLength), elementByteLength);
   return output;
 }
 
@@ -545,19 +261,6 @@ function validateShape(xSize: number, ySize: number): void {
 
 function isPowerOfTwo(value: number): boolean {
   return Number.isSafeInteger(value) && value > 0 && (value & (value - 1)) === 0;
-}
-
-function checkedPowerOfTwoLog(size: number): number {
-  if (!isPowerOfTwo(size)) {
-    throw new Error("FFT segment size must be a power of two.");
-  }
-  let current = 1;
-  let log = 0;
-  while (current < size) {
-    current *= 2;
-    log += 1;
-  }
-  return log;
 }
 
 function formatShape(shape: Shape): string {
