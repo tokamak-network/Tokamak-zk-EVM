@@ -1,8 +1,8 @@
-import type { DensePolynomialExt } from "../../runtime/polynomial/dense-polynomial.js";
 import type { FieldElement, FieldRuntime } from "../../runtime/field/field-runtime.js";
 import type { G1Point, G1Runtime } from "../../runtime/group/group.js";
 import type { VerifierChallenges } from "./challenges.js";
 import type { VerifierDomainContext } from "./domain-context.js";
+import type { VerifierPublicPolynomial } from "./public-instance-polynomial.js";
 import type { VerifierInput, VerifierProof } from "./verify-snark.js";
 
 export function evalLagrangeK0(
@@ -18,8 +18,8 @@ export function evalLagrangeK0(
   return field.div(domain.tMIEval, denominator);
 }
 
-export function evalAPub(aPubX: DensePolynomialExt, challenges: VerifierChallenges): FieldElement {
-  return aPubX.eval(challenges.chi, challenges.zeta);
+export function evalAPub(aPubX: VerifierPublicPolynomial, challenges: VerifierChallenges): FieldElement {
+  return aPubX.evaluate(challenges.chi);
 }
 
 export function lhsArith(

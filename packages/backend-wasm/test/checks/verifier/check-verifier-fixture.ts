@@ -1,7 +1,6 @@
 import path from "node:path";
 
 import {
-  DensePolynomialExt,
   buildDomainContext,
   collectChallenges,
   createCurveRuntime,
@@ -15,6 +14,7 @@ import {
   type FieldElement,
   type VerifierBinaryInput,
 } from "../../../src/index.js";
+import { createVerifierPublicPolynomial } from "../../../src/verifier/protocol/public-instance-polynomial.js";
 import { verifySnark, type VerifierInput } from "../../../src/verifier/protocol/verify-snark.js";
 import { readVerifierBinaryInput } from "../../support/runtime-inputs.js";
 
@@ -130,9 +130,9 @@ async function evalLagrangeK0ByReconstruction(
 ): Promise<FieldElement> {
   const evaluations = Array.from({ length: size }, () => runtime.Fr.zero);
   evaluations[0] = runtime.Fr.one;
-  const polynomial = await DensePolynomialExt.fromRouEvals(runtime.Fr, evaluations, size, 1);
+  const polynomial = await createVerifierPublicPolynomial(runtime.Fr, evaluations);
 
-  return polynomial.eval(point, runtime.Fr.one);
+  return polynomial.evaluate(point);
 }
 
 function assertFieldEqual(

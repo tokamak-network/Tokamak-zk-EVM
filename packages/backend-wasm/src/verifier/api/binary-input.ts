@@ -4,7 +4,6 @@ import {
   loadVerifierProofArtifact,
 } from "../../artifacts/runtime/prepared-data.js";
 import type { RuntimeArtifactFile } from "../../artifacts/runtime/types.js";
-import { DensePolynomialExt } from "../../runtime/polynomial/dense-polynomial.js";
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import type { FieldElement } from "../../runtime/field/field-runtime.js";
 import { BinarySectionEncoding, BinarySectionType } from "../../artifacts/binary/binary-format.js";
@@ -12,6 +11,7 @@ import { GENERATED_PROVER_SETUP_PARAMS } from "../../prover/generated/subcircuit
 import type { VerifierSetupParams } from "../protocol/domain-context.js";
 import { GENERATED_VERIFIER_SIGMA } from "../generated/sigma-verify.generated.js";
 import type { VerifierInput, VerifierProof } from "../protocol/verify-snark.js";
+import { createVerifierPublicPolynomial } from "../protocol/public-instance-polynomial.js";
 
 export interface VerifierRuntimeArtifactFiles {
   readonly instance: RuntimeArtifactFile;
@@ -55,7 +55,7 @@ export async function buildVerifierInputFromRuntimeArtifacts(
     sigma: GENERATED_VERIFIER_SIGMA,
     preprocess: parseVerifierPreprocess(artifacts.preprocess),
     proof: parseVerifierProof(artifacts.proof),
-    aPubX: await DensePolynomialExt.fromRouEvals(runtime.Fr, publicInstance, setup.l_free, 1),
+    aPubX: await createVerifierPublicPolynomial(runtime.Fr, publicInstance),
   };
 }
 

@@ -1,10 +1,10 @@
-import type { DensePolynomialExt } from "../../runtime/polynomial/dense-polynomial.js";
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import type { FieldElement } from "../../runtime/field/field-runtime.js";
 import type { G1Point, G2Point } from "../../runtime/group/group.js";
 import type { RandomScalarSource } from "../../runtime/random/random.js";
 import { collectChallenges } from "./challenges.js";
 import { buildDomainContext, type VerifierSetupParams } from "./domain-context.js";
+import type { VerifierPublicPolynomial } from "./public-instance-polynomial.js";
 import {
   evalAPub,
   evalLagrangeK0,
@@ -23,7 +23,7 @@ export interface VerifierInput {
   readonly sigma: SigmaVerifyRuntime;
   readonly preprocess: VerifierPreprocess;
   readonly proof: VerifierProof;
-  readonly aPubX: DensePolynomialExt;
+  readonly aPubX: VerifierPublicPolynomial;
 }
 
 export interface SigmaVerifyRuntime {
