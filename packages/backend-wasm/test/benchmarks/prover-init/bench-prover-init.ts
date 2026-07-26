@@ -1,16 +1,12 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import {
   buildWitnessPolynomials,
   createCurveRuntime,
   createProverState,
-  loadProverInputFromRuntimeBundles,
-  parseRuntimeArtifactBundleManifest,
-  type CurveRuntime,
-  type ProverRuntimeInput,
-  type RuntimeArtifactBundleManifest,
 } from "../../../src/index.js";
+import { loadPreparedProverInput } from "../support/prepared-prover-context.js";
 
 interface BenchmarkOptions {
   readonly runtimeDir: string;
@@ -35,7 +31,9 @@ async function main(): Promise<void> {
   const runtime = await createCurveRuntime();
 
   try {
-    const proverInput = await loadPreparedProverInput(runtime, options.runtimeDir);
+    const proverInput = await loadPreparedProverInput(runtime, {
+      runtimeDir: options.runtimeDir,
+    });
     const rows: TimingRow[] = [];
 
     let started = performance.now();
@@ -69,40 +67,6 @@ async function main(): Promise<void> {
   } finally {
     await runtime.terminate();
   }
-}
-
-async function loadPreparedProverInput(
-  runtime: CurveRuntime,
-  runtimeDir: string,
-): Promise<ProverRuntimeInput> {
-  const proofWitness = await readManifest(runtimeDir, "prover-proof-witness-input/manifest.json");
-  const crsPrepared = await readManifest(runtimeDir, "prover-crs-prepared-data/manifest.json");
-  return loadProverInputFromRuntimeBundles(
-    runtime,
-    proofWitness,
-    crsPrepared,
-    (artifactPath) => readRuntimeFile(runtimeDir, artifactPath),
-  );
-}
-
-async function readManifest(
-  runtimeDir: string,
-  artifactPath: string,
-): Promise<RuntimeArtifactBundleManifest> {
-  const bytes = await readRuntimeFile(runtimeDir, artifactPath);
-  return parseRuntimeArtifactBundleManifest(JSON.parse(new TextDecoder().decode(bytes)));
-}
-
-async function readRuntimeFile(runtimeDir: string, artifactPath: string): Promise<Uint8Array> {
-  if (path.isAbsolute(artifactPath) || artifactPath.includes("\\") || artifactPath.split("/").includes("..")) {
-    throw new Error(`Runtime fixture path must be a safe relative POSIX path: ${artifactPath}`);
-  }
-  const filePath = path.resolve(runtimeDir, artifactPath);
-  const relative = path.relative(runtimeDir, filePath);
-  if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
-    throw new Error(`Runtime fixture path escapes the fixture directory: ${artifactPath}`);
-  }
-  return readFile(filePath);
 }
 
 async function writeReport(options: BenchmarkOptions, report: InitTimingReport): Promise<void> {

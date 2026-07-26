@@ -92,7 +92,9 @@ class MemoryTracker {
 async function main(): Promise<void> {
   const runtime = await createCurveRuntime();
   try {
-    const input = await loadPreparedProverInput(runtime, (message) => console.log(message));
+    const input = await loadPreparedProverInput(runtime, {
+      onProgress: (message) => console.log(message),
+    });
     const legacyInput = withLegacySparseR1cs(input.witness);
     await assertSmallFixtureParity(runtime.Fr);
     const packedStarted = performance.now();

@@ -44,11 +44,16 @@ export interface PreparedProverContext {
   readonly kappa1: FieldElement;
 }
 
+export interface PreparedProverInputOptions {
+  readonly runtimeDir?: string;
+  readonly onProgress?: (message: string) => void;
+}
+
 export async function buildPreparedProverContext(
   runtime: CurveRuntime,
   onProgress: (message: string) => void = () => undefined,
 ): Promise<PreparedProverContext> {
-  const input = await loadPreparedProverInput(runtime, onProgress);
+  const input = await loadPreparedProverInput(runtime, { onProgress });
   onProgress("Building witness polynomials");
   const witness = await buildWitnessPolynomials(runtime.Fr, input.witness);
   onProgress("Creating prover state");
@@ -103,9 +108,9 @@ export async function buildPreparedProverContext(
 
 export async function loadPreparedProverInput(
   runtime: CurveRuntime,
-  onProgress: (message: string) => void = () => undefined,
+  options: PreparedProverInputOptions = {},
 ): Promise<ProverRuntimeInput> {
-  const runtimeDir = path.resolve("fixtures/small/runtime");
+  const runtimeDir = path.resolve(options.runtimeDir ?? "fixtures/small/runtime");
   const proofWitnessManifest = await readManifest(
     runtimeDir,
     "prover-proof-witness-input/manifest.json",
@@ -114,7 +119,7 @@ export async function loadPreparedProverInput(
     runtimeDir,
     "prover-crs-prepared-data/manifest.json",
   );
-  onProgress("Loading prepared prover runtime input");
+  options.onProgress?.("Loading prepared prover runtime input");
   return loadProverInputFromRuntimeBundles(
     runtime,
     proofWitnessManifest,

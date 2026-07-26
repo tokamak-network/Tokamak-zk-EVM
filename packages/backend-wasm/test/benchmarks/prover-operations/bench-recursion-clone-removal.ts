@@ -43,7 +43,9 @@ interface RunResult {
 async function main(): Promise<void> {
   const runtime = await createCurveRuntime();
   try {
-    const input = await loadPreparedProverInput(runtime, (message) => console.log(message));
+    const input = await loadPreparedProverInput(runtime, {
+      onProgress: (message) => console.log(message),
+    });
     console.log("Building representative recursion inputs");
     const witness = await buildWitnessPolynomials(runtime.Fr, input.witness);
     const state = await createProverState({

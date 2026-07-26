@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 import {
@@ -6,12 +5,8 @@ import {
   buildWitnessPolynomials,
   createCurveRuntime,
   genBXY,
-  loadProverInputFromRuntimeBundles,
-  parseRuntimeArtifactBundleManifest,
-  type CurveRuntime,
   type FieldRuntime,
   type ProverRuntimeInput,
-  type RuntimeArtifactBundleManifest,
 } from "../../../src/index.js";
 import type {
   WitnessPolynomials,
@@ -21,6 +16,7 @@ import {
   type ProverSparseMatrix,
   type ProverSparseSubcircuitR1cs,
 } from "./legacy-sparse-r1cs.js";
+import { loadPreparedProverInput } from "../support/prepared-prover-context.js";
 
 interface CandidateResult {
   readonly name: string;
@@ -34,7 +30,7 @@ async function main(): Promise<void> {
   const runtime = await createCurveRuntime();
 
   try {
-    const input = await loadPreparedProverInput(runtime, runtimeDir);
+    const input = await loadPreparedProverInput(runtime, { runtimeDir });
     const productionStart = performance.now();
     const production = await buildWitnessPolynomials(runtime.Fr, input.witness);
     const productionMs = performance.now() - productionStart;
@@ -209,40 +205,6 @@ function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
     }
   }
   return true;
-}
-
-async function loadPreparedProverInput(
-  runtime: CurveRuntime,
-  runtimeDir: string,
-): Promise<ProverRuntimeInput> {
-  const proofWitness = await readManifest(runtimeDir, "prover-proof-witness-input/manifest.json");
-  const crsPrepared = await readManifest(runtimeDir, "prover-crs-prepared-data/manifest.json");
-  return loadProverInputFromRuntimeBundles(
-    runtime,
-    proofWitness,
-    crsPrepared,
-    (artifactPath) => readRuntimeFile(runtimeDir, artifactPath),
-  );
-}
-
-async function readManifest(
-  runtimeDir: string,
-  artifactPath: string,
-): Promise<RuntimeArtifactBundleManifest> {
-  const bytes = await readRuntimeFile(runtimeDir, artifactPath);
-  return parseRuntimeArtifactBundleManifest(JSON.parse(new TextDecoder().decode(bytes)));
-}
-
-async function readRuntimeFile(runtimeDir: string, artifactPath: string): Promise<Uint8Array> {
-  if (path.isAbsolute(artifactPath) || artifactPath.includes("\\") || artifactPath.split("/").includes("..")) {
-    throw new Error(`Runtime fixture path must be a safe relative POSIX path: ${artifactPath}`);
-  }
-  const filePath = path.resolve(runtimeDir, artifactPath);
-  const relative = path.relative(runtimeDir, filePath);
-  if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
-    throw new Error(`Runtime fixture path escapes the fixture directory: ${artifactPath}`);
-  }
-  return readFile(filePath);
 }
 
 function parseRuntimeDir(args: readonly string[]): string {

@@ -53,7 +53,9 @@ interface Summary {
 async function main(): Promise<void> {
   const runtime = await createCurveRuntime();
   try {
-    const input = await loadPreparedProverInput(runtime, (message) => console.log(message));
+    const input = await loadPreparedProverInput(runtime, {
+      onProgress: (message) => console.log(message),
+    });
     const midSource = createStatementSource(
       input,
       "O_mid",
