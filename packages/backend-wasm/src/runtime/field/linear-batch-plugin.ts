@@ -1,31 +1,37 @@
-export const FIELD_BATCH_ADD = "frm_batchAdd";
-export const FIELD_BATCH_SUB = "frm_batchSub";
-export const FIELD_BATCH_MUL = "frm_batchMul";
-export const FIELD_BATCH_ADD_SCALED = "tokamak_frm_batchAddScaled";
-export const FIELD_BATCH_ADD_SCALED_PREFIX = "tokamak_frm_batchAddScaledPrefix";
-export const FIELD_BATCH_SCALE_X = "tokamak_frm_batchScaleX";
-export const FIELD_BATCH_SCALE_Y = "tokamak_frm_batchScaleY";
-export const FIELD_BATCH_MUL_SHIFTED = "tokamak_frm_batchMulShifted";
-export const FIELD_RUFFINI_X = "tokamak_frm_ruffiniX";
-export const FIELD_RUFFINI_Y = "tokamak_frm_ruffiniY";
-export const FIELD_EVAL_ROWS = "tokamak_frm_evalRows";
-export const FIELD_EVAL_ROWS_FUSED = "tokamak_frm_evalRowsFused";
-export const FIELD_EVAL_REDUCE = "tokamak_frm_evalReduce";
-export const FIELD_EVAL_REDUCE_FUSED = "tokamak_frm_evalReduceFused";
-export const FIELD_VANISHING_Y = "tokamak_frm_vanishingY";
-export const FIELD_VANISHING_X = "tokamak_frm_vanishingX";
-export const FIELD_RECURSION_RECURRENCE = "tokamak_frm_recursionRecurrence";
-export const FIELD_K0_RECURRENCE = "tokamak_frm_k0Recurrence";
-export const FIELD_KL_RECURRENCE_X = "tokamak_frm_klRecurrenceX";
-export const FIELD_KL_RECURRENCE_Y = "tokamak_frm_klRecurrenceY";
-export const FIELD_SPECIAL_X_MINUS_ONE = "tokamak_frm_xMinusOne";
-export const FIELD_SPECIAL_ONE_MINUS_X = "tokamak_frm_oneMinusX";
-export const FIELD_SPECIAL_LINEAR_X = "tokamak_frm_linearX";
-export const FIELD_SPECIAL_LINEAR_Y = "tokamak_frm_linearY";
-export const FIELD_SPECIAL_TERM9 = "tokamak_frm_term9";
-export const FIELD_FUSED_LINEAR_X = "tokamak_frm_fusedLinearX";
-export const FIELD_FUSED_LINEAR_Y = "tokamak_frm_fusedLinearY";
-export const FIELD_SPARSE_ROW_DOT = "tokamak_frm_sparseRowDot";
+import type { WasmCodeBuilder, WasmModuleBuilder } from "./kernel-builder-types.js";
+import {
+  FIELD_BATCH_ADD,
+  FIELD_BATCH_ADD_SCALED,
+  FIELD_BATCH_ADD_SCALED_PREFIX,
+  FIELD_BATCH_MUL,
+  FIELD_BATCH_MUL_SHIFTED,
+  FIELD_BATCH_SCALE_X,
+  FIELD_BATCH_SCALE_Y,
+  FIELD_BATCH_SUB,
+  FIELD_EVAL_REDUCE,
+  FIELD_EVAL_REDUCE_FUSED,
+  FIELD_EVAL_ROWS,
+  FIELD_EVAL_ROWS_FUSED,
+  FIELD_FUSED_LINEAR_X,
+  FIELD_FUSED_LINEAR_Y,
+  FIELD_K0_RECURRENCE,
+  FIELD_KL_RECURRENCE_X,
+  FIELD_KL_RECURRENCE_Y,
+  FIELD_RUFFINI_X,
+  FIELD_RUFFINI_Y,
+  FIELD_RECURSION_RECURRENCE,
+  FIELD_SPECIAL_LINEAR_X,
+  FIELD_SPECIAL_LINEAR_Y,
+  FIELD_SPECIAL_ONE_MINUS_X,
+  FIELD_SPECIAL_TERM9,
+  FIELD_SPECIAL_X_MINUS_ONE,
+  FIELD_SPARSE_ROW_DOT,
+  FIELD_VANISHING_X,
+  FIELD_VANISHING_Y,
+} from "./kernel-names.js";
+
+export * from "./kernel-names.js";
+export type { WasmModuleBuilder } from "./kernel-builder-types.js";
 
 type SpecialPolynomialOperation =
   | "x-minus-one"
@@ -33,40 +39,6 @@ type SpecialPolynomialOperation =
   | "linear-x"
   | "linear-y"
   | "term9";
-
-interface WasmCodeBuilder {
-  i32_const(value: number): unknown;
-  getLocal(name: string): unknown;
-  setLocal(name: string, value: unknown): unknown;
-  i32_add(left: unknown, right: unknown): unknown;
-  i32_sub(left: unknown, right: unknown): unknown;
-  i32_mul(left: unknown, right: unknown): unknown;
-  i32_rem_u(left: unknown, right: unknown): unknown;
-  i32_eq(left: unknown, right: unknown): unknown;
-  i32_ge_u(left: unknown, right: unknown): unknown;
-  i32_gt_u(left: unknown, right: unknown): unknown;
-  i32_lt_u(left: unknown, right: unknown): unknown;
-  i32_load(pointer: unknown): unknown;
-  call(name: string, ...params: unknown[]): unknown;
-  br(depth: number): unknown;
-  br_if(depth: number, condition: unknown): unknown;
-  block(code: unknown): unknown;
-  loop(...code: unknown[]): unknown;
-  if(condition: unknown, thenCode: unknown): unknown;
-}
-
-interface ModuleFunctionBuilder {
-  addParam(name: string, type: "i32"): void;
-  addLocal(name: string, type: "i32"): void;
-  getCodeBuilder(): WasmCodeBuilder;
-  addCode(...code: unknown[]): void;
-}
-
-export interface WasmModuleBuilder {
-  alloc(size: number): number;
-  addFunction(name: string): ModuleFunctionBuilder;
-  exportFunction(name: string): void;
-}
 
 export function installLinearBatchPlugin(module: WasmModuleBuilder): void {
   module.exportFunction(FIELD_BATCH_ADD);
