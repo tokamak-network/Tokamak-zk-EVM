@@ -147,7 +147,9 @@ Exact parity, operation checks, native testing-mode-style diagnostics, Node proo
 - `(a+bY)P`
 - `(c+aX+bY)P`, used by term9
 
-Each candidate writes directly into one owned output buffer. The benchmark retains the pre-promotion formulas as `legacy-production`, retains a benchmark-local fused implementation as an independent oracle, and compares both with `current-production`.
+The retained benchmark compares current production with the pre-promotion
+formulas and a benchmark-local scalar fused implementation as independent
+oracles. It preserves operation-level JSON timing for all five forms.
 
 Independent pre-promotion results at input shape `4096x256`:
 
@@ -1606,7 +1608,9 @@ implementations with caller-thread WASM, one production worker, and
 X-row-sharded workers. The measured boundary includes compact source-row
 copies, worker transfer, output transfer, and row-major output assembly.
 Every candidate passed exact byte parity for zero, sparse, edge, and
-representative inputs.
+representative inputs. The caller-thread, one-worker, and worker-sharded
+benchmark mirrors were removed after promotion; the measurements below are
+historical records.
 
 | operation at `4096x256` | JavaScript production | caller WASM | one worker | workers |
 | --- | ---: | ---: | ---: | ---: |
