@@ -25,7 +25,6 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>): Promise<void> => {
     const decoder = createCombinedSigmaRkyvPayloadDecoder(decodeCombinedSigma);
     const decoded = await decoder.decodeCombinedSigma(source);
     const artifact = await convertDecodedCombinedSigmaWithBatchMontgomery(
-      source,
       decoded,
       BACKEND_WASM_PACKAGE_VERSION,
     );

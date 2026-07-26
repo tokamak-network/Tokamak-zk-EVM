@@ -18,9 +18,11 @@ import {
   createCurveRuntime,
   type CurveRuntime,
 } from "../../../src/runtime/curve/curve.js";
+import { inspectBinary } from "../../../src/converter/conversion/binary-inspection.js";
 import { validateRuntimeArtifactFile } from "../../../src/converter/validation/validators.js";
 
 async function main(): Promise<void> {
+  await checkSelfDigestPolicy();
   const runtime = await createCurveRuntime();
 
   try {
@@ -32,6 +34,44 @@ async function main(): Promise<void> {
   }
 
   console.log("Checked production runtime artifact formats");
+}
+
+async function checkSelfDigestPolicy(): Promise<void> {
+  const binary = await createBinaryArtifactFile({
+    kind: BinaryArtifactFileKind.Instance,
+    sourcePackageVersion: "0.0.0",
+    sections: [
+      {
+        type: BinarySectionType.Instance,
+        encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
+        label: "instance.public",
+        elementCount: 1,
+        elementByteLength: 32,
+        data: new Uint8Array(32),
+      },
+    ],
+  });
+  const artifactFile = await decodeBinaryArtifactFile(binary);
+  const view = new DataView(binary.buffer, binary.byteOffset, binary.byteLength);
+
+  assertEqual(view.getUint16(54, true), 1, "self digest entry count");
+  assertEqual(artifactFile.selfDigest.byteLength, 32, "self digest byte length");
+  const inspection = await inspectBinary(binary);
+  assertEqual(inspection.selfDigestHex.length, 64, "inspected self digest hex length");
+  assertEqual("digests" in inspection, false, "obsolete digest collection");
+  assertEqual("digestHex" in inspection.sections[0], false, "obsolete section digest");
+  await validateRuntimeArtifactFile(binary, undefined, {
+    expectedKind: BinaryArtifactFileKind.Instance,
+  });
+
+  const corrupted = binary.slice();
+  corrupted[artifactFile.sections[0].byteOffset] ^= 1;
+  await assertRejects(
+    () => validateRuntimeArtifactFile(corrupted, undefined, {
+      expectedKind: BinaryArtifactFileKind.Instance,
+    }),
+    "Binary artifact self digest mismatch.",
+  );
 }
 
 async function checkSigmaVerifyArtifact(runtime: CurveRuntime): Promise<void> {
@@ -164,6 +204,24 @@ function assertEqual(actual: unknown, expected: unknown, label: string): void {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     throw new Error(`${label} mismatch: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
   }
+}
+
+async function assertRejects(
+  operation: () => Promise<unknown>,
+  expectedMessage: string,
+): Promise<void> {
+  try {
+    await operation();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message === expectedMessage) {
+      return;
+    }
+    throw new Error(
+      `Expected '${expectedMessage}', got '${message}'.`,
+    );
+  }
+  throw new Error(`Expected operation to reject with '${expectedMessage}'.`);
 }
 
 const entrypoint = fileURLToPath(import.meta.url);

@@ -166,9 +166,11 @@ the optional validator. Applications may call `validateBinary` before prove or
 verify when their trust boundary requires it.
 
 Each artifact contains its file kind, `formatVersion`,
-`sourcePackageVersion`, section table, and SHA-256 digest table. Every artifact
-kind has a versioned JSON layout specification under `src/artifacts/specs/`.
-There is no external runtime manifest or bundle file.
+`sourcePackageVersion`, section table, and exactly one whole-file SHA-256 self
+digest. Section and source digests are not stored. `inspectBinary()` reports the
+self digest as `selfDigestHex`; `validateBinary()` recomputes only that digest.
+Every artifact kind has a versioned JSON layout specification under
+`src/artifacts/specs/`. There is no external runtime manifest or bundle file.
 
 Setup parameters and packed subcircuit data are generated from the pinned
 `@tokamak-zk-evm/subcircuit-library` dependency. The package never fetches CRS

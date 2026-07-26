@@ -74,7 +74,6 @@ async function convertBatchCandidate(
   const decoded = await createCombinedSigmaRkyvPayloadDecoder(decodePayload)
     .decodeCombinedSigma(source);
   return convertDecodedCombinedSigmaWithBatchMontgomery(
-    source,
     decoded,
     BACKEND_WASM_PACKAGE_VERSION,
   );

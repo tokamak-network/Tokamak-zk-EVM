@@ -19,21 +19,7 @@ export enum BinaryArtifactFileKind {
   ProverPermutation = 9,
 }
 
-export enum BinaryDigestEntryType {
-  SelfDigest = 1,
-  SourceArtifactDigest = 2,
-  SectionDigest = 3,
-  SubcircuitLibraryDigest = 5,
-  CombinedSigmaDigest = 6,
-  SigmaVerifyDigest = 7,
-  SigmaPreprocessDigest = 8,
-  InstanceDigest = 9,
-  PublicFunctionDigest = 10,
-  PermutationDigest = 11,
-  PlacementVariablesDigest = 12,
-  ProofDigest = 13,
-  PreprocessDigest = 14,
-}
+export const BINARY_SELF_DIGEST_ENTRY_TYPE = 1;
 
 export enum BinarySectionEncoding {
   FfjsFrMontgomeryLe32 = 1,
@@ -70,23 +56,10 @@ export interface BinarySectionInput {
   readonly flags?: number;
 }
 
-export interface BinaryDigestInput {
-  readonly type: BinaryDigestEntryType;
-  readonly digest: Uint8Array;
-  readonly sectionIndex?: number;
-}
-
 export interface BinaryArtifactFileInput {
   readonly kind: BinaryArtifactFileKind;
   readonly sourcePackageVersion: string;
   readonly sections: readonly BinarySectionInput[];
-  readonly digests?: readonly BinaryDigestInput[];
-}
-
-export interface BinaryDigestEntryView {
-  readonly type: BinaryDigestEntryType;
-  readonly sectionIndex?: number;
-  readonly digest: Uint8Array;
 }
 
 export interface BinarySectionView {
@@ -98,7 +71,6 @@ export interface BinarySectionView {
   readonly byteOffset: number;
   readonly byteLength: number;
   readonly flags: number;
-  readonly digest: Uint8Array;
   readonly data: Uint8Array;
 }
 
@@ -107,7 +79,7 @@ export interface BinaryArtifactFileView {
   readonly formatVersion: number;
   readonly sourcePackageVersion: string;
   readonly byteLength: number;
-  readonly digests: readonly BinaryDigestEntryView[];
+  readonly selfDigest: Uint8Array;
   readonly sections: readonly BinarySectionView[];
 }
 

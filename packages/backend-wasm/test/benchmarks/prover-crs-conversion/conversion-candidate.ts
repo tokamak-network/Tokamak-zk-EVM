@@ -3,13 +3,11 @@ import { getCurveFromName } from "ffjavascript";
 import { createBinaryArtifactFile } from "../../../src/artifacts/binary/binary-artifact-file.js";
 import {
   BinaryArtifactFileKind,
-  BinaryDigestEntryType,
   BinarySectionEncoding,
   BinarySectionType,
   type BinarySectionInput,
 } from "../../../src/artifacts/binary/binary-format.js";
 import type { DecodedCombinedSigmaRkyv } from "../../../src/converter/conversion/rkyv-to-binary.js";
-import { sha256 } from "../../../src/artifacts/binary/binary-table-utils.js";
 
 const G1_AFFINE_BYTES = 96;
 const G2_AFFINE_BYTES = 192;
@@ -33,7 +31,6 @@ interface PointSectionDefinition {
 }
 
 export async function convertDecodedCombinedSigmaWithBatchMontgomery(
-  source: Uint8Array,
   decoded: DecodedCombinedSigmaRkyv,
   sourcePackageVersion: string,
 ): Promise<Uint8Array> {
@@ -69,21 +66,10 @@ export async function convertDecodedCombinedSigmaWithBatchMontgomery(
       });
     }
 
-    const sourceDigest = await sha256(source);
     return createBinaryArtifactFile({
       kind: BinaryArtifactFileKind.ProverCrs,
       sourcePackageVersion,
       sections,
-      digests: [
-        {
-          type: BinaryDigestEntryType.SourceArtifactDigest,
-          digest: sourceDigest,
-        },
-        {
-          type: BinaryDigestEntryType.CombinedSigmaDigest,
-          digest: sourceDigest,
-        },
-      ],
     });
   } finally {
     await curve.terminate?.();

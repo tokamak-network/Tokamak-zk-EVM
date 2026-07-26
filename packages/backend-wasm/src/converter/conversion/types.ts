@@ -21,14 +21,8 @@ export interface BinaryArtifactInspection {
   readonly formatVersion: number;
   readonly sourcePackageVersion: string;
   readonly byteLength: number;
-  readonly digests: readonly BinaryDigestInspection[];
+  readonly selfDigestHex: string;
   readonly sections: readonly BinarySectionInspection[];
-}
-
-export interface BinaryDigestInspection {
-  readonly type: number;
-  readonly sectionIndex?: number;
-  readonly digestHex: string;
 }
 
 export interface BinarySectionInspection {
@@ -40,6 +34,5 @@ export interface BinarySectionInspection {
   readonly byteOffset: number;
   readonly byteLength: number;
   readonly flags: number;
-  readonly digestHex: string;
   readonly dataHex?: string;
 }

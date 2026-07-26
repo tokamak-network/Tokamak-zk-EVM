@@ -1,5 +1,10 @@
 # Binary Digest Memory Benchmark
 
+> Historical benchmark: the final pre-release format retains only the
+> whole-file self digest and uses the straightforward WebCrypto implementation.
+> Source and section digests were removed. The temporary benchmark code was
+> deleted after the policy decision.
+
 ## Audience
 
 This report is for backend-wasm maintainers deciding whether to replace the
@@ -80,8 +85,6 @@ artifact-sized transient copies. It also imposes an 8.26-10.14 times hashing
 time penalty because the SHA-256 compression work moves from native WebCrypto
 to JavaScript.
 
-This is a measured time-versus-memory tradeoff, not an unconditional production
-winner. Keep the production WebCrypto path unchanged until the Priority 4
-promotion decision explicitly chooses whether eliminating up to approximately
-1.93 GiB of self-digest transient memory justifies the additional browser
-conversion time.
+This measured time-versus-memory tradeoff informed the final decision to keep
+the straightforward WebCrypto self-digest path. Incremental hashing was not
+promoted.

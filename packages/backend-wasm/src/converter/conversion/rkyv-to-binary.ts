@@ -1,7 +1,6 @@
 import { createBinaryArtifactFile } from "../../artifacts/binary/binary-artifact-file.js";
 import {
   BinaryArtifactFileKind,
-  BinaryDigestEntryType,
   BinarySectionEncoding,
   BinarySectionType,
   type BinarySectionInput,
@@ -41,7 +40,6 @@ export async function convertCombinedSigmaRkyvToProverCrsBinary(
   options: RkyvToBinaryConverterOptions,
 ): Promise<Uint8Array> {
   const decoded = await options.decoder.decodeCombinedSigma(input);
-  const sourceDigest = await sha256(input);
   const runtime = await createCurveRuntime();
 
   try {
@@ -58,16 +56,6 @@ export async function convertCombinedSigmaRkyvToProverCrsBinary(
         createG1Section(runtime, "sigma1.delta-inv-alpha4-xj-tx", decoded.sigma1DeltaInvAlpha4XjTx),
         createG1Section(runtime, "sigma1.delta-inv-alphak-yi-ty", decoded.sigma1DeltaInvAlphakYiTy),
         createG2Section(runtime, "sigma.g2", decoded.g2, 10),
-      ],
-      digests: [
-        {
-          type: BinaryDigestEntryType.SourceArtifactDigest,
-          digest: sourceDigest,
-        },
-        {
-          type: BinaryDigestEntryType.CombinedSigmaDigest,
-          digest: sourceDigest,
-        },
       ],
     });
   } finally {
@@ -268,13 +256,4 @@ function requireSourcePackageVersion(value: string): string {
   }
 
   return value;
-}
-
-async function sha256(data: Uint8Array): Promise<Uint8Array> {
-  if (globalThis.crypto?.subtle === undefined) {
-    throw new Error("SHA-256 digest support is required for rkyv artifact conversion.");
-  }
-
-  const digestInput = data.slice().buffer as ArrayBuffer;
-  return new Uint8Array(await globalThis.crypto.subtle.digest("SHA-256", digestInput));
 }

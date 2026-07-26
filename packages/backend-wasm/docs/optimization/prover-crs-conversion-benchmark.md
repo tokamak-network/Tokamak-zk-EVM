@@ -1,5 +1,10 @@
 # Prover CRS Conversion Benchmark
 
+> The digest portions of this historical benchmark predate the final
+> self-digest-only binary policy. Source and section digests are no longer part
+> of generated Prover CRS artifacts; the point-conversion results remain
+> applicable.
+
 ## Audience
 
 This report is for backend-wasm maintainers and performance engineers deciding

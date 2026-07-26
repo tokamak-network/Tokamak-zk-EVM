@@ -34,7 +34,6 @@ async function main(): Promise<void> {
     },
   });
   const candidate = await convertDecodedCombinedSigmaWithBatchMontgomery(
-    source,
     decoded,
     BACKEND_WASM_PACKAGE_VERSION,
   );

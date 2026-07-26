@@ -1,5 +1,9 @@
 # Binary Digest Policy Benchmark
 
+> Historical benchmark: after this measurement, the final pre-release format
+> removed source and section digests and retained only the whole-file self
+> digest using WebCrypto. The temporary benchmark code was deleted.
+
 ## Audience
 
 This report is for backend-wasm maintainers selecting the binary-artifact
@@ -81,6 +85,7 @@ The memory-first policy also removes source and section digest copies. In
 Chromium it costs 11.263 seconds over speed-first and reduces observed peak RSS
 by 4.772 GiB.
 
-Neither candidate is an unconditional winner. Production must remain unchanged
-until the project owner explicitly chooses whether the measured memory
-reduction justifies the measured conversion-time penalty.
+The project owner subsequently selected a simpler self-digest-only format.
+Source, material-specific, and section digests were removed, and the remaining
+self digest uses the speed-first WebCrypto implementation. Incremental and
+hybrid candidates were not promoted.

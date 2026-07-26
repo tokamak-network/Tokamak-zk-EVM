@@ -6,7 +6,7 @@ import { decodeBinaryArtifactFile } from "../../artifacts/binary/binary-artifact
 import { validateSourcePackageVersion } from "../../artifacts/binary/binary-table-utils.js";
 import type { RuntimeArtifactFormatSpec } from "../../artifacts/specs/types.js";
 import { specForKind, validateRuntimeArtifactBySpec } from "./artifact-spec-validation.js";
-import { validateDigestTables } from "./digest-validation.js";
+import { validateSelfDigest } from "./self-digest-validation.js";
 import { validateBinaryHeaderAndTables } from "./file-layout-validation.js";
 
 export interface RuntimeArtifactFileValidationOptions {
@@ -47,7 +47,7 @@ async function validateDecodedRuntimeArtifactFile(
   }
 
   validateSourcePackageVersion(artifactFile.sourcePackageVersion);
-  await validateDigestTables(bytes, artifactFile);
+  await validateSelfDigest(bytes, artifactFile);
 
   if (spec !== undefined) {
     validateRuntimeArtifactBySpec(artifactFile, spec);

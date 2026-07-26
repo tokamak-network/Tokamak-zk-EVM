@@ -55,9 +55,10 @@ export function validateBinaryHeaderAndTables(bytes: Uint8Array): void {
 
   if (
     digestTableOffset !== versionTableOffset + versionTableLength ||
-    digestTableLength !== digestEntryCount * BINARY_DIGEST_ENTRY_BYTES
+    digestEntryCount !== 1 ||
+    digestTableLength !== BINARY_DIGEST_ENTRY_BYTES
   ) {
-    throw new Error("Binary artifact digest table bounds are invalid.");
+    throw new Error("Binary artifact must contain exactly one self digest entry.");
   }
 
   if (

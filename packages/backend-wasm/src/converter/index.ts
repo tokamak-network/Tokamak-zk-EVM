@@ -98,7 +98,6 @@ export type { RuntimeArtifactFileValidationResult };
 
 export type {
   BinaryArtifactInspection,
-  BinaryDigestInspection,
   BinaryInspectionOptions,
   BinarySectionInspection,
   ConverterArtifactJson,

@@ -7,13 +7,11 @@ import {
   BINARY_HEADER_BYTES,
   BINARY_SECTION_ENTRY_BYTES,
   BINARY_SECTION_LABEL_BYTES,
+  BINARY_SELF_DIGEST_ENTRY_TYPE,
   BINARY_VERSION_TABLE_BYTES,
-  BinaryDigestEntryType,
   BinarySectionEncoding,
   type BinaryArtifactFileInput,
   type BinaryArtifactFileView,
-  type BinaryDigestEntryView,
-  type BinaryDigestInput,
   type BinarySectionInput,
   type BinarySectionView,
   expectedElementByteLength,
@@ -21,9 +19,8 @@ import {
 } from "./binary-format.js";
 import {
   align8,
-  bytesWithSelfDigestsZeroed,
+  computeBinarySelfDigest,
   readFixedAscii,
-  sha256,
   validateSourcePackageVersion,
 } from "./binary-table-utils.js";
 
@@ -42,13 +39,11 @@ export async function createBinaryArtifactFile(input: BinaryArtifactFileInput): 
 
   validateSourcePackageVersion(sourcePackageVersion);
   validateSectionInputs(sections);
-  validateDigestInputs(input.digests ?? [], sections.length);
 
   const fileKindTableOffset = BINARY_HEADER_BYTES;
   const versionTableOffset = fileKindTableOffset + BINARY_FILE_KIND_TABLE_BYTES;
-  const digestEntries = await createDigestEntries(sections, input.digests ?? []);
   const digestTableOffset = versionTableOffset + BINARY_VERSION_TABLE_BYTES;
-  const digestTableLength = digestEntries.length * BINARY_DIGEST_ENTRY_BYTES;
+  const digestTableLength = BINARY_DIGEST_ENTRY_BYTES;
   const sectionTableLength = sections.length * BINARY_SECTION_ENTRY_BYTES;
   const sectionTableOffset = align8(digestTableOffset + digestTableLength);
   const dataOffset = align8(sectionTableOffset + sectionTableLength);
@@ -75,7 +70,7 @@ export async function createBinaryArtifactFile(input: BinaryArtifactFileInput): 
   view.setUint32(44, sectionTableLength, true);
   view.setUint32(48, dataOffset, true);
   view.setUint16(52, sections.length, true);
-  view.setUint16(54, digestEntries.length, true);
+  view.setUint16(54, 1, true);
   view.setUint32(56, 0, true);
   view.setUint32(60, 0, true);
 
@@ -85,15 +80,9 @@ export async function createBinaryArtifactFile(input: BinaryArtifactFileInput): 
 
   writeVersionTable(output, versionTableOffset, sourcePackageVersion);
 
-  for (let index = 0; index < digestEntries.length; index += 1) {
-    const entry = digestEntries[index];
-    const entryOffset = digestTableOffset + index * BINARY_DIGEST_ENTRY_BYTES;
-
-    view.setUint16(entryOffset, entry.type, true);
-    view.setUint16(entryOffset + 2, entry.sectionIndex ?? NO_SECTION_INDEX, true);
-    view.setUint32(entryOffset + 4, 0, true);
-    output.set(entry.digest, entryOffset + 8);
-  }
+  view.setUint16(digestTableOffset, BINARY_SELF_DIGEST_ENTRY_TYPE, true);
+  view.setUint16(digestTableOffset + 2, NO_SECTION_INDEX, true);
+  view.setUint32(digestTableOffset + 4, 0, true);
 
   for (let index = 0; index < sections.length; index += 1) {
     const section = sections[index];
@@ -111,12 +100,8 @@ export async function createBinaryArtifactFile(input: BinaryArtifactFileInput): 
     output.set(section.data, sectionOffsets[index]);
   }
 
-  const selfDigest = await sha256(bytesWithSelfDigestsZeroed(output, digestTableOffset, digestEntries.length));
-  for (let index = 0; index < digestEntries.length; index += 1) {
-    if (digestEntries[index].type === BinaryDigestEntryType.SelfDigest) {
-      output.set(selfDigest, digestTableOffset + index * BINARY_DIGEST_ENTRY_BYTES + 8);
-    }
-  }
+  const selfDigest = await computeBinarySelfDigest(output, digestTableOffset);
+  output.set(selfDigest, digestTableOffset + 8);
 
   return output;
 }
@@ -140,7 +125,7 @@ export async function decodeBinaryArtifactFile(bytes: Uint8Array): Promise<Binar
 
   const kind = readUint16(input, fileKindTableOffset, "binary artifact file-kind table");
   const sourcePackageVersion = readVersionTable(input, versionTableOffset, versionTableLength);
-  const digests = readDigestTable(input, digestTableOffset, digestEntryCount);
+  const selfDigest = readSelfDigest(input, digestTableOffset, digestEntryCount);
 
   const sections: BinarySectionView[] = [];
 
@@ -155,8 +140,6 @@ export async function decodeBinaryArtifactFile(bytes: Uint8Array): Promise<Binar
     const elementCount = view.getUint32(entryOffset + 16, true);
     const elementByteLength = view.getUint16(entryOffset + 20, true);
     const label = readFixedAscii(input, entryOffset + 56, BINARY_SECTION_LABEL_BYTES);
-    const digest = findSectionDigest(digests, index);
-
     assertByteRange(input.byteLength, byteOffset, byteLength, `binary artifact section '${label}'`);
     const data = input.subarray(byteOffset, byteOffset + byteLength);
 
@@ -169,7 +152,6 @@ export async function decodeBinaryArtifactFile(bytes: Uint8Array): Promise<Binar
       byteOffset,
       byteLength,
       flags,
-      digest,
       data,
     });
   }
@@ -179,7 +161,7 @@ export async function decodeBinaryArtifactFile(bytes: Uint8Array): Promise<Binar
     formatVersion,
     sourcePackageVersion,
     byteLength: input.byteLength,
-    digests,
+    selfDigest,
     sections,
   };
 }
@@ -208,58 +190,6 @@ export function requireBinaryArtifactSection(
   }
 
   return section;
-}
-
-async function createDigestEntries(
-  sections: readonly BinarySectionInput[],
-  inputDigests: readonly BinaryDigestInput[],
-): Promise<BinaryDigestEntryView[]> {
-  const entries: BinaryDigestEntryView[] = [
-    {
-      type: BinaryDigestEntryType.SelfDigest,
-      digest: new Uint8Array(BINARY_DIGEST_BYTES),
-    },
-  ];
-
-  for (let index = 0; index < sections.length; index += 1) {
-    entries.push({
-      type: BinaryDigestEntryType.SectionDigest,
-      sectionIndex: index,
-      digest: await sha256(sections[index].data),
-    });
-  }
-
-  for (const entry of inputDigests) {
-    entries.push({
-      type: entry.type,
-      sectionIndex: entry.sectionIndex,
-      digest: normalizeDigest(entry.digest, `Digest entry ${entry.type}`),
-    });
-  }
-
-  return entries;
-}
-
-function validateDigestInputs(digests: readonly BinaryDigestInput[], sectionCount: number): void {
-  for (const entry of digests) {
-    if (entry.type === BinaryDigestEntryType.SelfDigest || entry.type === BinaryDigestEntryType.SectionDigest) {
-      throw new Error("Self and section digests are generated by the binary artifact writer.");
-    }
-
-    normalizeDigest(entry.digest, `Digest entry ${entry.type}`);
-
-    if (entry.sectionIndex !== undefined && (entry.sectionIndex < 0 || entry.sectionIndex >= sectionCount)) {
-      throw new Error(`Digest entry ${entry.type} references an invalid section index.`);
-    }
-  }
-}
-
-function normalizeDigest(digest: Uint8Array, label: string): Uint8Array {
-  if (digest.byteLength !== BINARY_DIGEST_BYTES) {
-    throw new Error(`${label} must be a ${BINARY_DIGEST_BYTES}-byte SHA-256 digest.`);
-  }
-
-  return digest.byteOffset === 0 && digest.byteLength === digest.buffer.byteLength ? digest : digest.slice();
 }
 
 function validateSectionInputs(sections: readonly BinarySectionInput[]): void {
@@ -308,29 +238,21 @@ function readVersionTable(input: Uint8Array, offset: number, length: number): st
   return textDecoder.decode(input.subarray(offset + 8, offset + 8 + sourcePackageVersionLength));
 }
 
-function readDigestTable(input: Uint8Array, offset: number, count: number): BinaryDigestEntryView[] {
-  assertByteRange(input.byteLength, offset, count * BINARY_DIGEST_ENTRY_BYTES, "binary artifact digest table");
-  const view = new DataView(input.buffer, input.byteOffset, input.byteLength);
-  const digests: BinaryDigestEntryView[] = [];
-
-  for (let index = 0; index < count; index += 1) {
-    const entryOffset = offset + index * BINARY_DIGEST_ENTRY_BYTES;
-    const type = view.getUint16(entryOffset, true) as BinaryDigestEntryType;
-    const rawSectionIndex = view.getUint16(entryOffset + 2, true);
-    const sectionIndex = rawSectionIndex === NO_SECTION_INDEX ? undefined : rawSectionIndex;
-    const digest = input.slice(entryOffset + 8, entryOffset + 8 + BINARY_DIGEST_BYTES);
-
-    digests.push({ type, sectionIndex, digest });
+function readSelfDigest(input: Uint8Array, offset: number, count: number): Uint8Array {
+  if (count !== 1) {
+    throw new Error("Binary artifact must contain exactly one self digest.");
   }
 
-  return digests;
-}
+  assertByteRange(input.byteLength, offset, BINARY_DIGEST_ENTRY_BYTES, "binary artifact self digest");
+  const view = new DataView(input.buffer, input.byteOffset, input.byteLength);
+  if (
+    view.getUint16(offset, true) !== BINARY_SELF_DIGEST_ENTRY_TYPE
+    || view.getUint16(offset + 2, true) !== NO_SECTION_INDEX
+  ) {
+    throw new Error("Binary artifact digest table must contain only the self digest.");
+  }
 
-function findSectionDigest(digests: readonly BinaryDigestEntryView[], sectionIndex: number): Uint8Array {
-  return (
-    digests.find((entry) => entry.type === BinaryDigestEntryType.SectionDigest && entry.sectionIndex === sectionIndex)
-      ?.digest ?? new Uint8Array(0)
-  );
+  return input.slice(offset + 8, offset + 8 + BINARY_DIGEST_BYTES);
 }
 
 function computeSectionOffsets(sections: readonly BinarySectionInput[], startOffset: number): number[] {
