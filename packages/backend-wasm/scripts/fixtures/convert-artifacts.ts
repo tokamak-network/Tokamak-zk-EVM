@@ -112,12 +112,12 @@ async function readConverterInput(
   }
 }
 
-async function readJsonInput(options: CliOptions): Promise<unknown> {
+async function readJsonInput(options: CliOptions): Promise<ArtifactConverterInput> {
   if (options.input === undefined) {
     throw new Error("JSON converter commands require --input.");
   }
 
-  return JSON.parse(await readFile(options.input, "utf8")) as unknown;
+  return JSON.parse(await readFile(options.input, "utf8")) as ArtifactConverterInput;
 }
 
 async function readBinaryInput(options: CliOptions, command: ArtifactConverterCommand): Promise<Uint8Array> {

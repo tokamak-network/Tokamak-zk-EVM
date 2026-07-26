@@ -155,8 +155,11 @@ async function buildBenchmarkCase(runtime: CurveRuntime, length: number, seed: b
   } as ProverSetupParams;
   const crs = {
     sigma1: {
-      xyPowersRaw: rawBases,
-      xyPowers: splitG1Affine(rawBases),
+      xyPowers: {
+        data: rawBases,
+        count: length,
+        elementByteLength: G1_AFFINE_BYTES,
+      },
     },
   } as unknown as ProverCrsRuntime;
 
@@ -210,14 +213,6 @@ function randomFieldElement(runtime: CurveRuntime, random: () => bigint): FieldE
   }
 
   return runtime.Fr.fromBigInt((value % (runtime.Fr.modulus - 1n)) + 1n);
-}
-
-function splitG1Affine(data: Uint8Array): readonly Uint8Array[] {
-  const output: Uint8Array[] = [];
-  for (let offset = 0; offset < data.byteLength; offset += G1_AFFINE_BYTES) {
-    output.push(data.subarray(offset, offset + G1_AFFINE_BYTES));
-  }
-  return output;
 }
 
 async function assertEqualResults(runtime: CurveRuntime, benchmarkCase: BenchmarkCase): Promise<void> {
@@ -322,8 +317,13 @@ function prepareCurrentStyleMsm(runtime: CurveRuntime, benchmarkCase: BenchmarkC
         continue;
       }
 
-      const base = benchmarkCase.crs.sigma1.xyPowers[referenceStringYSize * x + y];
-      if (base === undefined) {
+      const baseIndex = referenceStringYSize * x + y;
+      const baseOffset = baseIndex * G1_AFFINE_BYTES;
+      const base = benchmarkCase.crs.sigma1.xyPowers.data.subarray(
+        baseOffset,
+        baseOffset + G1_AFFINE_BYTES,
+      );
+      if (base.byteLength !== G1_AFFINE_BYTES) {
         throw new Error("Synthetic CRS is shorter than the current-style MSM shape.");
       }
 

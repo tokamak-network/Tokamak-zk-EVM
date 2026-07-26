@@ -100,12 +100,10 @@ Small generic helpers shared by implementation modules. Protocol logic, artifact
 
 ### `scripts/`
 
-Local development and validation scripts. These scripts check fixtures, binary artifact file behavior, runtime arithmetic, polynomial parity, prover parity, and verifier parity.
+Local fixture and generated-source maintenance wrappers.
 
-- `scripts/check/`: grouped validation scripts for artifacts, browser checks, fixtures, polynomial operations, prover diagnostics, and verifier diagnostics.
 - `scripts/fixtures/`: local fixture copy, conversion, and preparation wrappers.
 - `scripts/generate/`: generated TypeScript source updaters for artifact specs, subcircuit-library data, and verifier CRS.
-- `scripts/diagnose/`: ad hoc diagnostic scripts that should not become runtime code.
 
 `scripts/fixtures/copy-fixtures.ts` performs only the first fixture update stage. It copies source artifacts from existing owner package outputs under `packages/` into the package-local ignored work area under `packages/backend-wasm/tmp/fixture-work/`. It must not generate missing artifacts and must not write final runtime fixture files. `scripts/fixtures/prepare-runtime-fixtures.ts` is the local file I/O wrapper for the current verifier runtime fixture conversion stage and delegates artifact conversion to `src/tooling/artifact-converters/`.
 
@@ -116,6 +114,15 @@ Curated parity fixtures for validating the TypeScript runtime against prepared n
 Fixtures are development assets and are not included in the package distribution whitelist.
 
 ### `test/`
+
+Development-only verification assets that are excluded from the package:
+
+- `test/checks/`: grouped validation programs for artifacts, browser behavior,
+  fixtures, polynomial operations, prover behavior, and verifier behavior.
+- `test/diagnostics/`: targeted diagnostic programs that are not production
+  runtime code.
+- `test/benchmarks/`: retained performance regression and dependency
+  characterization programs.
 
 Reserved test directories for browser, benchmark, unit, parity, and integration coverage as the package grows. Benchmark code lives under `test/benchmarks/`, not under `src/`, so it cannot be mistaken for distributable runtime source.
 

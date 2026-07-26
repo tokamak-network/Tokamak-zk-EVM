@@ -1228,7 +1228,7 @@ Production call-site review:
 Promotion guidance:
 
 - A production rewrite may introduce a small internal multi-point evaluation helper if it stays under `src/prover/internal/`, has no artifact validation behavior, and is used only by prover hot paths that already own trusted binary runtime objects.
-- The timing mirror in `scripts/check/prover/check-prover-stage-timing.ts` must be updated in the same change if production evaluation call sites are rewritten.
+- The timing mirror in `test/checks/prover/check-prover-stage-timing.ts` must be updated in the same change if production evaluation call sites are rewritten.
 - Production promotion must run prover acceptance checks and update [`docs/optimization/prover-optimization-history.md`](../../../docs/optimization/prover-optimization-history.md) with before/after stage timing because the change is optimization-motivated.
 
 Interpretation:
