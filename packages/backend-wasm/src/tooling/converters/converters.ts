@@ -10,14 +10,12 @@ import {
 } from "../../artifacts/binary/binary-format.js";
 import { createCurveRuntime, type CurveRuntime } from "../../runtime/curve/curve.js";
 import type {
-  BinaryArtifactInspection,
-  BinaryDigestInspection,
-  BinaryInspectionOptions,
   ConverterArtifactJson,
   ConvertProofBinaryInput,
   ConvertProofInput,
   ConvertProofJsonInput,
 } from "./types.js";
+export { inspectBinary } from "./binary-inspection.js";
 import {
   convertCombinedSigmaRkyvToProverCrsBinary,
   createCombinedSigmaRkyvPayloadDecoder,
@@ -145,37 +143,6 @@ async function convertProofBinaryToNativeJson(proof: Uint8Array): Promise<Conver
   } finally {
     await runtime.terminate();
   }
-}
-
-export async function inspectBinary(
-  artifact: Uint8Array,
-  options: BinaryInspectionOptions = {},
-): Promise<BinaryArtifactInspection> {
-  const artifactFile = await decodeBinaryArtifactFile(artifact);
-
-  return {
-    kind: artifactFile.kind,
-    formatVersion: artifactFile.formatVersion,
-    sourcePackageVersion: artifactFile.sourcePackageVersion,
-    byteLength: artifactFile.byteLength,
-    digests: artifactFile.digests.map((entry): BinaryDigestInspection => ({
-      type: entry.type,
-      sectionIndex: entry.sectionIndex,
-      digestHex: bytesToHex(entry.digest),
-    })),
-    sections: artifactFile.sections.map((section) => ({
-      type: section.type,
-      encoding: section.encoding,
-      label: section.label,
-      elementCount: section.elementCount,
-      elementByteLength: section.elementByteLength,
-      byteOffset: section.byteOffset,
-      byteLength: section.byteLength,
-      flags: section.flags,
-      digestHex: bytesToHex(section.digest),
-      dataHex: options.includeSectionData === true ? bytesToHex(section.data) : undefined,
-    })),
-  };
 }
 
 interface VerifierSetupParamsJson {
@@ -561,10 +528,6 @@ function parseU32(value: unknown, label: string): number {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function bytesToHex(bytes: Uint8Array): string {
-  return [...bytes].map((value) => value.toString(16).padStart(2, "0")).join("");
 }
 
 function concatBytes(chunks: readonly Uint8Array[]): Uint8Array {
