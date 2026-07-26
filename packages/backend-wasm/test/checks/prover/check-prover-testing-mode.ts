@@ -275,10 +275,12 @@ async function checkProve0Arithmetic(
     }
   }
 
-  const p0XY = await state.witness.uXY.mul(
+  const p0Product = await state.witness.uXY.mul(
     state.witness.vXY,
   );
-  p0XY.subAssign(state.witness.wXY.resize(p0XY.xSize, p0XY.ySize));
+  const p0XY = await p0Product.subBatch(
+    state.witness.wXY.resize(p0Product.xSize, p0Product.ySize),
+  );
   assertVanishingQuotientAtPoint(runtime, {
     label: "prove0 arithmetic quotient",
     numerator: p0XY,
@@ -422,8 +424,8 @@ async function checkProve2CopyQuotient(
   const sMax = state.setup.s_max;
   const omegaMI = field.rootOfUnity(mI);
   const omegaSMax = field.rootOfUnity(sMax);
-  const rOmegaX = rXY.scaleCoeffsX(field.inv(omegaMI));
-  const rOmegaXOmegaY = rOmegaX.scaleCoeffsY(field.inv(omegaSMax));
+  const rOmegaX = await rXY.scaleCoeffsXBatch(field.inv(omegaMI));
+  const rOmegaXOmegaY = await rOmegaX.scaleCoeffsYBatch(field.inv(omegaSMax));
   const checkX = field.fromBigInt(13n);
   const checkY = field.fromBigInt(17n);
 
@@ -509,7 +511,7 @@ async function checkProve4Openings(input: {
     [field.mul(state.mixer.rU_Y, state.mixer.rV_Y), state.instance.tSMax],
   ]);
   const pAXY = linearCombinationBuffer(field, [
-    [kappa1, VXY.sub(constantPolynomialBuffer(field, evaluations.V_eval))],
+    [kappa1, subPolynomials(field, VXY, constantPolynomialBuffer(field, evaluations.V_eval))],
     [smallVEval, state.witness.uXY],
     [field.neg(field.one), state.witness.wXY],
     [field.neg(tNEval), prove0Output.q0XY],
@@ -527,16 +529,16 @@ async function checkProve4Openings(input: {
   const proof0Numerator = linearCombinationBuffer(field, [
     [evaluations.V_eval, UXY],
     [field.neg(field.one), WXY],
-    [kappa1, VXY.sub(constantPolynomialBuffer(field, evaluations.V_eval))],
+    [kappa1, subPolynomials(field, VXY, constantPolynomialBuffer(field, evaluations.V_eval))],
     [field.neg(tNEval), Q_AX_XY],
     [field.neg(tSMaxEval), Q_AY_XY],
   ]);
   assertPolynomialEqual(runtime, proof0Numerator, pAXY, "prove4 arithmetic numerator polynomial");
-  const piADivision = pAXY.divByRuffini(chi, zeta);
+  const piADivision = await pAXY.divByRuffiniBatch(chi, zeta);
   const pACommitment = await encodePolynomialBufferWithSigma1(runtime, crs, state.setup, pAXY);
   const lhsACommitment = lhsArithFromProverOutput(runtime, crs.G, prove0Output, evaluations, tNEval, tSMaxEval, kappa1);
   assertG1Equal(runtime, lhsACommitment, pACommitment, "prove4 arithmetic numerator commitment");
-  assertRuffiniDivisionAtPoint(runtime, {
+  await assertRuffiniDivisionAtPoint(runtime, {
     label: "prove4 arithmetic opening",
     numerator: pAXY,
     quotientX: piADivision.quotientX,
@@ -550,21 +552,31 @@ async function checkProve4Openings(input: {
     [state.mixer.rR_X, state.instance.tMi],
     [state.mixer.rR_Y, state.instance.tSMax],
   ]);
-  const mDivision = RXY
-    .sub(constantPolynomialBuffer(field, evaluations.R_omegaX_eval))
-    .divByRuffini(field.mul(omegaMIInv, chi), zeta);
-  assertRuffiniDivisionAtPoint(runtime, {
+  const mNumerator = subPolynomials(
+    field,
+    RXY,
+    constantPolynomialBuffer(field, evaluations.R_omegaX_eval),
+  );
+  const mDivision = await mNumerator.divByRuffiniBatch(field.mul(omegaMIInv, chi), zeta);
+  await assertRuffiniDivisionAtPoint(runtime, {
     label: "prove4 M opening",
-    numerator: RXY.sub(constantPolynomialBuffer(field, evaluations.R_omegaX_eval)),
+    numerator: mNumerator,
     quotientX: mDivision.quotientX,
     quotientY: mDivision.quotientY,
     xRoot: field.mul(omegaMIInv, chi),
     yRoot: zeta,
   });
 
-  const nNumerator = RXY.sub(constantPolynomialBuffer(field, evaluations.R_omegaX_omegaY_eval));
-  const nDivision = nNumerator.divByRuffini(field.mul(omegaMIInv, chi), field.mul(omegaSMaxInv, zeta));
-  assertRuffiniDivisionAtPoint(runtime, {
+  const nNumerator = subPolynomials(
+    field,
+    RXY,
+    constantPolynomialBuffer(field, evaluations.R_omegaX_omegaY_eval),
+  );
+  const nDivision = await nNumerator.divByRuffiniBatch(
+    field.mul(omegaMIInv, chi),
+    field.mul(omegaSMaxInv, zeta),
+  );
+  await assertRuffiniDivisionAtPoint(runtime, {
     label: "prove4 N opening",
     numerator: nNumerator,
     quotientX: nDivision.quotientX,
@@ -589,8 +601,8 @@ async function checkProve4Openings(input: {
     omegaMIInv,
     omegaSMaxInv,
   });
-  const copyDivision = copyOpeningNumerator.divByRuffini(chi, zeta);
-  assertRuffiniDivisionAtPoint(runtime, {
+  const copyDivision = await copyOpeningNumerator.divByRuffiniBatch(chi, zeta);
+  await assertRuffiniDivisionAtPoint(runtime, {
     label: "prove4 copy opening",
     numerator: copyOpeningNumerator,
     quotientX: copyDivision.quotientX,
@@ -600,9 +612,13 @@ async function checkProve4Openings(input: {
   });
 
   const aEval = state.instance.aFreeX.eval(chi, zeta);
-  const bindingNumerator = state.instance.aFreeX.sub(constantPolynomial(field, aEval));
-  const bindingDivision = bindingNumerator.divByRuffini(chi, zeta);
-  assertRuffiniDivisionAtPoint(runtime, {
+  const bindingNumerator = subPolynomials(
+    field,
+    state.instance.aFreeX,
+    constantPolynomial(field, aEval),
+  );
+  const bindingDivision = await bindingNumerator.divByRuffiniBatch(chi, zeta);
+  await assertRuffiniDivisionAtPoint(runtime, {
     label: "prove4 binding opening",
     numerator: bindingNumerator,
     quotientX: bindingDivision.quotientX,
@@ -652,15 +668,23 @@ async function buildCopyQuotientNumerator(
   const kappa0Sq = field.square(kappa0);
   const omegaMI = field.rootOfUnity(mI);
   const omegaSMax = field.rootOfUnity(sMax);
-  const rOmegaX = rXY.scaleCoeffsX(field.inv(omegaMI));
-  const rOmegaXOmegaY = rOmegaX.scaleCoeffsY(field.inv(omegaSMax));
+  const rOmegaX = await rXY.scaleCoeffsXBatch(field.inv(omegaMI));
+  const rOmegaXOmegaY = await rOmegaX.scaleCoeffsYBatch(field.inv(omegaSMax));
   const { fXY, gXY } = buildCopyPolynomials(runtime, state, thetas);
   const lagrangeKlXY = await buildLagrangeKl(field, mI, sMax);
   const lagrangeK0XY = await buildLagrangeK0(field, mI);
   const rGXY = await rXY.mul(gXY);
-  const p1XY = await rXY.sub(constantPolynomialBuffer(field, field.one)).mul(lagrangeKlXY);
-  const p2XY = await mulByXMinusOne(rGXY.sub(await rOmegaX.mul(fXY)));
-  const p3XY = await lagrangeK0XY.mul(rGXY.sub(await rOmegaXOmegaY.mul(fXY)));
+  const p1XY = await subPolynomials(
+    field,
+    rXY,
+    constantPolynomialBuffer(field, field.one),
+  ).mul(lagrangeKlXY);
+  const p2XY = await mulByXMinusOne(
+    subPolynomials(field, rGXY, await rOmegaX.mul(fXY)),
+  );
+  const p3XY = await lagrangeK0XY.mul(
+    subPolynomials(field, rGXY, await rOmegaXOmegaY.mul(fXY)),
+  );
 
   return {
     pCombined: linearCombinationBuffer(field, [
@@ -708,8 +732,8 @@ async function buildCopyOpeningNumerator(input: {
   const { fXY, gXY } = buildCopyPolynomials(runtime, state, thetas);
   const omegaMIInv = input.omegaMIInv;
   const omegaSMaxInv = input.omegaSMaxInv;
-  const rOmegaX = rXY.scaleCoeffsX(omegaMIInv);
-  const rOmegaXOmegaY = rOmegaX.scaleCoeffsY(omegaSMaxInv);
+  const rOmegaX = await rXY.scaleCoeffsXBatch(omegaMIInv);
+  const rOmegaXOmegaY = await rOmegaX.scaleCoeffsYBatch(omegaSMaxInv);
   const tMiEval = field.sub(field.pow(chi, mI), field.one);
   const tSMaxEval = field.sub(field.pow(zeta, sMax), field.one);
   const lagrangeK0XY = await buildLagrangeK0(field, mI);
@@ -732,29 +756,33 @@ async function buildCopyOpeningNumerator(input: {
     [field.neg(tMiEval), prove2Output.q2XY],
     [field.neg(tSMaxEval), prove2Output.q3XY],
   ]);
-  const rD1 = rXY.sub(rOmegaX);
-  const rD2 = rXY.sub(rOmegaXOmegaY);
+  const rD1 = subPolynomials(field, rXY, rOmegaX);
+  const rD2 = subPolynomials(field, rXY, rOmegaXOmegaY);
   const rD1Eval = rD1.eval(chi, zeta);
   const rD2Eval = rD2.eval(chi, zeta);
-  const gMinusF = gXY.sub(fXY);
+  const gMinusF = subPolynomials(field, gXY, fXY);
   const term10Scale = field.add(field.mul(state.mixer.rR_X, tMiEval), field.mul(state.mixer.rR_Y, tSMaxEval));
-  const term10 = gMinusF.scale(term10Scale);
+  const term10 = await gMinusF.scaleBatch(term10Scale);
   const rD1Term9 = await mulByTerm9(rD1, state.mixer.rB_X, state.mixer.rB_Y, tMiEval, tSMaxEval);
-  const rD1Term9PlusTerm10 = rD1Term9.add(term10);
+  const rD1Term9PlusTerm10 = addPolynomials(field, rD1Term9, term10);
   const lhsZk1 = linearCombinationBuffer(field, [
     [field.mul(field.sub(chi, field.one), rD1Eval), prove0Output.termBZk],
     [field.one, await mulByOneMinusX(rD1Term9PlusTerm10)],
     [field.sub(chi, field.one), term10],
   ]);
   const rD2Term9 = await mulByTerm9(rD2, state.mixer.rB_X, state.mixer.rB_Y, tMiEval, tSMaxEval);
-  const rD2Term9PlusTerm10 = rD2Term9.add(term10);
+  const rD2Term9PlusTerm10 = addPolynomials(field, rD2Term9, term10);
   const lhsZk2Product = await lagrangeK0XY.mul(rD2Term9PlusTerm10);
   const lhsZk2 = linearCombinationBuffer(field, [
     [field.mul(lagrangeK0Eval, rD2Eval), prove0Output.termBZk],
     [lagrangeK0Eval, term10],
     [field.neg(field.one), lhsZk2Product],
   ]);
-  const rMinusEval = RXY.sub(constantPolynomialBuffer(field, evaluations.R_eval));
+  const rMinusEval = subPolynomials(
+    field,
+    RXY,
+    constantPolynomialBuffer(field, evaluations.R_eval),
+  );
   const kappa1SqActual = field.square(kappa1);
   const kappa1Cube = field.mul(kappa1SqActual, kappa1);
 
@@ -818,7 +846,7 @@ function assertVanishingQuotientAtPoint(
   assertFieldEqual(runtime, numeratorEval, rhs, { label: input.label });
 }
 
-function assertRuffiniDivisionAtPoint(
+async function assertRuffiniDivisionAtPoint(
   runtime: CurveRuntime,
   input: {
     readonly label: string;
@@ -828,9 +856,9 @@ function assertRuffiniDivisionAtPoint(
     readonly xRoot: FieldElement;
     readonly yRoot: FieldElement;
   },
-): void {
+): Promise<void> {
   const field = runtime.Fr;
-  const division = input.numerator.divByRuffini(input.xRoot, input.yRoot);
+  const division = await input.numerator.divByRuffiniBatch(input.xRoot, input.yRoot);
   assertFieldEqual(runtime, division.remainder, field.zero, { label: `${input.label} remainder` });
 
   const xPoint = field.fromBigInt(29n);
@@ -925,6 +953,28 @@ function powerTable(field: CurveRuntime["Fr"], base: FieldElement, length: numbe
 
 function constantPolynomial(field: CurveRuntime["Fr"], value: FieldElement): BivariatePolynomialBuffer {
   return BivariatePolynomialBuffer.fromCoeffs(field, [value], 1, 1);
+}
+
+function addPolynomials(
+  field: CurveRuntime["Fr"],
+  left: BivariatePolynomialBuffer,
+  right: BivariatePolynomialBuffer,
+): BivariatePolynomialBuffer {
+  return linearCombinationBuffer(field, [
+    [field.one, left],
+    [field.one, right],
+  ]);
+}
+
+function subPolynomials(
+  field: CurveRuntime["Fr"],
+  left: BivariatePolynomialBuffer,
+  right: BivariatePolynomialBuffer,
+): BivariatePolynomialBuffer {
+  return linearCombinationBuffer(field, [
+    [field.one, left],
+    [field.neg(field.one), right],
+  ]);
 }
 
 async function timed<T>(label: string, callback: () => Promise<T>): Promise<T> {

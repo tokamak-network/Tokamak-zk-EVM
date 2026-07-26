@@ -309,8 +309,8 @@ async function checkOmegaShiftedMultiplication(field: FieldRuntime): Promise<voi
   );
   const omegaXInv = field.inv(field.rootOfUnity(mI));
   const omegaYInv = field.inv(field.rootOfUnity(sMax));
-  const xShifted = baseLeft.scaleCoeffsX(omegaXInv);
-  const xyShifted = xShifted.scaleCoeffsY(omegaYInv);
+  const xShifted = await baseLeft.scaleCoeffsXBatch(omegaXInv);
+  const xyShifted = await xShifted.scaleCoeffsYBatch(omegaYInv);
 
   const [actualBase, actualXShifted, actualXyShifted] = await multiplyOmegaShiftedProducts(
     baseLeft,

@@ -85,7 +85,9 @@ async function checkCommitmentOps(runtime: CurveRuntime): Promise<void> {
   const alpha = runtime.Fr.fromBigInt(43n);
   const beta = runtime.Fr.fromBigInt(47n);
   const otherPolynomial = BivariatePolynomialBuffer.fromCoeffs(runtime.Fr, otherCoefficients, 4, 4);
-  const combinedPolynomial = polynomial.scale(alpha).add(otherPolynomial.scale(beta));
+  const combinedPolynomial = await (await polynomial.scaleBatch(alpha)).addBatch(
+    await otherPolynomial.scaleBatch(beta),
+  );
   const combinedCommitment = await encodePolynomialBufferWithSigma1(runtime, crs, setup, combinedPolynomial);
   const linearCommitment = runtime.G1.add(
     runtime.G1.mulScalar(actualBuffer, alpha),
@@ -93,7 +95,9 @@ async function checkCommitmentOps(runtime: CurveRuntime): Promise<void> {
   );
   assertG1Equal(runtime, combinedCommitment, linearCommitment, "commitment linearity");
 
-  const signedCombinedPolynomial = polynomial.scale(alpha).sub(otherPolynomial.scale(beta));
+  const signedCombinedPolynomial = await (await polynomial.scaleBatch(alpha)).subBatch(
+    await otherPolynomial.scaleBatch(beta),
+  );
   const signedCombinedCommitment = await encodePolynomialBufferWithSigma1(runtime, crs, setup, signedCombinedPolynomial);
   const signedLinearCommitment = runtime.G1.sub(
     runtime.G1.mulScalar(actualBuffer, alpha),

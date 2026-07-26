@@ -55,15 +55,6 @@ export class BivariatePolynomialBuffer {
     return new BivariatePolynomialBuffer(field, field.concat(coefficients), { xSize, ySize });
   }
 
-  static fromBuffer(
-    field: FieldRuntime,
-    coefficients: Uint8Array,
-    xSize: number,
-    ySize: number,
-  ): BivariatePolynomialBuffer {
-    return new BivariatePolynomialBuffer(field, field.cloneBuffer(coefficients), { xSize, ySize });
-  }
-
   static fromOwnedBuffer(
     field: FieldRuntime,
     coefficients: Uint8Array,
@@ -99,62 +90,6 @@ export class BivariatePolynomialBuffer {
       xSize: this.xSize,
       ySize: this.ySize,
     });
-  }
-
-  add(other: BivariatePolynomialBuffer): BivariatePolynomialBuffer {
-    if (this.field === other.field && this.xSize === other.xSize && this.ySize === other.ySize) {
-      const output = new Uint8Array(this.coefficients.byteLength);
-      const elementBytes = this.field.byteLength;
-      for (let offset = 0; offset < output.byteLength; offset += elementBytes) {
-        output.set(
-          this.field.add(
-            this.coefficients.subarray(offset, offset + elementBytes),
-            other.coefficients.subarray(offset, offset + elementBytes),
-          ),
-          offset,
-        );
-      }
-      return BivariatePolynomialBuffer.fromOwnedBuffer(this.field, output, this.xSize, this.ySize);
-    }
-
-    const accumulator = resizedAccumulator(this, other);
-    accumulator.addScaledPrefixAssign(this, this.field.one);
-    accumulator.addScaledPrefixAssign(other, this.field.one);
-    return accumulator;
-  }
-
-  sub(other: BivariatePolynomialBuffer): BivariatePolynomialBuffer {
-    if (this.field === other.field && this.xSize === other.xSize && this.ySize === other.ySize) {
-      const output = new Uint8Array(this.coefficients.byteLength);
-      const elementBytes = this.field.byteLength;
-      for (let offset = 0; offset < output.byteLength; offset += elementBytes) {
-        output.set(
-          this.field.sub(
-            this.coefficients.subarray(offset, offset + elementBytes),
-            other.coefficients.subarray(offset, offset + elementBytes),
-          ),
-          offset,
-        );
-      }
-      return BivariatePolynomialBuffer.fromOwnedBuffer(this.field, output, this.xSize, this.ySize);
-    }
-
-    const accumulator = resizedAccumulator(this, other);
-    accumulator.addScaledPrefixAssign(this, this.field.one);
-    accumulator.addScaledPrefixAssign(other, this.field.neg(this.field.one));
-    return accumulator;
-  }
-
-  scale(factor: FieldElement): BivariatePolynomialBuffer {
-    return this.clone().scaleAssign(factor);
-  }
-
-  scaleCoeffsX(factor: FieldElement): BivariatePolynomialBuffer {
-    return this.clone().scaleCoeffsXAssign(factor);
-  }
-
-  scaleCoeffsY(factor: FieldElement): BivariatePolynomialBuffer {
-    return this.clone().scaleCoeffsYAssign(factor);
   }
 
   async addBatch(other: BivariatePolynomialBuffer): Promise<BivariatePolynomialBuffer> {
@@ -225,14 +160,6 @@ export class BivariatePolynomialBuffer {
       this.xSize,
       this.ySize,
     );
-  }
-
-  toCoeffs(): FieldElement[] {
-    return this.field.split(this.coefficients);
-  }
-
-  toHexCoeffs(): string[] {
-    return this.toCoeffs().map((coefficient) => this.field.toHex(coefficient));
   }
 
   getCoeff(xIndex: number, yIndex: number): FieldElement {
@@ -327,18 +254,6 @@ export class BivariatePolynomialBuffer {
     );
   }
 
-  addAssign(other: BivariatePolynomialBuffer): this {
-    this.assertSameShape(other);
-    this.addSameShapeAssign(other);
-    return this;
-  }
-
-  subAssign(other: BivariatePolynomialBuffer): this {
-    this.assertSameShape(other);
-    this.subSameShapeAssign(other);
-    return this;
-  }
-
   async mul(other: BivariatePolynomialBuffer): Promise<BivariatePolynomialBuffer> {
     if (this.field !== other.field) {
       throw new Error("Bivariate polynomial buffers must have the same field.");
@@ -369,51 +284,6 @@ export class BivariatePolynomialBuffer {
     const outputEvals = await this.field.batchMulBuffer(leftEvals, rightEvals);
 
     return await BivariatePolynomialBuffer.fromRouEvals(this.field, outputEvals, xSize, ySize);
-  }
-
-  mulMonomial(xExponent: number, yExponent: number): BivariatePolynomialBuffer {
-    if (!Number.isSafeInteger(xExponent) || xExponent < 0 || !Number.isSafeInteger(yExponent) || yExponent < 0) {
-      throw new Error("Monomial exponents must be non-negative safe integers.");
-    }
-
-    const { xDegree, yDegree } = this.findDegree();
-    if (xDegree < 0 || yDegree < 0) {
-      return BivariatePolynomialBuffer.zero(this.field);
-    }
-
-    const xSize = nextPowerOfTwo(Math.max(1, xDegree + 1 + xExponent));
-    const ySize = nextPowerOfTwo(Math.max(1, yDegree + 1 + yExponent));
-    const output = new BivariatePolynomialBuffer(this.field, this.field.createZeroBuffer(xSize * ySize), {
-      xSize,
-      ySize,
-    });
-
-    for (let x = 0; x <= xDegree; x += 1) {
-      for (let y = 0; y <= yDegree; y += 1) {
-        const coefficient = this.getCoeff(x, y);
-        if (!this.field.isZero(coefficient)) {
-          output.setCoeff(x + xExponent, y + yExponent, coefficient);
-        }
-      }
-    }
-
-    return output;
-  }
-
-  scaleAssign(factor: FieldElement): this {
-    const elementBytes = this.field.byteLength;
-    for (let offset = 0; offset < this.coefficients.byteLength; offset += elementBytes) {
-      this.coefficients.set(
-        this.field.mul(this.coefficients.subarray(offset, offset + elementBytes), factor),
-        offset,
-      );
-    }
-    return this;
-  }
-
-  addScaledAssign(other: BivariatePolynomialBuffer, factor: FieldElement): this {
-    this.assertSameShape(other);
-    return this.addScaledPrefixAssign(other, factor);
   }
 
   addScaledPrefixAssign(other: BivariatePolynomialBuffer, factor: FieldElement): this {
@@ -462,45 +332,6 @@ export class BivariatePolynomialBuffer {
     return this;
   }
 
-  scaleCoeffsXAssign(factor: FieldElement): this {
-    const elementBytes = this.field.byteLength;
-    const rowBytes = this.ySize * elementBytes;
-    let power = this.field.one;
-    for (let x = 0; x < this.xSize; x += 1) {
-      const rowEnd = (x + 1) * rowBytes;
-      for (let offset = x * rowBytes; offset < rowEnd; offset += elementBytes) {
-        this.coefficients.set(
-          this.field.mul(this.coefficients.subarray(offset, offset + elementBytes), power),
-          offset,
-        );
-      }
-      power = this.field.mul(power, factor);
-    }
-    return this;
-  }
-
-  scaleCoeffsYAssign(factor: FieldElement): this {
-    const elementBytes = this.field.byteLength;
-    const powers: FieldElement[] = [];
-    let power = this.field.one;
-    for (let y = 0; y < this.ySize; y += 1) {
-      powers.push(power);
-      power = this.field.mul(power, factor);
-    }
-
-    for (let x = 0; x < this.xSize; x += 1) {
-      const rowOffset = x * this.ySize * elementBytes;
-      for (let y = 0; y < this.ySize; y += 1) {
-        const offset = rowOffset + y * elementBytes;
-        this.coefficients.set(
-          this.field.mul(this.coefficients.subarray(offset, offset + elementBytes), powers[y]),
-          offset,
-        );
-      }
-    }
-    return this;
-  }
-
   async toRouEvals(cosetX?: FieldElement, cosetY?: FieldElement): Promise<Uint8Array> {
     if (cosetX === undefined && cosetY === undefined && this.xSize > 1 && this.ySize > 1) {
       return await biNttBuffer(this.field, this.coefficients, this.xSize, this.ySize, "forward");
@@ -515,94 +346,6 @@ export class BivariatePolynomialBuffer {
     }
 
     return await biNttBuffer(this.field, scaled.coefficients, this.xSize, this.ySize, "forward");
-  }
-
-  divByRuffini(xPoint: FieldElement, yPoint: FieldElement): BivariateBufferRuffiniDivisionResult {
-    const elementBytes = this.field.byteLength;
-    if (xPoint.byteLength !== elementBytes || yPoint.byteLength !== elementBytes) {
-      throw new Error("Ruffini division points must be field elements.");
-    }
-
-    const quotientXBuffer = this.field.createZeroBuffer(this.xSize * this.ySize);
-    const xRemainderBuffer = this.field.createZeroBuffer(this.ySize);
-
-    if (this.xSize === 1) {
-      xRemainderBuffer.set(this.coefficients);
-    } else {
-      const highestInputOffset = (this.xSize - 1) * this.ySize * elementBytes;
-      const highestQuotientOffset = (this.xSize - 2) * this.ySize * elementBytes;
-      quotientXBuffer.set(
-        this.coefficients.subarray(highestInputOffset, highestInputOffset + this.ySize * elementBytes),
-        highestQuotientOffset,
-      );
-
-      for (let x = this.xSize - 3; x >= 0; x -= 1) {
-        const inputRowOffset = (x + 1) * this.ySize * elementBytes;
-        const nextQuotientRowOffset = (x + 1) * this.ySize * elementBytes;
-        const quotientRowOffset = x * this.ySize * elementBytes;
-        for (let y = 0; y < this.ySize; y += 1) {
-          const elementOffset = y * elementBytes;
-          quotientXBuffer.set(
-            this.field.add(
-              this.coefficients.subarray(
-                inputRowOffset + elementOffset,
-                inputRowOffset + elementOffset + elementBytes,
-              ),
-              this.field.mul(
-                xPoint,
-                quotientXBuffer.subarray(
-                  nextQuotientRowOffset + elementOffset,
-                  nextQuotientRowOffset + elementOffset + elementBytes,
-                ),
-              ),
-            ),
-            quotientRowOffset + elementOffset,
-          );
-        }
-      }
-
-      for (let y = 0; y < this.ySize; y += 1) {
-        const elementOffset = y * elementBytes;
-        xRemainderBuffer.set(
-          this.field.add(
-            this.coefficients.subarray(elementOffset, elementOffset + elementBytes),
-            this.field.mul(xPoint, quotientXBuffer.subarray(elementOffset, elementOffset + elementBytes)),
-          ),
-          elementOffset,
-        );
-      }
-    }
-
-    const quotientYBuffer = this.field.createZeroBuffer(this.ySize);
-    let remainder: FieldElement;
-    if (this.ySize === 1) {
-      remainder = xRemainderBuffer.slice(0, elementBytes);
-    } else {
-      quotientYBuffer.set(
-        xRemainderBuffer.subarray((this.ySize - 1) * elementBytes, this.ySize * elementBytes),
-        (this.ySize - 2) * elementBytes,
-      );
-      for (let y = this.ySize - 3; y >= 0; y -= 1) {
-        const sourceOffset = (y + 1) * elementBytes;
-        quotientYBuffer.set(
-          this.field.add(
-            xRemainderBuffer.subarray(sourceOffset, sourceOffset + elementBytes),
-            this.field.mul(yPoint, quotientYBuffer.subarray(sourceOffset, sourceOffset + elementBytes)),
-          ),
-          y * elementBytes,
-        );
-      }
-      remainder = this.field.add(
-        xRemainderBuffer.subarray(0, elementBytes),
-        this.field.mul(yPoint, quotientYBuffer.subarray(0, elementBytes)),
-      );
-    }
-
-    return {
-      quotientX: BivariatePolynomialBuffer.fromOwnedBuffer(this.field, quotientXBuffer, this.xSize, this.ySize),
-      quotientY: BivariatePolynomialBuffer.fromOwnedBuffer(this.field, quotientYBuffer, 1, this.ySize),
-      remainder,
-    };
   }
 
   async divByRuffiniBatch(
@@ -630,111 +373,6 @@ export class BivariatePolynomialBuffer {
         this.ySize,
       ),
       remainder: yDivision.remainder,
-    };
-  }
-
-  divByVanishingOpt(xDegree: number, yDegree: number): BivariateBufferVanishingQuotientResult {
-    if (!isPowerOfTwo(xDegree) || !isPowerOfTwo(yDegree)) {
-      throw new Error("Vanishing polynomial degrees must be powers of two.");
-    }
-
-    const optimized = this.optimizeSize();
-    const { xDegree: numeratorXDegree, yDegree: numeratorYDegree } = optimized.findDegree();
-    if (numeratorXDegree < 0 || numeratorYDegree < 0) {
-      return {
-        quotientX: BivariatePolynomialBuffer.zero(this.field),
-        quotientY: BivariatePolynomialBuffer.zero(this.field),
-      };
-    }
-
-    if (numeratorXDegree < xDegree || numeratorYDegree < yDegree) {
-      throw new Error("The numerator degrees must be at least the vanishing polynomial degrees.");
-    }
-
-    const xSize = optimized.xSize;
-    const ySize = optimized.ySize;
-    const xBlockCount = xSize / xDegree;
-    const yBlockCount = ySize / yDegree;
-    if (!Number.isInteger(xBlockCount) || !Number.isInteger(yBlockCount)) {
-      throw new Error("Optimized numerator shape must be divisible by the vanishing degrees.");
-    }
-
-    const pCoefficients = this.field.cloneBuffer(optimized.coefficients);
-    const accumulatedBlock = this.field.createZeroBuffer(xDegree * ySize);
-
-    for (let blockX = 0; blockX < xBlockCount; blockX += 1) {
-      const xOffset = blockX * xDegree;
-      for (let localX = 0; localX < xDegree; localX += 1) {
-        for (let y = 0; y < ySize; y += 1) {
-          const sourceIndex = (xOffset + localX) * ySize + y;
-          const targetIndex = localX * ySize + y;
-          this.field.writeBufferElement(
-            accumulatedBlock,
-            targetIndex,
-            this.field.add(
-              this.field.readBufferElement(accumulatedBlock, targetIndex),
-              this.field.readBufferElement(pCoefficients, sourceIndex),
-            ),
-          );
-        }
-      }
-    }
-
-    const quotientYCoefficients = this.field.createZeroBuffer(xDegree * ySize);
-    if (ySize > yDegree) {
-      for (let x = 0; x < xDegree; x += 1) {
-        const rowStart = x * ySize;
-        for (let y = 0; y < ySize - yDegree; y += 1) {
-          const previous =
-            y >= yDegree ? this.field.readBufferElement(quotientYCoefficients, rowStart + y - yDegree) : this.field.zero;
-          this.field.writeBufferElement(
-            quotientYCoefficients,
-            rowStart + y,
-            this.field.sub(previous, this.field.readBufferElement(accumulatedBlock, rowStart + y)),
-          );
-        }
-      }
-    }
-
-    const bCoefficients = this.field.cloneBuffer(pCoefficients);
-    if (ySize > yDegree) {
-      for (let x = 0; x < xDegree; x += 1) {
-        const rowStart = x * ySize;
-        for (let y = 0; y < ySize - yDegree; y += 1) {
-          const coefficient = this.field.readBufferElement(quotientYCoefficients, rowStart + y);
-          this.field.writeBufferElement(
-            bCoefficients,
-            rowStart + y,
-            this.field.add(this.field.readBufferElement(bCoefficients, rowStart + y), coefficient),
-          );
-          this.field.writeBufferElement(
-            bCoefficients,
-            rowStart + y + yDegree,
-            this.field.sub(this.field.readBufferElement(bCoefficients, rowStart + y + yDegree), coefficient),
-          );
-        }
-      }
-    }
-
-    const quotientXCoefficients = this.field.createZeroBuffer(xSize * ySize);
-    if (xSize > xDegree) {
-      for (let x = 0; x < xSize - xDegree; x += 1) {
-        for (let y = 0; y < ySize; y += 1) {
-          const targetIndex = x * ySize + y;
-          const previous =
-            x >= xDegree ? this.field.readBufferElement(quotientXCoefficients, (x - xDegree) * ySize + y) : this.field.zero;
-          this.field.writeBufferElement(
-            quotientXCoefficients,
-            targetIndex,
-            this.field.sub(previous, this.field.readBufferElement(bCoefficients, targetIndex)),
-          );
-        }
-      }
-    }
-
-    return {
-      quotientX: new BivariatePolynomialBuffer(this.field, quotientXCoefficients, { xSize, ySize }),
-      quotientY: new BivariatePolynomialBuffer(this.field, quotientYCoefficients, { xSize: xDegree, ySize }),
     };
   }
 
@@ -865,7 +503,7 @@ async function multiplyByXUnivariateFactor(
     }
   }
 
-  return BivariatePolynomialBuffer.fromBuffer(field, output, xSize, ySize);
+  return BivariatePolynomialBuffer.fromOwnedBuffer(field, output, xSize, ySize);
 }
 
 async function multiplyByYUnivariateFactor(
@@ -900,7 +538,7 @@ async function multiplyByYUnivariateFactor(
     output.set(rowCoeffs, x * ySize * field.byteLength);
   }
 
-  return BivariatePolynomialBuffer.fromBuffer(field, output, xSize, ySize);
+  return BivariatePolynomialBuffer.fromOwnedBuffer(field, output, xSize, ySize);
 }
 
 export async function biNttBuffer(
@@ -977,20 +615,6 @@ function nextPowerOfTwo(value: number): number {
     size *= 2;
   }
   return size;
-}
-
-function resizedAccumulator(
-  left: BivariatePolynomialBuffer,
-  right: BivariatePolynomialBuffer,
-): BivariatePolynomialBuffer {
-  if (left.field !== right.field) {
-    throw new Error("Bivariate polynomial buffers must have the same field.");
-  }
-
-  return BivariatePolynomialBuffer.zero(left.field).resize(
-    Math.max(left.xSize, right.xSize),
-    Math.max(left.ySize, right.ySize),
-  );
 }
 
 function resizeForMultiplication(
