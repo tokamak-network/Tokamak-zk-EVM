@@ -4,7 +4,6 @@ import {
 } from "../../artifacts/binary/binary-format.js";
 import { decodeBinaryArtifactFile } from "../../artifacts/binary/binary-artifact-file.js";
 import { validateSourcePackageVersion } from "../../artifacts/binary/binary-table-utils.js";
-import { PROVER_PERMUTATION_V1_SPEC } from "../../artifacts/specs/prover-permutation.v1.generated.js";
 import type { RuntimeArtifactFormatSpec } from "../../artifacts/specs/types.js";
 import { specForKind, validateRuntimeArtifactBySpec } from "./artifact-spec-validation.js";
 import { validateDigestTables } from "./digest-validation.js";
@@ -44,12 +43,4 @@ export async function validateRuntimeArtifactFile(
   }
 
   return { artifactFile };
-}
-
-export async function validateProverPermutationArtifactFile(
-  bytes: Uint8Array,
-): Promise<RuntimeArtifactFileValidationResult> {
-  return validateRuntimeArtifactFile(bytes, PROVER_PERMUTATION_V1_SPEC, {
-    expectedKind: BinaryArtifactFileKind.ProverPermutation,
-  });
 }
