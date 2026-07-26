@@ -26,16 +26,18 @@ Useful options:
 - `--json=tmp/timing/prover-init-benchmark.json`: structured report path.
 - `--markdown=tmp/timing/prover-init-benchmark.md`: human-readable report path.
 
-The sparse witness accumulation benchmark has a separate entry point:
+The sparse witness accumulation regression has a separate entry point:
 
 ```bash
 npm run bench:prover-init:sparse
 ```
 
-It compares the current per-entry JavaScript field loop with a packed CSR row-dot
-kernel in caller-thread WASM, one ffjavascript worker, and row-sharded workers.
-Its measured accumulation boundary includes active-wire and CSR packing, worker
-input transfer, kernel execution, result transfer, and output assembly.
+It compares the production packed-CSR witness path with an independent scalar
+JavaScript row-dot oracle. The oracle preserves sparse entry order and checks
+the final `b`, `u`, `v`, `w`, and `r` polynomial bytes. Historical caller-WASM,
+one-worker, and rejected row-sharded measurements are preserved in
+`docs/optimization/prover-optimization-history.md`; their duplicate executable
+kernels are not retained.
 
 ## Promotion Rule
 
@@ -68,7 +70,7 @@ Interpretation:
 - Direct sparse active-wire access and row-major UVW writes are not sufficient standalone production candidates.
 - Parallel scheduling of independent ROU conversions was the strongest candidate in this diagnostic run, but the project owner discarded its production promotion. Retain this result only as historical benchmark evidence.
 
-## Sparse Witness Accumulation
+## Historical Sparse Witness Investigation
 
 Fixture: `fixtures/small/runtime`. Worker count: `14`.
 
@@ -79,12 +81,12 @@ Fixture: `fixtures/small/runtime`. Worker count: `14`.
 | one ffjavascript worker | 328.331 ms | 2.16 s | exact |
 | 14 row-sharded workers | 529.133 ms | 2.55 s | exact |
 
-All candidates preserve entry order within each row and produce byte-identical
-`b`, `u`, `v`, `w`, and `r` witness polynomials. The packed WASM kernel is
-effective, but row sharding is not: these sparse matrices do not provide enough
-work per task to amortize repeated packing and worker transfer. Production
-promotion should therefore use one worker task per matrix rather than row
-sharding.
+All candidates preserved entry order within each row and produced byte-identical
+`b`, `u`, `v`, `w`, and `r` witness polynomials. The packed WASM kernel was
+effective, but row sharding was not: these sparse matrices did not provide
+enough work per task to amortize repeated packing and worker transfer.
+Production uses one worker task per matrix. The retained executable benchmark
+now exercises that production path against the independent scalar oracle only.
 
 ## Persistent Packed CSR
 

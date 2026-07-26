@@ -17,24 +17,10 @@ import type {
   WitnessPolynomials,
 } from "../../../src/prover/internal/witness.js";
 import {
-  createSparseBenchmarkRuntimes,
-  evaluateSparseRowsCallerWasm,
-  evaluateSparseRowsOneWorker,
-  evaluateSparseRowsWorkers,
-  type SparseBenchmarkRuntimes,
-} from "./sparse-wasm-benchmark-support.js";
-import {
   unpackPackedSparseR1cs,
   type ProverSparseMatrix,
   type ProverSparseSubcircuitR1cs,
 } from "./legacy-sparse-r1cs.js";
-
-type SparseEvaluator = (
-  runtimes: SparseBenchmarkRuntimes,
-  placement: ProverRuntimeInput["witness"]["placementVariables"][number],
-  matrix: ProverSparseMatrix,
-  rowCount: number,
-) => Promise<Uint8Array>;
 
 interface CandidateResult {
   readonly name: string;
@@ -45,49 +31,38 @@ interface CandidateResult {
 
 async function main(): Promise<void> {
   const runtimeDir = parseRuntimeDir(process.argv.slice(2));
-  const benchmarkRuntimes = await createSparseBenchmarkRuntimes();
-  const productionRuntime = await createCurveRuntime();
+  const runtime = await createCurveRuntime();
 
   try {
-    const input = await loadPreparedProverInput(productionRuntime, runtimeDir);
+    const input = await loadPreparedProverInput(runtime, runtimeDir);
     const productionStart = performance.now();
-    const production = await buildWitnessPolynomials(productionRuntime.Fr, input.witness);
+    const production = await buildWitnessPolynomials(runtime.Fr, input.witness);
     const productionMs = performance.now() - productionStart;
-    const candidates = [
-      await runCandidate("current-js", benchmarkRuntimes, input, production, evaluateSparseRowsJs),
-      await runCandidate("caller-wasm", benchmarkRuntimes, input, production, evaluateSparseRowsCallerWasm),
-      await runCandidate("one-worker", benchmarkRuntimes, input, production, evaluateSparseRowsOneWorker),
-      await runCandidate("row-sharded-workers", benchmarkRuntimes, input, production, evaluateSparseRowsWorkers),
-    ];
+    const oracle = await runScalarOracle(runtime.Fr, input, production);
 
     console.log("Sparse witness accumulation benchmark completed.");
-    console.log(`worker count: ${benchmarkRuntimes.workerCount}`);
     console.log(`production witness: ${formatDuration(productionMs)}`);
-    for (const candidate of candidates) {
-      console.log(
-        `${candidate.name}: accumulation ${formatDuration(candidate.accumulationMs)}, `
-          + `complete witness ${formatDuration(candidate.witnessMs)}`,
-      );
-      for (const check of candidate.parity) {
-        console.log(`  ${check}`);
-      }
+    console.log(
+      `${oracle.name}: accumulation ${formatDuration(oracle.accumulationMs)}, `
+        + `complete witness ${formatDuration(oracle.witnessMs)}`,
+    );
+    for (const check of oracle.parity) {
+      console.log(`  ${check}`);
     }
   } finally {
-    await Promise.all([productionRuntime.terminate(), benchmarkRuntimes.terminate()]);
+    await runtime.terminate();
   }
 }
 
-async function runCandidate(
-  name: string,
-  runtimes: SparseBenchmarkRuntimes,
+async function runScalarOracle(
+  field: FieldRuntime,
   input: ProverRuntimeInput,
   production: WitnessPolynomials,
-  evaluator: SparseEvaluator,
 ): Promise<CandidateResult> {
   let accumulationMs = 0;
   const witnessStart = performance.now();
   const bXY = await genBXY(
-    runtimes.field,
+    field,
     input.witness.placementVariables,
     input.witness.subcircuitInfos,
     input.witness.setup,
@@ -97,9 +72,9 @@ async function runCandidate(
     input.witness.subcircuitInfos.length,
   );
   const setup = input.witness.setup;
-  const uEvals = runtimes.field.createZeroBuffer(setup.n * setup.s_max);
-  const vEvals = runtimes.field.createZeroBuffer(setup.n * setup.s_max);
-  const wEvals = runtimes.field.createZeroBuffer(setup.n * setup.s_max);
+  const uEvals = field.createZeroBuffer(setup.n * setup.s_max);
+  const vEvals = field.createZeroBuffer(setup.n * setup.s_max);
+  const wEvals = field.createZeroBuffer(setup.n * setup.s_max);
 
   for (let placementIndex = 0; placementIndex < input.witness.placementVariables.length; placementIndex += 1) {
     const placement = input.witness.placementVariables[placementIndex];
@@ -109,46 +84,37 @@ async function runCandidate(
     }
 
     const start = performance.now();
-    const uRows = await evaluator(runtimes, placement, r1cs.A, setup.n);
-    const vRows = await evaluator(runtimes, placement, r1cs.B, setup.n);
-    const wRows = await evaluator(runtimes, placement, r1cs.C, setup.n);
+    const uRows = evaluateSparseRowsScalar(field, placement, r1cs.A, setup.n);
+    const vRows = evaluateSparseRowsScalar(field, placement, r1cs.B, setup.n);
+    const wRows = evaluateSparseRowsScalar(field, placement, r1cs.C, setup.n);
     accumulationMs += performance.now() - start;
-    writePlacementColumn(runtimes, uRows, uEvals, placementIndex, setup.n, setup.s_max);
-    writePlacementColumn(runtimes, vRows, vEvals, placementIndex, setup.n, setup.s_max);
-    writePlacementColumn(runtimes, wRows, wEvals, placementIndex, setup.n, setup.s_max);
+    writePlacementColumn(field, uRows, uEvals, placementIndex, setup.n, setup.s_max);
+    writePlacementColumn(field, vRows, vEvals, placementIndex, setup.n, setup.s_max);
+    writePlacementColumn(field, wRows, wEvals, placementIndex, setup.n, setup.s_max);
   }
 
   const [uXY, vXY, wXY] = await Promise.all([
-    BivariatePolynomialBuffer.fromRouEvals(runtimes.field, uEvals, setup.n, setup.s_max),
-    BivariatePolynomialBuffer.fromRouEvals(runtimes.field, vEvals, setup.n, setup.s_max),
-    BivariatePolynomialBuffer.fromRouEvals(runtimes.field, wEvals, setup.n, setup.s_max),
+    BivariatePolynomialBuffer.fromRouEvals(field, uEvals, setup.n, setup.s_max),
+    BivariatePolynomialBuffer.fromRouEvals(field, vEvals, setup.n, setup.s_max),
+    BivariatePolynomialBuffer.fromRouEvals(field, wEvals, setup.n, setup.s_max),
   ]);
   const candidate: WitnessPolynomials = {
     bXY,
     uXY,
     vXY,
     wXY,
-    rXY: BivariatePolynomialBuffer.zero(runtimes.field),
+    rXY: BivariatePolynomialBuffer.zero(field),
   };
 
   return {
-    name,
+    name: "independent-scalar-oracle",
     accumulationMs,
     witnessMs: performance.now() - witnessStart,
     parity: assertWitnessParity(production, candidate),
   };
 }
 
-async function evaluateSparseRowsJs(
-  runtimes: SparseBenchmarkRuntimes,
-  placement: ProverRuntimeInput["witness"]["placementVariables"][number],
-  matrix: ProverSparseMatrix,
-  rowCount: number,
-): Promise<Uint8Array> {
-  return evaluateSparseRowsJsWithField(runtimes.field, placement, matrix, rowCount);
-}
-
-function evaluateSparseRowsJsWithField(
+function evaluateSparseRowsScalar(
   field: FieldRuntime,
   placement: ProverRuntimeInput["witness"]["placementVariables"][number],
   matrix: ProverSparseMatrix,
@@ -178,7 +144,7 @@ function evaluateSparseRowsJsWithField(
 }
 
 function writePlacementColumn(
-  runtimes: SparseBenchmarkRuntimes,
+  field: FieldRuntime,
   rows: Uint8Array,
   output: Uint8Array,
   placementIndex: number,
@@ -186,10 +152,10 @@ function writePlacementColumn(
   placementCount: number,
 ): void {
   for (let row = 0; row < rowCount; row += 1) {
-    runtimes.field.writeBufferElement(
+    field.writeBufferElement(
       output,
       row * placementCount + placementIndex,
-      runtimes.field.readBufferElement(rows, row),
+      field.readBufferElement(rows, row),
     );
   }
 }
