@@ -54,13 +54,24 @@ async function main(): Promise<void> {
   const runtime = await createCurveRuntime();
   try {
     const input = await loadPreparedProverInput(runtime, (message) => console.log(message));
+    const midSource = createStatementSource(
+      input,
+      "O_mid",
+      input.witness.setup.l,
+      input.witness.setup.l_D,
+    );
+    const privateSource = createStatementSource(
+      input,
+      "O_prv",
+      input.witness.setup.l_D,
+      input.witness.setup.m_D,
+    );
     const sources = [
-      createPublicSource(input),
-      createStatementSource(input, "O_mid", input.witness.setup.l, input.witness.setup.l_D),
-      createStatementSource(input, "O_prv", input.witness.setup.l_D, input.witness.setup.m_D),
+      midSource,
+      privateSource,
       ...createSyntheticSources(runtime),
     ];
-    await assertProductionStatementParity(runtime, input, sources[1], sources[2]);
+    await assertProductionStatementParity(runtime, input, midSource, privateSource);
     const summaries: Summary[] = [];
     for (const source of sources) {
       console.log(`Benchmarking ${source.label} (${source.maxCount} inputs)`);
@@ -86,7 +97,7 @@ async function main(): Promise<void> {
       iterations: 3,
       warmup: 1,
       parity: "pass",
-      scope: "O_pub_free, O_mid, and O_prv; A_free already uses zero-aware polynomial encoding",
+      scope: "O_mid and O_prv production regression with synthetic density parity",
       summaries,
     };
     const outputPath = path.resolve("tmp/timing/binding-zero-compaction.json");
@@ -218,43 +229,6 @@ async function runCandidate(
   };
 }
 
-function createPublicSource(input: ProverRuntimeInput): BindingSource {
-  let maxCount = 0;
-  for (const placement of input.witness.placementVariables) {
-    const info = requireInfo(input, placement.subcircuitId);
-    if (info.name === "bufferEVMIn") {
-      continue;
-    }
-    const range = publicFreeRange(info);
-    if (range !== undefined) {
-      maxCount += range.end - range.start;
-    }
-  }
-  return {
-    label: "O_pub_free",
-    maxCount,
-    visit(visitor) {
-      for (const placement of input.witness.placementVariables) {
-        const info = requireInfo(input, placement.subcircuitId);
-        if (info.name === "bufferEVMIn") {
-          continue;
-        }
-        const range = publicFreeRange(info);
-        if (range === undefined) {
-          continue;
-        }
-        for (let localIndex = range.start; localIndex < range.end; localIndex += 1) {
-          const globalIndex = info.flattenMap[localIndex];
-          visitor(
-            proverCrsG1PointAt(input.crs.sigma1.gammaInvOInst, globalIndex),
-            placement.variables[localIndex],
-          );
-        }
-      }
-    },
-  };
-}
-
 function createStatementSource(
   input: ProverRuntimeInput,
   label: string,
@@ -347,18 +321,6 @@ function requireInfo(input: ProverRuntimeInput, subcircuitId: number): ProverSub
     throw new Error(`Missing subcircuit info ${subcircuitId}.`);
   }
   return info;
-}
-
-function publicFreeRange(
-  info: ProverSubcircuitInfo,
-): { readonly start: number; readonly end: number } | undefined {
-  if (info.name === "bufferPubOut") {
-    return { start: info.Out_idx[0], end: info.Out_idx[0] + info.Out_idx[1] };
-  }
-  if (info.name === "bufferPubIn" || info.name === "bufferBlockIn") {
-    return { start: info.In_idx[0], end: info.In_idx[0] + info.In_idx[1] };
-  }
-  return undefined;
 }
 
 function concatBytes(chunks: readonly Uint8Array[]): Uint8Array {

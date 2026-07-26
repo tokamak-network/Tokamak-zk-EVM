@@ -265,7 +265,6 @@ fixture.
 
 | binding | inputs | nonzero | density | current ms | compact ms | delta ms | reduction | current temporary MiB | compact temporary MiB |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `O_pub_free` | 109 | 56 | 0.514 | 1.282 | 1.590 | +0.308 | -24.0% | 0.017 | 0.015 |
 | `O_mid` | 6,820 | 4,391 | 0.644 | 14.051 | 13.296 | -0.755 | 5.4% | 1.041 | 0.967 |
 | `O_prv` | 650,925 | 352,160 | 0.541 | 1686.677 | 1597.912 | -88.765 | 5.3% | 99.323 | 90.206 |
 
@@ -276,8 +275,9 @@ Production writes nonzero base/scalar pairs directly into preallocated typed
 buffers, batch-converts only the active scalar prefix, and submits the active
 prefix to the existing MSM primitive. The benchmark now also compares the
 actual production functions against the independent legacy implementation.
-It remains rejected for `O_pub_free`, where fixed scan/allocation overhead
-exceeds the savings.
+The rejected `O_pub_free` result is preserved in the
+[rejected candidate summary](../../../docs/optimization/rejected/rejected-candidate-summary.md)
+rather than retained as executable candidate code.
 
 The post-promotion run retained exact production parity. `O_prv` changed from
 `1706.290 ms` to `1539.455 ms`, while explicit temporary storage remained
