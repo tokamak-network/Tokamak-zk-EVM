@@ -122,9 +122,7 @@ below 262,144 points, and must not be interpreted as a monotonic allocation
 curve. The high-end decision is nevertheless clear on this machine:
 524,288 points provides no time improvement over 262,144 points and adds
 approximately 0.96 GiB of observed peak total RSS. Retaining 262,144 points is
-the technical recommendation. The production constant remains unchanged while
-the project owner decides whether to accept that recommendation as the final
-default for unknown user hardware.
+the technical recommendation.
 
 ## Final All-Approved Optimization Rerun
 
@@ -153,6 +151,32 @@ while the observed peak total RSS differs by `0.34 GiB`.
 
 The final technical recommendation remains `262144`. It is the fastest
 measured candidate, avoids the high-end RSS jump, and is already the production
-value. Selecting it as the final default still requires the project owner
-because this local result cannot guarantee safety for every browser and user
-hardware configuration.
+value.
+
+## Unbounded MSM Recheck
+
+On 2026-07-26, the current production dense input-preparation path was tested
+with its outer chunk limit removed. Dense commitments retained the same CRS
+range preparation, Montgomery-to-raw scalar conversion, ffjavascript
+`multiExpAffine(...)` primitive, and production multi-thread runtime. The only
+behavioral difference was that each complete dense commitment was submitted in
+one ffjavascript API call.
+
+The browser loaded the fixture and curve runtime, entered `proveBinary(...)`,
+and did not generate a proof before the configured 1,800-second timeout. No
+explicit `DataCloneError` or out-of-memory exception was emitted on the local
+48-GiB machine. The Chromium renderer was observed at approximately 7.9 GiB RSS
+during the stalled run, but this point observation is not a peak-memory
+measurement. The verifier was not reached because no proof was produced.
+
+This result supersedes any claim that the current implementation necessarily
+raises an explicit browser OOM when the outer chunk limit is removed. It instead
+establishes that the unbounded call shape does not complete within more than
+14.8 times the latest `262144` proof duration on this machine.
+
+## Final Decision
+
+The project owner selected `262144` points as the final production dense Sigma1
+MSM chunk size on 2026-07-26. The production constant remains `1 << 18`.
+`524288` provides no measured time advantage and increases peak RSS, while the
+unbounded variant does not complete within the browser check timeout.
