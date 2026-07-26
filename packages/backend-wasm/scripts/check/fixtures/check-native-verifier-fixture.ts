@@ -69,6 +69,14 @@ async function main(argv: readonly string[]): Promise<void> {
   };
 
   console.log(`${JSON.stringify(report, null, 2)}\n`);
+
+  if (report.accepted !== true) {
+    throw new Error(
+      report.accepted === false
+        ? "Native verifier rejected the copied fixture."
+        : "Native verifier did not print a parseable boolean result.",
+    );
+  }
 }
 
 function parseCopyManifest(raw: unknown): CopyManifest {
