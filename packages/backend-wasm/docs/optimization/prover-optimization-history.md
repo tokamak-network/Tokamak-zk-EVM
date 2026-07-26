@@ -2492,3 +2492,57 @@ prover-stage total, so the representation change introduced no material
 time regression. Type checks, binary and witness checks, Node proof generation,
 testing-mode invariants, verifier acceptance, and Chromium proof generation
 (`120.57 s`) and verification (`20 ms`) passed.
+
+## Direct Permutation Buffers And Row-Prefix Resize
+
+Related commits: `86189e69` and `35542a4f`.
+
+Permutation polynomial initialization previously created two 1,048,576-entry
+JavaScript arrays of field-element references and concatenated them into two
+32 MiB buffers. Production now allocates those final buffers directly, fills
+the repeated X/Y rows, and applies the 5,053 permutation overrides in place.
+The selection benchmark measured `86.53 ms` for the prior path and `11.77 ms`
+for direct construction, a `7.35x` speedup, with exact byte parity. It also
+removes about 16 MiB of temporary reference slots before JavaScript array
+metadata.
+
+Polynomial resize previously copied retained coefficients one field element at
+a time through bounds-checked accessors. Production now performs one contiguous
+prefix copy per retained row. The pre-promotion benchmark measured:
+
+| resize | element-wise | row-prefix | speedup |
+| --- | ---: | ---: | ---: |
+| `4096x256` to `8192x512` | 45.65 ms | 3.85 ms | 11.86x |
+| `4096x256` to `2048x128` | 12.34 ms | 0.67 ms | 18.38x |
+
+Same-shape resize retains its existing clone semantics. Grow, shrink, and
+same-shape outputs matched byte-for-byte.
+
+Post-promotion fixed-taxonomy timing:
+
+| layer | row | total | count |
+| --- | --- | ---: | ---: |
+| lowest | `polynomial.combination_without_multiplication` | 4.32 s | 49 |
+| lowest | `polynomial.combination_with_multiplication` | 15.27 s | 18 |
+| lowest | `polynomial.recursion` | 1.35 s | 1 |
+| lowest | `polynomial.evaluation` | 209 ms | 7 |
+| lowest | `polynomial.div_ruffini` | 382 ms | 2 |
+| lowest | `polynomial.div_vanishing` | 872 ms | 2 |
+| lowest | `polynomial.encode` | 91.77 s | 14 |
+| lowest | `binding.encode` | 1.60 s | 1 |
+| top | `field.operations` | 22.42 s | 79 |
+| top | `encode` | 93.36 s | 15 |
+| boundary | `init` | 2.57 s | 2 |
+| boundary | `stage.unclassified` | 4 ms | 1 |
+| boundary | `io` | 162 ms | 2 |
+| boundary | `verify` | 17 ms | 1 |
+| boundary | `output` | 2 ms | 1 |
+| total | prover stage total | 114.19 s | - |
+| total | total wall | 118.53 s | - |
+
+The preceding accepted record was `119.40 s` total wall, `114.92 s`
+prover-stage total, and `2.70 s` init. The full-wall reduction is directionally
+consistent but is not used to attribute more than the isolated boundary
+evidence. Type checks, operation and polynomial parity, native testing-mode
+invariants, Node verifier acceptance, and Chromium proof generation
+(`120.18 s`) and verification (`20 ms`) passed.

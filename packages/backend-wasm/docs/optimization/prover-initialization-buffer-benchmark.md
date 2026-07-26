@@ -14,9 +14,9 @@ The benchmark covers four current production patterns:
 3. scalar ffjavascript degree scans;
 4. sparse-witness zero tests and writes.
 
-Production code is unchanged. Each result is the median of three measured Node
-runs after one untimed run. All candidates use the same ffjavascript runtime
-and exact byte inputs as their baseline.
+The selection results are medians of three measured Node runs after one untimed
+run. All candidates use the same ffjavascript runtime and exact byte inputs as
+their baseline.
 
 ## Results
 
@@ -87,15 +87,27 @@ too quickly for reliable external peak-RSS sampling, so this report does not
 invent a process peak from interval samples that cannot run while JavaScript is
 blocked.
 
-## Promotion Classification
+## Promotion Status
 
-- **Eligible:** direct row-major permutation evaluation buffers.
-- **Eligible:** row-prefix polynomial resize for different shapes.
+- **Promoted in `86189e69`:** direct row-major permutation evaluation buffers.
+- **Promoted in `35542a4f`:** row-prefix polynomial resize for different shapes.
 - **Not eligible without call-site evidence:** raw degree scan.
 - **Not eligible:** raw sparse-witness scan, because the real end-to-end
   opportunity is below one millisecond.
 - **Rejected:** unconditional sparse-witness writes.
 
-Production promotion must remain one candidate family per commit and rerun
-focused parity, testing-mode, proof verification, browser checks, and the
-prover timing table.
+The two eligible boundaries were promoted in separate commits. The permutation
+path now allocates its two final 32 MiB buffers directly and does not create two
+1,048,576-entry JavaScript reference arrays. Polynomial resize now copies one
+contiguous coefficient prefix per retained row.
+
+After both promotions, the fixed-taxonomy run completed in `118.53 s` total
+wall with `114.19 s` prover-stage total and `2.57 s` init. The preceding
+accepted run was `119.40 s` total wall, `114.92 s` prover-stage total, and
+`2.70 s` init. Chromium generated the proof in `120.18 s` and verified it in
+`20 ms`.
+
+Strict type checks, operation-level byte parity, polynomial parity, native
+testing-mode invariants, Node verifier acceptance, and Chromium verifier
+acceptance passed. Candidate-only code and its package command were removed
+after the evidence was preserved here.
