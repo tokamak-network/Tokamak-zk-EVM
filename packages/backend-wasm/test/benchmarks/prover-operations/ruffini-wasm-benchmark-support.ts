@@ -51,8 +51,6 @@ interface ModuleBuilder {
 export interface RuffiniBenchmarkRuntimes {
   readonly field: FieldRuntime;
   readonly singleField: FfField;
-  readonly multiField: FfField;
-  readonly workerCount: number;
   terminate(): Promise<void>;
 }
 
@@ -77,8 +75,6 @@ export async function createRuffiniBenchmarkRuntimes(): Promise<RuffiniBenchmark
   return {
     field: createFieldRuntime(multi.Fr),
     singleField: single.Fr,
-    multiField: multi.Fr,
-    workerCount: multi.Fr.tm.concurrency,
     async terminate() {
       await Promise.all([single.terminate?.(), multi.terminate?.()]);
     },
@@ -95,40 +91,6 @@ export async function divideRuffiniWasmSingleTask(
   const x = await runX(runtime.singleField, polynomial.coefficients, polynomial.xSize, polynomial.ySize, xPoint);
   const y = await runY(runtime.singleField, x.xRemainder, polynomial.ySize, yPoint);
   return wrapResult(runtime.field, polynomial, x.quotientX, y);
-}
-
-export async function divideRuffiniWasmWorkerShards(
-  runtime: RuffiniBenchmarkRuntimes,
-  polynomial: BivariatePolynomialBuffer,
-  xPoint: FieldElement,
-  yPoint: FieldElement,
-): Promise<BivariateBufferRuffiniDivisionResult> {
-  assertInputs(runtime.field, polynomial, xPoint, yPoint);
-  const ranges = splitRanges(polynomial.ySize, runtime.workerCount);
-  const shardResults = await Promise.all(ranges.map(async ({ start, count }) => {
-    const input = extractColumns(
-      polynomial.coefficients,
-      polynomial.xSize,
-      polynomial.ySize,
-      start,
-      count,
-      runtime.field.byteLength,
-    );
-    return await runX(runtime.multiField, input, polynomial.xSize, count, xPoint);
-  }));
-  const quotientX = assembleColumns(
-    shardResults.map((result) => result.quotientX),
-    ranges,
-    polynomial.xSize,
-    polynomial.ySize,
-    runtime.field.byteLength,
-  );
-  const xRemainder = new Uint8Array(polynomial.ySize * runtime.field.byteLength);
-  for (let index = 0; index < ranges.length; index += 1) {
-    xRemainder.set(shardResults[index].xRemainder, ranges[index].start * runtime.field.byteLength);
-  }
-  const y = await runY(runtime.multiField, xRemainder, polynomial.ySize, yPoint);
-  return wrapResult(runtime.field, polynomial, quotientX, y);
 }
 
 export function singleTaskTemporaryBytes(
@@ -419,58 +381,6 @@ function wrapResult(
     quotientY: BivariatePolynomialBuffer.fromOwnedBuffer(field, y.quotientY, 1, polynomial.ySize),
     remainder: y.remainder,
   };
-}
-
-function extractColumns(
-  source: Uint8Array,
-  xSize: number,
-  sourceYSize: number,
-  yStart: number,
-  yCount: number,
-  elementBytes: number,
-): Uint8Array {
-  const output = new Uint8Array(xSize * yCount * elementBytes);
-  for (let x = 0; x < xSize; x += 1) {
-    const sourceStart = (x * sourceYSize + yStart) * elementBytes;
-    output.set(
-      source.subarray(sourceStart, sourceStart + yCount * elementBytes),
-      x * yCount * elementBytes,
-    );
-  }
-  return output;
-}
-
-function assembleColumns(
-  shards: readonly Uint8Array[],
-  ranges: readonly { start: number; count: number }[],
-  xSize: number,
-  ySize: number,
-  elementBytes: number,
-): Uint8Array {
-  const output = new Uint8Array(xSize * ySize * elementBytes);
-  for (let shardIndex = 0; shardIndex < shards.length; shardIndex += 1) {
-    const { start, count } = ranges[shardIndex];
-    const shard = shards[shardIndex];
-    for (let x = 0; x < xSize; x += 1) {
-      output.set(
-        shard.subarray(x * count * elementBytes, (x + 1) * count * elementBytes),
-        (x * ySize + start) * elementBytes,
-      );
-    }
-  }
-  return output;
-}
-
-function splitRanges(
-  length: number,
-  requestedCount: number,
-): readonly { start: number; count: number }[] {
-  const count = Math.min(length, Math.max(1, requestedCount));
-  return Array.from({ length: count }, (_, index) => {
-    const start = Math.floor((length * index) / count);
-    const end = Math.floor((length * (index + 1)) / count);
-    return { start, count: end - start };
-  });
 }
 
 function assertInputs(

@@ -8,11 +8,9 @@ import {
   type FieldElement,
   type FieldRuntime,
 } from "../../../src/index.js";
-import { divideRuffiniRowMajorRawBuffer } from "./ruffini-combined-candidate.js";
 import {
   createRuffiniBenchmarkRuntimes,
   divideRuffiniWasmSingleTask,
-  divideRuffiniWasmWorkerShards,
   singleTaskTemporaryBytes,
   workerShardTemporaryBytes,
   type RuffiniBenchmarkRuntimes,
@@ -88,38 +86,11 @@ const CANDIDATES: readonly BenchmarkCandidate[] = [
     notes: "Retained pre-promotion row-major raw-buffer scalar recurrence.",
   },
   {
-    name: "candidate-a-row-major-x",
-    run: async (_runtime, polynomial, xPoint, yPoint) => divideRuffiniRowMajorX(polynomial, xPoint, yPoint),
-    temporaryBytes: (shape, elementBytes) => shape.ySize * elementBytes,
-    notes: "Benchmark-only Candidate A: reverse X recurrence with contiguous Y-row processing.",
-  },
-  {
-    name: "candidate-b-raw-buffer",
-    run: async (_runtime, polynomial, xPoint, yPoint) =>
-      divideRuffiniRawBufferCurrentOrder(polynomial, xPoint, yPoint),
-    temporaryBytes: (shape, elementBytes) => shape.ySize * elementBytes,
-    notes: "Benchmark-only Candidate B: current traversal with validation once and direct raw-buffer offsets.",
-  },
-  {
-    name: "candidate-ab-row-major-raw-buffer",
-    run: async (_runtime, polynomial, xPoint, yPoint) =>
-      divideRuffiniRowMajorRawBuffer(polynomial, xPoint, yPoint),
-    temporaryBytes: (shape, elementBytes) => shape.ySize * elementBytes,
-    notes: "Benchmark-only combination: Candidate A row order plus Candidate B raw-buffer access.",
-  },
-  {
     name: "candidate-wasm-single-task",
     run: divideRuffiniWasmSingleTask,
     temporaryBytes: (shape, elementBytes) =>
       singleTaskTemporaryBytes(shape.xSize, shape.ySize, elementBytes),
     notes: "Benchmark-only whole-loop WASM X and dependent Y recurrences on the single-thread runtime.",
-  },
-  {
-    name: "worker-kernel-mirror",
-    run: divideRuffiniWasmWorkerShards,
-    temporaryBytes: (shape, elementBytes) =>
-      workerShardTemporaryBytes(shape.xSize, shape.ySize, elementBytes),
-    notes: "Benchmark-local mirror of the promoted worker-sharded recurrence.",
   },
 ];
 
@@ -222,165 +193,6 @@ async function measureCandidates(
   );
 }
 
-function divideRuffiniRowMajorX(
-  polynomial: BivariatePolynomialBuffer,
-  xPoint: FieldElement,
-  yPoint: FieldElement,
-): BivariateBufferRuffiniDivisionResult {
-  const field = polynomial.field;
-  const quotientX = BivariatePolynomialBuffer.fromOwnedBuffer(
-    field,
-    field.createZeroBuffer(polynomial.xSize * polynomial.ySize),
-    polynomial.xSize,
-    polynomial.ySize,
-  );
-  const xRemainder = BivariatePolynomialBuffer.fromOwnedBuffer(
-    field,
-    field.createZeroBuffer(polynomial.ySize),
-    1,
-    polynomial.ySize,
-  );
-
-  if (polynomial.xSize === 1) {
-    for (let y = 0; y < polynomial.ySize; y += 1) {
-      xRemainder.setCoeff(0, y, polynomial.getCoeff(0, y));
-    }
-  } else {
-    for (let y = 0; y < polynomial.ySize; y += 1) {
-      quotientX.setCoeff(polynomial.xSize - 2, y, polynomial.getCoeff(polynomial.xSize - 1, y));
-    }
-    for (let x = polynomial.xSize - 3; x >= 0; x -= 1) {
-      for (let y = 0; y < polynomial.ySize; y += 1) {
-        quotientX.setCoeff(
-          x,
-          y,
-          field.add(polynomial.getCoeff(x + 1, y), field.mul(xPoint, quotientX.getCoeff(x + 1, y))),
-        );
-      }
-    }
-    for (let y = 0; y < polynomial.ySize; y += 1) {
-      xRemainder.setCoeff(
-        0,
-        y,
-        field.add(polynomial.getCoeff(0, y), field.mul(xPoint, quotientX.getCoeff(0, y))),
-      );
-    }
-  }
-
-  const quotientY = BivariatePolynomialBuffer.fromOwnedBuffer(
-    field,
-    field.createZeroBuffer(polynomial.ySize),
-    1,
-    polynomial.ySize,
-  );
-  let remainder: FieldElement;
-  if (polynomial.ySize === 1) {
-    remainder = xRemainder.getCoeff(0, 0);
-  } else {
-    quotientY.setCoeff(0, polynomial.ySize - 2, xRemainder.getCoeff(0, polynomial.ySize - 1));
-    for (let y = polynomial.ySize - 3; y >= 0; y -= 1) {
-      quotientY.setCoeff(
-        0,
-        y,
-        field.add(xRemainder.getCoeff(0, y + 1), field.mul(yPoint, quotientY.getCoeff(0, y + 1))),
-      );
-    }
-    remainder = field.add(xRemainder.getCoeff(0, 0), field.mul(yPoint, quotientY.getCoeff(0, 0)));
-  }
-
-  return { quotientX, quotientY, remainder };
-}
-
-function divideRuffiniRawBufferCurrentOrder(
-  polynomial: BivariatePolynomialBuffer,
-  xPoint: FieldElement,
-  yPoint: FieldElement,
-): BivariateBufferRuffiniDivisionResult {
-  const field = polynomial.field;
-  const elementBytes = field.byteLength;
-  if (xPoint.byteLength !== elementBytes || yPoint.byteLength !== elementBytes) {
-    throw new Error("Ruffini division points must be field elements.");
-  }
-
-  const quotientXBuffer = field.createZeroBuffer(polynomial.xSize * polynomial.ySize);
-  const xRemainderBuffer = field.createZeroBuffer(polynomial.ySize);
-
-  for (let y = 0; y < polynomial.ySize; y += 1) {
-    if (polynomial.xSize === 1) {
-      xRemainderBuffer.set(readElement(polynomial.coefficients, y), y * elementBytes);
-      continue;
-    }
-
-    const highestInputIndex = (polynomial.xSize - 1) * polynomial.ySize + y;
-    const highestQuotientIndex = (polynomial.xSize - 2) * polynomial.ySize + y;
-    quotientXBuffer.set(
-      readElement(polynomial.coefficients, highestInputIndex),
-      highestQuotientIndex * elementBytes,
-    );
-
-    for (let x = polynomial.xSize - 3; x >= 0; x -= 1) {
-      const inputIndex = (x + 1) * polynomial.ySize + y;
-      const nextQuotientIndex = (x + 1) * polynomial.ySize + y;
-      const quotientIndex = x * polynomial.ySize + y;
-      quotientXBuffer.set(
-        field.add(
-          readElement(polynomial.coefficients, inputIndex),
-          field.mul(xPoint, readElement(quotientXBuffer, nextQuotientIndex)),
-        ),
-        quotientIndex * elementBytes,
-      );
-    }
-
-    xRemainderBuffer.set(
-      field.add(
-        readElement(polynomial.coefficients, y),
-        field.mul(xPoint, readElement(quotientXBuffer, y)),
-      ),
-      y * elementBytes,
-    );
-  }
-
-  const quotientYBuffer = field.createZeroBuffer(polynomial.ySize);
-  let remainder: FieldElement;
-  if (polynomial.ySize === 1) {
-    remainder = readElement(xRemainderBuffer, 0).slice();
-  } else {
-    quotientYBuffer.set(
-      readElement(xRemainderBuffer, polynomial.ySize - 1),
-      (polynomial.ySize - 2) * elementBytes,
-    );
-    for (let y = polynomial.ySize - 3; y >= 0; y -= 1) {
-      quotientYBuffer.set(
-        field.add(
-          readElement(xRemainderBuffer, y + 1),
-          field.mul(yPoint, readElement(quotientYBuffer, y + 1)),
-        ),
-        y * elementBytes,
-      );
-    }
-    remainder = field.add(
-      readElement(xRemainderBuffer, 0),
-      field.mul(yPoint, readElement(quotientYBuffer, 0)),
-    );
-  }
-
-  return {
-    quotientX: BivariatePolynomialBuffer.fromOwnedBuffer(
-      field,
-      quotientXBuffer,
-      polynomial.xSize,
-      polynomial.ySize,
-    ),
-    quotientY: BivariatePolynomialBuffer.fromOwnedBuffer(field, quotientYBuffer, 1, polynomial.ySize),
-    remainder,
-  };
-
-  function readElement(buffer: Uint8Array, index: number): FieldElement {
-    const offset = index * elementBytes;
-    return buffer.subarray(offset, offset + elementBytes);
-  }
-}
-
 async function runEdgeCaseParity(
   runtime: RuffiniBenchmarkRuntimes,
   candidates: readonly BenchmarkCandidate[],
@@ -418,12 +230,43 @@ async function runEdgeCaseParity(
 
   for (const testCase of cases) {
     const baseline = testCase.polynomial.divByRuffini(xPoint, yPoint);
+    const production = await testCase.polynomial.divByRuffiniBatch(xPoint, yPoint);
+    assertDivisionEqual(production, baseline, `${testCase.label} current-production`);
+    assertReconstruction(field, testCase.polynomial, production, xPoint, yPoint, `${testCase.label} production`);
+    await assertConstantCorrectionParity(field, testCase.polynomial, production, xPoint, yPoint, testCase.label);
     for (const candidate of candidates.filter((candidate) => candidate.name !== "current-production")) {
       const actual = await candidate.run(runtime, testCase.polynomial, xPoint, yPoint);
       assertDivisionEqual(actual, baseline, `${testCase.label} ${candidate.name}`);
       assertReconstruction(field, testCase.polynomial, actual, xPoint, yPoint, `${testCase.label} ${candidate.name}`);
     }
   }
+}
+
+async function assertConstantCorrectionParity(
+  field: FieldRuntime,
+  polynomial: BivariatePolynomialBuffer,
+  division: BivariateBufferRuffiniDivisionResult,
+  xPoint: FieldElement,
+  yPoint: FieldElement,
+  label: string,
+): Promise<void> {
+  const constant = division.remainder;
+  const correctedPolynomial = polynomial.sub(constantPolynomial(field, constant));
+  const materialized = await correctedPolynomial.divByRuffiniBatch(xPoint, yPoint);
+  const remainderAdjusted = {
+    quotientX: division.quotientX,
+    quotientY: division.quotientY,
+    remainder: field.sub(division.remainder, constant),
+  };
+  assertDivisionEqual(remainderAdjusted, materialized, `${label} constant correction`);
+  assertReconstruction(
+    field,
+    correctedPolynomial,
+    remainderAdjusted,
+    xPoint,
+    yPoint,
+    `${label} constant correction`,
+  );
 }
 
 function assertReconstruction(
@@ -480,6 +323,10 @@ function deterministicPolynomial(field: FieldRuntime, shape: Shape, seed: bigint
     coefficients.set(pattern[index % patternLength], index * field.byteLength);
   }
   return BivariatePolynomialBuffer.fromOwnedBuffer(field, coefficients, shape.xSize, shape.ySize);
+}
+
+function constantPolynomial(field: FieldRuntime, value: FieldElement): BivariatePolynomialBuffer {
+  return BivariatePolynomialBuffer.fromCoeffs(field, [value], 1, 1);
 }
 
 function buildWeightedWorkloadRecords(
@@ -545,7 +392,7 @@ function parseOptions(args: readonly string[]): BenchmarkOptions {
     candidateNames: parseCandidates(values.get("candidates") ?? CANDIDATES.map((candidate) => candidate.name).join(",")),
     iterations: parsePositiveInteger(values.get("iterations") ?? "3", "iterations"),
     warmup: parseNonNegativeInteger(values.get("warmup") ?? "1", "warmup"),
-    jsonPath: values.get("json") ?? "tmp/timing/ruffini-division.json",
+    jsonPath: values.get("json") ?? "tmp/benchmarks/prover-operations/ruffini-division.json",
   };
 }
 

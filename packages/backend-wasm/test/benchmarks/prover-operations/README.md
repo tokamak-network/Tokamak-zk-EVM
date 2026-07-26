@@ -357,19 +357,20 @@ verification, and package-content inspection pass.
 
 `bench-ruffini-division.ts` isolates the bivariate Ruffini opening path. It is the benchmark-first gate for changes to the production synthetic-division implementation.
 
-The benchmark currently compares:
+The retained benchmark compares:
 
 - `current-production`: the promoted Y-column-sharded WASM X recurrence followed by one dependent WASM Y recurrence.
 - `scalar-production-baseline`: the retained pre-promotion row-major, validated-once raw-buffer recurrence.
-- `candidate-a-row-major-x`: the historical Candidate A decomposition, using row-major X steps with accessor-based coefficient reads and writes.
-- `candidate-b-raw-buffer`: the historical Candidate B decomposition, using the old fixed-Y traversal with one-time validation and direct raw-buffer offsets.
-- `candidate-ab-row-major-raw-buffer`: the benchmark-local A+B scalar implementation.
 - `candidate-wasm-single-task`: whole-loop WASM recurrences on the caller thread.
-- `worker-kernel-mirror`: a benchmark-local mirror of the current production worker-sharded kernel.
 
 Use `--candidates=current-production,scalar-production-baseline,candidate-wasm-single-task` to compare current production with the pre-promotion scalar path and caller-thread WASM. `current-production` is mandatory in every candidate selection.
 
-Before timing, it checks exact quotient and remainder bytes against production and independently reconstructs the input polynomial. Edge-case parity covers zero, constant, X-only, Y-only, and general bivariate polynomials.
+Before timing, it checks exact quotient and remainder bytes against production
+and independently reconstructs the input polynomial. Edge-case parity covers
+zero, constant, X-only, Y-only, and general bivariate polynomials. The same
+edge cases also protect the promoted constant-correction rule by comparing a
+materialized `P-c` production division with direct division of `P` followed by
+scalar remainder adjustment.
 
 Smoke command:
 
@@ -421,24 +422,18 @@ npm run bench:ruffini -- --shapes=8192x512,16384x512,128x1 --candidates=current-
 
 Candidate B retained the pre-promotion fixed-Y traversal and changed only coefficient access: field width and points were checked once, then the recurrence used direct byte offsets and `subarray` views. It passed exact parity and reconstruction independently of Candidate A. This independent result was recorded before the A+B combination benchmark.
 
-### Candidate C Benchmark
+### Historical Candidate C Benchmark
 
-`bench-ruffini-constant-elision.ts` measures Candidate C independently of the division-kernel choice:
+The removed `bench-ruffini-constant-elision.ts` measured Candidate C independently of the division-kernel choice:
 
 - baseline: materialize `P - c`, then run current production Ruffini division;
 - candidate: run current production Ruffini division on `P`, then subtract `c` only from the scalar remainder.
 
 Both paths use the same production division kernel, so the comparison isolates constant-polynomial materialization and remainder correction. The recorded independent result below was produced before A+B promotion; rerunning it after promotion evaluates the same C choice on top of the promoted kernel. The benchmark checks exact quotient/remainder parity and reconstructs the original `P - c` numerator.
 
-```bash
-npm run bench:ruffini:constant -- --shapes=8192x512,16384x512,128x1 --candidates=current-subtract-materialize-divide,candidate-c-remainder-adjustment --iterations=5 --warmup=1 --json=tmp/timing/ruffini-constant-elision-representative.json
-```
-
-After the independent Candidate C result, the same script also reports `candidate-abc-row-major-raw-buffer-remainder-adjustment`, which combines the accepted-for-combination A+B kernel with C. This combined row must not be used as evidence for the earlier independent Candidate C result.
-
-```bash
-npm run bench:ruffini:constant -- --shapes=8192x512,16384x512,128x1 --candidates=current-subtract-materialize-divide,candidate-abc-row-major-raw-buffer-remainder-adjustment --iterations=5 --warmup=1 --json=tmp/timing/ruffini-abc-representative.json
-```
+Its executable candidate code has been removed. The retained main Ruffini
+benchmark now provides constant-correction parity and reconstruction coverage;
+the historical timing evidence remains below.
 
 ### Combination Results
 
