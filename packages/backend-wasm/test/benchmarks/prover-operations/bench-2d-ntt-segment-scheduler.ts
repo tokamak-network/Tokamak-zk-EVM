@@ -10,6 +10,7 @@ import {
   type FfField,
   type FieldRuntime,
 } from "../../../src/index.js";
+import { installLinearBatchPlugin } from "../../../src/core/field/linear-batch-plugin.js";
 
 interface BenchmarkOptions {
   readonly shapes: readonly Shape[];
@@ -94,7 +95,11 @@ async function main(): Promise<void> {
   const records: BenchmarkRecord[] = [];
 
   for (const mode of options.modes) {
-    const raw = (await getCurveFromName("bls12381", mode === "single")) as FfCurve;
+    const raw = (await getCurveFromName(
+      "bls12381",
+      mode === "single",
+      installLinearBatchPlugin,
+    )) as FfCurve;
     const field = createFieldRuntime(raw.Fr);
 
     try {

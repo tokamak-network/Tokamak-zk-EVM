@@ -1802,54 +1802,15 @@ The production run removes `3.014 ms` of directly attributable clone work and
 `64 MiB` of explicit coefficient copies. The broader `7.625 ms` median
 difference remains subject to NTT scheduling noise.
 
-## Segmented 2D NTT Micro-Candidates
+## Production 2D NTT Task Shards
 
-`bench-2d-ntt-micro-candidates.ts` keeps the accepted ffjavascript
-primitive-parallel scheduler and tests only its caller-side orchestration:
+Production `biNttBuffer()` allocates one bit-reversed input shard per
+ffjavascript task and passes segment views from that shard. The retained
+`bench-2d-ntt-segment-scheduler.ts` benchmark checks the production direct-shard
+path byte-for-byte against the legacy sequential transform and an independent
+batched implementation in forward and inverse modes.
 
-- G1 caches bit-reversal index tables by segment length.
-- G2 constructs one contiguous bit-reversed shard per worker task and passes
-  segment views from that shard, avoiding the full reversed buffer followed by
-  one owned slice per segment.
-- G3 writes inverse worker results directly into their rotated final positions.
-- G1+G2 applies cached indexes while constructing direct task shards.
-
-All candidates match production forward/inverse output at `4096x256` and
-`8192x512`. One-dimensional `1x8` and `8x1`, true two-dimensional `8x4`, and
-coset forward/inverse round-trip checks also pass exactly.
-
-| shape | direction | current ms | G1 ms | G2 ms | G3 ms | G1+G2 ms | G2 reduction |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 4096x256 | forward | 354.750 | 361.876 | 323.244 | 356.194 | 327.755 | 8.9% |
-| 4096x256 | inverse | 376.386 | 378.565 | 357.644 | 372.176 | 359.413 | 5.0% |
-| 8192x512 | forward | 1392.968 | 1439.935 | 1272.758 | 1389.553 | 1277.666 | 8.6% |
-| 8192x512 | inverse | 1481.382 | 1475.086 | 1381.312 | 1458.494 | 1353.727 | 6.8% |
-
-G2 is the only independent candidate with a consistent complete-boundary win.
-Its cumulative explicit segment-orchestration allocation decreased from
-`128 MiB` to `64 MiB` for 4096x256 forward, from `192 MiB` to `128 MiB` for
-inverse, and by the corresponding `256 MiB` at 8192x512.
-
-G1 is rejected: its small index-computation saving did not overcome variance
-and regressed three of four final measurements. G1+G2 beat G2 only for the
-largest inverse case and was slower for the other three, so it is also
-rejected. G3 consistently reduces the isolated inverse assembly copy, but its
-complete-boundary direction changed between repeated benchmark executions; it
-is not a production promotion candidate in this campaign.
-
-G2 was promoted to production in commit `4cd23c9e`. The post-promotion
-benchmark retained exact production parity for forward, inverse, 1D edge,
-true 2D, and coset round-trip cases:
-
-| shape | direction | legacy current ms | production-equivalent G2 ms | reduction |
-| --- | --- | ---: | ---: | ---: |
-| 4096x256 | forward | 353.885 | 321.557 | 9.1% |
-| 4096x256 | inverse | 376.121 | 343.988 | 8.5% |
-| 8192x512 | forward | 1415.507 | 1289.748 | 8.9% |
-| 8192x512 | inverse | 1450.114 | 1353.083 | 6.7% |
-
-Production now allocates one bit-reversed input shard per ffjavascript task
-and passes segment views from that shard. It does not cache bit-reversal
-tables or change inverse output assembly. The explicit allocation reductions
-remain `128 -> 64 MiB` and `192 -> 128 MiB` at `4096x256`, and
-`512 -> 256 MiB` and `768 -> 512 MiB` at `8192x512`.
+The rejected bit-reversal cache, direct inverse-output assembly, and combined
+candidate measurements are preserved in the
+[rejected candidate summary](../../../docs/optimization/rejected/rejected-candidate-summary.md);
+their executable implementations are not retained.
