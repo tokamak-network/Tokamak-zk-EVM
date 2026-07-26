@@ -14,9 +14,6 @@ import {
 } from "../../../src/prover/internal/polynomial-ops.js";
 import {
   createStructuredBenchmarkRuntimes,
-  multiplyFusedLinearWasmOneWorker,
-  multiplyFusedLinearWasmSingle,
-  multiplyFusedLinearWasmWorkers,
 } from "./structured-wasm-benchmark-support.js";
 
 interface Shape {
@@ -72,42 +69,6 @@ async function main(): Promise<void> {
         name: "javascript-fused",
         run: async (left, right, coefficients, addendScale, axis) =>
           fusedLinearPlusScaled(left, right, coefficients, addendScale, axis),
-      },
-      {
-        name: "wasm-single-task",
-        run: (left, right, coefficients, addendScale, axis) =>
-          multiplyFusedLinearWasmSingle(
-            runtime,
-            left,
-            right,
-            coefficients,
-            addendScale,
-            axis,
-          ),
-      },
-      {
-        name: "wasm-one-worker",
-        run: (left, right, coefficients, addendScale, axis) =>
-          multiplyFusedLinearWasmOneWorker(
-            runtime,
-            left,
-            right,
-            coefficients,
-            addendScale,
-            axis,
-          ),
-      },
-      {
-        name: "wasm-workers",
-        run: (left, right, coefficients, addendScale, axis) =>
-          multiplyFusedLinearWasmWorkers(
-            runtime,
-            left,
-            right,
-            coefficients,
-            addendScale,
-            axis,
-          ),
       },
     ];
 

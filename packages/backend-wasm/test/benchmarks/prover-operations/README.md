@@ -1633,10 +1633,11 @@ in `141.14 s` and verified it in `19 ms`.
 ## Whole-Loop WASM Fused Linear-Plus-Scaled Terms
 
 `bench-copy-linear-fusion.ts` compares the current two-boundary construction
-`linearFactor(rD) + scale*gD` with a JavaScript fused loop, caller-thread
-WASM, one production worker, and X-row-sharded workers. The benchmark checks
-the fused inner result and the complete `(X-1)` term2 and Lagrange-K0 term3
-consumers. Zero, unit, and non-unit addend scales pass exact byte parity.
+`linearFactor(rD) + scale*gD` with an independent JavaScript fused loop. The
+benchmark checks the fused inner result and the complete `(X-1)` term2 and
+Lagrange-K0 term3 consumers. Zero, unit, and non-unit addend scales pass exact
+byte parity. The caller-thread, one-worker, and X-row-sharded mirrors were
+removed after promotion; their measurements below are historical records.
 
 | boundary at `4096x256` | current production | JavaScript fused | caller WASM | one worker | workers |
 | --- | ---: | ---: | ---: | ---: | ---: |
