@@ -1,17 +1,11 @@
 import {
   BinaryArtifactFileKind,
-  BinaryDigestEntryType,
   type BinaryArtifactFileView,
-  type BinaryDigestEntryView,
   type BinarySectionView,
   expectedElementByteLength,
 } from "../../artifacts/binary/binary-format.js";
 import { decodeBinaryArtifactFile } from "../../artifacts/binary/binary-artifact-file.js";
-import {
-  bytesWithSelfDigestsZeroed,
-  sha256,
-  validateSourcePackageVersion,
-} from "../../artifacts/binary/binary-table-utils.js";
+import { validateSourcePackageVersion } from "../../artifacts/binary/binary-table-utils.js";
 import type { RuntimeArtifactFormatSpec, RuntimeArtifactSectionSpec } from "../../artifacts/specs/types.js";
 import { PROVER_CRS_V1_SPEC } from "../../artifacts/specs/prover-crs.v1.generated.js";
 import { INSTANCE_V1_SPEC } from "../../artifacts/specs/instance.v1.generated.js";
@@ -19,6 +13,7 @@ import { PROVER_PERMUTATION_V1_SPEC } from "../../artifacts/specs/prover-permuta
 import { PROVER_PLACEMENT_VARIABLES_V1_SPEC } from "../../artifacts/specs/prover-placement-variables.v1.generated.js";
 import { VERIFIER_PREPROCESS_V1_SPEC } from "../../artifacts/specs/verifier-preprocess.v1.generated.js";
 import { VERIFIER_PROOF_V1_SPEC } from "../../artifacts/specs/verifier-proof.v1.generated.js";
+import { validateDigestTables } from "./digest-validation.js";
 import { validateBinaryHeaderAndTables } from "./file-layout-validation.js";
 
 export interface RuntimeArtifactFileValidationOptions {
@@ -81,31 +76,6 @@ function specForKind(kind: BinaryArtifactFileKind): RuntimeArtifactFormatSpec {
       return PROVER_PERMUTATION_V1_SPEC;
     case BinaryArtifactFileKind.VerifierCrs:
       throw new Error("Verifier CRS is build-time generated and has no runtime binary artifact spec.");
-  }
-}
-
-async function validateDigestTables(bytes: Uint8Array, artifactFile: BinaryArtifactFileView): Promise<void> {
-  const digestTableOffset = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(32, true);
-  const digestEntryCount = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint16(54, true);
-  const selfDigests = artifactFile.digests.filter((entry) => entry.type === BinaryDigestEntryType.SelfDigest);
-
-  if (selfDigests.length !== 1) {
-    throw new Error("Binary artifact must contain exactly one self digest entry.");
-  }
-
-  const actualSelfDigest = await sha256(bytesWithSelfDigestsZeroed(bytes, digestTableOffset, digestEntryCount));
-  if (!bytesEqual(selfDigests[0].digest, actualSelfDigest)) {
-    throw new Error("Binary artifact self digest mismatch.");
-  }
-
-  for (let index = 0; index < artifactFile.sections.length; index += 1) {
-    const section = artifactFile.sections[index];
-    const digest = requireSectionDigest(artifactFile.digests, index, section.label);
-    const actualSectionDigest = await sha256(section.data);
-
-    if (!bytesEqual(digest, actualSectionDigest)) {
-      throw new Error(`Binary artifact section '${section.label}' digest mismatch.`);
-    }
   }
 }
 
@@ -194,22 +164,6 @@ function validateSpecPoints(
   }
 }
 
-function requireSectionDigest(
-  digests: readonly BinaryDigestEntryView[],
-  sectionIndex: number,
-  label: string,
-): Uint8Array {
-  const matches = digests.filter(
-    (entry) => entry.type === BinaryDigestEntryType.SectionDigest && entry.sectionIndex === sectionIndex,
-  );
-
-  if (matches.length !== 1) {
-    throw new Error(`Binary artifact section '${label}' must have exactly one section digest entry.`);
-  }
-
-  return matches[0].digest;
-}
-
 function assertNoSectionOverlap(sections: readonly BinarySectionView[]): void {
   const sorted = [...sections].sort((left, right) => left.byteOffset - right.byteOffset);
 
@@ -221,17 +175,4 @@ function assertNoSectionOverlap(sections: readonly BinarySectionView[]): void {
       throw new Error(`Binary artifact sections '${previous.label}' and '${current.label}' overlap.`);
     }
   }
-}
-
-function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
-  if (left.byteLength !== right.byteLength) {
-    return false;
-  }
-
-  let diff = 0;
-  for (let index = 0; index < left.byteLength; index += 1) {
-    diff |= left[index] ^ right[index];
-  }
-
-  return diff === 0;
 }
