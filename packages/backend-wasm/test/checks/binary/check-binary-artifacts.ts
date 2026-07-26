@@ -18,7 +18,7 @@ import {
   createCurveRuntime,
   type CurveRuntime,
 } from "../../../src/runtime/curve/curve.js";
-import { validateRuntimeArtifactFile } from "../../../src/tooling/validators/validators.js";
+import { validateRuntimeArtifactFile } from "../../../src/converter/validation/validators.js";
 
 async function main(): Promise<void> {
   const runtime = await createCurveRuntime();

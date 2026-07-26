@@ -25,7 +25,7 @@ export async function convertProverCrs(rkyvBytes: Uint8Array): Promise<Uint8Arra
     throw new TypeError("convertProverCrs requires a transferable ArrayBuffer-backed Uint8Array.");
   }
 
-  const worker = new Worker(new URL("./prover-crs-converter-worker.js", import.meta.url), {
+  const worker = new Worker(new URL("../worker/prover-crs-converter-worker.js", import.meta.url), {
     name: "tokamak-prover-crs-converter",
     type: "module",
   });

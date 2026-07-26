@@ -3,7 +3,7 @@
 This crate is the Rust/WASM boundary for backend-wasm artifact converter tooling.
 It is not prover or verifier runtime code.
 
-The converter API in `src/tools/artifact-converters/rkyv-to-binary.ts` accepts
+The converter implementation in `src/converter/conversion/rkyv-to-binary.ts` accepts
 bytes and delegates native rkyv archive decoding to this package. The decoder must
 use the same rkyv version line and archive shapes as the native backend artifacts.
 
@@ -83,7 +83,7 @@ WASM file from `pkg/` and exposes the same payload decoder shape:
 ```js
 import {
   createCombinedSigmaRkyvPayloadDecoder,
-} from "../../src/tooling/converters/rkyv-to-binary.js";
+} from "../../src/converter/conversion/rkyv-to-binary.js";
 import { loadCombinedSigmaPayloadDecoder } from "./tools/rkyv-decoder-wasm/src/node.js";
 
 const payloadDecoder = await loadCombinedSigmaPayloadDecoder();

@@ -5,7 +5,7 @@ import { BinaryArtifactFileKind } from "../../../src/artifacts/binary/binary-for
 import {
   convertCombinedSigmaRkyvToProverCrsBinary,
   createCombinedSigmaRkyvPayloadDecoder,
-} from "../../../src/tooling/converters/rkyv-to-binary.js";
+} from "../../../src/converter/conversion/rkyv-to-binary.js";
 
 const magic = new TextEncoder().encode("TKCRS001");
 const sectionLengths = [

@@ -8,12 +8,12 @@ import {
   convertProof,
   convertVerifierPreprocess,
   convertWitness,
-} from "../../src/tooling/converters/converters.js";
+} from "../../src/converter/index.js";
 import {
   convertCombinedSigmaRkyvToProverCrsBinary,
   createCombinedSigmaRkyvPayloadDecoder,
-} from "../../src/tooling/converters/rkyv-to-binary.js";
-import { BACKEND_WASM_PACKAGE_VERSION } from "../../src/prover/api/version.js";
+} from "../../src/converter/conversion/rkyv-to-binary.js";
+import { BACKEND_WASM_PACKAGE_VERSION } from "../../src/version.js";
 import { loadCombinedSigmaPayloadDecoder } from "../../tools/rkyv-decoder-wasm/src/node.js";
 
 interface CopyManifest {

@@ -1,6 +1,6 @@
 import { BackendWasmError } from "../../backend-wasm-error.js";
 import { createCurveRuntime, type CurveRuntime } from "../../runtime/curve/curve.js";
-import { BACKEND_WASM_PACKAGE_VERSION } from "../../prover/api/version.js";
+import { BACKEND_WASM_PACKAGE_VERSION } from "../../version.js";
 import {
   NATIVE_BACKEND_VERSION,
   SUBCIRCUIT_LIBRARY_PACKAGE_VERSION,

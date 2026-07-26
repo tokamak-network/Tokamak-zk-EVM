@@ -30,7 +30,7 @@ Production dependencies flow in this direction:
 ```text
 prover API ─┐
             ├─> protocol operations ─> runtime primitives
-verifier API┘                         └> artifact runtime views
+verifier API┘                         └> artifact binary/spec views
 
 converter API ─> converter implementations ─> artifact binary creation
                                       └──────> temporary conversion runtimes
@@ -47,7 +47,6 @@ verify operations.
 ### `src/artifacts`
 
 - `binary`: binary header, table, digest, encoding, and decoding primitives.
-- `runtime`: lightweight artifact views and typed section access.
 - `specs`: one versioned JSON format specification per binary artifact kind and
   generated TypeScript spec constants.
 
@@ -84,11 +83,14 @@ APIs or scheduling barriers.
 
 The verifier returns boolean validity and does not produce an output artifact.
 
-### `src/tooling`
+### `src/converter`
 
-- `converters`: browser-compatible, material-specific converters plus binary
+- `index.ts`: the only public converter entry point.
+- `conversion`: browser-compatible, material-specific converters plus binary
   inspection.
-- `validators`: optional binary layout, digest, and spec validation.
+- `validation`: optional binary layout, digest, and spec validation.
+- `worker`: temporary Prover CRS conversion Worker and its RKYV decoder
+  integration.
 
 Each material converter returns one binary artifact. No converter builds a
 bundle or manifest.
@@ -128,7 +130,7 @@ polynomial code remains under `test/support` as an independent parity oracle.
 
 ## Publication Boundary
 
-The npm tarball may contain only required compiled runtime/tooling files,
+The npm tarball may contain only required compiled runtime/converter files,
 converter Worker/WASM assets, README, license, and package metadata. It must not
 contain:
 

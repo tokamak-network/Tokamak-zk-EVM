@@ -188,9 +188,9 @@ packages/backend-wasm/
     package/
   src/
     artifacts/
+    converter/
     prover/
     runtime/
-    tooling/
     verifier/
   test/
   tools/
@@ -198,12 +198,13 @@ packages/backend-wasm/
   tmp/
 ```
 
-- `src/artifacts`: binary containers, runtime views, and versioned specs.
+- `src/artifacts`: binary containers, decoded views, and versioned specs.
+- `src/converter`: public converter API, material conversions, optional
+  validation, and the Prover CRS Worker.
 - `src/runtime`: shared ffjavascript-backed field, curve, group, pairing,
   transcript, random, and polynomial infrastructure.
 - `src/prover`: public prover lifecycle plus integrated protocol operations.
 - `src/verifier`: public verifier lifecycle plus verification protocol math.
-- `src/tooling`: browser-compatible converters and optional validators.
 - `scripts`: generated-source maintenance and local fixture I/O wrappers.
 - `fixtures`: ignored prepared parity artifacts and their tracked copy manifest.
 - `test`: checks, diagnostics, browser entry points, and test-only references.

@@ -11,7 +11,7 @@ import type { RecursionComputation } from "../protocol/recursion-commitment.js";
 import type { CopyQuotientComputation } from "../protocol/copy-quotient.js";
 import type { ChallengeEvaluations } from "../protocol/challenge-evaluations.js";
 import type { OpeningCommitmentsComputation } from "../protocol/opening-commitments.js";
-import { BACKEND_WASM_PACKAGE_VERSION } from "./version.js";
+import { BACKEND_WASM_PACKAGE_VERSION } from "../../version.js";
 
 export interface ProverVerifierProofOutputInput {
   readonly runtime: CurveRuntime;

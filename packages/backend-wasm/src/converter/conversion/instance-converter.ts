@@ -4,7 +4,7 @@ import {
   BinarySectionEncoding,
   BinarySectionType,
 } from "../../artifacts/binary/binary-format.js";
-import { BACKEND_WASM_PACKAGE_VERSION } from "../../prover/api/version.js";
+import { BACKEND_WASM_PACKAGE_VERSION } from "../../version.js";
 import { GENERATED_PROVER_SETUP_PARAMS } from "../../prover/generated/subcircuit-library.generated.js";
 import { createCurveRuntime, type CurveRuntime } from "../../runtime/curve/curve.js";
 import { concatBytes, isRecord, parseHexStringArray } from "./conversion-utils.js";

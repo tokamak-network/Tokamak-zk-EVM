@@ -7,7 +7,7 @@ const packageRoot = process.cwd();
 const decoderPackageRoot = path.join(packageRoot, "tools", "rkyv-decoder-wasm", "pkg");
 const decoderGluePath = path.join(decoderPackageRoot, "backend_wasm_rkyv_decoder.js");
 const decoderWasmPath = path.join(decoderPackageRoot, "backend_wasm_rkyv_decoder_bg.wasm");
-const outputDirectory = path.join(packageRoot, "dist", "tooling", "converters");
+const outputDirectory = path.join(packageRoot, "dist", "converter", "worker");
 
 await mkdir(outputDirectory, { recursive: true });
 await build({
@@ -15,8 +15,8 @@ await build({
     path.join(
       packageRoot,
       "src",
-      "tooling",
-      "converters",
+      "converter",
+      "worker",
       "prover-crs-converter-worker.ts",
     ),
   ],

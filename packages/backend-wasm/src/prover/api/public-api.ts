@@ -5,7 +5,7 @@ import {
   type ProverBinaryInput,
 } from "./binary-input.js";
 import { proveSnark } from "./prove-snark.js";
-import { BACKEND_WASM_PACKAGE_VERSION } from "./version.js";
+import { BACKEND_WASM_PACKAGE_VERSION } from "../../version.js";
 import {
   NATIVE_BACKEND_VERSION,
   SUBCIRCUIT_LIBRARY_PACKAGE_VERSION,

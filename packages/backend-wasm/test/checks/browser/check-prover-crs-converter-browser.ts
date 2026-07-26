@@ -8,7 +8,7 @@ const TEST_PAGE = `<!doctype html>
 <html lang="en">
   <body>
     <script type="module">
-      import { convertProverCrs } from "/dist/tooling/converters/prover-crs-converter.js";
+      import { convertProverCrs } from "/dist/converter/conversion/prover-crs-converter.js";
 
       const input = new Uint8Array([1, 2, 3, 4]);
       try {

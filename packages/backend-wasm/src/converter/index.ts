@@ -1,13 +1,13 @@
-import { BackendWasmError } from "../../backend-wasm-error.js";
-import { inspectBinary as inspectBinaryInternal } from "./binary-inspection.js";
-import { convertInstance as convertInstanceInternal } from "./instance-converter.js";
-import { convertPermutation as convertPermutationInternal } from "./permutation-converter.js";
-import { convertProof as convertProofInternal } from "./proof-converter.js";
-import { convertProverCrs as convertProverCrsInternal } from "./prover-crs-converter.js";
-import { convertVerifierPreprocess as convertVerifierPreprocessInternal } from "./verifier-preprocess-converter.js";
-import { convertWitness as convertWitnessInternal } from "./witness-converter.js";
-import { validateBinary as validateBinaryInternal } from "../validators/validators.js";
-import type { RuntimeArtifactFileValidationResult } from "../validators/validators.js";
+import { BackendWasmError } from "../backend-wasm-error.js";
+import { inspectBinary as inspectBinaryInternal } from "./conversion/binary-inspection.js";
+import { convertInstance as convertInstanceInternal } from "./conversion/instance-converter.js";
+import { convertPermutation as convertPermutationInternal } from "./conversion/permutation-converter.js";
+import { convertProof as convertProofInternal } from "./conversion/proof-converter.js";
+import { convertProverCrs as convertProverCrsInternal } from "./conversion/prover-crs-converter.js";
+import { convertVerifierPreprocess as convertVerifierPreprocessInternal } from "./conversion/verifier-preprocess-converter.js";
+import { convertWitness as convertWitnessInternal } from "./conversion/witness-converter.js";
+import { validateBinary as validateBinaryInternal } from "./validation/validators.js";
+import type { RuntimeArtifactFileValidationResult } from "./validation/validators.js";
 import type {
   BinaryArtifactInspection,
   BinaryInspectionOptions,
@@ -15,10 +15,10 @@ import type {
   ConvertProofBinaryInput,
   ConvertProofInput,
   ConvertProofJsonInput,
-} from "./types.js";
+} from "./conversion/types.js";
 
-export { BackendWasmError } from "../../backend-wasm-error.js";
-export type { BackendWasmErrorCode } from "../../backend-wasm-error.js";
+export { BackendWasmError } from "../backend-wasm-error.js";
+export type { BackendWasmErrorCode } from "../backend-wasm-error.js";
 
 export function convertProof(input: ConvertProofJsonInput): Promise<Uint8Array>;
 export function convertProof(input: ConvertProofBinaryInput): Promise<ConverterArtifactJson>;
@@ -105,4 +105,4 @@ export type {
   ConvertProofBinaryInput,
   ConvertProofInput,
   ConvertProofJsonInput,
-} from "./types.js";
+} from "./conversion/types.js";

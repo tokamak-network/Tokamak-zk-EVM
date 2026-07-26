@@ -1,11 +1,11 @@
-import { BACKEND_WASM_PACKAGE_VERSION } from "../../prover/api/version.js";
+import { BACKEND_WASM_PACKAGE_VERSION } from "../../version.js";
 import initRkyvDecoder, {
   decodeCombinedSigma,
 } from "./rkyv-decoder/backend_wasm_rkyv_decoder.js";
 import {
   convertCombinedSigmaRkyvToProverCrsBinary,
   createCombinedSigmaRkyvPayloadDecoder,
-} from "./rkyv-to-binary.js";
+} from "../conversion/rkyv-to-binary.js";
 
 interface ProverCrsWorkerRequest {
   readonly inputBuffer: ArrayBuffer;

@@ -9,7 +9,7 @@ import {
   BinarySectionType,
   type BinarySectionView,
 } from "../../artifacts/binary/binary-format.js";
-import { BACKEND_WASM_PACKAGE_VERSION } from "../../prover/api/version.js";
+import { BACKEND_WASM_PACKAGE_VERSION } from "../../version.js";
 import { createCurveRuntime, type CurveRuntime } from "../../runtime/curve/curve.js";
 import { concatBytes, isRecord, parseHexStringArray } from "./conversion-utils.js";
 import { appendSplitG1Coordinate, recoverG1Points } from "./g1-coordinate-format.js";
