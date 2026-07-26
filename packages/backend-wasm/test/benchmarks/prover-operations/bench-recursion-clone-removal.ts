@@ -16,7 +16,7 @@ import {
 } from "../../../src/prover/internal/polynomial-ops.js";
 import { computeRecursionCommitment } from "../../../src/prover/internal/recursion-commitment.js";
 import type { ProverState } from "../../../src/prover/internal/state.js";
-import { loadPreparedProverInput } from "./prepared-prover-context.js";
+import { loadPreparedProverInput } from "../support/prepared-prover-context.js";
 
 type Candidate = "current-same-shape-resize" | "shape-assert-direct";
 

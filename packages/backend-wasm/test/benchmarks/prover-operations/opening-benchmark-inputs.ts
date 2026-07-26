@@ -10,7 +10,7 @@ import {
   mulByTerm9,
   multiplyByLagrangeK0,
 } from "../../../src/prover/internal/polynomial-ops.js";
-import type { PreparedProverContext } from "./prepared-prover-context.js";
+import type { PreparedProverContext } from "../support/prepared-prover-context.js";
 
 export interface OpeningBenchmarkInputs {
   readonly piANumerator: BivariatePolynomialBuffer;

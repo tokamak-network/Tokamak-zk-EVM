@@ -19,7 +19,7 @@ import {
 import {
   buildPreparedProverContext,
   type PreparedProverContext,
-} from "./prepared-prover-context.js";
+} from "../support/prepared-prover-context.js";
 
 type Candidate = "current-all-openings" | "combined-pi-shared-mn";
 

@@ -11,7 +11,7 @@ import { linearCombinationBufferBatch } from "../../../src/prover/internal/polyn
 import {
   buildPreparedProverContext,
   type PreparedProverContext,
-} from "./prepared-prover-context.js";
+} from "../support/prepared-prover-context.js";
 import {
   buildOpeningBenchmarkInputs,
   type OpeningBenchmarkInputs,

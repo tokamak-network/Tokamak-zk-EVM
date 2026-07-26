@@ -15,7 +15,7 @@ import type {
   ProverSubcircuitInfo,
   WitnessPolynomials,
 } from "../../../src/prover/internal/witness.js";
-import { loadPreparedProverInput } from "../prover-operations/prepared-prover-context.js";
+import { loadPreparedProverInput } from "../support/prepared-prover-context.js";
 import {
   type LegacyProverWitnessInput,
   type ProverSparseMatrix,

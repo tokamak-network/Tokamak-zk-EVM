@@ -13,7 +13,7 @@ import {
   encodeOPrvNoZk,
 } from "../../../src/prover/internal/initial-relation.js";
 import { proverCrsG1PointAt } from "../../../src/prover/api/binary-input.js";
-import { loadPreparedProverInput } from "../prover-operations/prepared-prover-context.js";
+import { loadPreparedProverInput } from "../support/prepared-prover-context.js";
 
 const G1_AFFINE_BYTES = 96;
 

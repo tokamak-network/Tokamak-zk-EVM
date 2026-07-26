@@ -10,7 +10,7 @@ import { encodePolynomialBufferWithSigma1 } from "../../../src/prover/internal/i
 import {
   buildPreparedProverContext,
   type PreparedProverContext,
-} from "./prepared-prover-context.js";
+} from "../support/prepared-prover-context.js";
 import {
   buildOpeningBenchmarkInputs,
   type OpeningBenchmarkInputs,
