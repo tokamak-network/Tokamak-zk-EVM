@@ -6,7 +6,11 @@ Audience: backend-wasm developers reviewing historical prover MSM parallelizatio
 
 The backend-wasm worker-parallelized prover commitment plan was investigated because large independent MSM jobs dominated the early prover timing data. The experiments showed that browser Web Workers can parallelize independent MSM jobs, but the production plan was discarded after the codebase switched to using ffjavascript primitive parallelism directly through `createCurveRuntime()` with `singleThread: false` by default.
 
-The remaining worker benchmark files under this directory are diagnostics and historical experiments. They are not production prover runtime code. The current production prover path does not expose or inject a browser worker commitment encoder.
+The executable worker experiments are scheduled for removal now that their
+durable evidence is preserved in this report. The commands below are historical
+invocation records and will no longer exist in `package.json` after that
+cleanup. The current production prover path does not expose or inject a browser
+worker commitment encoder.
 
 ## Motivation
 
@@ -189,9 +193,13 @@ Production runtime status:
 
 Benchmark status:
 
-- `bench-independent-msm-parallel.ts`, `bench-browser-msm-worker-pool.ts`, and `bench-browser-crs-sharded-msm.ts` remain executable diagnostics.
-- These scripts are not production runtime code.
-- They may still be useful for future comparisons against primitive parallelism, but their existence must not be read as an active production worker plan.
+- The independent-process, browser worker-pool, and browser CRS-sharding
+  executable experiments are deprecated and scheduled for deletion.
+- Their representative commands, environments, timing, memory-transfer data,
+  parity result, and rejection rationale are preserved above.
+- Reconsideration requires a new benchmark designed against the current
+  primitive-parallel production path; this report is not an active production
+  worker plan.
 
 ## Lessons For Future Optimization
 
@@ -199,4 +207,6 @@ Benchmark status:
 - If backend-wasm workers are reconsidered, compare them against ffjavascript primitive parallelism first, using the same prover fixture and the same timing categories.
 - Measure full end-to-end prover time, not only isolated MSM speedup.
 - Report JavaScript transfer bytes, declared CRS/scalar bytes, worker preload, WebAssembly copy behavior, and browser deployment requirements.
-- Keep worker experiments under `test/benchmarks/` or `scripts/check/` until they outperform the current primitive-parallel production path and justify the added production complexity.
+- Do not restore worker experiments to production or retained benchmark suites
+  unless a new proposal first outperforms the primitive-parallel production path
+  end to end and justifies the added runtime and deployment complexity.

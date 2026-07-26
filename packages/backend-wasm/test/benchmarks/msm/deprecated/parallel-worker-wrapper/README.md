@@ -13,7 +13,7 @@ This directory contains the deprecated worker-wrapper benchmark code that used t
 - `bench-browser-crs-sharded-msm.ts`: Chromium CRS-sharded partial-MSM benchmark with real prepared CRS bytes.
 - `browser-crs-sharded-msm-entry.ts`: browser main-thread entry for the CRS-sharded benchmark.
 - `browser-crs-sharded-msm-worker.ts`: browser worker implementation for the CRS-sharded benchmark.
-- [`docs/optimization/worker-parallelization-report.md`](../../../../../docs/optimization/worker-parallelization-report.md): historical report explaining the motivation, attempts, results, and reason for discarding the production worker-wrapper plan.
+- [`docs/optimization/rejected/outer-worker-msm.md`](../../../../../docs/optimization/rejected/outer-worker-msm.md): historical report explaining the motivation, attempts, results, and reason for discarding the production worker-wrapper plan.
 
 ## Commands
 

@@ -11,7 +11,7 @@ This directory contains a standalone benchmark for comparing four ways to comput
 
 The benchmark asserts that all methods return the same G1 point before it reports timing.
 
-Historical note: [the worker parallelization report](../../../docs/optimization/worker-parallelization-report.md) records the discarded browser worker MSM parallelization plan, the measurements that motivated it, and why the current production path uses ffjavascript primitive parallelism instead.
+Historical note: [the worker parallelization report](../../../docs/optimization/rejected/outer-worker-msm.md) records the discarded browser worker MSM parallelization plan, the measurements that motivated it, and why the current production path uses ffjavascript primitive parallelism instead.
 
 ## Usage
 
@@ -147,11 +147,13 @@ Interpretation:
 - The snarkjs-style path still makes scalar preparation much cheaper by using one contiguous `Fr.batchFromMontgomery` call instead of per-coefficient scalar conversion, but total runtime remains effectively unchanged because `G1.multiExpAffine` dominates the measured cost.
 - This result means the current prover slowdown cannot be explained by CRS/scalar buffer preparation alone. The next optimization target remains reducing polynomial-operation cost and the number or size of large MSM calls, rather than only changing base-copy layout.
 
-## Deprecated Worker Wrapper Benchmarks
+## Rejected Worker Wrapper Design
 
-The independent MSM process benchmark, browser worker-pool benchmark, browser CRS-sharded worker benchmark, and worker parallelization report have moved to [deprecated/parallel-worker-wrapper](./deprecated/parallel-worker-wrapper/).
-
-These files are retained only as historical diagnostics for the discarded backend-wasm worker-wrapper plan. Current production prover code uses ffjavascript primitive parallelism instead of backend-wasm-managed worker commitment scheduling.
+The independent-process, browser worker-pool, and browser CRS-sharded worker
+experiments are scheduled for removal now that their evidence is preserved in the
+[outer-worker MSM report](../../../docs/optimization/rejected/outer-worker-msm.md).
+Current production prover code uses ffjavascript primitive parallelism instead
+of backend-wasm-managed worker commitment scheduling.
 
 ## Commitment Density Benchmark
 

@@ -140,8 +140,9 @@ owner explicitly reopens one with new benchmark and correctness evidence.
   public extension boundaries and fail explicitly when required pinned exports
   are unavailable.
 - A separate backend-wasm Web Worker wrapper around complete MSM jobs is not a
-  production strategy. The deprecated experiments remain under
-  `test/benchmarks/msm/deprecated/parallel-worker-wrapper/`.
+  production strategy. Its executable experiments are scheduled for removal
+  after their evidence was preserved in
+  [`rejected/outer-worker-msm.md`](./rejected/outer-worker-msm.md).
 
 ### Commitment And MSM
 
@@ -249,7 +250,7 @@ than trigger fixture regeneration or a fallback path.
 This history is the primary optimization record. The following focused reports
 retain larger benchmark tables or deprecated implementation details:
 
-- [`prover-chunk-size-benchmark.md`](./prover-chunk-size-benchmark.md): final dense MSM chunk
+- [`chunk-size-decision.md`](./chunk-size-decision.md): final dense MSM chunk
   selection, Chromium timing/RSS results, and the unbounded-call timeout.
 - [`test/benchmarks/msm/README.md`](../../test/benchmarks/msm/README.md): primitive MSM, sparse/dense commitment, and
   scalar-conversion benchmarks.
@@ -257,7 +258,7 @@ retain larger benchmark tables or deprecated implementation details:
   independent Priority 32 candidate and combination evidence.
 - [`test/benchmarks/prover-init/README.md`](../../test/benchmarks/prover-init/README.md): witness initialization, packed CSR,
   and flat-buffer construction evidence.
-- [`worker-parallelization-report.md`](./worker-parallelization-report.md):
+- [`rejected/outer-worker-msm.md`](./rejected/outer-worker-msm.md):
   the complete history and rejection rationale for the outer worker-wrapper
   MSM design.
 - [`test/benchmarks/prover-operations/README.md`](../../test/benchmarks/prover-operations/README.md): commands and operation-level
