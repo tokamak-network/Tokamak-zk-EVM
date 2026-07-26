@@ -1,17 +1,14 @@
-import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 import {
   RollingKeccakTranscript,
   buildWitnessPolynomials,
   createProverState,
-  loadProverInputFromRuntimeBundles,
-  parseRuntimeArtifactBundleManifest,
   type CurveRuntime,
   type FieldElement,
   type ProverRuntimeInput,
-  type RuntimeArtifactBundleManifest,
 } from "../../../src/index.js";
+import { readProverRuntimeInput } from "../../support/runtime-inputs.js";
 import {
   computeInitialRelationCommitments,
   type InitialRelationComputation,
@@ -111,21 +108,8 @@ export async function loadPreparedProverInput(
   options: PreparedProverInputOptions = {},
 ): Promise<ProverRuntimeInput> {
   const runtimeDir = path.resolve(options.runtimeDir ?? "fixtures/small/runtime");
-  const proofWitnessManifest = await readManifest(
-    runtimeDir,
-    "prover-proof-witness-input/manifest.json",
-  );
-  const crsManifest = await readManifest(
-    runtimeDir,
-    "prover-crs-prepared-data/manifest.json",
-  );
   options.onProgress?.("Loading prepared prover runtime input");
-  return loadProverInputFromRuntimeBundles(
-    runtime,
-    proofWitnessManifest,
-    crsManifest,
-    (artifactPath) => readRuntimeFile(runtimeDir, artifactPath),
-  );
+  return readProverRuntimeInput(runtime, runtimeDir);
 }
 
 function collectThetaChallenges(
@@ -180,35 +164,4 @@ function collectKappa1Challenge(
     .commitField(evaluations.R_omegaX_omegaY_eval);
 
   return transcript.squeezeChallenge();
-}
-
-async function readManifest(
-  runtimeDir: string,
-  artifactPath: string,
-): Promise<RuntimeArtifactBundleManifest> {
-  const bytes = await readRuntimeFile(runtimeDir, artifactPath);
-  return parseRuntimeArtifactBundleManifest(
-    JSON.parse(new TextDecoder().decode(bytes)) as unknown,
-  );
-}
-
-async function readRuntimeFile(runtimeDir: string, artifactPath: string): Promise<Uint8Array> {
-  if (path.isAbsolute(artifactPath) || artifactPath.includes("\\") || artifactPath.split("/").includes("..")) {
-    throw new Error(`Prepared runtime artifact path must be a safe relative POSIX path: ${artifactPath}`);
-  }
-
-  const filePath = path.resolve(runtimeDir, artifactPath);
-  const relative = path.relative(runtimeDir, filePath);
-  if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
-    throw new Error(`Prepared runtime artifact path escapes fixtures/small/runtime: ${artifactPath}`);
-  }
-
-  try {
-    return await readFile(filePath);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      `Required prepared runtime fixture file is missing: ${relative}. Original read error: ${message}`,
-    );
-  }
 }

@@ -7,18 +7,11 @@ import type { RuntimeArtifactFile } from "../../artifacts/loaders/types.js";
 import { DensePolynomialExt } from "../../core/polynomial/dense-polynomial.js";
 import type { CurveRuntime } from "../../core/curve/curve.js";
 import type { FieldElement } from "../../core/field/field.js";
-import {
-  RuntimeArtifactFileRole,
-  type RuntimeArtifactBundleFile,
-  type RuntimeArtifactBundleManifest,
-} from "../../artifacts/bundles/artifact-bundle.js";
 import { BinarySectionEncoding, BinarySectionType } from "../../artifacts/format/binary-format.js";
 import { GENERATED_PROVER_SETUP_PARAMS } from "../../prover/generated/subcircuit-library.generated.js";
 import type { VerifierSetupParams } from "../equations/domain-context.js";
 import { GENERATED_VERIFIER_SIGMA } from "../generated/sigma-verify.generated.js";
 import type { VerifierInput, VerifierProof } from "../internal/verify-snark.js";
-
-export type RuntimeArtifactFileResolver = (path: string) => Uint8Array | Promise<Uint8Array>;
 
 export interface VerifierRuntimeArtifactFiles {
   readonly instance: RuntimeArtifactFile;
@@ -26,28 +19,25 @@ export interface VerifierRuntimeArtifactFiles {
   readonly preprocess: RuntimeArtifactFile;
 }
 
-export async function loadVerifierInputFromRuntimeBundles(
+export interface VerifierBinaryInput {
+  readonly proof: Uint8Array;
+  readonly instance: Uint8Array;
+  readonly verifierPreprocess: Uint8Array;
+}
+
+export async function loadVerifierInputFromBinaryInput(
   runtime: CurveRuntime,
-  proofInput: RuntimeArtifactBundleManifest,
-  setupInput: RuntimeArtifactBundleManifest,
-  resolveFile: RuntimeArtifactFileResolver,
+  input: VerifierBinaryInput,
 ): Promise<VerifierInput> {
+  const [instance, proof, preprocess] = await Promise.all([
+    loadRuntimeArtifactFile(input.instance),
+    loadRuntimeArtifactFile(input.proof),
+    loadRuntimeArtifactFile(input.verifierPreprocess),
+  ]);
   const artifacts: VerifierRuntimeArtifactFiles = {
-    instance: await loadBundleArtifactFile(
-      proofInput,
-      RuntimeArtifactFileRole.Instance,
-      resolveFile,
-    ),
-    proof: await loadBundleArtifactFile(
-      proofInput,
-      RuntimeArtifactFileRole.Proof,
-      resolveFile,
-    ),
-    preprocess: await loadBundleArtifactFile(
-      setupInput,
-      RuntimeArtifactFileRole.Preprocess,
-      resolveFile,
-    ),
+    instance,
+    proof,
+    preprocess,
   };
 
   return buildVerifierInputFromRuntimeArtifacts(runtime, artifacts);
@@ -67,28 +57,6 @@ export async function buildVerifierInputFromRuntimeArtifacts(
     proof: parseVerifierProof(artifacts.proof),
     aPubX: await DensePolynomialExt.fromRouEvals(runtime.Fr, publicInstance, setup.l_free, 1),
   };
-}
-
-async function loadBundleArtifactFile(
-  manifest: RuntimeArtifactBundleManifest,
-  role: RuntimeArtifactFileRole,
-  resolveFile: RuntimeArtifactFileResolver,
-): Promise<RuntimeArtifactFile> {
-  const file = requireSingleRoleFile(manifest, role);
-  const bytes = await resolveFile(file.path);
-  return loadRuntimeArtifactFile(bytes);
-}
-
-function requireSingleRoleFile(
-  manifest: RuntimeArtifactBundleManifest,
-  role: RuntimeArtifactFileRole,
-): RuntimeArtifactBundleFile {
-  const matches = manifest.files.filter((file) => file.role === role);
-  if (matches.length !== 1) {
-    throw new Error(`${manifest.kind} bundle must contain exactly one '${role}' artifact file.`);
-  }
-
-  return matches[0];
 }
 
 function parsePublicInstance(

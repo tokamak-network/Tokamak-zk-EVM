@@ -5,13 +5,11 @@ import {
   evalLagrangeK0,
   lhsCopy,
   lhsCopyMsm,
-  loadVerifierInputFromRuntimeBundles,
-  parseRuntimeArtifactBundleManifest,
-  decodeVerifierBinaryResult,
+  loadVerifierInputFromBinaryInput,
   verifyBinary,
   type CurveRuntime,
   type FieldElement,
-  type RuntimeArtifactBundleManifest,
+  type VerifierBinaryInput,
 } from "../../src/index.js";
 import type { VerifierInput } from "../../src/verifier/internal/verify-snark.js";
 
@@ -31,12 +29,6 @@ interface BrowserG1Timings {
   readonly lhsCopyMsmMs: number;
 }
 
-interface BinaryVerifierFixture {
-  readonly proofManifest: RuntimeArtifactBundleManifest;
-  readonly setupManifest: RuntimeArtifactBundleManifest;
-  readonly resolveFile: (path: string) => Promise<Uint8Array>;
-}
-
 window.__tokamakVerifierResult = { status: "pending" };
 
 main().catch((error: unknown) => {
@@ -51,34 +43,25 @@ async function main(): Promise<void> {
   const runtime = await createCurveRuntime({ singleThread: true });
 
   try {
-    const verifierInput = await loadVerifierInputFromRuntimeBundles(
-      runtime,
-      binaryFixture.proofManifest,
-      binaryFixture.setupManifest,
-      binaryFixture.resolveFile,
-    );
+    const verifierInput = await loadVerifierInputFromBinaryInput(runtime, binaryFixture);
     const g1Timings =
       new URLSearchParams(window.location.search).get("benchG1") === "1"
         ? await checkAndBenchmarkG1CombinationCandidates(runtime, verifierInput)
         : undefined;
     const result = await verifyBinary(
       runtime,
-      binaryFixture.proofManifest,
-      binaryFixture.setupManifest,
-      binaryFixture.resolveFile,
+      binaryFixture,
       {
         randomScalar: () => runtime.Fr.one,
       },
     );
-    const valid = decodeVerifierBinaryResult(result);
-
-    if (!valid) {
+    if (!result) {
       throw new Error("Browser verifier rejected the prepared runtime proof fixture.");
     }
 
     window.__tokamakVerifierResult = {
       status: "ok",
-      valid,
+      valid: result,
       g1Timings,
     };
   } finally {
@@ -139,30 +122,14 @@ function assertG1Equal(runtime: CurveRuntime, actual: Uint8Array, expected: Uint
   }
 }
 
-async function fetchJson<T>(path: string): Promise<T> {
-  const response = await fetch(path);
-  if (!response.ok) {
-    throw new Error(describePreparedFixtureFetchFailure(path, response.status));
-  }
+async function loadPreparedBinaryVerifierFixture(): Promise<VerifierBinaryInput> {
+  const [proof, instance, verifierPreprocess] = await Promise.all([
+    fetchBinary("/fixtures/small/runtime/proof.bin"),
+    fetchBinary("/fixtures/small/runtime/instance.bin"),
+    fetchBinary("/fixtures/small/runtime/verifier-preprocess.bin"),
+  ]);
 
-  return (await response.json()) as T;
-}
-
-async function loadPreparedBinaryVerifierFixture(): Promise<BinaryVerifierFixture> {
-  const proofManifest = parseRuntimeArtifactBundleManifest(
-    await fetchJson("/fixtures/small/runtime/verifier-proof-input/manifest.json"),
-  );
-  const setupManifest = parseRuntimeArtifactBundleManifest(
-    await fetchJson("/fixtures/small/runtime/verifier-setup-input/manifest.json"),
-  );
-  const resolveFile = (artifactPath: string): Promise<Uint8Array> =>
-    fetchBinary(`/fixtures/small/runtime/${artifactPath}`);
-
-  return {
-    proofManifest,
-    setupManifest,
-    resolveFile,
-  };
+  return { proof, instance, verifierPreprocess };
 }
 
 async function fetchBinary(path: string): Promise<Uint8Array> {

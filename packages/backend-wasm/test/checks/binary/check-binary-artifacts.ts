@@ -2,9 +2,7 @@ import { fileURLToPath } from "node:url";
 
 import { PROVER_CRS_V1_SPEC } from "../../../src/artifacts/specs/prover-crs.v1.generated.js";
 import { SIGMA_VERIFY_V1_SPEC } from "../../../src/artifacts/specs/sigma-verify.v1.generated.js";
-import { VERIFIER_INSTANCE_V1_SPEC } from "../../../src/artifacts/specs/verifier-instance.v1.generated.js";
 import { VERIFIER_PREPROCESS_V1_SPEC } from "../../../src/artifacts/specs/verifier-preprocess.v1.generated.js";
-import { VERIFIER_PROOF_V1_SPEC } from "../../../src/artifacts/specs/verifier-proof.v1.generated.js";
 import {
   BinaryArtifactFileKind,
   BinarySectionEncoding,
@@ -15,13 +13,9 @@ import {
   loadRuntimeArtifactFile,
   loadSigmaVerifyArtifact,
   loadVerifierPreprocessArtifact,
-  parseRuntimeArtifactBundleManifest,
-  RuntimeArtifactBundleKind,
-  RuntimeArtifactFileRole,
   type BinarySectionInput,
   type CurveRuntime,
   validateRuntimeArtifactFile,
-  validateRuntimeBundle,
 } from "../../../src/index.js";
 
 async function main(): Promise<void> {
@@ -31,78 +25,11 @@ async function main(): Promise<void> {
     await checkSigmaVerifyArtifact(runtime);
     await checkVerifierPreprocessArtifact(runtime);
     await checkProverCrsArtifact(runtime);
-    await checkRuntimeBundleManifests();
   } finally {
     await runtime.terminate();
   }
 
-  console.log("Checked production runtime artifact formats and bundle manifests");
-}
-
-async function checkRuntimeBundleManifests(): Promise<void> {
-  parseRuntimeArtifactBundleManifest({
-    schemaVersion: 1,
-    kind: RuntimeArtifactBundleKind.VerifierProofInput,
-    files: [
-      {
-        role: RuntimeArtifactFileRole.Instance,
-        path: "instance.bin",
-      },
-      {
-        role: RuntimeArtifactFileRole.Proof,
-        path: "proof.bin",
-      },
-    ],
-  });
-
-  parseRuntimeArtifactBundleManifest({
-    schemaVersion: 1,
-    kind: RuntimeArtifactBundleKind.VerifierSetupInput,
-    files: [
-      {
-        role: RuntimeArtifactFileRole.Preprocess,
-        path: "preprocess.bin",
-      },
-    ],
-  });
-
-  const unsafeManifest = parseRuntimeArtifactBundleManifest({
-    schemaVersion: 1,
-    kind: RuntimeArtifactBundleKind.VerifierProofInput,
-    files: [
-      {
-        role: RuntimeArtifactFileRole.Instance,
-        path: "../instance.bin",
-      },
-      {
-        role: RuntimeArtifactFileRole.Proof,
-        path: "proof.bin",
-      },
-    ],
-  });
-
-  await assertRejects(
-    () =>
-      validateRuntimeBundle(unsafeManifest, missingRuntimeArtifactResolver, RuntimeArtifactBundleKind.VerifierProofInput, {
-        expectedFiles: [
-          {
-            role: RuntimeArtifactFileRole.Instance,
-            kind: BinaryArtifactFileKind.VerifierInstance,
-            spec: VERIFIER_INSTANCE_V1_SPEC,
-          },
-          {
-            role: RuntimeArtifactFileRole.Proof,
-            kind: BinaryArtifactFileKind.VerifierProof,
-            spec: VERIFIER_PROOF_V1_SPEC,
-          },
-        ],
-      }),
-    "Runtime artifact bundle file path must reject parent-directory traversal",
-  );
-}
-
-function missingRuntimeArtifactResolver(path: string): Uint8Array {
-  throw new Error(`Unexpected runtime artifact resolver call for ${path}.`);
+  console.log("Checked production runtime artifact formats");
 }
 
 async function checkSigmaVerifyArtifact(runtime: CurveRuntime): Promise<void> {
@@ -235,16 +162,6 @@ function assertEqual(actual: unknown, expected: unknown, label: string): void {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     throw new Error(`${label} mismatch: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
   }
-}
-
-async function assertRejects(callback: () => Promise<unknown>, label: string): Promise<void> {
-  try {
-    await callback();
-  } catch {
-    return;
-  }
-
-  throw new Error(`${label} did not reject.`);
 }
 
 const entrypoint = fileURLToPath(import.meta.url);

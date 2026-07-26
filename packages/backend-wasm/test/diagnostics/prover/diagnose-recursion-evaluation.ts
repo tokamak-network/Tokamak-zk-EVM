@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import {
@@ -7,14 +7,12 @@ import {
   buildWitnessPolynomials,
   createCurveRuntime,
   createProverState,
-  loadProverInputFromRuntimeBundles,
-  parseRuntimeArtifactBundleManifest,
   type CurveRuntime,
   type FieldElement,
   type ProverCrsRuntime,
   type ProverState,
-  type RuntimeArtifactBundleManifest,
 } from "../../../src/index.js";
+import { readProverRuntimeInput } from "../../support/runtime-inputs.js";
 import {
   buildProverBinding,
   computeInitialRelationCommitments,
@@ -46,21 +44,8 @@ async function main(): Promise<void> {
   const runtime = await createCurveRuntime();
 
   try {
-    const proverProofWitnessInput = await readPreparedRuntimeManifest(
-      runtimeDir,
-      "prover-proof-witness-input/manifest.json",
-    );
-    const proverCrsPreparedData = await readPreparedRuntimeManifest(
-      runtimeDir,
-      "prover-crs-prepared-data/manifest.json",
-    );
-    const input = await timeAsync("setup", "load prover runtime bundles", () =>
-      loadProverInputFromRuntimeBundles(
-        runtime,
-        proverProofWitnessInput,
-        proverCrsPreparedData,
-        (artifactPath) => readPreparedRuntimeFile(runtimeDir, artifactPath),
-      ),
+    const input = await timeAsync("setup", "load prover runtime input", () =>
+      readProverRuntimeInput(runtime, runtimeDir),
     );
 
     const witness = await timeAsync("setup", "build witness polynomials", () =>
@@ -308,44 +293,6 @@ function printReport(report: DiagnosticReport): void {
     })),
   );
   console.log("Wrote tmp/timing/prover-recursion-evaluation-breakdown.json");
-}
-
-async function readPreparedRuntimeManifest(
-  runtimeDir: string,
-  artifactPath: string,
-): Promise<RuntimeArtifactBundleManifest> {
-  return parseRuntimeArtifactBundleManifest(await readPreparedRuntimeJson(runtimeDir, artifactPath));
-}
-
-async function readPreparedRuntimeJson<T>(runtimeDir: string, artifactPath: string): Promise<T> {
-  const bytes = await readPreparedRuntimeFile(runtimeDir, artifactPath);
-  return JSON.parse(new TextDecoder().decode(bytes)) as T;
-}
-
-async function readPreparedRuntimeFile(runtimeDir: string, artifactPath: string): Promise<Uint8Array> {
-  const filePath = resolvePreparedRuntimePath(runtimeDir, artifactPath);
-  try {
-    return new Uint8Array(await readFile(filePath));
-  } catch (error: unknown) {
-    if ((error as { code?: string }).code === "ENOENT") {
-      throw new Error(
-        [
-          `Required prepared runtime fixture file is missing: ${path.relative(process.cwd(), filePath)}.`,
-          "Prepare owner package outputs, run npm run fixtures:copy, then run npm run fixtures:prepare.",
-        ].join("\n"),
-      );
-    }
-    throw error;
-  }
-}
-
-function resolvePreparedRuntimePath(runtimeDir: string, artifactPath: string): string {
-  const filePath = path.resolve(runtimeDir, artifactPath);
-  const relative = path.relative(runtimeDir, filePath);
-  if (relative.startsWith("..") || path.isAbsolute(relative)) {
-    throw new Error(`Prepared runtime artifact path escapes fixtures/small/runtime: ${artifactPath}`);
-  }
-  return filePath;
 }
 
 function shape(polynomial: BivariatePolynomialBuffer): string {

@@ -3,10 +3,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  convertNativeProverArtifactsToBinary,
-  convertNativeVerifierJsonToBinary,
+  BACKEND_WASM_PACKAGE_VERSION,
+  convertInstance,
+  convertPermutation,
+  convertProof,
+  convertVerifierPreprocess,
+  convertWitness,
+  convertCombinedSigmaRkyvToProverCrsBinary,
   createCombinedSigmaRkyvPayloadDecoder,
-  type RuntimeArtifactBundleSetOutput,
 } from "../../src/index.js";
 import { loadCombinedSigmaPayloadDecoder } from "../../tools/rkyv-decoder-wasm/src/node.js";
 
@@ -28,30 +32,37 @@ async function main(argv: readonly string[]): Promise<void> {
   const manifest = parseCopyManifest(JSON.parse(await readFile(manifestPath, "utf8")) as unknown);
   const sourceRoot = resolveWorkDirectory(repositoryRoot, backendWasmRoot, manifest.workDirectory);
   const runtimeRoot = path.join(backendWasmRoot, "fixtures", manifest.suite, "runtime");
-  const rootPackageVersion = await readRootPackageVersion(repositoryRoot);
   const payloadDecoder = await loadCombinedSigmaPayloadDecoder();
+  const instance = await readJson(path.join(sourceRoot, "synthesizer", "instance.json"));
+  const outputs: Readonly<Record<string, Uint8Array>> = {
+    "witness.bin": await convertWitness(
+      await readJson(path.join(sourceRoot, "synthesizer", "placementVariables.json")),
+    ),
+    "permutation.bin": await convertPermutation(
+      await readJson(path.join(sourceRoot, "synthesizer", "permutation.json")),
+    ),
+    "instance.bin": await convertInstance(instance),
+    "prover-crs.bin": await convertCombinedSigmaRkyvToProverCrsBinary(
+      await readBinary(path.join(sourceRoot, "setup", "combined_sigma.rkyv")),
+      {
+        sourcePackageVersion: BACKEND_WASM_PACKAGE_VERSION,
+        decoder: createCombinedSigmaRkyvPayloadDecoder(payloadDecoder.decodeCombinedSigmaPayload),
+      },
+    ),
+    "proof.bin": await convertProof({
+      sourceFormat: "json",
+      proof: await readJson(path.join(sourceRoot, "prove", "proof.json")),
+    }),
+    "verifier-preprocess.bin": await convertVerifierPreprocess(
+      await readJson(path.join(sourceRoot, "preprocess", "preprocess.json")),
+    ),
+  };
 
-  const verifierOutput = await convertNativeVerifierJsonToBinary({
-    sourcePackageVersion: rootPackageVersion,
-    useGeneratedSetupParams: true,
-    proof: await readJson(path.join(sourceRoot, "prove", "proof.json")),
-    preprocess: await readJson(path.join(sourceRoot, "preprocess", "preprocess.json")),
-    instance: await readJson(path.join(sourceRoot, "synthesizer", "instance.json")),
-  });
-  const proverCrsOutput = await convertNativeProverArtifactsToBinary({
-    sourcePackageVersion: rootPackageVersion,
-    placement: await readJson(path.join(sourceRoot, "synthesizer", "placementVariables.json")),
-    permutation: await readJson(path.join(sourceRoot, "synthesizer", "permutation.json")),
-    instance: await readJson(path.join(sourceRoot, "synthesizer", "instance.json")),
-    rkyvArtifacts: {
-      combinedSigma: await readBinary(path.join(sourceRoot, "setup", "combined_sigma.rkyv")),
-    },
-    rkyvDecoder: createCombinedSigmaRkyvPayloadDecoder(payloadDecoder.decodeCombinedSigmaPayload),
-  });
-
-  await writeRuntimeBundles(runtimeRoot, {
-    bundles: [...verifierOutput.bundles, ...proverCrsOutput.bundles],
-  });
+  await rm(runtimeRoot, { recursive: true, force: true });
+  await mkdir(runtimeRoot, { recursive: true });
+  await Promise.all(Object.entries(outputs).map(([fileName, bytes]) =>
+    writeFile(path.join(runtimeRoot, fileName), bytes),
+  ));
 }
 
 function parseCopyManifest(raw: unknown): CopyManifest {
@@ -104,53 +115,6 @@ async function readBinary(filePath: string): Promise<Uint8Array> {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`Failed to read copied fixture source ${filePath}: ${message}`);
-  }
-}
-
-async function readRootPackageVersion(repositoryRoot: string): Promise<string> {
-  const packageJson = await readJson(path.join(repositoryRoot, "package.json"));
-
-  if (!isRecord(packageJson) || typeof packageJson.version !== "string" || packageJson.version.trim() === "") {
-    throw new Error("Repository root package.json must define a non-empty version.");
-  }
-
-  return packageJson.version;
-}
-
-async function writeRuntimeBundles(runtimeRoot: string, output: RuntimeArtifactBundleSetOutput): Promise<void> {
-  await rm(runtimeRoot, { recursive: true, force: true });
-
-  for (const bundle of output.bundles) {
-    const bundleRoot = path.join(runtimeRoot, runtimeBundleDirectory(bundle.manifest.kind));
-
-    await mkdir(bundleRoot, { recursive: true });
-    await writeFile(path.join(bundleRoot, "manifest.json"), `${JSON.stringify(bundle.manifest, null, 2)}\n`);
-
-    for (const file of bundle.files) {
-      const targetPath = path.join(runtimeRoot, file.path);
-
-      if (!isPathInside(targetPath, runtimeRoot)) {
-        throw new Error(`Runtime fixture output path escapes runtime root: ${file.path}`);
-      }
-
-      await mkdir(path.dirname(targetPath), { recursive: true });
-      await writeFile(targetPath, file.bytes);
-    }
-  }
-}
-
-function runtimeBundleDirectory(kind: string): string {
-  switch (kind) {
-    case "VerifierProofInput":
-      return "verifier-proof-input";
-    case "VerifierSetupInput":
-      return "verifier-setup-input";
-    case "ProverProofWitnessInput":
-      return "prover-proof-witness-input";
-    case "ProverCrsPreparedData":
-      return "prover-crs-prepared-data";
-    default:
-      throw new Error(`Unsupported runtime fixture bundle kind: ${kind}`);
   }
 }
 

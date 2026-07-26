@@ -71,7 +71,7 @@ async function main(): Promise<void> {
     server.close();
   }
 
-  console.log("Checked verifier binary bundle path in Chromium");
+  console.log("Checked verifier named binary input path in Chromium");
 }
 
 interface BrowserVerifierResult {

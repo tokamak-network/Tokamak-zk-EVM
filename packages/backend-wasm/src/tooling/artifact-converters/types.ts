@@ -1,81 +1,37 @@
-import type { RuntimeArtifactBundleManifest } from "../../artifacts/bundles/artifact-bundle.js";
-import type { RkyvArchiveDecoder } from "./rkyv-to-binary.js";
-
-export const ARTIFACT_CONVERTER_COMMANDS = [
-  "json-to-verifier-binary",
-  "json-rkyv-to-prover-binary",
-  "permutation-json-to-binary",
-  "proof-binary-to-json",
-  "binary-to-debug-json",
-] as const;
-
-export type ArtifactConverterCommand = (typeof ARTIFACT_CONVERTER_COMMANDS)[number];
 export type ConverterArtifactJson = Record<string, unknown>;
 
-export interface NativeVerifierJsonToBinaryInput {
-  readonly sourcePackageVersion?: string;
-  readonly useGeneratedSetupParams?: boolean;
-  readonly setupParams?: unknown;
-  readonly proof?: unknown;
-  readonly preprocess?: unknown;
-  readonly instance?: unknown;
-  readonly instanceDescription?: unknown;
-  readonly artifacts?: {
-    readonly setupParams?: unknown;
-    readonly proof?: unknown;
-    readonly preprocess?: unknown;
-    readonly instance?: unknown;
-    readonly instanceDescription?: unknown;
-  };
+export interface ConvertProofJsonInput {
+  readonly sourceFormat: "json";
+  readonly proof: unknown;
 }
 
-export interface NativeProverArtifactsToBinaryInput {
-  readonly sourcePackageVersion?: string;
-  readonly subcircuitMetadata?: unknown;
-  readonly placement?: unknown;
-  readonly permutation?: unknown;
-  readonly instance?: unknown;
-  readonly witnessInputs?: unknown;
-  readonly nativeJson?: unknown;
-  readonly rkyvArtifacts?: readonly Uint8Array[] | NativeProverRkyvArtifacts;
-  readonly rkyvDecoder?: RkyvArchiveDecoder;
+export interface ConvertProofBinaryInput {
+  readonly sourceFormat: "binary";
+  readonly proof: Uint8Array;
 }
 
-export interface NativeProverRkyvArtifacts {
-  readonly combinedSigma?: Uint8Array;
-  readonly sigmaPreprocess?: Uint8Array;
-}
+export type ConvertProofInput = ConvertProofJsonInput | ConvertProofBinaryInput;
 
-export interface NativePermutationJsonToBinaryInput {
-  readonly permutation: unknown;
-  readonly sourcePackageVersion: string;
-}
-
-export interface ProofBinaryToNativeJsonInput {
-  readonly proofFile: Uint8Array;
-}
-
-export interface BinaryArtifactFileToDebugJsonInput {
-  readonly artifactFile: Uint8Array;
+export interface BinaryInspectionOptions {
   readonly includeSectionData?: boolean;
 }
 
-export interface BinaryArtifactFileDebugJson {
+export interface BinaryArtifactInspection {
   readonly kind: number;
   readonly formatVersion: number;
   readonly sourcePackageVersion: string;
   readonly byteLength: number;
-  readonly digests: readonly BinaryDigestDebugJson[];
-  readonly sections: readonly BinarySectionDebugJson[];
+  readonly digests: readonly BinaryDigestInspection[];
+  readonly sections: readonly BinarySectionInspection[];
 }
 
-export interface BinaryDigestDebugJson {
+export interface BinaryDigestInspection {
   readonly type: number;
   readonly sectionIndex?: number;
   readonly digestHex: string;
 }
 
-export interface BinarySectionDebugJson {
+export interface BinarySectionInspection {
   readonly type: number;
   readonly encoding: number;
   readonly label: string;
@@ -87,36 +43,3 @@ export interface BinarySectionDebugJson {
   readonly digestHex: string;
   readonly dataHex?: string;
 }
-
-export interface RuntimeArtifactBundleOutput {
-  readonly manifest: RuntimeArtifactBundleManifest;
-  readonly files: readonly RuntimeArtifactBundleOutputFile[];
-}
-
-export interface RuntimeArtifactBundleSetOutput {
-  readonly bundles: readonly RuntimeArtifactBundleOutput[];
-}
-
-export interface RuntimeArtifactBundleOutputFile {
-  readonly path: string;
-  readonly bytes: Uint8Array;
-}
-
-export type ArtifactConverterInput =
-  | NativeVerifierJsonToBinaryInput
-  | NativeProverArtifactsToBinaryInput
-  | NativePermutationJsonToBinaryInput
-  | ProofBinaryToNativeJsonInput
-  | BinaryArtifactFileToDebugJsonInput;
-
-export interface ArtifactConverterRequest {
-  readonly command: ArtifactConverterCommand;
-  readonly input: ArtifactConverterInput;
-}
-
-export type ArtifactConverterOutput =
-  | RuntimeArtifactBundleSetOutput
-  | RuntimeArtifactBundleOutput
-  | Uint8Array
-  | ConverterArtifactJson
-  | BinaryArtifactFileDebugJson;

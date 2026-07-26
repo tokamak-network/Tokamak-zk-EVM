@@ -5,12 +5,9 @@ import { fileURLToPath } from "node:url";
 
 import {
   createCurveRuntime,
-  decodeVerifierBinaryResult,
   loadRuntimeArtifactFile,
-  loadVerifierInputFromRuntimeBundles,
-  parseRuntimeArtifactBundleManifest,
+  loadVerifierInputFromBinaryInput,
   verifyBinary,
-  type RuntimeArtifactBundleManifest,
 } from "../../src/index.js";
 import {
   GENERATED_PROVER_SETUP_PARAMS,
@@ -19,6 +16,7 @@ import {
 } from "../../src/prover/generated/subcircuit-library.generated.js";
 import { GENERATED_VERIFIER_SIGMA } from "../../src/verifier/generated/sigma-verify.generated.js";
 import { verifySnark } from "../../src/verifier/internal/verify-snark.js";
+import { readVerifierBinaryInput } from "../support/runtime-inputs.js";
 
 interface CopyManifest {
   readonly schemaVersion: 2;
@@ -83,20 +81,11 @@ async function main(argv: readonly string[]): Promise<void> {
   const runtime = await createCurveRuntime();
 
   try {
-    const proofManifest = parseRuntimeArtifactBundleManifest(
-      await readJson(path.join(runtimeRoot, "verifier-proof-input", "manifest.json")),
-    );
-    const setupManifest = parseRuntimeArtifactBundleManifest(
-      await readJson(path.join(runtimeRoot, "verifier-setup-input", "manifest.json")),
-    );
-    const resolveFile = (artifactPath: string): Promise<Uint8Array> =>
-      readPreparedRuntimeFile(runtimeRoot, artifactPath);
-    const verifierInput = await loadVerifierInputFromRuntimeBundles(runtime, proofManifest, setupManifest, resolveFile);
-    const binaryResult = decodeVerifierBinaryResult(
-      await verifyBinary(runtime, proofManifest, setupManifest, resolveFile, {
-        randomScalar: () => runtime.Fr.one,
-      }),
-    );
+    const binaryInput = await readVerifierBinaryInput(runtimeRoot);
+    const verifierInput = await loadVerifierInputFromBinaryInput(runtime, binaryInput);
+    const binaryResult = await verifyBinary(runtime, binaryInput, {
+      randomScalar: () => runtime.Fr.one,
+    });
     const snarkResult = await verifySnark(runtime, verifierInput, {
       randomScalar: () => runtime.Fr.one,
     });
@@ -113,7 +102,7 @@ async function main(argv: readonly string[]): Promise<void> {
         digestBytes("generated.setupParams", encodeUtf8(stableJsonStringify(GENERATED_PROVER_SETUP_PARAMS))),
         digestBytes("generated.sigmaVerify", concatVerifierSigmaBytes()),
       ],
-      runtimeArtifacts: await readRuntimeArtifactReports(runtimeRoot, proofManifest, setupManifest),
+      runtimeArtifacts: await readRuntimeArtifactReports(runtimeRoot),
       verifierResults: {
         verifyBinary: binaryResult,
         verifySnark: snarkResult.valid,
@@ -183,13 +172,15 @@ async function readSourceArtifactReports(sourceRoot: string): Promise<readonly D
 
 async function readRuntimeArtifactReports(
   runtimeRoot: string,
-  proofManifest: RuntimeArtifactBundleManifest,
-  setupManifest: RuntimeArtifactBundleManifest,
 ): Promise<readonly RuntimeArtifactReport[]> {
   const entries = [
-    ...proofManifest.files.map((file) => [`runtime.${proofManifest.kind}.${file.role}`, file.path] as const),
-    ...setupManifest.files.map((file) => [`runtime.${setupManifest.kind}.${file.role}`, file.path] as const),
-  ];
+    ["runtime.witness", "witness.bin"],
+    ["runtime.permutation", "permutation.bin"],
+    ["runtime.instance", "instance.bin"],
+    ["runtime.proverCrs", "prover-crs.bin"],
+    ["runtime.proof", "proof.bin"],
+    ["runtime.verifierPreprocess", "verifier-preprocess.bin"],
+  ] as const;
 
   return Promise.all(
     entries.map(async ([label, artifactPath]) => {
@@ -278,10 +269,6 @@ async function readRootPackageVersion(repositoryRoot: string): Promise<string> {
   return packageJson.version;
 }
 
-async function readPreparedRuntimeFile(runtimeRoot: string, artifactPath: string): Promise<Uint8Array> {
-  return new Uint8Array(await readFile(resolvePreparedRuntimePath(runtimeRoot, artifactPath)));
-}
-
 function resolvePreparedRuntimePath(runtimeRoot: string, artifactPath: string): string {
   if (path.isAbsolute(artifactPath) || artifactPath.includes("\\") || artifactPath.split("/").includes("..")) {
     throw new Error(`Prepared runtime artifact path must be a safe relative POSIX path: ${artifactPath}`);
@@ -322,13 +309,13 @@ function buildConclusion(binaryResult: boolean, snarkResult: boolean): string {
   if (!binaryResult && !snarkResult) {
     return [
       "Both verifyBinary and decoded-input verifySnark rejected the prepared verifier runtime fixture.",
-      "This points to source artifact inconsistency or a verifier-core protocol mismatch, not just binary bundle assembly.",
+      "This points to source artifact inconsistency or a verifier-core protocol mismatch, not just binary input assembly.",
     ].join(" ");
   }
 
   return [
     "verifyBinary and decoded-input verifySnark disagree.",
-    "This points to binary bundle loading or binary artifact conversion before verifier-core execution.",
+    "This points to binary input loading or binary artifact conversion before verifier-core execution.",
   ].join(" ");
 }
 

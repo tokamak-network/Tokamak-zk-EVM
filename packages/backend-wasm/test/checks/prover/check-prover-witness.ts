@@ -7,15 +7,13 @@ import {
   BivariatePolynomialBuffer,
   loadVerifierProofArtifact,
   loadRuntimeArtifactFile,
-  RuntimeArtifactBundleKind,
-  RuntimeArtifactFileRole,
   type BinarySectionInput,
   type FieldElement,
   type FieldRuntime,
 } from "../../../src/index.js";
 import {
   buildProverWitnessInputFromRuntimeArtifacts,
-  loadProverInputFromRuntimeBundles,
+  loadProverInputFromBinaryInput,
   loadProverRuntimeWitnessInputParts,
   proverCrsG1PointAt,
   proverCrsG1PointRange,
@@ -518,56 +516,33 @@ async function main(): Promise<void> {
         },
       ],
     });
-    const files = new Map([
-      ["placement.bin", placementVariablesBytes],
-      ["permutation.bin", permutationBytes],
-      ["instance.bin", instanceBytes],
-      ["crs.bin", crsBytes],
-    ]);
-    const proverInput = await loadProverInputFromRuntimeBundles(
+    const proverInput = await loadProverInputFromBinaryInput(
       runtime,
       {
-        schemaVersion: 1,
-        kind: RuntimeArtifactBundleKind.ProverProofWitnessInput,
-        files: [
-          { role: RuntimeArtifactFileRole.PlacementVariables, path: "placement.bin" },
-          { role: RuntimeArtifactFileRole.Permutation, path: "permutation.bin" },
-          { role: RuntimeArtifactFileRole.Instance, path: "instance.bin" },
-        ],
-      },
-      {
-        schemaVersion: 1,
-        kind: RuntimeArtifactBundleKind.ProverCrsPreparedData,
-        files: [
-          { role: RuntimeArtifactFileRole.Crs, path: "crs.bin" },
-        ],
-      },
-      (filePath) => {
-        const file = files.get(filePath);
-        if (file === undefined) {
-          throw new Error(`Missing test runtime artifact file ${filePath}.`);
-        }
-        return file;
+        witness: placementVariablesBytes,
+        permutation: permutationBytes,
+        instance: instanceBytes,
+        proverCrs: crsBytes,
       },
     );
-    assertEqual(proverInput.witness.subcircuitInfos.length, 14, "bundle prover subcircuit info count");
-    assertEqual(proverInput.crs.sigma1.xyPowers.count, 2, "bundle prover CRS xy powers length");
+    assertEqual(proverInput.witness.subcircuitInfos.length, 14, "prover subcircuit info count");
+    assertEqual(proverInput.crs.sigma1.xyPowers.count, 2, "prover CRS xy powers length");
     assertEqual(
       proverCrsG1PointAt(proverInput.crs.sigma1.xyPowers, 1).byteLength,
       96,
-      "bundle prover CRS xy powers point width",
+      "prover CRS xy powers point width",
     );
     assertEqual(
       proverCrsG1PointRange(proverInput.crs.sigma1.xyPowers, 0, 2).byteLength,
       192,
-      "bundle prover CRS xy powers range width",
+      "prover CRS xy powers range width",
     );
     assertEqual(
       proverCrsG1PointAt(proverInput.crs.sigma1.xyPowers, 0).buffer,
       proverInput.crs.sigma1.xyPowers.data.buffer,
-      "bundle prover CRS point access backing buffer",
+      "prover CRS point access backing buffer",
     );
-    assertEqual(proverInput.crs.sigma2.y.byteLength, 192, "bundle prover CRS sigma2.y byte length");
+    assertEqual(proverInput.crs.sigma2.y.byteLength, 192, "prover CRS sigma2.y byte length");
 
     const encodedPolynomial = await encodePolynomialBufferWithSigma1(
       runtime,

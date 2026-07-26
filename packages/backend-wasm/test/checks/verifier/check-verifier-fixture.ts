@@ -1,31 +1,25 @@
-import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 import {
   DensePolynomialExt,
-  RuntimeArtifactFileRole,
   buildDomainContext,
   collectChallenges,
   createCurveRuntime,
-  decodeVerifierBinaryResult,
   evalLagrangeK0,
   lhsCopy,
   lhsCopyMsm,
   loadRuntimeArtifactFile,
-  loadVerifierInputFromRuntimeBundles,
-  parseRuntimeArtifactBundleManifest,
+  loadVerifierInputFromBinaryInput,
   verifyBinary,
   type CurveRuntime,
   type FieldElement,
-  type RuntimeArtifactBundleManifest,
+  type VerifierBinaryInput,
 } from "../../../src/index.js";
 import { verifySnark, type VerifierInput } from "../../../src/verifier/internal/verify-snark.js";
+import { readVerifierBinaryInput } from "../../support/runtime-inputs.js";
 
 interface BinaryVerifierFixture {
-  readonly proofManifest: RuntimeArtifactBundleManifest;
-  readonly setupManifest: RuntimeArtifactBundleManifest;
-  readonly runtimeDir: string;
-  readonly resolveFile: (path: string) => Uint8Array | Promise<Uint8Array>;
+  readonly binaryInput: VerifierBinaryInput;
   readonly verifierInput: VerifierInput;
 }
 
@@ -41,29 +35,24 @@ async function main(): Promise<void> {
 
     const binaryResult = await verifyBinary(
       runtime,
-      binaryFixture.proofManifest,
-      binaryFixture.setupManifest,
-      binaryFixture.resolveFile,
+      binaryFixture.binaryInput,
       {
         randomScalar: () => runtime.Fr.one,
       },
     );
-    const binaryValid = decodeVerifierBinaryResult(binaryResult);
     const binaryCoreResult = await verifySnark(runtime, binaryFixture.verifierInput, {
       randomScalar: () => runtime.Fr.one,
     });
+    const flippedProof = await flipProofScalarBit(binaryFixture.binaryInput.proof);
     const flippedResult = await verifyBinary(
       runtime,
-      binaryFixture.proofManifest,
-      binaryFixture.setupManifest,
-      createFlippedProofResolver(binaryFixture.runtimeDir, binaryFixture.proofManifest),
+      { ...binaryFixture.binaryInput, proof: flippedProof },
       {
         randomScalar: () => runtime.Fr.one,
       },
     );
-    const flippedValid = decodeVerifierBinaryResult(flippedResult);
 
-    if (!binaryValid) {
+    if (!binaryResult) {
       throw new Error("Binary verifier rejected the prepared full proof fixture.");
     }
 
@@ -71,7 +60,7 @@ async function main(): Promise<void> {
       throw new Error("Decoded-input verifier core rejected the prepared full proof fixture.");
     }
 
-    if (flippedValid) {
+    if (flippedResult) {
       throw new Error("Binary verifier accepted a proof after one proof scalar bit was flipped.");
     }
   } finally {
@@ -168,96 +157,25 @@ async function loadPreparedBinaryVerifierFixture(
   fixturesDir: string,
 ): Promise<BinaryVerifierFixture> {
   const runtimeDir = path.join(fixturesDir, "runtime");
-  const proofManifest = parseRuntimeArtifactBundleManifest(
-    await readPreparedRuntimeJson(runtimeDir, "verifier-proof-input/manifest.json"),
-  );
-  const setupManifest = parseRuntimeArtifactBundleManifest(
-    await readPreparedRuntimeJson(runtimeDir, "verifier-setup-input/manifest.json"),
-  );
-  const resolveFile = (artifactPath: string): Promise<Uint8Array> =>
-    readPreparedRuntimeFile(runtimeDir, artifactPath);
+  const binaryInput = await readVerifierBinaryInput(runtimeDir);
 
   return {
-    proofManifest,
-    setupManifest,
-    runtimeDir,
-    resolveFile,
-    verifierInput: await loadVerifierInputFromRuntimeBundles(runtime, proofManifest, setupManifest, resolveFile),
+    binaryInput,
+    verifierInput: await loadVerifierInputFromBinaryInput(runtime, binaryInput),
   };
 }
 
-function createFlippedProofResolver(
-  runtimeDir: string,
-  proofManifest: RuntimeArtifactBundleManifest,
-): (artifactPath: string) => Promise<Uint8Array> {
-  const proofPath = requireBundleRolePath(proofManifest, RuntimeArtifactFileRole.Proof);
+async function flipProofScalarBit(proof: Uint8Array): Promise<Uint8Array> {
+  const flipped = proof.slice();
+  const proofFile = await loadRuntimeArtifactFile(flipped);
+  const evalSection = proofFile.sections.find((section) => section.label === "proof.evals");
 
-  return async (artifactPath: string): Promise<Uint8Array> => {
-    const bytes = await readPreparedRuntimeFile(runtimeDir, artifactPath);
-
-    if (artifactPath !== proofPath) {
-      return bytes;
-    }
-
-    const flipped = bytes.slice();
-    const proofFile = await loadRuntimeArtifactFile(flipped);
-    const evalSection = proofFile.sections.find((section) => section.label === "proof.evals");
-
-    if (evalSection === undefined) {
-      throw new Error("Prepared verifier proof artifact is missing the proof.evals section.");
-    }
-
-    flipped[evalSection.byteOffset] ^= 1;
-
-    return flipped;
-  };
-}
-
-function requireBundleRolePath(manifest: RuntimeArtifactBundleManifest, role: RuntimeArtifactFileRole): string {
-  const matches = manifest.files.filter((file) => file.role === role);
-
-  if (matches.length !== 1) {
-    throw new Error(`${manifest.kind} bundle must contain exactly one '${role}' file.`);
+  if (evalSection === undefined) {
+    throw new Error("Prepared verifier proof artifact is missing the proof.evals section.");
   }
 
-  return matches[0].path;
-}
-
-async function readPreparedRuntimeJson<T>(runtimeDir: string, artifactPath: string): Promise<T> {
-  const bytes = await readPreparedRuntimeFile(runtimeDir, artifactPath);
-
-  return JSON.parse(new TextDecoder().decode(bytes)) as T;
-}
-
-async function readPreparedRuntimeFile(runtimeDir: string, artifactPath: string): Promise<Uint8Array> {
-  const filePath = resolvePreparedRuntimePath(runtimeDir, artifactPath);
-
-  try {
-    return await readFile(filePath);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      [
-        `Required prepared verifier runtime fixture file is missing: ${path.relative(process.cwd(), filePath)}.`,
-        "Prepare owner package outputs, run npm run fixtures:copy, then run npm run fixtures:prepare.",
-        `Original read error: ${message}`,
-      ].join(" "),
-    );
-  }
-}
-
-function resolvePreparedRuntimePath(runtimeDir: string, artifactPath: string): string {
-  if (path.isAbsolute(artifactPath) || artifactPath.includes("\\") || artifactPath.split("/").includes("..")) {
-    throw new Error(`Prepared runtime artifact path must be a safe relative POSIX path: ${artifactPath}`);
-  }
-
-  const filePath = path.resolve(runtimeDir, artifactPath);
-  const relative = path.relative(runtimeDir, filePath);
-  if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
-    throw new Error(`Prepared runtime artifact path escapes fixtures/small/runtime: ${artifactPath}`);
-  }
-
-  return filePath;
+  flipped[evalSection.byteOffset] ^= 1;
+  return flipped;
 }
 
 main().catch((error: unknown) => {

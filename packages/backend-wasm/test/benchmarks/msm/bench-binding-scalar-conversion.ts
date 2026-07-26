@@ -1,23 +1,21 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { cpus } from "node:os";
 import path from "node:path";
 
 import {
-  RuntimeArtifactFileRole,
   createCurveRuntime,
   loadProverRuntimeWitnessInputParts,
   loadRuntimeArtifactFile,
-  parseRuntimeArtifactBundleManifest,
   type CurveRuntime,
   type FieldElement,
   type ProverPlacementVariables,
   type ProverSubcircuitInfo,
-  type RuntimeArtifactBundleManifest,
 } from "../../../src/index.js";
 import {
   GENERATED_PROVER_SETUP_PARAMS,
   GENERATED_PROVER_SUBCIRCUIT_INFOS,
 } from "../../../src/prover/generated/subcircuit-library.generated.js";
+import { readRuntimeBinary } from "../../support/runtime-inputs.js";
 
 const G1_AFFINE_BYTES = 96;
 
@@ -184,40 +182,12 @@ async function loadPlacementVariables(
   runtime: CurveRuntime,
   runtimeDir: string,
 ): Promise<readonly ProverPlacementVariables[]> {
-  const manifestPath = path.join(runtimeDir, "prover-proof-witness-input", "manifest.json");
-  const manifest = parseRuntimeArtifactBundleManifest(
-    JSON.parse(await readFile(manifestPath, "utf8")) as unknown,
-  );
   const artifacts = {
-    placementVariables: await loadBundleFile(manifest, RuntimeArtifactFileRole.PlacementVariables, runtimeDir),
-    permutation: await loadBundleFile(manifest, RuntimeArtifactFileRole.Permutation, runtimeDir),
-    instance: await loadBundleFile(manifest, RuntimeArtifactFileRole.Instance, runtimeDir),
+    placementVariables: await loadRuntimeArtifactFile(await readRuntimeBinary(runtimeDir, "witness.bin")),
+    permutation: await loadRuntimeArtifactFile(await readRuntimeBinary(runtimeDir, "permutation.bin")),
+    instance: await loadRuntimeArtifactFile(await readRuntimeBinary(runtimeDir, "instance.bin")),
   };
   return loadProverRuntimeWitnessInputParts(runtime, artifacts).placementVariables;
-}
-
-async function loadBundleFile(
-  manifest: RuntimeArtifactBundleManifest,
-  role: RuntimeArtifactFileRole,
-  runtimeDir: string,
-) {
-  const matches = manifest.files.filter((file) => file.role === role);
-  if (matches.length !== 1) {
-    throw new Error(`${manifest.kind} must contain exactly one '${role}' file.`);
-  }
-  return loadRuntimeArtifactFile(await readFile(resolveRuntimePath(runtimeDir, matches[0].path)));
-}
-
-function resolveRuntimePath(runtimeDir: string, artifactPath: string): string {
-  if (path.isAbsolute(artifactPath) || artifactPath.includes("\\") || artifactPath.split("/").includes("..")) {
-    throw new Error(`Runtime artifact path must be a safe relative POSIX path: ${artifactPath}`);
-  }
-  const resolved = path.resolve(runtimeDir, artifactPath);
-  const relative = path.relative(path.resolve(runtimeDir), resolved);
-  if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
-    throw new Error(`Runtime artifact path escapes the runtime fixture directory: ${artifactPath}`);
-  }
-  return resolved;
 }
 
 function collectBindingScalars(

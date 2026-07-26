@@ -1,10 +1,6 @@
 import { createBinaryArtifactFile, decodeBinaryArtifactFile } from "../../artifacts/format/binary-artifact-file.js";
 import { GENERATED_PROVER_SETUP_PARAMS } from "../../prover/generated/subcircuit-library.generated.js";
-import {
-  RuntimeArtifactBundleKind,
-  RuntimeArtifactFileRole,
-  type RuntimeArtifactBundleManifest,
-} from "../../artifacts/bundles/artifact-bundle.js";
+import { BACKEND_WASM_PACKAGE_VERSION } from "../../prover/internal/version.js";
 import {
   BinaryArtifactFileKind,
   type BinaryArtifactFileView,
@@ -14,22 +10,14 @@ import {
 } from "../../artifacts/format/binary-format.js";
 import { createCurveRuntime, type CurveRuntime } from "../../core/curve/curve.js";
 import type {
-  ArtifactConverterCommand,
-  ArtifactConverterOutput,
-  ArtifactConverterRequest,
-  BinaryArtifactFileDebugJson,
-  BinaryArtifactFileToDebugJsonInput,
-  BinaryDigestDebugJson,
+  BinaryArtifactInspection,
+  BinaryDigestInspection,
+  BinaryInspectionOptions,
   ConverterArtifactJson,
-  NativeProverArtifactsToBinaryInput,
-  NativeProverRkyvArtifacts,
-  NativePermutationJsonToBinaryInput,
-  NativeVerifierJsonToBinaryInput,
-  ProofBinaryToNativeJsonInput,
-  RuntimeArtifactBundleOutput,
-  RuntimeArtifactBundleSetOutput,
+  ConvertProofBinaryInput,
+  ConvertProofInput,
+  ConvertProofJsonInput,
 } from "./types.js";
-import { ARTIFACT_CONVERTER_COMMANDS } from "./types.js";
 import {
   convertCombinedSigmaRkyvToProverCrsBinary,
   createCombinedSigmaRkyvPayloadDecoder,
@@ -37,7 +25,6 @@ import {
   decodeCombinedSigmaRkyvPayload,
 } from "./rkyv-to-binary.js";
 
-export { ARTIFACT_CONVERTER_COMMANDS };
 export {
   convertCombinedSigmaRkyvToProverCrsBinary,
   createCombinedSigmaRkyvPayloadDecoder,
@@ -46,160 +33,64 @@ export {
 };
 export type { DecodedCombinedSigmaRkyv, RkyvArchiveDecoder, RkyvToBinaryConverterOptions } from "./rkyv-to-binary.js";
 export type {
-  ArtifactConverterCommand,
-  ArtifactConverterInput,
-  ArtifactConverterOutput,
-  ArtifactConverterRequest,
-  BinaryArtifactFileDebugJson,
-  BinaryArtifactFileToDebugJsonInput,
-  BinaryDigestDebugJson,
-  BinarySectionDebugJson,
+  BinaryArtifactInspection,
+  BinaryDigestInspection,
+  BinaryInspectionOptions,
+  BinarySectionInspection,
   ConverterArtifactJson,
-  NativeProverArtifactsToBinaryInput,
-  NativeProverRkyvArtifacts,
-  NativePermutationJsonToBinaryInput,
-  NativeVerifierJsonToBinaryInput,
-  ProofBinaryToNativeJsonInput,
-  RuntimeArtifactBundleOutput,
-  RuntimeArtifactBundleSetOutput,
-  RuntimeArtifactBundleOutputFile,
+  ConvertProofBinaryInput,
+  ConvertProofInput,
+  ConvertProofJsonInput,
 } from "./types.js";
 
-export function isArtifactConverterCommand(value: string): value is ArtifactConverterCommand {
-  return ARTIFACT_CONVERTER_COMMANDS.includes(value as ArtifactConverterCommand);
-}
+export function convertProof(input: ConvertProofJsonInput): Promise<Uint8Array>;
+export function convertProof(input: ConvertProofBinaryInput): Promise<ConverterArtifactJson>;
+export async function convertProof(input: ConvertProofInput): Promise<Uint8Array | ConverterArtifactJson> {
+  if (input.sourceFormat === "binary") {
+    return convertProofBinaryToNativeJson(input.proof);
+  }
 
-export async function convertNativeVerifierJsonToBinary(
-  input: NativeVerifierJsonToBinaryInput,
-): Promise<RuntimeArtifactBundleSetOutput> {
-  const sourcePackageVersion = requireSourcePackageVersion(input.sourcePackageVersion);
-  const artifacts = normalizeVerifierArtifacts(input);
-  const setup = parseSetupParams(artifacts.setupParams, "verifier setupParams");
   const runtime = await createCurveRuntime();
-
   try {
-    const instanceBytes = await createBinaryArtifactFile({
-      kind: BinaryArtifactFileKind.VerifierInstance,
-      sourcePackageVersion,
-      sections: [
-        {
-          type: BinarySectionType.Instance,
-          encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
-          label: "instance.public",
-          elementCount: setup.l_free,
-          elementByteLength: runtime.Fr.byteLength,
-          data: concatBytes(readPublicInstance(runtime, artifacts.instance, setup)),
-        },
-      ],
-    });
-    const proofBytes = await createVerifierProofArtifact(runtime, artifacts.proof, sourcePackageVersion);
-    const preprocessBytes = await createVerifierPreprocessArtifact(
-      runtime,
-      artifacts.preprocess,
-      sourcePackageVersion,
-    );
-
-    return {
-      bundles: [
-        {
-          manifest: createBundleManifest(RuntimeArtifactBundleKind.VerifierProofInput, [
-            { role: RuntimeArtifactFileRole.Instance, path: "verifier-proof-input/instance.bin" },
-            { role: RuntimeArtifactFileRole.Proof, path: "verifier-proof-input/proof.bin" },
-          ]),
-          files: [
-            { path: "verifier-proof-input/instance.bin", bytes: instanceBytes },
-            { path: "verifier-proof-input/proof.bin", bytes: proofBytes },
-          ],
-        },
-        {
-          manifest: createBundleManifest(RuntimeArtifactBundleKind.VerifierSetupInput, [
-            { role: RuntimeArtifactFileRole.Preprocess, path: "verifier-setup-input/preprocess.bin" },
-          ]),
-          files: [
-            { path: "verifier-setup-input/preprocess.bin", bytes: preprocessBytes },
-          ],
-        },
-      ],
-    };
+    return createVerifierProofArtifact(runtime, input.proof, BACKEND_WASM_PACKAGE_VERSION);
   } finally {
     await runtime.terminate();
   }
 }
 
-export async function convertNativeProverArtifactsToBinary(
-  input: NativeProverArtifactsToBinaryInput,
-): Promise<RuntimeArtifactBundleSetOutput> {
-  const sourcePackageVersion = requireSourcePackageVersion(input.sourcePackageVersion);
-  const combinedSigma = readCombinedSigmaRkyvArtifact(input);
-
-  if (combinedSigma === undefined) {
-    throw new Error("json-rkyv-to-prover-binary requires rkyvArtifacts.combinedSigma or rkyvArtifacts[0].");
-  }
-
-  const crsBytes = await convertCombinedSigmaRkyvToProverCrsBinary(combinedSigma, {
-    sourcePackageVersion,
-    decoder: input.rkyvDecoder ?? createUnavailableRkyvArchiveDecoder(),
-  });
-  const proofWitnessBundle = await createProverProofWitnessBundle(input, sourcePackageVersion);
-
-  return {
-    bundles: [
-      ...(proofWitnessBundle === undefined ? [] : [proofWitnessBundle]),
-      {
-        manifest: createBundleManifest(RuntimeArtifactBundleKind.ProverCrsPreparedData, [
-          { role: RuntimeArtifactFileRole.Crs, path: "prover-crs-prepared-data/crs.bin" },
-        ]),
-        files: [
-          { path: "prover-crs-prepared-data/crs.bin", bytes: crsBytes },
-        ],
-      },
-    ],
-  };
-}
-
-async function createProverProofWitnessBundle(
-  input: NativeProverArtifactsToBinaryInput,
-  sourcePackageVersion: string,
-): Promise<RuntimeArtifactBundleOutput | undefined> {
-  if (input.placement === undefined && input.permutation === undefined && input.instance === undefined) {
-    return undefined;
-  }
-
-  const placement = requireDefined(input.placement, "prover placement variables");
-  const permutation = requireDefined(input.permutation, "prover permutation");
-  const instance = requireDefined(input.instance, "prover instance");
+export async function convertVerifierPreprocess(preprocess: unknown): Promise<Uint8Array> {
   const runtime = await createCurveRuntime();
-
   try {
-    const placementBytes = await createProverPlacementVariablesArtifact(runtime, placement, sourcePackageVersion);
-    const permutationBytes = await convertNativePermutationJsonToBinary({ permutation, sourcePackageVersion });
-    const instanceBytes = await createProverInstanceArtifact(runtime, instance, sourcePackageVersion);
-
-    return {
-      manifest: createBundleManifest(RuntimeArtifactBundleKind.ProverProofWitnessInput, [
-        { role: RuntimeArtifactFileRole.PlacementVariables, path: "prover-proof-witness-input/placement.bin" },
-        { role: RuntimeArtifactFileRole.Permutation, path: "prover-proof-witness-input/permutation.bin" },
-        { role: RuntimeArtifactFileRole.Instance, path: "prover-proof-witness-input/instance.bin" },
-      ]),
-      files: [
-        { path: "prover-proof-witness-input/placement.bin", bytes: placementBytes },
-        { path: "prover-proof-witness-input/permutation.bin", bytes: permutationBytes },
-        { path: "prover-proof-witness-input/instance.bin", bytes: instanceBytes },
-      ],
-    };
+    return createVerifierPreprocessArtifact(runtime, preprocess, BACKEND_WASM_PACKAGE_VERSION);
   } finally {
     await runtime.terminate();
   }
 }
 
-export async function convertNativePermutationJsonToBinary(
-  input: NativePermutationJsonToBinaryInput,
-): Promise<Uint8Array> {
-  const entries = parseNativePermutationJson(input.permutation);
+export async function convertInstance(instance: unknown): Promise<Uint8Array> {
+  const runtime = await createCurveRuntime();
+  try {
+    return createProverInstanceArtifact(runtime, instance, BACKEND_WASM_PACKAGE_VERSION);
+  } finally {
+    await runtime.terminate();
+  }
+}
+
+export async function convertWitness(witness: unknown): Promise<Uint8Array> {
+  const runtime = await createCurveRuntime();
+  try {
+    return createProverPlacementVariablesArtifact(runtime, witness, BACKEND_WASM_PACKAGE_VERSION);
+  } finally {
+    await runtime.terminate();
+  }
+}
+
+export async function convertPermutation(permutation: unknown): Promise<Uint8Array> {
+  const entries = parseNativePermutationJson(permutation);
 
   return createBinaryArtifactFile({
     kind: BinaryArtifactFileKind.ProverPermutation,
-    sourcePackageVersion: input.sourcePackageVersion,
+    sourcePackageVersion: BACKEND_WASM_PACKAGE_VERSION,
     sections: [
       {
         type: BinarySectionType.Permutation,
@@ -213,10 +104,8 @@ export async function convertNativePermutationJsonToBinary(
   });
 }
 
-export async function convertProofBinaryToNativeJson(
-  input: ProofBinaryToNativeJsonInput,
-): Promise<ConverterArtifactJson> {
-  const artifactFile = await decodeBinaryArtifactFile(input.proofFile);
+async function convertProofBinaryToNativeJson(proof: Uint8Array): Promise<ConverterArtifactJson> {
+  const artifactFile = await decodeBinaryArtifactFile(proof);
   const proofG1 = requireBinarySection(artifactFile, {
     kind: BinaryArtifactFileKind.VerifierProof,
     type: BinarySectionType.Proof,
@@ -258,17 +147,18 @@ export async function convertProofBinaryToNativeJson(
   }
 }
 
-export async function convertBinaryArtifactFileToDebugJson(
-  input: BinaryArtifactFileToDebugJsonInput,
-): Promise<BinaryArtifactFileDebugJson> {
-  const artifactFile = await decodeBinaryArtifactFile(input.artifactFile);
+export async function inspectBinary(
+  artifact: Uint8Array,
+  options: BinaryInspectionOptions = {},
+): Promise<BinaryArtifactInspection> {
+  const artifactFile = await decodeBinaryArtifactFile(artifact);
 
   return {
     kind: artifactFile.kind,
     formatVersion: artifactFile.formatVersion,
     sourcePackageVersion: artifactFile.sourcePackageVersion,
     byteLength: artifactFile.byteLength,
-    digests: artifactFile.digests.map((entry): BinaryDigestDebugJson => ({
+    digests: artifactFile.digests.map((entry): BinaryDigestInspection => ({
       type: entry.type,
       sectionIndex: entry.sectionIndex,
       digestHex: bytesToHex(entry.digest),
@@ -283,45 +173,14 @@ export async function convertBinaryArtifactFileToDebugJson(
       byteLength: section.byteLength,
       flags: section.flags,
       digestHex: bytesToHex(section.digest),
-      dataHex: input.includeSectionData === true ? bytesToHex(section.data) : undefined,
+      dataHex: options.includeSectionData === true ? bytesToHex(section.data) : undefined,
     })),
   };
 }
 
-export async function executeArtifactConverter(
-  request: ArtifactConverterRequest,
-): Promise<ArtifactConverterOutput> {
-  switch (request.command) {
-    case "json-to-verifier-binary":
-      return convertNativeVerifierJsonToBinary(request.input as NativeVerifierJsonToBinaryInput);
-    case "json-rkyv-to-prover-binary":
-      return convertNativeProverArtifactsToBinary(request.input as NativeProverArtifactsToBinaryInput);
-    case "permutation-json-to-binary":
-      return convertNativePermutationJsonToBinary(request.input as NativePermutationJsonToBinaryInput);
-    case "proof-binary-to-json":
-      return convertProofBinaryToNativeJson(request.input as ProofBinaryToNativeJsonInput);
-    case "binary-to-debug-json":
-      return convertBinaryArtifactFileToDebugJson(request.input as BinaryArtifactFileToDebugJsonInput);
-  }
-}
-
-interface VerifierArtifacts {
-  readonly setupParams: unknown;
-  readonly proof: unknown;
-  readonly preprocess: unknown;
-  readonly instance: unknown;
-}
-
 interface VerifierSetupParamsJson {
   readonly l_free: number;
-  readonly l_user_out: number;
   readonly l_user: number;
-  readonly l: number;
-  readonly l_D: number;
-  readonly m_D: number;
-  readonly n: number;
-  readonly s_D: number;
-  readonly s_max: number;
 }
 
 interface VerifierInstanceJson {
@@ -342,58 +201,6 @@ interface FormattedPreprocessJson {
 interface FormattedProofJson {
   readonly proof_entries_part1: readonly string[];
   readonly proof_entries_part2: readonly string[];
-}
-
-function normalizeVerifierArtifacts(input: NativeVerifierJsonToBinaryInput): VerifierArtifacts {
-  return {
-    setupParams: resolveVerifierSetupParams(input),
-    proof: requireDefined(input.proof ?? input.artifacts?.proof, "verifier proof"),
-    preprocess: requireDefined(input.preprocess ?? input.artifacts?.preprocess, "verifier preprocess"),
-    instance: requireDefined(input.instance ?? input.artifacts?.instance, "verifier instance"),
-  };
-}
-
-function readCombinedSigmaRkyvArtifact(input: NativeProverArtifactsToBinaryInput): Uint8Array | undefined {
-  const artifacts = input.rkyvArtifacts;
-  if (artifacts === undefined) {
-    return undefined;
-  }
-
-  if (isNamedProverRkyvArtifacts(artifacts)) {
-    return artifacts.combinedSigma;
-  }
-
-  return artifacts[0];
-}
-
-function isNamedProverRkyvArtifacts(value: NativeProverArtifactsToBinaryInput["rkyvArtifacts"]): value is NativeProverRkyvArtifacts {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function resolveVerifierSetupParams(input: NativeVerifierJsonToBinaryInput): unknown {
-  const explicit = input.setupParams ?? input.artifacts?.setupParams;
-  if (explicit !== undefined) {
-    return explicit;
-  }
-
-  if (input.useGeneratedSetupParams === true) {
-    return GENERATED_PROVER_SETUP_PARAMS;
-  }
-
-  throw new Error(
-    "Missing verifier setupParams. Pass setupParams explicitly, or set useGeneratedSetupParams=true to use the pinned subcircuit-library setup params.",
-  );
-}
-
-function createBundleManifest(
-  kind: RuntimeArtifactBundleKind,
-  files: RuntimeArtifactBundleManifest["files"],
-): RuntimeArtifactBundleManifest {
-  return {
-    schemaVersion: 1,
-    kind,
-    files,
-  };
 }
 
 async function createVerifierProofArtifact(
@@ -568,24 +375,6 @@ function placementVariableOffsets(placementVariables: readonly NativePlacementVa
   return offsets;
 }
 
-function parseSetupParams(raw: unknown, label: string): VerifierSetupParamsJson {
-  if (!isRecord(raw)) {
-    throw new Error(`${label} must be an object.`);
-  }
-
-  return {
-    l_free: parseU32(raw.l_free, `${label}.l_free`),
-    l_user_out: parseU32(raw.l_user_out, `${label}.l_user_out`),
-    l_user: parseU32(raw.l_user, `${label}.l_user`),
-    l: parseU32(raw.l, `${label}.l`),
-    l_D: parseU32(raw.l_D, `${label}.l_D`),
-    m_D: parseU32(raw.m_D, `${label}.m_D`),
-    n: parseU32(raw.n, `${label}.n`),
-    s_D: parseU32(raw.s_D, `${label}.s_D`),
-    s_max: parseU32(raw.s_max, `${label}.s_max`),
-  };
-}
-
 function parseVerifierInstanceJson(raw: unknown): VerifierInstanceJson {
   if (!isRecord(raw)) {
     throw new Error("Verifier instance JSON must be an object.");
@@ -718,22 +507,6 @@ function stripHex(value: string): string {
   }
 
   return value.slice(2);
-}
-
-function requireDefined<T>(value: T | undefined, label: string): T {
-  if (value === undefined) {
-    throw new Error(`Missing ${label}.`);
-  }
-
-  return value;
-}
-
-function requireSourcePackageVersion(value: string | undefined): string {
-  if (typeof value !== "string" || value.trim() === "") {
-    throw new Error("Artifact converter input requires sourcePackageVersion.");
-  }
-
-  return value;
 }
 
 interface NativePermutationEntry {

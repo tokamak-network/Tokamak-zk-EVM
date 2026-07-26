@@ -1,27 +1,23 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import {
   BinaryArtifactFileKind,
   BivariatePolynomialBuffer,
   RollingKeccakTranscript,
-  RuntimeArtifactFileRole,
   buildWitnessPolynomials,
   createCurveRuntime,
   createProverState,
   createVerifierProofArtifactFromProverOutput,
-  decodeVerifierBinaryResult,
-  loadProverInputFromRuntimeBundles,
   loadRuntimeArtifactFile,
-  parseRuntimeArtifactBundleManifest,
   verifyBinary,
   type CurveRuntime,
   type FieldElement,
   type ProverCrsRuntime,
   type ProverRuntimeInput,
   type ProverState,
-  type RuntimeArtifactBundleManifest,
 } from "../../../src/index.js";
+import { readProverRuntimeInput, readVerifierBinaryInput } from "../../support/runtime-inputs.js";
 import {
   buildProverBinding,
   encodePolynomialBufferWithSigma1,
@@ -476,24 +472,8 @@ async function main(): Promise<void> {
   const runtime = await createCurveRuntime();
 
   try {
-    const proverProofWitnessInput = await readPreparedRuntimeManifest(
-      runtimeDir,
-      "prover-proof-witness-input/manifest.json",
-    );
-    const proverCrsPreparedData = await readPreparedRuntimeManifest(
-      runtimeDir,
-      "prover-crs-prepared-data/manifest.json",
-    );
-    const verifierProofInput = await readPreparedRuntimeManifest(runtimeDir, "verifier-proof-input/manifest.json");
-    const verifierSetupInput = await readPreparedRuntimeManifest(runtimeDir, "verifier-setup-input/manifest.json");
-
-    const proverInput = await timing.span("load prover runtime bundles", "io", () =>
-      loadProverInputFromRuntimeBundles(
-        runtime,
-        proverProofWitnessInput,
-        proverCrsPreparedData,
-        (artifactPath) => readPreparedRuntimeFile(runtimeDir, artifactPath),
-      ),
+    const proverInput = await timing.span("load prover runtime input", "io", () =>
+      readProverRuntimeInput(runtime, runtimeDir),
     );
     const generatedProof = await provePreparedInputWithStrictTimings(runtime, proverInput);
 
@@ -505,20 +485,18 @@ async function main(): Promise<void> {
       },
     );
 
+    const verifierInput = await readVerifierBinaryInput(runtimeDir, generatedProof);
     const verificationResult = await timing.span("verify generated proof", "verify", () =>
       verifyBinary(
         runtime,
-        verifierProofInput,
-        verifierSetupInput,
-        createGeneratedProofResolver(runtimeDir, verifierProofInput, generatedProof),
+        verifierInput,
         {
           randomScalar: () => runtime.Fr.one,
         },
       ),
     );
-    const valid = decodeVerifierBinaryResult(verificationResult);
 
-    if (!valid) {
+    if (!verificationResult) {
       throw new Error("Verifier rejected the proof produced by the strict timing prover runner.");
     }
 
@@ -1393,76 +1371,6 @@ function collectKappa1Challenge(transcript: RollingKeccakTranscript, evaluations
   return transcript.squeezeChallenge();
 }
 
-async function readPreparedRuntimeManifest(
-  runtimeDir: string,
-  artifactPath: string,
-): Promise<RuntimeArtifactBundleManifest> {
-  return parseRuntimeArtifactBundleManifest(await readPreparedRuntimeJson(runtimeDir, artifactPath));
-}
-
-function createGeneratedProofResolver(
-  runtimeDir: string,
-  verifierProofInput: RuntimeArtifactBundleManifest,
-  generatedProof: Uint8Array,
-): (artifactPath: string) => Promise<Uint8Array> {
-  const proofPath = requireBundleRolePath(verifierProofInput, RuntimeArtifactFileRole.Proof);
-
-  return async (artifactPath: string): Promise<Uint8Array> => {
-    if (artifactPath === proofPath) {
-      return generatedProof;
-    }
-
-    return readPreparedRuntimeFile(runtimeDir, artifactPath);
-  };
-}
-
-function requireBundleRolePath(manifest: RuntimeArtifactBundleManifest, role: RuntimeArtifactFileRole): string {
-  const matches = manifest.files.filter((file) => file.role === role);
-
-  if (matches.length !== 1) {
-    throw new Error(`${manifest.kind} bundle must contain exactly one '${role}' file.`);
-  }
-
-  return matches[0].path;
-}
-
-async function readPreparedRuntimeJson<T>(runtimeDir: string, artifactPath: string): Promise<T> {
-  const bytes = await readPreparedRuntimeFile(runtimeDir, artifactPath);
-
-  return JSON.parse(new TextDecoder().decode(bytes)) as T;
-}
-
-async function readPreparedRuntimeFile(runtimeDir: string, artifactPath: string): Promise<Uint8Array> {
-  const filePath = resolvePreparedRuntimePath(runtimeDir, artifactPath);
-
-  try {
-    return await readFile(filePath);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      [
-        `Required prepared runtime fixture file is missing: ${path.relative(process.cwd(), filePath)}.`,
-        "Prepare owner package outputs, run npm run fixtures:copy, then run npm run fixtures:prepare.",
-        `Original read error: ${message}`,
-      ].join(" "),
-    );
-  }
-}
-
-function resolvePreparedRuntimePath(runtimeDir: string, artifactPath: string): string {
-  if (path.isAbsolute(artifactPath) || artifactPath.includes("\\") || artifactPath.split("/").includes("..")) {
-    throw new Error(`Prepared runtime artifact path must be a safe relative POSIX path: ${artifactPath}`);
-  }
-
-  const filePath = path.resolve(runtimeDir, artifactPath);
-  const relative = path.relative(runtimeDir, filePath);
-  if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
-    throw new Error(`Prepared runtime artifact path escapes fixtures/small/runtime: ${artifactPath}`);
-  }
-
-  return filePath;
-}
-
 function buildTimingReport(events: readonly TimingEvent[]): TimingReport {
   const summary = buildModuleTimingSummary(events);
   const categoryTotals = summarizeByCategory(events);
@@ -1557,7 +1465,7 @@ function sumRootWallTime(events: readonly TimingEvent[]): number {
 
 function isRootWallEvent(event: TimingEvent): boolean {
   return (
-    event.name === "load prover runtime bundles" ||
+    event.name === "load prover runtime input" ||
     event.name === "build witness polynomials" ||
     event.name === "create prover state" ||
     event.name === "build prover binding" ||
@@ -2119,7 +2027,7 @@ function executionBoundaryDefinition(operation: string): string {
     case "stage.unclassified":
       return "prover stage wall time not assigned to field.operations or polynomial.encode";
     case "io":
-      return "runtime bundle and generated artifact file loading";
+      return "runtime binary input and generated artifact loading";
     case "verify":
       return "generated proof verification check";
     case "output":

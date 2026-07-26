@@ -3,11 +3,6 @@ import { loadProverCrsArtifact } from "../../artifacts/loaders/prepared-data.js"
 import type { RuntimeArtifactFile } from "../../artifacts/loaders/types.js";
 import type { CurveRuntime } from "../../core/curve/curve.js";
 import type { FieldElement } from "../../core/field/field.js";
-import {
-  RuntimeArtifactFileRole,
-  type RuntimeArtifactBundleFile,
-  type RuntimeArtifactBundleManifest,
-} from "../../artifacts/bundles/artifact-bundle.js";
 import { BinarySectionEncoding, BinarySectionType } from "../../artifacts/format/binary-format.js";
 import {
   GENERATED_PROVER_SETUP_PARAMS,
@@ -28,6 +23,13 @@ export interface ProverRuntimeArtifactFiles {
   readonly permutation: RuntimeArtifactFile;
   readonly instance: RuntimeArtifactFile;
   readonly crs: RuntimeArtifactFile;
+}
+
+export interface ProverBinaryInput {
+  readonly witness: Uint8Array;
+  readonly permutation: Uint8Array;
+  readonly instance: Uint8Array;
+  readonly proverCrs: Uint8Array;
 }
 
 export interface ProverProofWitnessRuntimeArtifactFiles {
@@ -96,37 +98,23 @@ export interface ProverRuntimeInput {
   readonly crs: ProverCrsRuntime;
 }
 
-export type ProverRuntimeArtifactFileResolver = (path: string) => Uint8Array | Promise<Uint8Array>;
-
 export { NATIVE_BACKEND_VERSION, SUBCIRCUIT_LIBRARY_PACKAGE_VERSION };
 
-export async function loadProverInputFromRuntimeBundles(
+export async function loadProverInputFromBinaryInput(
   runtime: CurveRuntime,
-  proofWitnessInput: RuntimeArtifactBundleManifest,
-  crsPreparedDataInput: RuntimeArtifactBundleManifest,
-  resolveFile: ProverRuntimeArtifactFileResolver,
+  input: ProverBinaryInput,
 ): Promise<ProverRuntimeInput> {
+  const [placementVariables, permutation, instance, crs] = await Promise.all([
+    loadRuntimeArtifactFile(input.witness),
+    loadRuntimeArtifactFile(input.permutation),
+    loadRuntimeArtifactFile(input.instance),
+    loadRuntimeArtifactFile(input.proverCrs),
+  ]);
   const artifacts: ProverRuntimeArtifactFiles = {
-    placementVariables: await loadBundleArtifactFile(
-      proofWitnessInput,
-      RuntimeArtifactFileRole.PlacementVariables,
-      resolveFile,
-    ),
-    permutation: await loadBundleArtifactFile(
-      proofWitnessInput,
-      RuntimeArtifactFileRole.Permutation,
-      resolveFile,
-    ),
-    instance: await loadBundleArtifactFile(
-      proofWitnessInput,
-      RuntimeArtifactFileRole.Instance,
-      resolveFile,
-    ),
-    crs: await loadBundleArtifactFile(
-      crsPreparedDataInput,
-      RuntimeArtifactFileRole.Crs,
-      resolveFile,
-    ),
+    placementVariables,
+    permutation,
+    instance,
+    crs,
   };
 
   return buildProverInputFromRuntimeArtifacts(runtime, artifacts);
@@ -175,27 +163,6 @@ export function buildProverWitnessInputFromRuntimeArtifacts(
     subcircuitInfos: GENERATED_PROVER_SUBCIRCUIT_INFOS,
     r1csBySubcircuit: GENERATED_PROVER_PACKED_R1CS,
   };
-}
-
-async function loadBundleArtifactFile(
-  manifest: RuntimeArtifactBundleManifest,
-  role: RuntimeArtifactFileRole,
-  resolveFile: ProverRuntimeArtifactFileResolver,
-): Promise<RuntimeArtifactFile> {
-  const file = requireSingleRoleFile(manifest, role);
-  return loadRuntimeArtifactFile(await resolveFile(file.path));
-}
-
-function requireSingleRoleFile(
-  manifest: RuntimeArtifactBundleManifest,
-  role: RuntimeArtifactFileRole,
-): RuntimeArtifactBundleFile {
-  const matches = manifest.files.filter((file) => file.role === role);
-  if (matches.length !== 1) {
-    throw new Error(`${manifest.kind} bundle must contain exactly one '${role}' artifact file.`);
-  }
-
-  return matches[0];
 }
 
 export function parseProverPlacementVariables(

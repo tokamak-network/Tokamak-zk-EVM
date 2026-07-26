@@ -16,12 +16,6 @@ import {
   expectedElementByteLength,
 } from "../../artifacts/format/binary-format.js";
 import { decodeBinaryArtifactFile } from "../../artifacts/format/binary-artifact-file.js";
-import {
-  RuntimeArtifactBundleKind,
-  RuntimeArtifactFileRole,
-  type RuntimeArtifactBundleFile,
-  type RuntimeArtifactBundleManifest,
-} from "../../artifacts/bundles/artifact-bundle.js";
 import type { RuntimeArtifactFormatSpec, RuntimeArtifactSectionSpec } from "../../artifacts/specs/types.js";
 import { PROVER_CRS_V1_SPEC } from "../../artifacts/specs/prover-crs.v1.generated.js";
 import { PROVER_INSTANCE_V1_SPEC } from "../../artifacts/specs/prover-instance.v1.generated.js";
@@ -31,8 +25,6 @@ import { VERIFIER_INSTANCE_V1_SPEC } from "../../artifacts/specs/verifier-instan
 import { VERIFIER_PREPROCESS_V1_SPEC } from "../../artifacts/specs/verifier-preprocess.v1.generated.js";
 import { VERIFIER_PROOF_V1_SPEC } from "../../artifacts/specs/verifier-proof.v1.generated.js";
 
-export type RuntimeArtifactValidationFileResolver = (path: string) => Uint8Array | Promise<Uint8Array>;
-
 export interface RuntimeArtifactFileValidationOptions {
   readonly expectedKind?: BinaryArtifactFileKind;
 }
@@ -41,8 +33,10 @@ export interface RuntimeArtifactFileValidationResult {
   readonly artifactFile: BinaryArtifactFileView;
 }
 
-export interface RuntimeBundleValidationOptions {
-  readonly expectedFiles: readonly RuntimeArtifactBundleExpectedFile[];
+export async function validateBinary(bytes: Uint8Array): Promise<RuntimeArtifactFileValidationResult> {
+  const artifactFile = await decodeBinaryArtifactFile(bytes);
+  const spec = specForKind(artifactFile.kind);
+  return validateRuntimeArtifactFile(bytes, spec, { expectedKind: artifactFile.kind });
 }
 
 export async function validateRuntimeArtifactFile(
@@ -67,115 +61,6 @@ export async function validateRuntimeArtifactFile(
   return { artifactFile };
 }
 
-export async function validateRuntimeBundle(
-  manifest: RuntimeArtifactBundleManifest,
-  resolveFile: RuntimeArtifactValidationFileResolver,
-  expectedBundleKind: RuntimeArtifactBundleKind,
-  options: RuntimeBundleValidationOptions,
-): Promise<void> {
-  if (manifest.kind !== expectedBundleKind) {
-    throw new Error(`Runtime artifact bundle kind mismatch: expected ${expectedBundleKind}, got ${manifest.kind}.`);
-  }
-
-  for (const file of manifest.files) {
-    validateBundleFilePath(file);
-  }
-
-  for (const expected of options.expectedFiles) {
-    const file = requireSingleRoleFile(manifest, expected.role);
-    await validateRuntimeArtifactFile(await resolveFile(file.path), expected.spec, {
-      expectedKind: expected.kind,
-    });
-  }
-
-  for (const file of manifest.files) {
-    if (!options.expectedFiles.some((expected) => expected.role === file.role)) {
-      throw new Error(`${manifest.kind} bundle must not include '${file.role}' artifact files.`);
-    }
-  }
-}
-
-export async function validateVerifierProofInputBundle(
-  manifest: RuntimeArtifactBundleManifest,
-  resolveFile: RuntimeArtifactValidationFileResolver,
-): Promise<void> {
-  await validateRuntimeBundle(manifest, resolveFile, RuntimeArtifactBundleKind.VerifierProofInput, {
-    expectedFiles: [
-      {
-        role: RuntimeArtifactFileRole.Instance,
-        kind: BinaryArtifactFileKind.VerifierInstance,
-        spec: VERIFIER_INSTANCE_V1_SPEC,
-      },
-      {
-        role: RuntimeArtifactFileRole.Proof,
-        kind: BinaryArtifactFileKind.VerifierProof,
-        spec: VERIFIER_PROOF_V1_SPEC,
-      },
-    ],
-  });
-}
-
-export async function validateVerifierSetupInputBundle(
-  manifest: RuntimeArtifactBundleManifest,
-  resolveFile: RuntimeArtifactValidationFileResolver,
-): Promise<void> {
-  await validateRuntimeBundle(manifest, resolveFile, RuntimeArtifactBundleKind.VerifierSetupInput, {
-    expectedFiles: [
-      {
-        role: RuntimeArtifactFileRole.Preprocess,
-        kind: BinaryArtifactFileKind.VerifierPreprocess,
-        spec: VERIFIER_PREPROCESS_V1_SPEC,
-      },
-    ],
-  });
-}
-
-export async function validateProverProofWitnessInputBundle(
-  manifest: RuntimeArtifactBundleManifest,
-  resolveFile: RuntimeArtifactValidationFileResolver,
-): Promise<void> {
-  await validateRuntimeBundle(manifest, resolveFile, RuntimeArtifactBundleKind.ProverProofWitnessInput, {
-    expectedFiles: [
-      {
-        role: RuntimeArtifactFileRole.PlacementVariables,
-        kind: BinaryArtifactFileKind.ProverPlacementVariables,
-        spec: PROVER_PLACEMENT_VARIABLES_V1_SPEC,
-      },
-      {
-        role: RuntimeArtifactFileRole.Permutation,
-        kind: BinaryArtifactFileKind.ProverPermutation,
-        spec: PROVER_PERMUTATION_V1_SPEC,
-      },
-      {
-        role: RuntimeArtifactFileRole.Instance,
-        kind: BinaryArtifactFileKind.ProverInstance,
-        spec: PROVER_INSTANCE_V1_SPEC,
-      },
-    ],
-  });
-}
-
-export async function validateProverCrsPreparedDataBundle(
-  manifest: RuntimeArtifactBundleManifest,
-  resolveFile: RuntimeArtifactValidationFileResolver,
-): Promise<void> {
-  await validateRuntimeBundle(manifest, resolveFile, RuntimeArtifactBundleKind.ProverCrsPreparedData, {
-    expectedFiles: [
-      {
-        role: RuntimeArtifactFileRole.Crs,
-        kind: BinaryArtifactFileKind.ProverCrs,
-        spec: PROVER_CRS_V1_SPEC,
-      },
-    ],
-  });
-}
-
-export interface RuntimeArtifactBundleExpectedFile {
-  readonly role: RuntimeArtifactFileRole;
-  readonly kind: BinaryArtifactFileKind;
-  readonly spec: RuntimeArtifactFormatSpec;
-}
-
 export async function validateProverPermutationArtifactFile(
   bytes: Uint8Array,
 ): Promise<RuntimeArtifactFileValidationResult> {
@@ -184,11 +69,24 @@ export async function validateProverPermutationArtifactFile(
   });
 }
 
-function validateBundleFilePath(file: RuntimeArtifactBundleFile): void {
-  if (file.path.startsWith("/") || file.path.includes("\\") || file.path.split("/").includes("..")) {
-    throw new Error(
-      `${file.role} runtime artifact bundle file path must be a safe relative POSIX path: ${file.path}`,
-    );
+function specForKind(kind: BinaryArtifactFileKind): RuntimeArtifactFormatSpec {
+  switch (kind) {
+    case BinaryArtifactFileKind.VerifierInstance:
+      return VERIFIER_INSTANCE_V1_SPEC;
+    case BinaryArtifactFileKind.VerifierProof:
+      return VERIFIER_PROOF_V1_SPEC;
+    case BinaryArtifactFileKind.VerifierPreprocess:
+      return VERIFIER_PREPROCESS_V1_SPEC;
+    case BinaryArtifactFileKind.ProverPlacementVariables:
+      return PROVER_PLACEMENT_VARIABLES_V1_SPEC;
+    case BinaryArtifactFileKind.ProverCrs:
+      return PROVER_CRS_V1_SPEC;
+    case BinaryArtifactFileKind.ProverInstance:
+      return PROVER_INSTANCE_V1_SPEC;
+    case BinaryArtifactFileKind.ProverPermutation:
+      return PROVER_PERMUTATION_V1_SPEC;
+    case BinaryArtifactFileKind.VerifierCrs:
+      throw new Error("Verifier CRS is build-time generated and has no runtime binary artifact spec.");
   }
 }
 
@@ -363,18 +261,6 @@ function validateSpecPoints(
     pointNames.add(point.name);
     seenIndexes.add(point.index);
   }
-}
-
-function requireSingleRoleFile(
-  manifest: RuntimeArtifactBundleManifest,
-  role: RuntimeArtifactFileRole,
-): RuntimeArtifactBundleFile {
-  const matches = manifest.files.filter((file) => file.role === role);
-  if (matches.length !== 1) {
-    throw new Error(`${manifest.kind} bundle must contain exactly one '${role}' artifact file.`);
-  }
-
-  return matches[0];
 }
 
 function validateSourcePackageVersion(sourcePackageVersion: string): void {

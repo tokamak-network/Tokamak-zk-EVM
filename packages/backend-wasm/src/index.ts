@@ -12,7 +12,6 @@ export * from "./core/field/field.js";
 export * from "./core/group/group.js";
 export * from "./core/pairing/pairing.js";
 export * from "./core/random/random.js";
-export * from "./artifacts/bundles/artifact-bundle.js";
 export * from "./artifacts/format/binary-artifact-file.js";
 export * from "./artifacts/format/binary-format.js";
 export * from "./tooling/artifact-converters/converters.js";

@@ -10,7 +10,7 @@ The current implementation contains shared runtime primitives, binary artifact l
 
 This package exists to provide a runtime boundary that can be used from web applications without depending on the native Rust/CUDA backend.
 
-Runtime prover and verifier APIs must consume and produce runtime bundles made of separate binary artifact files plus a file list. JSON, rkyv, native artifact conversion, fixture import, and debug export belong to tooling outside the hot prover and verifier paths.
+Runtime prover and verifier APIs consume named objects whose properties are separate binary artifact files. They do not accept manifests, file lists, path resolvers, JSON, or rkyv input. Native artifact conversion, optional binary inspection and validation, fixture import, and debug export belong to tooling outside the hot prover and verifier paths.
 
 Runtime subcircuit artifacts come from the `@tokamak-zk-evm/subcircuit-library` package dependency. Verifier CRS data is generated into the package build output, while prover CRS data is prepared by the embedding application and passed to this package as a binary input. `src/prover`, `src/verifier`, and runtime loaders must not fetch Google Drive artifacts directly.
 
@@ -21,7 +21,6 @@ packages/backend-wasm/
   src/
     index.ts
     artifacts/
-      bundles/
       format/
       loaders/
       specs/
@@ -40,7 +39,6 @@ packages/backend-wasm/
     tooling/
       artifact-converters/
       artifact-validators/
-    utils/
     verifier/
       api/
       equations/
@@ -64,7 +62,6 @@ Runtime primitives that `src/prover` and `src/verifier` may directly depend on.
 
 Runtime artifact definitions and access helpers.
 
-- `bundles/`: runtime bundle manifest types.
 - `format/`: binary artifact file format, typed file-kind/version/digest tables, and section table encoding.
 - `loaders/`: minimal runtime artifact file loading and typed section lookup.
 - `specs/`: JSON source specs and generated TypeScript constants for each binary artifact kind.
@@ -132,20 +129,24 @@ Independent helper packages that are built separately from the TypeScript runtim
 
 ## Artifact Policy
 
-Backend-wasm performs binary header, file-kind, version, digest, section, runtime encoding, and compatibility checks after npm or Google Drive provenance checks have already been handled by the artifact provider.
+The standalone validator tooling can check binary headers, file kinds, versions, digests, sections, runtime encodings, and artifact specs after npm or Google Drive provenance checks have already been handled by the artifact provider. Prover and verifier runtime algorithms decode their named binary inputs but do not invoke this optional validation API.
 
-In this package, a runtime bundle is a collection of separate binary artifact files plus a file list. It is not one monolithic binary file.
+The prover input object contains four independently prepared files:
 
-Verifier runtime input is split into two runtime bundles:
+- `witness`: placement-variable and witness material.
+- `permutation`: permutation entries.
+- `instance`: public instance values.
+- `proverCrs`: prover CRS and prepared commitment data.
 
-- `VerifierProofInput`: separate instance and proof binary artifact files.
-- `VerifierSetupInput`: verifier preprocess binary artifact file. Verifier CRS is generated into the package build output and is not supplied by this runtime bundle.
+The verifier input object contains three independently prepared files:
 
-Runtime bundle manifests do not carry free-form metadata or external expected file digests. File identity, `formatVersion`, `sourcePackageVersion`, SHA-256 digests, and cross-file compatibility digests are stored in typed binary tables inside each binary artifact file.
+- `proof`: verifier proof.
+- `instance`: the same public instance material used by the prover.
+- `verifierPreprocess`: verifier preprocessing points.
 
-Proof, instance, CRS, and preprocess data must remain in separate binary artifact files. Setup params are generated into the package build output from the pinned subcircuit-library package and are not represented as runtime binary artifact files or verifier preprocess sections.
+File identity, `formatVersion`, `sourcePackageVersion`, SHA-256 digests, and cross-file compatibility digests are stored in typed tables inside each binary artifact file. No external manifest is part of the runtime contract. Setup params and verifier CRS are generated into the package build output and are not runtime binary inputs.
 
-The `sigma_verify` binary layout must be managed by `src/artifacts/specs/sigma-verify.v1.json`. Generated verifier CRS data lives in `src/verifier/generated/sigma-verify.generated.ts`; runtime verifier code imports that generated data and must not load JSON assets or verifier CRS bundle files directly.
+The `sigma_verify` binary layout must be managed by `src/artifacts/specs/sigma-verify.v1.json`. Generated verifier CRS data lives in `src/verifier/generated/sigma-verify.generated.ts`; runtime verifier code imports that generated data and must not load JSON assets or verifier CRS files directly.
 
 ## Development
 
@@ -168,7 +169,7 @@ npm run clean
 
 Use `npm run fixtures:copy` only after the existing owner package output files listed in `fixtures/small/copy-manifest.json` have been prepared by their owning packages. The command copies those files into `packages/backend-wasm/tmp/fixture-work/`; it does not convert them or write final runtime fixture files.
 
-Use `npm run fixtures:prepare` after `fixtures:copy` to convert the copied source artifacts into verifier runtime bundle files under the ignored `fixtures/small/runtime/` directory.
+Use `npm run fixtures:prepare` after `fixtures:copy` to convert the copied source artifacts into the ignored `fixtures/small/runtime/` files `witness.bin`, `permutation.bin`, `instance.bin`, `prover-crs.bin`, `proof.bin`, and `verifier-preprocess.bin`.
 
 Use `npm run verifier-crs:generate` only after the owner package has prepared `../backend/setup/output/sigma_verify.json`. The underlying generator requires an explicit `--input` path and fails if the source artifact cannot be read. `npm run build` runs this generation step before TypeScript compilation, so verifier builds must not reuse an existing generated CRS file.
 

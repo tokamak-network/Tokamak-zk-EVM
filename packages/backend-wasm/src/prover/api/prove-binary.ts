@@ -1,20 +1,17 @@
 import type { CurveRuntime } from "../../core/curve/curve.js";
-import type { RuntimeArtifactBundleManifest } from "../../artifacts/bundles/artifact-bundle.js";
 import {
-  loadProverInputFromRuntimeBundles,
-  type ProverRuntimeArtifactFileResolver,
+  loadProverInputFromBinaryInput,
+  type ProverBinaryInput,
 } from "./binary-input.js";
 import { proveSnark, type ProveSnarkOptions } from "./prove-snark.js";
 
 export async function proveBinary(
   runtime: CurveRuntime,
-  proofWitnessInput: RuntimeArtifactBundleManifest,
-  crsPreparedDataInput: RuntimeArtifactBundleManifest,
-  resolveFile: ProverRuntimeArtifactFileResolver,
+  input: ProverBinaryInput,
   options: ProveSnarkOptions = {},
 ): Promise<Uint8Array> {
-  const input = await loadProverInputFromRuntimeBundles(runtime, proofWitnessInput, crsPreparedDataInput, resolveFile);
-  const result = await proveSnark(runtime, input, options);
+  const proverInput = await loadProverInputFromBinaryInput(runtime, input);
+  const result = await proveSnark(runtime, proverInput, options);
 
   return result.proof;
 }
