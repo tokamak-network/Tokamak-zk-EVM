@@ -5,9 +5,6 @@ import { installBasicLinearKernels, installSpecialLinearKernels } from "./kernel
 import { installRecurrenceKernels } from "./kernels/recurrence-kernels.js";
 import { buildSparseRowDotKernel } from "./kernels/sparse-witness-kernels.js";
 
-export * from "./kernel-names.js";
-export type { WasmModuleBuilder } from "./kernel-builder-types.js";
-
 export function installLinearBatchPlugin(module: WasmModuleBuilder): void {
   installBasicLinearKernels(module);
   installRuffiniKernels(module);

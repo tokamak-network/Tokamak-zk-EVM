@@ -55,8 +55,6 @@ import {
 } from "./tasks/field-tasks.js";
 
 export type { FieldElement, FieldRuntime, SpecialPolynomialOperation } from "./field-types.js";
-export { formatHex, parseCanonicalHex } from "./field-encoding.js";
-
 export function createFieldRuntime(field: FfField): FieldRuntime {
   if (field.zero.byteLength !== field.n8 || field.zero.some((byte) => byte !== 0)) {
     throw new Error("Field runtime requires an all-zero byte representation for the additive identity.");
