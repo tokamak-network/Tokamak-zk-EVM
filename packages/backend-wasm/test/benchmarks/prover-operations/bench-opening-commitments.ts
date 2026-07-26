@@ -118,7 +118,7 @@ async function main(): Promise<void> {
       parity: "pass",
       summaries,
     };
-    const outputPath = path.resolve("tmp/timing/opening-winners-combined.json");
+    const outputPath = path.resolve("tmp/benchmarks/prover-operations/opening-commitments.json");
     await mkdir(path.dirname(outputPath), { recursive: true });
     await writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`);
     console.log(`Wrote ${path.relative(process.cwd(), outputPath)}`);

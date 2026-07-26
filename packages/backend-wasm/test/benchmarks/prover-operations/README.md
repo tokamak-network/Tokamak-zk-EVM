@@ -1645,9 +1645,9 @@ term2 and K0 term3 consumers remain separate optimized operations. Integrated
 from `145.26 s` to `143.06 s`. Chromium generated a 2408-byte proof in
 `137.57 s` and verified it in `18 ms`.
 
-## Combined Final Openings
+## Historical Combined Final Openings
 
-`bench-combined-final-openings.ts` constructs the actual prepared-fixture
+The former `bench-combined-final-openings.ts` constructed the actual prepared-fixture
 opening numerators after running the prover through challenge evaluation. It
 compares the current split `Pi_A`, `Pi_C`, and `Pi_B` Ruffini divisions and
 commitments against one linear-combined numerator, one Ruffini division, and
@@ -1667,9 +1667,9 @@ The combined path reduced the isolated complete boundary by `9976.689 ms`
 `128 MiB`. This is the independent benchmark evidence that preceded the
 coordinated production promotion described below.
 
-## Shared M/N X Opening
+## Historical Shared M/N X Opening
 
-`bench-shared-mn-opening.ts` uses the prepared fixture's real blinded
+The former `bench-shared-mn-opening.ts` used the prepared fixture's real blinded
 `R(X,Y)` opening polynomial. The current path computes the same X-axis
 Ruffini quotient and commitment independently for `M` and `N`. The candidate
 computes the shared X quotient and commitment once while retaining the two
@@ -1689,11 +1689,15 @@ and explicit quotient storage by approximately `128 MiB`. This is the
 independent benchmark evidence that preceded the coordinated production
 promotion.
 
-## Combined Opening Winners
+## Retained Opening Commitment Benchmark
 
-`bench-opening-winners-combined.ts` measures the Priority 32B combined final
+`bench-opening-commitments.ts` measures the Priority 32B combined final
 Pi opening and Priority 32C shared M/N X opening in the same complete opening
 boundary. Two alternating-order iterations produced:
+
+```bash
+npm run bench:opening-commitments
+```
 
 | candidate | median | min | max | Pi | M/N | explicit polynomial MiB |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
