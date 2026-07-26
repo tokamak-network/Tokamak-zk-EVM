@@ -13,7 +13,10 @@ import type {
   ProverSubcircuitInfo,
 } from "../protocol/witness.js";
 import { G1_AFFINE_BYTES } from "./commitment-layout.js";
-import { encodePolynomialBufferWithSigma1 } from "./sigma1-encoder.js";
+import {
+  type ProverCommitmentEncoder,
+} from "./commitment-encoder.js";
+import { createSigma1CommitmentEncoder } from "./sigma1-encoder.js";
 
 export interface ProverBinding {
   readonly A_free: Uint8Array;
@@ -30,8 +33,12 @@ export async function buildProverBinding(
   subcircuitInfos: readonly ProverSubcircuitInfo[],
   aFreeX: BivariatePolynomialBuffer,
   mixer: ProverMixer,
+  commitmentEncoder: ProverCommitmentEncoder = createSigma1CommitmentEncoder(runtime, crs, setup),
 ): Promise<ProverBinding> {
-  const A_free = await encodePolynomialBufferWithSigma1(runtime, crs, setup, aFreeX);
+  const A_free = await commitmentEncoder.encodeSigma1PolynomialBuffer({
+    label: "A_free",
+    polynomial: aFreeX,
+  });
   const O_pub_free = await encodeOPubFree(runtime, crs, placementVariables, subcircuitInfos);
   const O_mid_core = await encodeOMidNoZk(runtime, crs, setup, placementVariables, subcircuitInfos);
   const O_mid = runtime.G1.add(O_mid_core, runtime.G1.mulAffineScalar(crs.sigma1.delta, mixer.rO_mid));

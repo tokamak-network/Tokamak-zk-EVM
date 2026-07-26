@@ -1,13 +1,8 @@
-export * from "./api/binary-input.js";
-export * from "./protocol/challenges.js";
-export * from "./protocol/domain-context.js";
-export * from "./protocol/equations.js";
-export * from "./api/verify-binary.js";
-export type {
-  SigmaVerifyRuntime,
-  VerifierInput,
-  VerifierPreprocess,
-  VerifierProof,
-  VerifySnarkOptions,
-  VerifySnarkResult,
-} from "./protocol/verify-snark.js";
+export { BackendWasmError } from "../backend-wasm-error.js";
+export type { BackendWasmErrorCode } from "../backend-wasm-error.js";
+export {
+  install,
+  verify,
+  type VerifierInput,
+  type VerifierInstallationInfo,
+} from "./api/public-api.js";

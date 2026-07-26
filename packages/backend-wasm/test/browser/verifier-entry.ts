@@ -1,32 +1,18 @@
 import {
-  buildDomainContext,
-  collectChallenges,
-  createCurveRuntime,
-  evalLagrangeK0,
-  lhsCopy,
-  lhsCopyMsm,
-  loadVerifierInputFromBinaryInput,
-  verifyBinary,
-  type CurveRuntime,
-  type FieldElement,
-  type VerifierBinaryInput,
-} from "../../src/index.js";
-import type { VerifierInput } from "../../src/verifier/protocol/verify-snark.js";
+  BackendWasmError,
+  install,
+  verify,
+  type VerifierInput,
+} from "../../src/verifier/index.js";
 
 declare global {
   interface Window {
     __tokamakVerifierResult?: {
       readonly status: "pending" | "ok" | "error";
       readonly valid?: boolean;
-      readonly g1Timings?: BrowserG1Timings;
       readonly error?: string;
     };
   }
-}
-
-interface BrowserG1Timings {
-  readonly lhsCopyBaselineMs: number;
-  readonly lhsCopyMsmMs: number;
 }
 
 window.__tokamakVerifierResult = { status: "pending" };
@@ -40,89 +26,29 @@ main().catch((error: unknown) => {
 
 async function main(): Promise<void> {
   const binaryFixture = await loadPreparedBinaryVerifierFixture();
-  const runtime = await createCurveRuntime({ singleThread: true });
+  await expectBackendError(() => verify(binaryFixture), "INSTALL_REQUIRED");
 
-  try {
-    const verifierInput = await loadVerifierInputFromBinaryInput(runtime, binaryFixture);
-    const g1Timings =
-      new URLSearchParams(window.location.search).get("benchG1") === "1"
-        ? await checkAndBenchmarkG1CombinationCandidates(runtime, verifierInput)
-        : undefined;
-    const result = await verifyBinary(
-      runtime,
-      binaryFixture,
-      {
-        randomScalar: () => runtime.Fr.one,
-      },
-    );
-    if (!result) {
-      throw new Error("Browser verifier rejected the prepared runtime proof fixture.");
-    }
-
-    window.__tokamakVerifierResult = {
-      status: "ok",
-      valid: result,
-      g1Timings,
-    };
-  } finally {
-    await runtime.terminate();
+  const [firstInstall, secondInstall] = await Promise.all([install(), install()]);
+  if (
+    firstInstall.packageVersion !== secondInstall.packageVersion
+    || firstInstall.nativeBackendVersion !== secondInstall.nativeBackendVersion
+    || firstInstall.subcircuitLibraryVersion !== secondInstall.subcircuitLibraryVersion
+  ) {
+    throw new Error("Concurrent verifier install calls returned inconsistent metadata.");
   }
-}
 
-async function checkAndBenchmarkG1CombinationCandidates(
-  runtime: CurveRuntime,
-  input: VerifierInput,
-): Promise<BrowserG1Timings> {
-  const challenges = await collectChallenges(runtime.Fr, runtime.G1, () => runtime.Fr.one, input.proof);
-  const domain = buildDomainContext(runtime.Fr, input.setup, challenges);
-  const lagrangeK0Eval = evalLagrangeK0(runtime.Fr, domain, challenges);
-  const lhsCopyBaseline = lhsCopy(runtime.Fr, runtime.G1, input, domain, challenges, lagrangeK0Eval);
-  const lhsCopyCandidate = await lhsCopyMsm(runtime.Fr, runtime.G1, input, domain, challenges, lagrangeK0Eval);
+  const result = await verify(binaryFixture);
+  if (!result) {
+    throw new Error("Browser verifier rejected the prepared runtime proof fixture.");
+  }
 
-  assertG1Equal(runtime, lhsCopyCandidate, lhsCopyBaseline, "lhsCopy MSM candidate");
-
-  return benchmarkG1CombinationCandidates(runtime, input, domain, challenges, lagrangeK0Eval);
-}
-
-async function benchmarkG1CombinationCandidates(
-  runtime: CurveRuntime,
-  input: VerifierInput,
-  domain: ReturnType<typeof buildDomainContext>,
-  challenges: Awaited<ReturnType<typeof collectChallenges>>,
-  lagrangeK0Eval: FieldElement,
-): Promise<BrowserG1Timings> {
-  const iterations = 50;
-
-  return {
-    lhsCopyBaselineMs: await measure(iterations, () => {
-      lhsCopy(runtime.Fr, runtime.G1, input, domain, challenges, lagrangeK0Eval);
-    }),
-    lhsCopyMsmMs: await measure(iterations, async () => {
-      await lhsCopyMsm(runtime.Fr, runtime.G1, input, domain, challenges, lagrangeK0Eval);
-    }),
+  window.__tokamakVerifierResult = {
+    status: "ok",
+    valid: result,
   };
 }
 
-async function measure(iterations: number, callback: () => void | Promise<void>): Promise<number> {
-  for (let index = 0; index < 5; index += 1) {
-    await callback();
-  }
-
-  const start = performance.now();
-  for (let index = 0; index < iterations; index += 1) {
-    await callback();
-  }
-
-  return (performance.now() - start) / iterations;
-}
-
-function assertG1Equal(runtime: CurveRuntime, actual: Uint8Array, expected: Uint8Array, label: string): void {
-  if (!runtime.G1.eq(actual, expected)) {
-    throw new Error(`${label} mismatch.`);
-  }
-}
-
-async function loadPreparedBinaryVerifierFixture(): Promise<VerifierBinaryInput> {
+async function loadPreparedBinaryVerifierFixture(): Promise<VerifierInput> {
   const [proof, instance, verifierPreprocess] = await Promise.all([
     fetchBinary("/fixtures/small/runtime/proof.bin"),
     fetchBinary("/fixtures/small/runtime/instance.bin"),
@@ -139,6 +65,21 @@ async function fetchBinary(path: string): Promise<Uint8Array> {
   }
 
   return new Uint8Array(await response.arrayBuffer());
+}
+
+async function expectBackendError(
+  operation: () => Promise<unknown>,
+  expectedCode: BackendWasmError["code"],
+): Promise<void> {
+  try {
+    await operation();
+  } catch (error) {
+    if (error instanceof BackendWasmError && error.code === expectedCode) {
+      return;
+    }
+    throw error;
+  }
+  throw new Error(`Expected BackendWasmError code ${expectedCode}.`);
 }
 
 function describePreparedFixtureFetchFailure(path: string, status: number): string {

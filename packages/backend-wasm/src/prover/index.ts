@@ -1,7 +1,9 @@
-export * from "./api/binary-input.js";
-export * from "./protocol/witness.js";
-export * from "./protocol/state.js";
-export * from "./api/prove-binary.js";
-export * from "./api/prove-snark.js";
-export * from "./api/proof-output.js";
-export * from "./api/version.js";
+export { BackendWasmError } from "../backend-wasm-error.js";
+export type { BackendWasmErrorCode } from "../backend-wasm-error.js";
+export {
+  install,
+  prove,
+  type ProverInput,
+  type ProverInstallationInfo,
+  type ProverInstallOptions,
+} from "./api/public-api.js";

@@ -5,16 +5,27 @@
   "license": "GPL-3.0-or-later",
   "author": "Tokamak Network",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "exports": {
+    "./prover": {
+      "types": "./dist/prover/index.d.ts",
+      "import": "./dist/prover/index.js"
+    },
+    "./verifier": {
+      "types": "./dist/verifier/index.d.ts",
+      "import": "./dist/verifier/index.js"
+    },
+    "./converter": {
+      "types": "./dist/tooling/converters/converters.d.ts",
+      "import": "./dist/tooling/converters/converters.js"
+    }
+  },
   "files": [
-    "dist/index.js",
-    "dist/index.d.ts",
+    "dist/backend-wasm-error.js",
+    "dist/backend-wasm-error.d.ts",
     "dist/artifacts",
     "dist/runtime",
     "dist/prover",
     "dist/tooling",
-    "dist/utils",
     "dist/verifier",
     "README.md",
     "LICENSE"

@@ -4,6 +4,7 @@ import type { FieldElement } from "../../runtime/field/field-runtime.js";
 import type { ProverRuntimeInput } from "../api/binary-input.js";
 import type { ProverVerifierProofOutputInput } from "../api/proof-output.js";
 import type { ProverCommitmentEncoder } from "../commitments/commitment-encoder.js";
+import { createSigma1CommitmentEncoder } from "../commitments/sigma1-encoder.js";
 import { createProverState } from "./state.js";
 import { buildWitnessPolynomials } from "./witness.js";
 import { buildProverBinding } from "../commitments/binding-commitments.js";
@@ -15,6 +16,7 @@ import { computeOpeningCommitments } from "./opening-commitments.js";
 
 export interface IntegratedProverOptions {
   readonly commitmentEncoder?: ProverCommitmentEncoder;
+  readonly denseSigma1MsmChunkPoints?: number;
   readonly sourcePackageVersion?: string;
 }
 
@@ -23,6 +25,12 @@ export async function runIntegratedProver(
   input: ProverRuntimeInput,
   options: IntegratedProverOptions = {},
 ): Promise<ProverVerifierProofOutputInput> {
+  const commitmentEncoder = options.commitmentEncoder ?? createSigma1CommitmentEncoder(
+    runtime,
+    input.crs,
+    input.witness.setup,
+    options.denseSigma1MsmChunkPoints,
+  );
   const witness = await buildWitnessPolynomials(runtime.Fr, input.witness);
   const state = await createProverState({
     runtime,
@@ -39,9 +47,10 @@ export async function runIntegratedProver(
     input.witness.subcircuitInfos,
     state.instanceBuffers.aFreeX,
     state.mixer,
+    commitmentEncoder,
   );
   const transcript = new RollingKeccakTranscript(runtime.Fr);
-  const operationOptions = { commitmentEncoder: options.commitmentEncoder };
+  const operationOptions = { commitmentEncoder };
   const initialRelation = await computeInitialRelationCommitments(runtime, input.crs, state, operationOptions);
   const thetas = collectThetaChallenges(runtime, transcript, initialRelation.commitments);
   const recursion = await computeRecursionCommitment(runtime, input.crs, state, thetas, operationOptions);

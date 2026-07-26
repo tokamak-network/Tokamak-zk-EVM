@@ -4,6 +4,7 @@ import { createVerifierProofArtifactFromProverOutput } from "./proof-output.js";
 import type { ProverRuntimeInput } from "./binary-input.js";
 
 export interface ProveSnarkOptions {
+  readonly denseSigma1MsmChunkPoints?: number;
   readonly sourcePackageVersion?: string;
 }
 
