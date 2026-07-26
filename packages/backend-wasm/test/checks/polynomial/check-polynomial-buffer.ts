@@ -3,12 +3,16 @@ import { fileURLToPath } from "node:url";
 
 import {
   BivariatePolynomialBuffer,
-  DensePolynomialExt,
   biNttBuffer,
   createCurveRuntime,
   intt2d,
   ntt2d,
 } from "../../../src/index.js";
+import { DensePolynomialExt } from "../../support/polynomial/dense-polynomial.js";
+import {
+  bivariateBufferFromDense,
+  denseFromBivariateBuffer,
+} from "../../support/polynomial/dense-buffer-adapter.js";
 import type { CurveRuntime, FieldElement, FieldRuntime, ProverCrsRuntime, ProverSetupParams } from "../../../src/index.js";
 import { encodePolynomialBufferWithSigma1 } from "../../../src/prover/commitments/sigma1-encoder.js";
 import {
@@ -89,10 +93,10 @@ async function checkBivariatePolynomialBuffer(field: FieldRuntime): Promise<void
     field.fromBigInt(23n),
   ];
   const dense = DensePolynomialExt.fromCoeffs(field, coefficients, 4, 2);
-  const buffer = BivariatePolynomialBuffer.fromDense(dense);
+  const buffer = bivariateBufferFromDense(dense);
 
   assertEqual(buffer.toHexCoeffs(), dense.toHexCoeffs(), "fromDense coefficients");
-  assertEqual(buffer.toDense().toHexCoeffs(), dense.toHexCoeffs(), "toDense coefficients");
+  assertEqual(denseFromBivariateBuffer(buffer).toHexCoeffs(), dense.toHexCoeffs(), "toDense coefficients");
   assertEqual(formatFields(field, buffer.toCoeffs()), dense.toHexCoeffs(), "toCoeffs");
 
   const otherDense = DensePolynomialExt.fromCoeffs(
@@ -101,7 +105,7 @@ async function checkBivariatePolynomialBuffer(field: FieldRuntime): Promise<void
     4,
     2,
   );
-  const otherBuffer = BivariatePolynomialBuffer.fromDense(otherDense);
+  const otherBuffer = bivariateBufferFromDense(otherDense);
   const scale = field.fromBigInt(29n);
 
   assertEqual(buffer.clone().addAssign(otherBuffer).toHexCoeffs(), dense.add(otherDense).toHexCoeffs(), "addAssign");
@@ -164,7 +168,7 @@ async function checkBivariatePolynomialBuffer(field: FieldRuntime): Promise<void
   );
   checkBufferCopySemantics(field, coefficients);
   checkPrefixAdd(field);
-  assertDenseEqual((await buffer.mul(otherBuffer)).toDense(), dense.mul(otherDense), "ntt mul");
+  assertDenseEqual(denseFromBivariateBuffer(await buffer.mul(otherBuffer)), dense.mul(otherDense), "ntt mul");
 
   const beforeRou = buffer.toHexCoeffs();
   await buffer.toRouEvals();
@@ -203,7 +207,7 @@ async function checkOperationParityMatrix(field: FieldRuntime): Promise<readonly
       testCase.xSize,
       testCase.ySize,
     );
-    const otherBuffer = BivariatePolynomialBuffer.fromDense(otherDense);
+    const otherBuffer = bivariateBufferFromDense(otherDense);
     const scale = field.fromBigInt(29n);
     const xScale = field.fromBigInt(31n);
     const yScale = field.fromBigInt(37n);
@@ -223,8 +227,8 @@ async function checkOperationParityMatrix(field: FieldRuntime): Promise<readonly
       () => dense.toHexCoeffs(),
       () => BivariatePolynomialBuffer.fromBuffer(field, field.concat(testCase.coefficients), testCase.xSize, testCase.ySize).toHexCoeffs(),
     );
-    await recordOperation(records, "fromDense", testCase.label, () => dense.toHexCoeffs(), () => BivariatePolynomialBuffer.fromDense(dense).toHexCoeffs());
-    await recordOperation(records, "toDense", testCase.label, () => dense.toHexCoeffs(), () => buffer.toDense().toHexCoeffs());
+    await recordOperation(records, "fromDense", testCase.label, () => dense.toHexCoeffs(), () => bivariateBufferFromDense(dense).toHexCoeffs());
+    await recordOperation(records, "toDense", testCase.label, () => dense.toHexCoeffs(), () => denseFromBivariateBuffer(buffer).toHexCoeffs());
     await recordOperation(
       records,
       "getCoeff",
@@ -397,7 +401,7 @@ async function recordVanishingDivisionOperation(field: FieldRuntime, records: Op
   const numerator = qX.mul(vanishingPolynomialX(field, vanishingXDegree)).add(
     qY.mul(vanishingPolynomialY(field, vanishingYDegree)),
   );
-  const buffer = BivariatePolynomialBuffer.fromDense(numerator);
+  const buffer = bivariateBufferFromDense(numerator);
 
   await recordOperation(
     records,
@@ -526,23 +530,23 @@ async function checkRuffiniDivision(field: FieldRuntime): Promise<void> {
   const xPoint = field.fromBigInt(29n);
   const yPoint = field.fromBigInt(31n);
   const denseDivision = polynomial.divByRuffini(xPoint, yPoint);
-  const buffer = BivariatePolynomialBuffer.fromDense(polynomial);
+  const buffer = bivariateBufferFromDense(polynomial);
   const bufferDivision = buffer.divByRuffini(xPoint, yPoint);
   const batchDivision = await buffer.divByRuffiniBatch(xPoint, yPoint);
 
   assertDenseEqual(
-    bufferDivision.quotientX.toDense(),
+    denseFromBivariateBuffer(bufferDivision.quotientX),
     denseDivision.quotientX,
     "ruffini quotientX",
   );
   assertDenseEqual(
-    bufferDivision.quotientY.toDense(),
+    denseFromBivariateBuffer(bufferDivision.quotientY),
     denseDivision.quotientY,
     "ruffini quotientY",
   );
   assertEqual(field.toHex(bufferDivision.remainder), field.toHex(denseDivision.remainder), "ruffini remainder");
-  assertDenseEqual(batchDivision.quotientX.toDense(), denseDivision.quotientX, "batch ruffini quotientX");
-  assertDenseEqual(batchDivision.quotientY.toDense(), denseDivision.quotientY, "batch ruffini quotientY");
+  assertDenseEqual(denseFromBivariateBuffer(batchDivision.quotientX), denseDivision.quotientX, "batch ruffini quotientX");
+  assertDenseEqual(denseFromBivariateBuffer(batchDivision.quotientY), denseDivision.quotientY, "batch ruffini quotientY");
   assertEqual(field.toHex(batchDivision.remainder), field.toHex(denseDivision.remainder), "batch ruffini remainder");
 }
 
@@ -560,13 +564,13 @@ function checkVanishingDivision(field: FieldRuntime): void {
     qY.mul(vanishingPolynomialY(field, vanishingYDegree)),
   );
   const denseDivision = p.divByVanishingOpt(vanishingXDegree, vanishingYDegree);
-  const bufferDivision = BivariatePolynomialBuffer.fromDense(p).divByVanishingOpt(
+  const bufferDivision = bivariateBufferFromDense(p).divByVanishingOpt(
     vanishingXDegree,
     vanishingYDegree,
   );
 
-  assertDenseEqual(bufferDivision.quotientX.toDense(), denseDivision.quotientX, "vanishing quotientX");
-  assertDenseEqual(bufferDivision.quotientY.toDense(), denseDivision.quotientY, "vanishing quotientY");
+  assertDenseEqual(denseFromBivariateBuffer(bufferDivision.quotientX), denseDivision.quotientX, "vanishing quotientX");
+  assertDenseEqual(denseFromBivariateBuffer(bufferDivision.quotientY), denseDivision.quotientY, "vanishing quotientY");
 }
 
 function formatRuffiniDivision(
@@ -643,8 +647,8 @@ function checkPrefixAdd(field: FieldRuntime): void {
   const prefix = BivariatePolynomialBuffer.fromCoeffs(field, [13n, 17n].map((value) => field.fromBigInt(value)), 2, 1);
   const scale = field.fromBigInt(19n);
   const actual = target.clone().addScaledPrefixAssign(prefix, scale);
-  const expected = target.toDense().add(prefix.toDense().scale(scale));
-  assertDenseEqual(actual.toDense(), expected, "addScaledPrefixAssign");
+  const expected = denseFromBivariateBuffer(target).add(denseFromBivariateBuffer(prefix).scale(scale));
+  assertDenseEqual(denseFromBivariateBuffer(actual), expected, "addScaledPrefixAssign");
 
   const tooWide = BivariatePolynomialBuffer.fromCoeffs(
     field,

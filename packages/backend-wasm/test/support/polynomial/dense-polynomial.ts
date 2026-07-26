@@ -1,4 +1,4 @@
-import type { FieldElement, FieldRuntime } from "../field/field-runtime.js";
+import type { FieldElement, FieldRuntime } from "../../../src/runtime/field/field-runtime.js";
 
 export interface DensePolynomialShape {
   readonly xSize: number;

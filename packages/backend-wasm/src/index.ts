@@ -4,7 +4,6 @@ export * from "./artifacts/runtime/sigma-verify.js";
 export * from "./artifacts/runtime/types.js";
 export * from "./runtime/crypto/keccak.js";
 export * from "./runtime/crypto/transcript.js";
-export * from "./runtime/polynomial/dense-polynomial.js";
 export * from "./runtime/polynomial/bivariate-polynomial-buffer.js";
 export * from "./runtime/polynomial/ntt.js";
 export * from "./runtime/curve/curve.js";

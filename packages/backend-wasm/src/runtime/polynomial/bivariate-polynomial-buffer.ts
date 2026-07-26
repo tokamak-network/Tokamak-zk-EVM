@@ -1,4 +1,3 @@
-import { DensePolynomialExt } from "./dense-polynomial.js";
 import type { FieldElement, FieldRuntime } from "../field/field-runtime.js";
 
 export interface BivariatePolynomialBufferShape {
@@ -72,15 +71,6 @@ export class BivariatePolynomialBuffer {
     ySize: number,
   ): BivariatePolynomialBuffer {
     return new BivariatePolynomialBuffer(field, coefficients, { xSize, ySize });
-  }
-
-  static fromDense(polynomial: DensePolynomialExt): BivariatePolynomialBuffer {
-    return BivariatePolynomialBuffer.fromCoeffs(
-      polynomial.field,
-      polynomial.coefficients,
-      polynomial.xSize,
-      polynomial.ySize,
-    );
   }
 
   static async fromRouEvals(
@@ -235,10 +225,6 @@ export class BivariatePolynomialBuffer {
       this.xSize,
       this.ySize,
     );
-  }
-
-  toDense(): DensePolynomialExt {
-    return DensePolynomialExt.fromCoeffs(this.field, this.toCoeffs(), this.xSize, this.ySize);
   }
 
   toCoeffs(): FieldElement[] {

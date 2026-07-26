@@ -1,7 +1,12 @@
 import { fileURLToPath } from "node:url";
 
-import { BivariatePolynomialBuffer, createCurveRuntime, DensePolynomialExt } from "../../../src/index.js";
+import { BivariatePolynomialBuffer, createCurveRuntime } from "../../../src/index.js";
 import type { FieldElement, FieldRuntime } from "../../../src/index.js";
+import { DensePolynomialExt } from "../../support/polynomial/dense-polynomial.js";
+import {
+  bivariateBufferFromDense,
+  denseFromBivariateBuffer,
+} from "../../support/polynomial/dense-buffer-adapter.js";
 import {
   constantPolynomialBuffer,
   linearCombinationBuffer,
@@ -67,8 +72,8 @@ function checkLinearCombination(field: FieldRuntime): void {
   const constant = field.fromBigInt(29n);
 
   const actual = linearCombinationBuffer(field, [
-    [leftScale, BivariatePolynomialBuffer.fromDense(left)],
-    [rightScale, BivariatePolynomialBuffer.fromDense(right)],
+    [leftScale, bivariateBufferFromDense(left)],
+    [rightScale, bivariateBufferFromDense(right)],
     [field.one, constantPolynomialBuffer(field, constant)],
   ]);
   const expected = left.scale(leftScale)
@@ -134,7 +139,7 @@ async function checkLagrangeBuilders(field: FieldRuntime): Promise<void> {
   );
   assertBufferDenseEqual(
     await multiplyByLagrangeK0(k0Input, mI),
-    expectedK0.mul(k0Input.toDense()),
+    expectedK0.mul(denseFromBivariateBuffer(k0Input)),
     "multiplyByLagrangeK0",
   );
   await assertRejects(
@@ -152,7 +157,7 @@ async function checkLagrangeBuilders(field: FieldRuntime): Promise<void> {
   assertBufferDenseEqual(lagrangeKl, expectedK.mul(expectedL), "buildLagrangeKl");
   assertBufferDenseEqual(
     await multiplyByLagrangeKl(k0Input, mI, sMax),
-    lagrangeKl.toDense().mul(k0Input.toDense()),
+    denseFromBivariateBuffer(lagrangeKl).mul(denseFromBivariateBuffer(k0Input)),
     "multiplyByLagrangeKl",
   );
   await assertRejects(
@@ -240,7 +245,7 @@ async function checkSpecialProducts(field: FieldRuntime): Promise<void> {
     2,
     2,
   );
-  const buffer = BivariatePolynomialBuffer.fromDense(polynomial);
+  const buffer = bivariateBufferFromDense(polynomial);
   const xCoefficients = [13n, 17n].map((value) => field.fromBigInt(value));
   const yCoefficients = [19n, 23n].map((value) => field.fromBigInt(value));
   const tMiEval = field.fromBigInt(29n);
@@ -315,17 +320,17 @@ async function checkOmegaShiftedMultiplication(field: FieldRuntime): Promise<voi
   );
   assertBufferDenseEqual(
     actualBase,
-    (await baseLeft.mul(unshiftedRight)).toDense(),
+    denseFromBivariateBuffer(await baseLeft.mul(unshiftedRight)),
     "multiplyOmegaShiftedProducts base",
   );
   assertBufferDenseEqual(
     actualXShifted,
-    (await xShifted.mul(shiftedSharedRight)).toDense(),
+    denseFromBivariateBuffer(await xShifted.mul(shiftedSharedRight)),
     "multiplyOmegaShiftedProducts X shift",
   );
   assertBufferDenseEqual(
     actualXyShifted,
-    (await xyShifted.mul(shiftedSharedRight)).toDense(),
+    denseFromBivariateBuffer(await xyShifted.mul(shiftedSharedRight)),
     "multiplyOmegaShiftedProducts XY shift",
   );
 }
@@ -394,7 +399,7 @@ function assertBufferDenseEqual(
   expected: DensePolynomialExt,
   label: string,
 ): void {
-  const actualDense = actual.toDense();
+  const actualDense = denseFromBivariateBuffer(actual);
   const xSize = Math.max(actualDense.xSize, expected.xSize);
   const ySize = Math.max(actualDense.ySize, expected.ySize);
   assertEqual(actualDense.resize(xSize, ySize).toHexCoeffs(), expected.resize(xSize, ySize).toHexCoeffs(), label);
