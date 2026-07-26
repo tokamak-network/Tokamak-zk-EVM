@@ -18,11 +18,12 @@ import {
   concatBytes,
   isRecord,
   parseHexStringArray,
-  stripHex,
 } from "./conversion-utils.js";
+import { appendSplitG1Coordinate, recoverG1Points } from "./g1-coordinate-format.js";
 export { inspectBinary } from "./binary-inspection.js";
 export { convertInstance } from "./instance-converter.js";
 export { convertPermutation } from "./permutation-converter.js";
+export { convertVerifierPreprocess } from "./verifier-preprocess-converter.js";
 export { convertWitness } from "./witness-converter.js";
 import {
   convertCombinedSigmaRkyvToProverCrsBinary,
@@ -59,15 +60,6 @@ export async function convertProof(input: ConvertProofInput): Promise<Uint8Array
   const runtime = await createCurveRuntime();
   try {
     return createVerifierProofArtifact(runtime, input.proof, BACKEND_WASM_PACKAGE_VERSION);
-  } finally {
-    await runtime.terminate();
-  }
-}
-
-export async function convertVerifierPreprocess(preprocess: unknown): Promise<Uint8Array> {
-  const runtime = await createCurveRuntime();
-  try {
-    return createVerifierPreprocessArtifact(runtime, preprocess, BACKEND_WASM_PACKAGE_VERSION);
   } finally {
     await runtime.terminate();
   }
@@ -116,11 +108,6 @@ async function convertProofBinaryToNativeJson(proof: Uint8Array): Promise<Conver
   }
 }
 
-interface FormattedPreprocessJson {
-  readonly preprocess_entries_part1: readonly string[];
-  readonly preprocess_entries_part2: readonly string[];
-}
-
 interface FormattedProofJson {
   readonly proof_entries_part1: readonly string[];
   readonly proof_entries_part2: readonly string[];
@@ -163,41 +150,6 @@ async function createVerifierProofArtifact(
   });
 }
 
-async function createVerifierPreprocessArtifact(
-  runtime: CurveRuntime,
-  raw: unknown,
-  sourcePackageVersion: string,
-): Promise<Uint8Array> {
-  const preprocess = parseFormattedPreprocessJson(raw);
-  const points = recoverG1Points(runtime, preprocess.preprocess_entries_part1, preprocess.preprocess_entries_part2, 3);
-
-  return createBinaryArtifactFile({
-    kind: BinaryArtifactFileKind.VerifierPreprocess,
-    sourcePackageVersion,
-    sections: [
-      {
-        type: BinarySectionType.Preprocess,
-        encoding: BinarySectionEncoding.FfjsG1Affine96,
-        label: "preprocess.g1",
-        elementCount: 3,
-        elementByteLength: 96,
-        data: concatBytes(points),
-      },
-    ],
-  });
-}
-
-function parseFormattedPreprocessJson(raw: unknown): FormattedPreprocessJson {
-  if (!isRecord(raw)) {
-    throw new Error("Formatted preprocess JSON must be an object.");
-  }
-
-  return {
-    preprocess_entries_part1: parseHexStringArray(raw.preprocess_entries_part1, "preprocess.preprocess_entries_part1"),
-    preprocess_entries_part2: parseHexStringArray(raw.preprocess_entries_part2, "preprocess.preprocess_entries_part2"),
-  };
-}
-
 function parseFormattedProofJson(raw: unknown): FormattedProofJson {
   if (!isRecord(raw)) {
     throw new Error("Formatted proof JSON must be an object.");
@@ -207,29 +159,6 @@ function parseFormattedProofJson(raw: unknown): FormattedProofJson {
     proof_entries_part1: parseHexStringArray(raw.proof_entries_part1, "proof.proof_entries_part1"),
     proof_entries_part2: parseHexStringArray(raw.proof_entries_part2, "proof.proof_entries_part2"),
   };
-}
-
-function recoverG1Points(
-  runtime: CurveRuntime,
-  part1: readonly string[],
-  part2: readonly string[],
-  count: number,
-): Uint8Array[] {
-  if (part1.length !== count * 2 || part2.length < count * 2) {
-    throw new Error("Formatted G1 point parts do not match the expected count.");
-  }
-
-  const points: Uint8Array[] = [];
-  for (let index = 0; index < count * 2; index += 2) {
-    points.push(
-      runtime.G1.parseAffine({
-        x: joinG1Coordinate(part1[index], part2[index]),
-        y: joinG1Coordinate(part1[index + 1], part2[index + 1]),
-      }),
-    );
-  }
-
-  return points;
 }
 
 function requireBinarySection(
@@ -263,14 +192,4 @@ function requireBinarySection(
   }
 
   return section;
-}
-
-function appendSplitG1Coordinate(part1: string[], part2: string[], coordinate: string): void {
-  const padded = stripHex(coordinate).padStart(96, "0");
-  part1.push(`0x${padded.slice(0, 32)}`);
-  part2.push(`0x${padded.slice(32)}`);
-}
-
-function joinG1Coordinate(part1: string, part2: string): string {
-  return `0x${stripHex(part1).padStart(32, "0")}${stripHex(part2).padStart(64, "0")}`;
 }
