@@ -4,9 +4,10 @@ Audience: the backend-wasm project owner and developers deciding which
 diagnostics-only Priority 32 candidates may proceed to separate production
 implementation.
 
-No candidate in this report has been applied to production. Parity establishes
-mathematical or representation equivalence only; it does not authorize
-promotion.
+This document preserves the benchmark evidence as it existed before promotion.
+Parity established mathematical or representation equivalence only; it did not
+authorize promotion. The project owner subsequently approved the recommended
+set, and the final production status is recorded below.
 
 ## Results
 
@@ -62,10 +63,23 @@ Recommended set, subject to explicit project-owner approval:
 Suggested production order is the list order above. It separates persistent
 representation changes from proof-equation scheduling and then applies smaller
 caller-boundary optimizations. Every item remains a separate attributable
-production work item and acceptance commit under Priority 34.
+production work item and acceptance commit.
 
-## Decision Required
+## Final Promotion Status
 
-Priority 34 must not start until the project owner explicitly approves the
-exact candidate set and promotion order. Rejected candidates remain
-diagnostics history and must not be silently included in an approved item.
+The project owner approved the recommended candidate set and production order.
+Each production change passed its focused parity checks, native
+testing-mode-style invariants, Node proof verification, Chromium proof
+verification, build, and package-exclusion gates.
+
+| approved item | production commit | final status |
+| --- | --- | --- |
+| 32A raw CRS descriptors | `83afc2ea` | promoted |
+| 32D packed CSR plus 32F direct-flat witness | `b5c795d6` | promoted together |
+| 32B combined Pi plus 32C shared M/N opening | `cd7e47d3` | promoted together |
+| 32E zero compaction for `O_mid` and `O_prv` only | `7e683191` | promoted |
+| 32G G2 direct NTT task shards only | `4cd23c9e` | promoted |
+| 32H recursion same-shape clone removal | `824db138` | promoted |
+
+The rejected `O_pub_free` compaction, G1 bit-reversal cache, G3 inverse-output
+candidate, and G1+G2 combination remain absent from production.

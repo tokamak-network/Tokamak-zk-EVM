@@ -4,6 +4,265 @@ Audience: backend-wasm engineers measuring and optimizing prover performance.
 
 This document records prover timing baselines and optimization decisions. `tmp/timing/prover-stage-timing.json` and `tmp/timing/prover-stage-timing.md` are overwritten on each run, so this file is the durable audit trail.
 
+## Document Authority
+
+This report is the durable source of truth for backend-wasm prover
+optimization history. Temporary planning notes may be deleted and must not be
+required to understand:
+
+- the current production architecture and performance baseline;
+- why an optimization was accepted or rejected;
+- which benchmark and correctness boundaries were used;
+- which execution and representation policies future work must preserve; and
+- which deferred ideas require new evidence before production work.
+
+The chronological sections below retain detailed benchmark commands, local
+measurements, implementation boundaries, and acceptance results. When a
+historical section conflicts with the current-state summary in this section,
+the current-state summary governs.
+
+## Current Production Snapshot
+
+The current production prover is one integrated binary-input prover. Historical
+`prove0` through `prove4` names are diagnostics labels that map to native
+protocol terminology; they are not production modules, public APIs, scheduling
+boundaries, or separate prover implementations.
+
+Latest accepted fixed-taxonomy Node timing after all approved Priority 32
+promotions:
+
+| layer | row | total | count |
+| --- | --- | ---: | ---: |
+| lowest | `polynomial.combination_without_multiplication` | 4.28 s | 49 |
+| lowest | `polynomial.combination_with_multiplication` | 15.77 s | 18 |
+| lowest | `polynomial.recursion` | 1.42 s | 1 |
+| lowest | `polynomial.evaluation` | 220 ms | 7 |
+| lowest | `polynomial.div_ruffini` | 391 ms | 2 |
+| lowest | `polynomial.div_vanishing` | 864 ms | 2 |
+| lowest | `polynomial.encode` | 91.97 s | 14 |
+| lowest | `binding.encode` | 1.59 s | 1 |
+| top | `field.operations` | 22.94 s | 79 |
+| top | `encode` | 93.56 s | 15 |
+| boundary | `init` | 2.73 s | 2 |
+| boundary | `stage.unclassified` | 10 ms | 1 |
+| boundary | `io` | 152 ms | 2 |
+| boundary | `verify` | 17 ms | 1 |
+| boundary | `output` | 2 ms | 1 |
+| total | prover stage total | 114.92 s | - |
+| total | total wall | 119.41 s | - |
+
+The final all-approved Chromium chunk benchmark generated and verified a
+2408-byte proof at the selected `262144`-point dense Sigma1 MSM chunk size in
+`121.25 s`, with observed peak total RSS `10.22 GiB` and largest-process RSS
+`10.02 GiB`. These RSS values are local process-level observations, not a
+portable browser memory guarantee.
+
+Current correctness and distribution state:
+
+- native testing-mode-style witness, arithmetic, recursion, copy-quotient, and
+  opening invariants pass;
+- Node proof generation followed by backend-wasm verifier acceptance passes;
+- Chromium proof generation followed by same-browser verifier acceptance
+  passes;
+- production build and package inspection pass; and
+- `test/`, `scripts/`, `fixtures/`, and `tmp/` are excluded from the published
+  package.
+
+## End-To-End Timing Timeline
+
+The following checkpoints use the accepted production-like taxonomy. They are
+not an additive attribution table: full runs include runtime and system noise,
+and some entries were accepted from a narrower repeatable benchmark even when
+the total-wall delta was noise-sized. The table exists to preserve the sequence
+of measured production states.
+
+| production state | related commit | total wall | interpretation |
+| --- | --- | ---: | --- |
+| Stable pre-linear rewrite baseline | `3c7da223` | 381.08 s | Baseline copied into the corrected timing runner. |
+| Flat linear accumulation | `cddceefe` | 370.68 s | Direct combination work decreased; proof verified. |
+| Batched independent 2D NTT segments | `9d7624a8` | 287.48 s | Major NTT/ROU and init reduction. |
+| Whole-chunk WASM linear operations | `6b41bff7` | 207.99 s | JS-to-WASM coefficient-call boundary removed. |
+| Same code after system reboot | no code change | 186.31 s | Demonstrates system-state sensitivity; not an optimization delta. |
+| Whole-buffer pointwise multiplication | `c6e82f5d` | 179.51 s | Generic and shifted pointwise loops moved to worker-sharded WASM. |
+| Raw-byte commitment scans | `c06f8844` | 172.94 s | Scalar `isZero` scans removed from commitment preparation. |
+| Whole-loop Ruffini division | `f94f9942` | 164.65 s | Ordered recurrences retained inside backend-owned WASM. |
+| Whole-loop polynomial evaluation | `19e46791` | 159.89 s | Row work sharded; ordered X Horner reduction retained. |
+| Whole-loop vanishing division | `72c8c379` | 154.85 s | Independent row/column recurrences sharded. |
+| Lagrange K0 recurrence | `49448d7c` | 151.46 s | Sliding recurrence preserved and moved into WASM. |
+| Lagrange KL recurrences | `f28a5c7a` | 148.72 s | Independent X/Y recurrence dimensions sharded. |
+| Special-form products | `8fa5174d` | 145.26 s | Structured products replaced scalar JS loops. |
+| Fused linear-plus-scaled terms | `a3773077` | 143.06 s | Linear factor and scaled addend fused in one WASM pass. |
+| Sparse witness row-dot kernel | `2d45a0e7` | 142.30 s | Isolated boundary improved; total delta remains noise-sized. |
+| Raw CRS descriptors | `83afc2ea` | 135.74 s | Persistent per-point view explosion removed. |
+| Packed CSR and direct-flat witness | `b5c795d6` | 135.92 s | Init improved; total-wall movement is run variation. |
+| Combined Pi and shared M/N openings | `cd7e47d3` | 121.47 s | Four redundant commitment jobs eliminated. |
+| Zero-compacted statement bindings | `7e683191` | 120.65 s | `O_prv` boundary improved and temporary bytes decreased. |
+| Direct 2D NTT task shards | `4cd23c9e` | 121.94 s | Isolated NTT improved; no full-wall reduction is claimed. |
+| Recursion same-shape clone removal | `824db138` | 119.41 s | 64 MiB copy removed; broad wall delta is not attributed. |
+
+Across the stable corrected-taxonomy endpoints, total wall decreased from
+`381.08 s` to `119.41 s`, a `261.67 s` (`68.7%`) reduction. This endpoint
+comparison describes the campaign result; it must not be used to infer the
+effect of an individual optimization.
+
+## Production Optimization Contracts
+
+Future prover work must preserve these accepted decisions unless the project
+owner explicitly reopens one with new benchmark and correctness evidence.
+
+### Runtime And Representation
+
+- Prover and verifier main algorithms consume binary inputs and do not perform
+  optional artifact-format validation internally.
+- Prover arithmetic uses contiguous row-major
+  `BivariatePolynomialBuffer` storage in
+  `ffjs-fr-montgomery-le-32`. MSM scalars cross the commitment boundary only
+  after conversion to `scalar-raw-le-32`.
+- Large prover CRS sections remain raw section descriptors. Do not recreate
+  millions of per-point JavaScript views or objects.
+- Generated sparse R1CS remains persistent packed CSR. Witness construction
+  writes directly into final flat row-major buffers.
+- Coordinate-form selection follows the input shape. Do not pre-convert
+  affine points to projective, or projective points to affine, solely to call a
+  preferred group primitive.
+
+### Parallel Execution
+
+- Production uses ffjavascript primitive-level parallelism through
+  `createCurveRuntime()` with `singleThread: false`.
+- Backend-owned WASM kernels may submit independent compact shards through the
+  existing ffjavascript thread manager. They must include worker copy,
+  dispatch, result transfer, and output assembly in benchmarks.
+- Sequential recurrence dependencies remain ordered. Only mathematically
+  independent rows, columns, segments, or output shards may run in parallel.
+- ffjavascript, wasmcurves, and wasmbuilder dependency source must not be
+  forked or patched for these optimizations. Backend-owned module plugins use
+  public extension boundaries and fail explicitly when required pinned exports
+  are unavailable.
+- A separate backend-wasm Web Worker wrapper around complete MSM jobs is not a
+  production strategy. The deprecated experiments remain under
+  `test/benchmarks/msm/deprecated/parallel-worker-wrapper/`.
+
+### Commitment And MSM
+
+- Dense Sigma1 commitments use bounded outer MSM calls of `262144` points.
+  This is the final production value selected on 2026-07-26 and recorded by
+  commit `6e716ab0`.
+- The outer bound is a backend-wasm delivery boundary, not ffjavascript's
+  internal Pippenger or worker chunk size.
+- The final benchmark measured `262144` at `121.25 s` and `10.22 GiB` peak
+  total RSS. `524288` measured `121.39 s` and `11.71 GiB`.
+- Removing the outer bound did not emit an explicit OOM on the local 48-GiB
+  machine, but it produced no proof before the 1,800-second browser timeout.
+  Do not describe current unbounded behavior as a proven OOM; describe it as a
+  non-completing browser path under the measured limit.
+- Dense full-row CRS ranges should remain zero-copy views when layout permits.
+  Narrower logical rows may use bounded compact row-prefix buffers.
+- Sparse commitments retain nonzero compaction and batched
+  Montgomery-to-raw conversion. Do not reintroduce per-scalar conversion.
+- The commitment result may combine deterministic partial MSM points, but the
+  transcript-visible affine point and proof bytes must remain unchanged.
+
+### Correctness And Diagnostics
+
+- Prover debugging follows native testing-mode mathematical invariants. It
+  must not compare randomized native and wasm intermediate proof points or
+  treat `proof0.U` equality as a correctness oracle.
+- Every production optimization requires exact unit-level byte or group parity
+  at the changed boundary, the relevant independent mathematical invariant,
+  Node proof verification, and Chromium proof verification.
+- Diagnostics and timing hooks remain outside `src/` and outside package
+  output. Production code must not contain dormant timing branches.
+- Test fixtures are copied from existing owner-package outputs, converted by
+  the package tooling, and stored only in ignored backend-wasm fixture paths.
+  Optimization checks must not regenerate setup, CRS, proof, preprocess,
+  placement, permutation, or instance artifacts.
+- No production fallback to a superseded slow implementation is permitted.
+  Retained legacy implementations may exist only as explicitly named
+  diagnostics or small-shape parity oracles.
+
+## Rejected And Deferred Approaches
+
+These records prevent repeated work and distinguish a rejected production
+strategy from an idea that still needs research.
+
+| approach | status | reason or reopening requirement |
+| --- | --- | --- |
+| Backend-wasm outer Web Worker MSM scheduler | Rejected | ffjavascript primitive parallelism was faster and avoided full runtime/CRS duplication. |
+| Shared-JS-buffer CRS worker design | Rejected for current dependencies | ffjavascript workers use independent WASM memories; arbitrary JS `SharedArrayBuffer` data is not directly the worker WASM linear memory. |
+| Unbounded dense MSM API call | Rejected | No proof within 1,800 seconds; bounded `262144` calls are faster and operationally safe on the measured browser. |
+| Global projective conversion | Rejected | Projective MSM wins were inconsistent, and conversion solely for API selection violates the input-shape policy. |
+| Single-scan JavaScript commitment compaction | Rejected | Over-allocation increased temporary storage and did not beat aligned raw-byte two-scan preparation. |
+| WASM commitment scan/compaction | Rejected | Worker/input materialization used substantially more temporary memory and did not win end to end. |
+| Compact-rectangle commitment as the universal path | Rejected | Density benchmarks support the current sparse/dense routing rather than one global representation. |
+| Coefficient-oriented N-term JavaScript combination | Rejected | It did not justify replacing the accepted buffer/WASM execution boundaries. |
+| Separate custom worker add/sub/scale wrapper | Rejected | Backend-owned whole-chunk kernels through the existing ffjavascript thread manager are the accepted path. |
+| Cached NTT bit-reversal tables, candidate G1 | Rejected | Three of four representative final measurements regressed. |
+| Direct inverse NTT output assembly, candidate G3 | Rejected | Complete-boundary results changed direction across repeated runs. |
+| G1+G2 NTT combination | Rejected | Slower than G2 direct task shards alone in three of four representative cases. |
+| `O_pub_free` zero compaction | Rejected | Scan/allocation overhead regressed the 109-scalar input. |
+| Init independent ROU scheduling candidate | Rejected | Isolated result did not justify production promotion; do not reopen without new evidence. |
+| Evaluation-domain `u*v-w` and quotient split | Deferred research | Define the exact Tokamak bivariate quotient-split algorithm, prove small-shape parity, then benchmark representative fixtures before production work. |
+| Verifier-only snarkjs/PLONK cleanup | Deferred | The verified browser path is approximately 20 ms and is not a current prover bottleneck. |
+
+## Future Optimization Workflow
+
+No production optimization is currently pre-approved. Start future work from a
+fresh fixed-taxonomy profile and select one measured boundary.
+
+1. Add a diagnostics-only benchmark under `test/benchmarks/` that includes all
+   input preparation, allocation, worker transfer, execution, result transfer,
+   and output assembly owned by the candidate.
+2. Compare one candidate against current production with alternating execution
+   order, warmups, repeated measurements, exact parity, explicit temporary
+   bytes, and peak memory where process isolation makes it meaningful.
+3. Benchmark candidates independently before testing compatible combinations.
+4. Record rejected candidates and their evidence before considering production
+   promotion.
+5. Obtain explicit project-owner approval when a benchmark result changes an
+   architecture, runtime policy, binary boundary, dependency strategy, or
+   production candidate set.
+6. Promote one attributable production change at a time and update this
+   report with the implementation commit, direct benchmark, full timing table,
+   browser result, memory result where available, and package-exclusion check.
+
+The standard production acceptance sequence is:
+
+```bash
+npm run typecheck
+npm run typecheck:scripts
+npm run polynomial:buffer:check
+npm run prover:ops:check
+npm run prover:testing-mode:check
+npm run prover:stage-timing:check
+npm run build
+npm run prover:browser:check
+npm pack --dry-run --json
+```
+
+The fixture-dependent commands require the controlled copied and converted
+runtime fixtures. Missing owner-package outputs must fail explicitly rather
+than trigger fixture regeneration or a fallback path.
+
+## Supporting Durable Reports
+
+This history is the primary optimization record. The following focused reports
+retain larger benchmark tables or deprecated implementation details:
+
+- `test/benchmarks/msm/prover-chunk-size-benchmark.md`: final dense MSM chunk
+  selection, Chromium timing/RSS results, and the unbounded-call timeout.
+- `test/benchmarks/msm/README.md`: primitive MSM, sparse/dense commitment, and
+  scalar-conversion benchmarks.
+- `test/benchmarks/prover-operations/priority-32-promotion-review.md`:
+  independent Priority 32 candidate and combination evidence.
+- `test/benchmarks/prover-init/README.md`: witness initialization, packed CSR,
+  and flat-buffer construction evidence.
+- `test/benchmarks/msm/deprecated/parallel-worker-wrapper/worker-parallelization-report.md`:
+  the complete history and rejection rationale for the outer worker-wrapper
+  MSM design.
+- `test/benchmarks/prover-operations/README.md`: commands and operation-level
+  benchmark coverage.
+
 ## Reporting Rules
 
 The backend-wasm prover timing runner follows the native-style flat accumulated timing model:
@@ -128,7 +387,7 @@ npm run prover:stage-timing:check
 
 ## Adjusted-Point Evaluation Benchmark
 
-Related commit: this commit.
+Related commit: `917ca065` (`Benchmark adjusted-point polynomial evaluation`).
 
 This is benchmark evidence only. It does not change production prover code.
 
@@ -214,7 +473,7 @@ npm pack --dry-run --json
 
 ## Recursion And Evaluation Internal Breakdown
 
-Related commit: this commit.
+Related commit: `ae75603a` (`Diagnose recursion and evaluation timing internals`).
 
 This is diagnostics-only evidence. It does not change production prover code.
 
@@ -269,7 +528,7 @@ Interpretation:
 
 ## Accepted Production Sparse Batch Scalar Conversion
 
-Related commit: this commit.
+Related commit: `ca4513c5` (`Apply sparse batch scalar conversion`).
 
 Production `encodeSigma1Sparse(...)` now collects selected nonzero Montgomery scalars into one compact scalar buffer and converts that buffer with `Fr.batchFromMontgomeryBuffer(...)`. The previous production sparse path converted each selected scalar with `Fr.toRawLittleEndian(...)` while scanning coefficients.
 
@@ -330,7 +589,7 @@ Encode optimization closure:
 
 ## Accepted Production Batched 2D NTT Segment Scheduler
 
-Related commit: this commit.
+Related commit: `9d7624a8` (`Optimize 2D NTT segment scheduling`).
 
 Production `biNttBuffer()` now batches independent same-size row and column transforms at the ffjavascript worker-task boundary. The previous production path called ffjavascript's public `Fr.fft()` / `Fr.ifft()` once per row and once per column, which made prover-size grids submit thousands of small FFT calls.
 
@@ -636,6 +895,8 @@ Verification:
 
 ## Lagrange K0 Multiplication Optimization
 
+Related commit: `c02865f9` (`Optimize Lagrange K0 multiplication`).
+
 Benchmark commits:
 
 - `38a3a054` (`Benchmark K0 multiplication data path`)
@@ -767,6 +1028,8 @@ Verification:
 
 ## Lagrange KL Multiplication Optimization
 
+Related commit: `5f8723bd` (`Optimize Lagrange KL multiplication`).
+
 Production commit: `5f8723bd` (`Optimize Lagrange KL multiplication`).
 
 Candidate selection:
@@ -840,6 +1103,8 @@ Verification:
 
 ## Shifted ROU Product Reuse
 
+Related commit: `13cf6744` (`Reuse shifted ROU evaluations in copy quotient`).
+
 Production commit: `13cf6744` (`Reuse shifted ROU evaluations in copy
 quotient`).
 
@@ -911,6 +1176,8 @@ Verification:
   temporary, benchmark, or diagnostics paths.
 
 ## Generic Multiplication Buffer Optimization
+
+Related commit: `348db687` (`Optimize generic polynomial multiplication buffers`).
 
 Benchmark commit: `99947f12` (`Benchmark generic multiplication buffers`).
 
@@ -984,6 +1251,8 @@ Verification:
 
 ## Same-Shape Add/Sub Single-Pass Construction
 
+Related commit: `9edb6876` (`Optimize same-shape polynomial addition`).
+
 Production commit: `9edb6876` (`Optimize same-shape polynomial addition`).
 
 Production change:
@@ -1055,6 +1324,8 @@ Verification:
 
 ## Zero-Buffer Initialization Removal
 
+Related commit: `217becb8` (`Remove redundant field zero initialization`).
+
 Production commit: `217becb8` (`Remove redundant field zero initialization`).
 
 Production change:
@@ -1099,6 +1370,8 @@ Verification:
   temporary, benchmark, or diagnostics paths.
 
 ## Opening pC Term Fusion
+
+Related commit: `3930b3f0` (`Fuse opening polynomial terms`).
 
 Benchmark commit: `55bfacae` (`Benchmark opening polynomial term fusion`).
 
@@ -1157,6 +1430,8 @@ Verification:
 
 ## Copy Quotient Linear-Term Fusion
 
+Related commit: `ec31e7dd` (`Fuse copy quotient linear terms`).
+
 Benchmark commit: `6e50df0b` (`Benchmark copy polynomial term fusion`).
 
 Production commit: `ec31e7dd` (`Fuse copy quotient linear terms`).
@@ -1185,6 +1460,8 @@ proof verification, build, Chromium verification, and package inspection
 passed.
 
 ## Coefficient Rescale and Batch-Key Scaling
+
+Related commit: `9f35558c` (`Optimize polynomial coefficient scaling`).
 
 Benchmark commit: `1f789b58` (`Benchmark coefficient rescale paths`).
 
@@ -1277,7 +1554,7 @@ Status:
 
 ## Whole-Chunk WASM Linear Operations
 
-Related commit: this commit.
+Related commit: `6b41bff7` (`Parallelize polynomial linear operations in WASM`).
 
 The previous production path invoked scalar ffjavascript field operations once
 per coefficient for general polynomial addition, subtraction, scale,
@@ -1336,7 +1613,7 @@ Acceptance results:
 
 ## Whole-Buffer WASM Pointwise Multiplication
 
-Related commit: this commit.
+Related commit: `c6e82f5d` (`Optimize prover pointwise multiplication`).
 
 The remaining general and omega-shifted multiplication paths invoked one
 JavaScript-to-WASM field multiplication per evaluation element. The accepted
@@ -1808,6 +2085,8 @@ files and no `test/`, `scripts/`, or `tmp/` paths.
 
 ## Raw Prover CRS Section Descriptors
 
+Related commit: `83afc2ea` (`Use raw descriptors for prover CRS sections`).
+
 Related commits: `ceb619e2` (independent benchmark) and this production
 promotion commit.
 
@@ -1863,8 +2142,10 @@ inspection passed. The package contains 253 files and no `test/`, `scripts/`,
 
 ## Persistent Packed CSR And Direct-Flat Witness
 
-Related benchmark commits: `5e91f369` and `e044165f`. Production promotion:
-this commit.
+Related commit: `b5c795d6` (`Use packed R1CS for witness construction`).
+
+Related benchmark commits: `fe155acb` and `e044165f`. Production promotion:
+`b5c795d6`.
 
 The build-generated subcircuit R1CS now remains in packed CSR form as
 `rowOffsets`, `columns`, coefficient bytes, active-wire indexes, and row
@@ -1923,9 +2204,11 @@ verification (`18 ms`), and package inspection passed. The package contains
 
 ## Combined Pi And Shared M/N Openings
 
+Related commit: `cd7e47d3` (`Combine final prover openings`).
+
 Related benchmark files:
 `bench-combined-final-openings.ts`, `bench-shared-mn-opening.ts`, and
-`bench-opening-winners-combined.ts`. Production promotion: this commit.
+`bench-opening-winners-combined.ts`.
 
 Production now combines the Pi_A, Pi_C, and `kappa1^4 * Pi_B` numerators
 before one bivariate Ruffini split. Only the final Pi_X and Pi_Y quotients are
