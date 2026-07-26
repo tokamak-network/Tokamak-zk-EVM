@@ -14,5 +14,5 @@ export async function verifyBinaryForTest(
   options: VerifySnarkOptions = {},
 ): Promise<boolean> {
   const verifierInput = await loadVerifierInputFromBinaryInput(runtime, input);
-  return (await verifySnark(runtime, verifierInput, options)).valid;
+  return verifySnark(runtime, verifierInput, options);
 }

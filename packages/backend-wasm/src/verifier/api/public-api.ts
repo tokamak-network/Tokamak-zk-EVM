@@ -60,7 +60,7 @@ export async function verify(input: VerifierInput): Promise<boolean> {
     }
 
     try {
-      return (await verifySnark(installedRuntime, runtimeInput)).valid;
+      return await verifySnark(installedRuntime, runtimeInput);
     } catch (cause) {
       throw new BackendWasmError("RUNTIME_FAILED", "The verifier runtime failed.", {
         cause,

@@ -8,16 +8,10 @@ export interface ProveSnarkOptions {
   readonly sourcePackageVersion?: string;
 }
 
-export interface ProveSnarkResult {
-  readonly proof: Uint8Array;
-}
-
 export async function proveSnark(
   runtime: CurveRuntime,
   input: ProverRuntimeInput,
   options: ProveSnarkOptions = {},
-): Promise<ProveSnarkResult> {
-  return {
-    proof: await createVerifierProofArtifactFromProverOutput(await runIntegratedProver(runtime, input, options)),
-  };
+): Promise<Uint8Array> {
+  return createVerifierProofArtifactFromProverOutput(await runIntegratedProver(runtime, input, options));
 }

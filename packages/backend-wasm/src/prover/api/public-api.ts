@@ -81,9 +81,9 @@ export async function prove(input: ProverInput): Promise<Uint8Array> {
     }
 
     try {
-      return (await proveSnark(installedRuntime, runtimeInput, {
+      return await proveSnark(installedRuntime, runtimeInput, {
         denseSigma1MsmChunkPoints: proofChunkSize,
-      })).proof;
+      });
     } catch (cause) {
       throw new BackendWasmError("RUNTIME_FAILED", "The prover runtime failed.", {
         cause,

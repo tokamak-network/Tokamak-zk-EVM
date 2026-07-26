@@ -60,7 +60,7 @@ async function main(): Promise<void> {
       throw new Error("Binary verifier rejected the prepared full proof fixture.");
     }
 
-    if (!binaryCoreResult.valid) {
+    if (!binaryCoreResult) {
       throw new Error("Decoded-input verifier core rejected the prepared full proof fixture.");
     }
 

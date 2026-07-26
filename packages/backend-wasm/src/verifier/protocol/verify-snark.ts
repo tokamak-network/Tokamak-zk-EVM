@@ -14,10 +14,6 @@ import {
   snarkAux,
 } from "./equations.js";
 
-export interface VerifySnarkResult {
-  readonly valid: boolean;
-}
-
 export interface VerifierInput {
   readonly setup: VerifierSetupParams;
   readonly sigma: SigmaVerifyRuntime;
@@ -104,7 +100,7 @@ export async function verifySnark(
   runtime: CurveRuntime,
   input: VerifierInput,
   options: VerifySnarkOptions = {},
-): Promise<VerifySnarkResult> {
+): Promise<boolean> {
   const randomScalar = options.randomScalar ?? runtime.randomScalar;
   const challenges = await collectChallenges(runtime.Fr, runtime.G1, randomScalar, input.proof);
   const domain = buildDomainContext(runtime.Fr, input.setup, challenges);
@@ -135,5 +131,5 @@ export async function verifySnark(
     ],
   );
 
-  return { valid };
+  return valid;
 }
