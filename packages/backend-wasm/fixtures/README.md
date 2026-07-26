@@ -1,61 +1,41 @@
-# Backend WASM Fixtures
+# Backend WASM Runtime Fixtures
 
-This directory will contain curated parity fixtures used to compare the TypeScript implementation against deterministic native Rust outputs.
+This directory contains manifests for the controlled test-artifact
+copy-convert-store pipeline. Runtime fixture payloads are local test inputs and
+are excluded from Git and package publication.
 
-Large artifacts should stay outside git unless they are intentionally selected as minimal fixtures.
+## Source Ownership
 
-## Manifest Format
+Backend-wasm must not generate missing test artifacts by running native scripts,
+Rust binaries, CLI proof flows, setup commands, or prover/verifier execution.
+Developers prepare artifacts in their owning packages first. The source paths are
+declared in `small/copy-manifest.json`.
 
-Each fixture suite has a `manifest.json` file:
-
-```json
-{
-  "schemaVersion": 1,
-  "suite": "small",
-  "description": "Minimal deterministic parity fixtures for the verifier-first backend-wasm port.",
-  "cases": [
-    {
-      "id": "scalar-add-basic",
-      "kind": "scalar-ops",
-      "description": "Checks BLS12-381 Fr addition against the native backend.",
-      "input": "input/scalar-add-basic.json",
-      "expected": "expected/scalar-add-basic.json"
-    }
-  ]
-}
-```
-
-Supported `kind` values are:
-
-- `scalar-ops`
-- `roots-of-unity`
-- `ntt-1d`
-- `ntt-2d`
-- `coset-ntt`
-- `polynomial-eval`
-- `msm`
-- `pairing`
-- `transcript`
-- `full-proof`
-
-Input and expected paths are relative to the manifest directory. They must not be absolute paths or contain parent-directory traversal. Expected files must contain the deterministic native Rust outputs that TypeScript code will compare against.
-
-## Updating Fixtures
-
-Backend-wasm test fixtures follow a controlled copy-convert-store pipeline. Do not regenerate them from this package by running native scripts, Rust binaries, CLI proof flows, setup commands, or prover/verifier execution.
-
-Developers must prepare the owner package output files referenced by `fixtures/small/copy-manifest.json` in their existing package output locations first. Backend-wasm copies those source files into a package-local ignored work directory:
+Run the copy stage with:
 
 ```sh
 npm run fixtures:copy
 ```
 
-The copy stage writes to `packages/backend-wasm/tmp/fixture-work/<suite>/source/` and does not write final test fixtures.
+The copy stage writes the owner-package artifacts to the ignored
+`tmp/fixture-work/<suite>/source/` directory. It does not write final runtime
+fixtures.
 
-After the copy stage, run:
+Run the conversion stage with:
 
 ```sh
 npm run fixtures:prepare
 ```
 
-The preparation stage converts copied source artifacts through web-compatible converter APIs and stores verifier runtime files under this package's ignored `fixtures/small/runtime/` directory. If a source file is missing, the copy or preparation script fails and reports the exact path that must be prepared. This package must not fall back to generating the missing artifact.
+The conversion stage invokes the browser-compatible converter APIs and writes
+binary runtime bundles under the ignored `small/runtime/` directory.
+
+The prepared suite contains:
+
+- `prover-proof-witness-input`;
+- `prover-crs-prepared-data`;
+- `verifier-proof-input`;
+- `verifier-setup-input`.
+
+If an owner artifact is missing, the copy or conversion command must fail with
+the required source path. No fallback generation is permitted.

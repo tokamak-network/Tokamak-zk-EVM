@@ -270,11 +270,6 @@ function parseSectionType(value: unknown, sourcePath: string): string {
     case "Instance":
     case "Placement":
     case "Permutation":
-    case "MsmBases":
-    case "MsmScalars":
-    case "PairingG1Terms":
-    case "PairingG2Terms":
-    case "TestScalars":
       return value;
     default:
       throw new Error(`${sourcePath} has unsupported section type: ${String(value)}.`);

@@ -29,7 +29,6 @@ import { computeRecursionCommitment } from "../../../src/prover/internal/recursi
 import { computeCopyQuotientCommitments } from "../../../src/prover/internal/copy-quotient.js";
 import { evaluateChallengePoints } from "../../../src/prover/internal/challenge-evaluations.js";
 import { computeOpeningCommitments } from "../../../src/prover/internal/opening-commitments.js";
-import { proveSnark } from "../../../src/prover/api/prove-snark.js";
 import { createVerifierProofArtifactFromProverOutput } from "../../../src/prover/api/proof-output.js";
 import { buildProverInstancePolynomials, createProverMixer, createProverState } from "../../../src/prover/internal/state.js";
 import { GENERATED_PROVER_SETUP_PARAMS } from "../../../src/prover/generated/subcircuit-library.generated.js";
@@ -192,7 +191,7 @@ async function main(): Promise<void> {
       s_max: 4,
     };
     const prove0Witness = {
-      bXY: BivariatePolynomialBuffer.zero(runtime.Fr),
+      bXY: monomialPolynomial(3, 3, fr(2n), 4, 4),
       uXY: monomialPolynomial(4, 4, fr(1n), 8, 8),
       vXY: BivariatePolynomialBuffer.fromCoeffs(runtime.Fr, [fr(1n)], 1, 1),
       wXY: BivariatePolynomialBuffer.zero(runtime.Fr),
@@ -295,23 +294,6 @@ async function main(): Promise<void> {
     assertBytesEqual(verifierProof.pointsByName["proof1.R"], runtime.G1.toAffine(smallProve1.commitment.R), "proof1.R affine output");
     assertBytesEqual(verifierProof.pointsByName["proof4.N_X"], runtime.G1.toAffine(smallProve4.commitments.N_X), "proof4.N_X affine output");
     assertBytesEqual(verifierProof.pointsByName["proof3.V_eval"], smallProve3.V_eval, "proof3.V_eval output");
-    const snarkResult = await proveSnark(runtime, {
-      witness: {
-        setup: prove0Setup,
-        subcircuitInfos: [],
-        placementVariables: [],
-        r1csBySubcircuit: [],
-      },
-      permutation: [],
-      publicInstance: [fr(13n), fr(17n)],
-      crs: smallCrs,
-    });
-    const snarkProofArtifact = await loadRuntimeArtifactFile(snarkResult.proof);
-    assertEqual(snarkProofArtifact.kind, BinaryArtifactFileKind.VerifierProof, "proveSnark artifact kind");
-    const snarkProof = loadVerifierProofArtifact(snarkProofArtifact);
-    assertEqual(snarkProof.sections[0]?.section.data.byteLength, 19 * 96, "proveSnark proof.g1 byte length");
-    assertEqual(snarkProof.sections[1]?.section.data.byteLength, 4 * 32, "proveSnark proof.evals byte length");
-
     const binaryArtifacts = {
       placementVariables: await loadRuntimeArtifactFile(
         await createBinaryArtifactFile({

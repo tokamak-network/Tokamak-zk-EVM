@@ -145,10 +145,14 @@ The `sigma_verify` binary layout must be managed by `src/artifacts/specs/sigma-v
 ```sh
 npm run typecheck
 npm run typecheck:scripts
-npm run fixtures:check
-npm run runtime:check
+npm run fixtures:copy
+npm run fixtures:prepare
+npm run fixtures:check:native-verifier
 npm run binary:check
-npm run polynomial:check
+npm run polynomial:buffer:check
+npm run prover:ops:check
+npm run prover:witness:check
+npm run prover:check
 npm run specs:check
 npm run verifier:check
 npm run build

@@ -18,7 +18,6 @@ export enum BinaryArtifactFileKind {
   ProverCrs = 6,
   ProverInstance = 7,
   ProverPermutation = 9,
-  Test = 255,
 }
 
 export enum BinaryDigestEntryType {
@@ -58,15 +57,8 @@ export enum BinarySectionType {
   WitnessInputs = 10,
   CrsG1 = 11,
   CrsG2 = 12,
-  MsmBases = 13,
-  MsmScalars = 14,
-  PairingG1Terms = 15,
-  PairingG2Terms = 16,
   ProofOutput = 17,
   VerifierResult = 18,
-  TestScalars = 240,
-  TestG1Points = 241,
-  TestG2Points = 242,
 }
 
 export interface BinarySectionInput {

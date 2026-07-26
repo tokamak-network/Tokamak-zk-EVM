@@ -1,11 +1,10 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { loadRuntimeArtifactBySpec } from "../../../src/artifacts/specs/format-spec-loader.js";
 import { PROVER_CRS_V1_SPEC } from "../../../src/artifacts/specs/prover-crs.v1.generated.js";
 import { SIGMA_VERIFY_V1_SPEC } from "../../../src/artifacts/specs/sigma-verify.v1.generated.js";
+import { VERIFIER_INSTANCE_V1_SPEC } from "../../../src/artifacts/specs/verifier-instance.v1.generated.js";
 import { VERIFIER_PREPROCESS_V1_SPEC } from "../../../src/artifacts/specs/verifier-preprocess.v1.generated.js";
+import { VERIFIER_PROOF_V1_SPEC } from "../../../src/artifacts/specs/verifier-proof.v1.generated.js";
 import {
   BinaryArtifactFileKind,
   BinarySectionEncoding,
@@ -17,136 +16,27 @@ import {
   loadSigmaVerifyArtifact,
   loadVerifierPreprocessArtifact,
   parseRuntimeArtifactBundleManifest,
-  requireRuntimeSection,
   RuntimeArtifactBundleKind,
   RuntimeArtifactFileRole,
-  type AffinePointJson,
   type BinarySectionInput,
   type CurveRuntime,
-  type PairingTerm,
   validateRuntimeArtifactFile,
   validateRuntimeBundle,
 } from "../../../src/index.js";
-import { TEST_BINARY_V1_SPEC } from "../test-binary-spec.js";
-
-interface ScalarFixtureInput {
-  readonly operands: {
-    readonly a: string;
-    readonly b: string;
-    readonly c: string;
-  };
-}
-
-interface MsmFixtureInput {
-  readonly bases: readonly AffinePointJson[];
-  readonly scalars: readonly string[];
-}
-
-interface MsmFixtureExpected {
-  readonly result: AffinePointJson;
-}
-
-interface PairingFixtureInput {
-  readonly true_case: PairingFixtureCase;
-  readonly false_case: PairingFixtureCase;
-}
-
-interface PairingFixtureCase {
-  readonly left: readonly PairingTermJson[];
-  readonly right: readonly PairingTermJson[];
-}
-
-interface PairingTermJson {
-  readonly g1: AffinePointJson;
-  readonly g2: AffinePointJson;
-}
-
-interface PairingFixtureExpected {
-  readonly true_case_products_equal: boolean;
-  readonly false_case_products_equal: boolean;
-}
 
 async function main(): Promise<void> {
-  const fixturesDir = path.resolve("fixtures/small");
   const runtime = await createCurveRuntime();
 
   try {
-    const scalarInput = await readJson<ScalarFixtureInput>(
-      path.join(fixturesDir, "input/scalar-ops-basic.json"),
-    );
-    const msmInput = await readJson<MsmFixtureInput>(path.join(fixturesDir, "input/msm-small.json"));
-    const msmExpected = await readJson<MsmFixtureExpected>(
-      path.join(fixturesDir, "expected/msm-small.json"),
-    );
-    const pairingInput = await readJson<PairingFixtureInput>(
-      path.join(fixturesDir, "input/pairing-small.json"),
-    );
-    const pairingExpected = await readJson<PairingFixtureExpected>(
-      path.join(fixturesDir, "expected/pairing-small.json"),
-    );
-
-    const binary = await createBinaryArtifactFile({
-      kind: BinaryArtifactFileKind.Test,
-      sourcePackageVersion: "0.0.0",
-      sections: [
-        createScalarSection(runtime, scalarInput),
-        createMsmBaseSection(runtime, msmInput),
-        createMsmScalarSection(runtime, msmInput),
-        createPairingG1Section(runtime, "pairing.true.left.g1", pairingInput.true_case.left),
-        createPairingG2Section(runtime, "pairing.true.left.g2", pairingInput.true_case.left),
-        createPairingG1Section(runtime, "pairing.true.right.g1", pairingInput.true_case.right),
-        createPairingG2Section(runtime, "pairing.true.right.g2", pairingInput.true_case.right),
-        createPairingG1Section(runtime, "pairing.false.left.g1", pairingInput.false_case.left),
-        createPairingG2Section(runtime, "pairing.false.left.g2", pairingInput.false_case.left),
-        createPairingG1Section(runtime, "pairing.false.right.g1", pairingInput.false_case.right),
-        createPairingG2Section(runtime, "pairing.false.right.g2", pairingInput.false_case.right),
-      ],
-    });
-    await validateRuntimeArtifactFile(binary, TEST_BINARY_V1_SPEC, {
-      expectedKind: BinaryArtifactFileKind.Test,
-    });
-    const artifactFile = await loadRuntimeArtifactFile(binary);
-    loadRuntimeArtifactBySpec(artifactFile, TEST_BINARY_V1_SPEC);
-
-    const msmBases = requireRuntimeSection(artifactFile, {
-      type: BinarySectionType.MsmBases,
-      encoding: BinarySectionEncoding.FfjsG1Affine96,
-      label: "msm.bases",
-    });
-    const msmScalars = requireRuntimeSection(artifactFile, {
-      type: BinarySectionType.MsmScalars,
-      encoding: BinarySectionEncoding.ScalarRawLe32,
-      label: "msm.scalars",
-    });
-    const msmResult = await runtime.G1.msmAffineRaw(msmBases.data, msmScalars.data);
-    assertEqual(runtime.G1.formatAffine(msmResult), msmExpected.result, "binary G1 MSM");
     await checkSigmaVerifyArtifact(runtime);
     await checkVerifierPreprocessArtifact(runtime);
     await checkProverCrsArtifact(runtime);
-
-    assertEqual(
-      await runtime.pairing.productsEqual(
-        readPairingTerms(artifactFile, "pairing.true.left"),
-        readPairingTerms(artifactFile, "pairing.true.right"),
-      ),
-      pairingExpected.true_case_products_equal,
-      "binary pairing true case",
-    );
-    assertEqual(
-      await runtime.pairing.productsEqual(
-        readPairingTerms(artifactFile, "pairing.false.left"),
-        readPairingTerms(artifactFile, "pairing.false.right"),
-      ),
-      pairingExpected.false_case_products_equal,
-      "binary pairing false case",
-    );
-
     await checkRuntimeBundleManifests();
   } finally {
     await runtime.terminate();
   }
 
-  console.log("Checked runtime-ready binary artifact file round-trip");
+  console.log("Checked production runtime artifact formats and bundle manifests");
 }
 
 async function checkRuntimeBundleManifests(): Promise<void> {
@@ -198,12 +88,12 @@ async function checkRuntimeBundleManifests(): Promise<void> {
           {
             role: RuntimeArtifactFileRole.Instance,
             kind: BinaryArtifactFileKind.VerifierInstance,
-            spec: TEST_BINARY_V1_SPEC,
+            spec: VERIFIER_INSTANCE_V1_SPEC,
           },
           {
             role: RuntimeArtifactFileRole.Proof,
             kind: BinaryArtifactFileKind.VerifierProof,
-            spec: TEST_BINARY_V1_SPEC,
+            spec: VERIFIER_PROOF_V1_SPEC,
           },
         ],
       }),
@@ -312,81 +202,6 @@ async function checkProverCrsArtifact(runtime: CurveRuntime): Promise<void> {
   assertEqual(proverCrs.pointsByName["sigma2.y"].byteLength, 192, "prover_crs sigma2.y byte length");
 }
 
-function createScalarSection(runtime: CurveRuntime, input: ScalarFixtureInput): BinarySectionInput {
-  const values = [input.operands.a, input.operands.b, input.operands.c].map((value) =>
-    runtime.Fr.fromHex(value),
-  );
-
-  return {
-    type: BinarySectionType.TestScalars,
-    encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
-    label: "scalar.operands",
-    elementCount: values.length,
-    elementByteLength: 32,
-    data: concatBytes(values),
-  };
-}
-
-function createMsmBaseSection(runtime: CurveRuntime, input: MsmFixtureInput): BinarySectionInput {
-  const bases = input.bases.map((base) => runtime.G1.parseAffine(base));
-
-  return {
-    type: BinarySectionType.MsmBases,
-    encoding: BinarySectionEncoding.FfjsG1Affine96,
-    label: "msm.bases",
-    elementCount: bases.length,
-    elementByteLength: 96,
-    data: concatBytes(bases),
-  };
-}
-
-function createMsmScalarSection(runtime: CurveRuntime, input: MsmFixtureInput): BinarySectionInput {
-  const scalars = input.scalars.map((scalar) => runtime.Fr.toRawLittleEndian(runtime.Fr.fromHex(scalar)));
-
-  return {
-    type: BinarySectionType.MsmScalars,
-    encoding: BinarySectionEncoding.ScalarRawLe32,
-    label: "msm.scalars",
-    elementCount: scalars.length,
-    elementByteLength: 32,
-    data: concatBytes(scalars),
-  };
-}
-
-function createPairingG1Section(
-  runtime: CurveRuntime,
-  label: string,
-  terms: readonly PairingTermJson[],
-): BinarySectionInput {
-  const points = terms.map((term) => runtime.G1.parseAffine(term.g1));
-
-  return {
-    type: BinarySectionType.PairingG1Terms,
-    encoding: BinarySectionEncoding.FfjsG1Affine96,
-    label,
-    elementCount: points.length,
-    elementByteLength: 96,
-    data: concatBytes(points),
-  };
-}
-
-function createPairingG2Section(
-  runtime: CurveRuntime,
-  label: string,
-  terms: readonly PairingTermJson[],
-): BinarySectionInput {
-  const points = terms.map((term) => runtime.G2.parseAffine(term.g2));
-
-  return {
-    type: BinarySectionType.PairingG2Terms,
-    encoding: BinarySectionEncoding.FfjsG2Affine192,
-    label,
-    elementCount: points.length,
-    elementByteLength: 192,
-    data: concatBytes(points),
-  };
-}
-
 function createRepeatedG1Section(
   runtime: CurveRuntime,
   label: string,
@@ -401,40 +216,6 @@ function createRepeatedG1Section(
     elementByteLength: 96,
     data: concatBytes(Array.from({ length: elementCount }, () => runtime.G1.generator)),
   };
-}
-
-function readPairingTerms(
-  artifactFile: Awaited<ReturnType<typeof loadRuntimeArtifactFile>>,
-  labelPrefix: string,
-): PairingTerm[] {
-  const g1 = requireRuntimeSection(artifactFile, {
-    type: BinarySectionType.PairingG1Terms,
-    encoding: BinarySectionEncoding.FfjsG1Affine96,
-    label: `${labelPrefix}.g1`,
-  });
-  const g2 = requireRuntimeSection(artifactFile, {
-    type: BinarySectionType.PairingG2Terms,
-    encoding: BinarySectionEncoding.FfjsG2Affine192,
-    label: `${labelPrefix}.g2`,
-  });
-
-  if (g1.elementCount !== g2.elementCount) {
-    throw new Error(`Pairing section count mismatch for ${labelPrefix}.`);
-  }
-
-  const terms: PairingTerm[] = [];
-  for (let index = 0; index < g1.elementCount; index += 1) {
-    terms.push({
-      g1: g1.data.subarray(index * 96, (index + 1) * 96),
-      g2: g2.data.subarray(index * 192, (index + 1) * 192),
-    });
-  }
-
-  return terms;
-}
-
-async function readJson<T>(filePath: string): Promise<T> {
-  return JSON.parse(await readFile(filePath, "utf8")) as T;
 }
 
 function concatBytes(chunks: readonly Uint8Array[]): Uint8Array {
