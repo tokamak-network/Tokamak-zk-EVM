@@ -13,9 +13,6 @@ import {
 import {
   createStructuredBenchmarkRuntimes,
   klTemporaryBytes,
-  multiplyKlWasmOneWorker,
-  multiplyKlWasmSingle,
-  multiplyKlWasmWorkers,
   type StructuredBenchmarkRuntimes,
 } from "./structured-wasm-benchmark-support.js";
 
@@ -85,60 +82,29 @@ async function benchmarkShape(
   const field = runtime.field;
   const input = deterministicPolynomial(field, shape, options.seed);
   const legacyKl = await buildLagrangeKlLegacy(field, shape.mI, shape.sMax);
-  const directKl = buildLagrangeKlDirect(field, shape.mI, shape.sMax);
   const productionKl = await buildLagrangeKl(field, shape.mI, shape.sMax);
-  assertPolynomialEqual(directKl, legacyKl, `${formatShape(shape)} direct KL`);
   assertPolynomialEqual(productionKl, legacyKl, `${formatShape(shape)} production KL`);
 
   const expectedProduct = await legacyKl.mul(input);
-  const candidateProduct = await multiplyByLagrangeKlWeighted(input, shape.mI, shape.sMax);
   const productionProduct = await multiplyByLagrangeKl(input, shape.mI, shape.sMax);
-  assertPolynomialEqual(candidateProduct, expectedProduct, `${formatShape(shape)} weighted KL product`);
   assertPolynomialEqual(productionProduct, expectedProduct, `${formatShape(shape)} production KL product`);
-  const wasmProducts = [
-    {
-      name: "wasm-single-task",
-      run: () => multiplyKlWasmSingle(runtime, input, shape.mI, shape.sMax),
-      taskCount: 1,
-    },
-    {
-      name: "wasm-one-worker",
-      run: () => multiplyKlWasmOneWorker(runtime, input, shape.mI, shape.sMax),
-      taskCount: 1,
-    },
-    {
-      name: "worker-kernel-mirror",
-      run: () => multiplyKlWasmWorkers(runtime, input, shape.mI, shape.sMax),
-      taskCount: runtime.workerCount,
-    },
-  ] as const;
-  for (const candidate of wasmProducts) {
-    assertPolynomialEqual(
-      await candidate.run(),
-      expectedProduct,
-      `${formatShape(shape)} ${candidate.name}`,
-    );
-  }
 
   const buildLegacy = await measureAsync(options, async () => await buildLagrangeKlLegacy(field, shape.mI, shape.sMax));
-  const buildDirect = measureSync(options, () => buildLagrangeKlDirect(field, shape.mI, shape.sMax));
   const buildProduction = await measureAsync(options, async () => await buildLagrangeKl(field, shape.mI, shape.sMax));
-  const multiplyLegacy = await measureAsync(options, async () => await legacyKl.mul(input));
-  const multiplyCandidate = await measureAsync(
-    options,
-    async () => await multiplyByLagrangeKlWeighted(input, shape.mI, shape.sMax),
-  );
-  const recurrenceCandidates = [
+  const multiplyTimings = await measureAlternatingAsync(options, [
+    {
+      name: "legacy-production",
+      run: async () => await legacyKl.mul(input),
+    },
     {
       name: "current-production",
       run: async () => await multiplyByLagrangeKl(input, shape.mI, shape.sMax),
     },
-    ...wasmProducts.map(({ name, run }) => ({ name, run })),
-  ];
-  const recurrenceTimings = await measureAlternatingAsync(options, recurrenceCandidates);
-  const multiplyProduction = recurrenceTimings.get("current-production")!;
+  ]);
+  const multiplyLegacy = multiplyTimings.get("legacy-production")!;
+  const multiplyProduction = multiplyTimings.get("current-production")!;
 
-  const records: BenchmarkRecord[] = [
+  return [
     {
       operation: "build-kl",
       candidate: "legacy-production",
@@ -146,14 +112,6 @@ async function benchmarkShape(
       outputBytes: legacyKl.coefficients.byteLength,
       temporaryBytesExcludingResult: legacyKl.coefficients.byteLength * 2,
       ...buildLegacy,
-    },
-    {
-      operation: "build-kl",
-      candidate: "benchmark-candidate",
-      shape: formatShape(shape),
-      outputBytes: directKl.coefficients.byteLength,
-      temporaryBytesExcludingResult: 0,
-      ...buildDirect,
     },
     {
       operation: "build-kl",
@@ -170,16 +128,6 @@ async function benchmarkShape(
       outputBytes: expectedProduct.coefficients.byteLength,
       temporaryBytesExcludingResult: expectedProduct.coefficients.byteLength * 3,
       ...multiplyLegacy,
-    },
-    {
-      operation: "multiply-by-kl",
-      candidate: "scalar-production-baseline",
-      shape: formatShape(shape),
-      outputBytes: candidateProduct.coefficients.byteLength,
-      temporaryBytesExcludingResult:
-        candidateProduct.xSize * input.ySize * field.byteLength
-        + candidateProduct.coefficients.byteLength,
-      ...multiplyCandidate,
     },
     {
       operation: "multiply-by-kl",
@@ -206,16 +154,6 @@ async function benchmarkShape(
     },
     {
       operation: "combined",
-      candidate: "scalar-production-baseline",
-      shape: formatShape(shape),
-      outputBytes: candidateProduct.coefficients.byteLength,
-      temporaryBytesExcludingResult:
-        candidateProduct.xSize * input.ySize * field.byteLength
-        + candidateProduct.coefficients.byteLength,
-      ...combineSummaries(buildDirect, multiplyCandidate),
-    },
-    {
-      operation: "combined",
       candidate: "current-production",
       shape: formatShape(shape),
       outputBytes: productionProduct.coefficients.byteLength,
@@ -230,36 +168,6 @@ async function benchmarkShape(
       ...combineSummaries(buildProduction, multiplyProduction),
     },
   ];
-  for (const candidate of wasmProducts) {
-    const timing = recurrenceTimings.get(candidate.name)!;
-    const temporaryBytes = klTemporaryBytes(
-      input.xSize,
-      input.ySize,
-      productionProduct.xSize,
-      productionProduct.ySize,
-      field.byteLength,
-      candidate.taskCount,
-    );
-    records.push(
-      {
-        operation: "multiply-by-kl",
-        candidate: candidate.name,
-        shape: formatShape(shape),
-        outputBytes: productionProduct.coefficients.byteLength,
-        temporaryBytesExcludingResult: temporaryBytes,
-        ...timing,
-      },
-      {
-        operation: "combined",
-        candidate: candidate.name,
-        shape: formatShape(shape),
-        outputBytes: productionProduct.coefficients.byteLength,
-        temporaryBytesExcludingResult: temporaryBytes,
-        ...combineSummaries(buildProduction, timing),
-      },
-    );
-  }
-  return records;
 }
 
 async function buildLagrangeKlLegacy(
@@ -276,128 +184,6 @@ async function buildLagrangeKlLegacy(
   return await lagrangeK.mul(lagrangeL);
 }
 
-function buildLagrangeKlDirect(
-  field: FieldRuntime,
-  mI: number,
-  sMax: number,
-): BivariatePolynomialBuffer {
-  const inverseDomain = field.inv(field.fromBigInt(BigInt(mI * sMax)));
-  const rootX = field.rootOfUnity(mI);
-  const rootY = field.rootOfUnity(sMax);
-  const output = new Uint8Array(mI * sMax * field.byteLength);
-  let rowStart = inverseDomain;
-
-  for (let x = 0; x < mI; x += 1) {
-    let value = rowStart;
-    const rowOffset = x * sMax * field.byteLength;
-    for (let y = 0; y < sMax; y += 1) {
-      output.set(value, rowOffset + y * field.byteLength);
-      value = field.mul(value, rootY);
-    }
-    rowStart = field.mul(rowStart, rootX);
-  }
-
-  return BivariatePolynomialBuffer.fromOwnedBuffer(field, output, mI, sMax);
-}
-
-async function multiplyByLagrangeKlWeighted(
-  polynomial: BivariatePolynomialBuffer,
-  mI: number,
-  sMax: number,
-): Promise<BivariatePolynomialBuffer> {
-  const degree = polynomial.findDegree();
-  if (degree.xDegree < 0 || degree.yDegree < 0) {
-    return BivariatePolynomialBuffer.zero(polynomial.field);
-  }
-
-  const field = polynomial.field;
-  const xSize = nextPowerOfTwo(degree.xDegree + mI);
-  const ySize = nextPowerOfTwo(degree.yDegree + sMax);
-  const elementBytes = field.byteLength;
-  const intermediate = new Uint8Array(xSize * polynomial.ySize * elementBytes);
-  const intermediateRowBytes = polynomial.ySize * elementBytes;
-  const inputRowBytes = polynomial.ySize * elementBytes;
-  const rootX = field.rootOfUnity(mI);
-
-  for (let x = 0; x < xSize; x += 1) {
-    const outputRowOffset = x * intermediateRowBytes;
-    const previousRowOffset = (x - 1) * intermediateRowBytes;
-    const inputRowOffset = x * inputRowBytes;
-    const removedRowOffset = (x - mI) * inputRowBytes;
-    for (let y = 0; y < polynomial.ySize; y += 1) {
-      const elementOffset = y * elementBytes;
-      let value = x > 0
-        ? field.mul(
-          intermediate.subarray(
-            previousRowOffset + elementOffset,
-            previousRowOffset + elementOffset + elementBytes,
-          ),
-          rootX,
-        )
-        : field.zero;
-      if (x < polynomial.xSize) {
-        value = field.add(
-          value,
-          polynomial.coefficients.subarray(
-            inputRowOffset + elementOffset,
-            inputRowOffset + elementOffset + elementBytes,
-          ),
-        );
-      }
-      if (x >= mI && x - mI < polynomial.xSize) {
-        value = field.sub(
-          value,
-          polynomial.coefficients.subarray(
-            removedRowOffset + elementOffset,
-            removedRowOffset + elementOffset + elementBytes,
-          ),
-        );
-      }
-      intermediate.set(value, outputRowOffset + elementOffset);
-    }
-  }
-
-  const unscaledOutput = new Uint8Array(xSize * ySize * elementBytes);
-  const outputRowBytes = ySize * elementBytes;
-  const rootY = field.rootOfUnity(sMax);
-  for (let x = 0; x < xSize; x += 1) {
-    const intermediateRowOffset = x * intermediateRowBytes;
-    const outputRowOffset = x * outputRowBytes;
-    for (let y = 0; y < ySize; y += 1) {
-      const outputOffset = outputRowOffset + y * elementBytes;
-      let value = y > 0
-        ? field.mul(
-          unscaledOutput.subarray(outputOffset - elementBytes, outputOffset),
-          rootY,
-        )
-        : field.zero;
-      if (y < polynomial.ySize) {
-        value = field.add(
-          value,
-          intermediate.subarray(
-            intermediateRowOffset + y * elementBytes,
-            intermediateRowOffset + (y + 1) * elementBytes,
-          ),
-        );
-      }
-      if (y >= sMax && y - sMax < polynomial.ySize) {
-        value = field.sub(
-          value,
-          intermediate.subarray(
-            intermediateRowOffset + (y - sMax) * elementBytes,
-            intermediateRowOffset + (y - sMax + 1) * elementBytes,
-          ),
-        );
-      }
-      unscaledOutput.set(value, outputOffset);
-    }
-  }
-
-  const inverseDomain = field.inv(field.fromBigInt(BigInt(mI * sMax)));
-  const output = await field.batchApplyKeyBuffer(unscaledOutput, inverseDomain, field.one);
-  return BivariatePolynomialBuffer.fromOwnedBuffer(field, output, xSize, ySize);
-}
-
 async function runSmallParity(runtime: StructuredBenchmarkRuntimes): Promise<void> {
   const field = runtime.field;
   const shapes: readonly Shape[] = [
@@ -407,8 +193,6 @@ async function runSmallParity(runtime: StructuredBenchmarkRuntimes): Promise<voi
   ];
   for (const shape of shapes) {
     const currentKl = await buildLagrangeKlLegacy(field, shape.mI, shape.sMax);
-    const directKl = buildLagrangeKlDirect(field, shape.mI, shape.sMax);
-    assertPolynomialEqual(directKl, currentKl, `small direct KL ${formatShape(shape)}`);
     assertPolynomialEqual(
       await buildLagrangeKl(field, shape.mI, shape.sMax),
       currentKl,
@@ -418,35 +202,15 @@ async function runSmallParity(runtime: StructuredBenchmarkRuntimes): Promise<voi
     const input = deterministicPolynomial(field, shape, 0x4b4c504152495459n);
     const expectedProduct = await currentKl.mul(input);
     assertPolynomialEqual(
-      await multiplyByLagrangeKlWeighted(input, shape.mI, shape.sMax),
-      expectedProduct,
-      `small weighted KL product ${formatShape(shape)}`,
-    );
-    assertPolynomialEqual(
       await multiplyByLagrangeKl(input, shape.mI, shape.sMax),
       expectedProduct,
       `small production KL product ${formatShape(shape)}`,
-    );
-    assertPolynomialEqual(
-      await multiplyKlWasmSingle(runtime, input, shape.mI, shape.sMax),
-      expectedProduct,
-      `small single-task WASM KL product ${formatShape(shape)}`,
-    );
-    assertPolynomialEqual(
-      await multiplyKlWasmOneWorker(runtime, input, shape.mI, shape.sMax),
-      expectedProduct,
-      `small one-worker WASM KL product ${formatShape(shape)}`,
-    );
-    assertPolynomialEqual(
-      await multiplyKlWasmWorkers(runtime, input, shape.mI, shape.sMax),
-      expectedProduct,
-      `small worker WASM KL product ${formatShape(shape)}`,
     );
   }
 
   const zero = BivariatePolynomialBuffer.zero(field);
   assertPolynomialEqual(
-    await multiplyByLagrangeKlWeighted(zero, 4, 4),
+    await multiplyByLagrangeKl(zero, 4, 4),
     await (await buildLagrangeKlLegacy(field, 4, 4)).mul(zero),
     "zero KL product",
   );
@@ -509,22 +273,6 @@ async function measureAlternatingAsync(
   return new Map(
     [...samples].map(([name, values]) => [name, summarize(values)]),
   );
-}
-
-function measureSync(
-  options: BenchmarkOptions,
-  run: () => BivariatePolynomialBuffer,
-): TimingSummary {
-  for (let iteration = 0; iteration < options.warmup; iteration += 1) {
-    consumeResult(run());
-  }
-  const samples: number[] = [];
-  for (let iteration = 0; iteration < options.iterations; iteration += 1) {
-    const start = performance.now();
-    consumeResult(run());
-    samples.push(performance.now() - start);
-  }
-  return summarize(samples);
 }
 
 function combineSummaries(left: TimingSummary, right: TimingSummary): TimingSummary {
@@ -600,14 +348,6 @@ function parseNonNegativeInteger(value: string, label: string): number {
     throw new Error(`${label} must be a safe integer.`);
   }
   return parsed;
-}
-
-function nextPowerOfTwo(value: number): number {
-  let size = 1;
-  while (size < value) {
-    size *= 2;
-  }
-  return size;
 }
 
 function formatShape(shape: Shape): string {

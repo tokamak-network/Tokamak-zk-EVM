@@ -181,19 +181,22 @@ Chromium generated the 2408-byte proof in `233.30 s` and verified it in `24 ms`.
 
 `bench-lagrange-kl-multiplication.ts` isolates both construction of
 `K_{mI-1}(X)L_{sMax-1}(Y)` and the single prover product that multiplies this
-structured polynomial by `r(X,Y)-1`.
+structured polynomial by `r(X,Y)-1`. The retained executable compares current
+production with the generic ROU-construction and polynomial-multiplication
+path, which serves as the independent parity oracle. Its JSON report keeps
+construction, multiplication, and their combined cost as separate rows.
 
-The construction candidate uses the exact separable coefficient formula:
+The promoted construction uses the exact separable coefficient formula:
 
 ```text
 K(X)L(Y)[x,y] = (mI * sMax)^-1 * omega_mI^x * omega_sMax^y
 ```
 
-The multiplication candidate applies weighted sliding recurrences along X and
+The promoted multiplication applies weighted sliding recurrences along X and
 then Y. It avoids materializing the KL polynomial and avoids generic forward
-and inverse 2D transforms. The benchmark keeps KL construction and KL
-multiplication as independent rows, checks them against retained legacy
-formulas, and uses a small dense-convolution oracle.
+and inverse 2D transforms. The candidate and caller-thread/one-worker mirror
+implementations were removed after promotion; their measurements below are
+historical records.
 
 Representative independent result at `mI=4096`, `sMax=256`, and polynomial
 shape `4096x256`:
