@@ -11,7 +11,7 @@ import {
   mulByLinearY,
   mulByXMinusOne,
   multiplyByLagrangeK0,
-} from "../../../src/prover/internal/polynomial-ops.js";
+} from "../../../src/prover/polynomial/polynomial-ops.js";
 import {
   createStructuredBenchmarkRuntimes,
 } from "./structured-wasm-benchmark-support.js";

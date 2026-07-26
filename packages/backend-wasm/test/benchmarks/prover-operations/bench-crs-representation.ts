@@ -8,8 +8,8 @@ import {
   loadRuntimeArtifactFile,
   requireRuntimeSection,
 } from "../../../src/index.js";
-import { loadProverCrsArtifact } from "../../../src/artifacts/loaders/prepared-data.js";
-import type { RuntimeArtifactFile } from "../../../src/artifacts/loaders/types.js";
+import { loadProverCrsArtifact } from "../../../src/artifacts/runtime/prepared-data.js";
+import type { RuntimeArtifactFile } from "../../../src/artifacts/runtime/types.js";
 import {
   parseProverCrs,
   type ProverCrsRuntime,

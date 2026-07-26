@@ -14,7 +14,7 @@ import {
 } from "../../../src/prover/generated/subcircuit-library.generated.js";
 import type {
   ProverPlacementVariables,
-} from "../../../src/prover/internal/witness.js";
+} from "../../../src/prover/protocol/witness.js";
 import {
   unpackPackedSparseR1cs,
   type ProverSparseMatrix,

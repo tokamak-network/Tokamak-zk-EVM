@@ -8,7 +8,7 @@ import type { FieldElement } from "../../src/runtime/field/field.js";
 import type {
   ProverSetupParams,
   ProverSubcircuitInfo,
-} from "../../src/prover/internal/witness.js";
+} from "../../src/prover/protocol/witness.js";
 
 const require = createRequire(import.meta.url);
 const backendWasmRoot = path.resolve(import.meta.dirname, "../..");
@@ -312,7 +312,7 @@ import type {
   ProverPackedSparseSubcircuitR1cs,
   ProverSetupParams,
   ProverSubcircuitInfo,
-} from "../internal/witness.js";
+} from "../protocol/witness.js";
 
 export const NATIVE_BACKEND_VERSION = ${JSON.stringify(input.nativeBackendVersion)};
 export const SUBCIRCUIT_LIBRARY_PACKAGE_VERSION = ${JSON.stringify(input.subcircuitLibraryPackageVersion)};

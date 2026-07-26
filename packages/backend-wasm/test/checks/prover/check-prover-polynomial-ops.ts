@@ -22,7 +22,7 @@ import {
   multiplyByLagrangeKl,
   multiplyOmegaShiftedProducts,
   transposeRowMajorBuffer,
-} from "../../../src/prover/internal/polynomial-ops.js";
+} from "../../../src/prover/polynomial/polynomial-ops.js";
 
 async function main(): Promise<void> {
   const runtime = await createCurveRuntime();

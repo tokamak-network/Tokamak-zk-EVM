@@ -10,7 +10,7 @@ import {
 } from "../../../src/index.js";
 import type {
   WitnessPolynomials,
-} from "../../../src/prover/internal/witness.js";
+} from "../../../src/prover/protocol/witness.js";
 import {
   unpackPackedSparseR1cs,
   type ProverSparseMatrix,

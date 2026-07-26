@@ -15,7 +15,7 @@ import {
   type FieldElement,
   type VerifierBinaryInput,
 } from "../../../src/index.js";
-import { verifySnark, type VerifierInput } from "../../../src/verifier/internal/verify-snark.js";
+import { verifySnark, type VerifierInput } from "../../../src/verifier/protocol/verify-snark.js";
 import { readVerifierBinaryInput } from "../../support/runtime-inputs.js";
 
 interface BinaryVerifierFixture {

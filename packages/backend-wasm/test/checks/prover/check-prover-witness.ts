@@ -22,13 +22,13 @@ import {
   buildProverBinding,
   computeInitialRelationCommitments,
   encodePolynomialBufferWithSigma1,
-} from "../../../src/prover/internal/initial-relation.js";
-import { computeRecursionCommitment } from "../../../src/prover/internal/recursion-commitment.js";
-import { computeCopyQuotientCommitments } from "../../../src/prover/internal/copy-quotient.js";
-import { evaluateChallengePoints } from "../../../src/prover/internal/challenge-evaluations.js";
-import { computeOpeningCommitments } from "../../../src/prover/internal/opening-commitments.js";
+} from "../../../src/prover/protocol/initial-relation.js";
+import { computeRecursionCommitment } from "../../../src/prover/protocol/recursion-commitment.js";
+import { computeCopyQuotientCommitments } from "../../../src/prover/protocol/copy-quotient.js";
+import { evaluateChallengePoints } from "../../../src/prover/protocol/challenge-evaluations.js";
+import { computeOpeningCommitments } from "../../../src/prover/protocol/opening-commitments.js";
 import { createVerifierProofArtifactFromProverOutput } from "../../../src/prover/api/proof-output.js";
-import { buildProverInstancePolynomials, createProverMixer, createProverState } from "../../../src/prover/internal/state.js";
+import { buildProverInstancePolynomials, createProverMixer, createProverState } from "../../../src/prover/protocol/state.js";
 import { GENERATED_PROVER_SETUP_PARAMS } from "../../../src/prover/generated/subcircuit-library.generated.js";
 import {
   buildWitnessPolynomials,
@@ -38,7 +38,7 @@ import {
   type ProverPermutationEntry,
   type ProverSetupParams,
   type ProverSubcircuitInfo,
-} from "../../../src/prover/internal/witness.js";
+} from "../../../src/prover/protocol/witness.js";
 
 interface ProverSparseMatrix {
   readonly activeWires: readonly number[];

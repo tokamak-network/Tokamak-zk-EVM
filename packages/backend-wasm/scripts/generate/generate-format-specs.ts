@@ -231,7 +231,7 @@ function validatePointIndexes(
 }
 
 function renderSpec(constName: string, spec: RawSpec): string {
-  return `import { BinarySectionEncoding, BinarySectionType } from "../format/binary-format.js";
+  return `import { BinarySectionEncoding, BinarySectionType } from "../binary/binary-format.js";
 import type { RuntimeArtifactFormatSpec } from "./types.js";
 
 export const ${constName} = {

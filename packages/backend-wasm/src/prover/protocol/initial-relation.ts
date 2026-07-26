@@ -16,12 +16,12 @@ import {
   linearCombinationBufferBatch,
   lowDegreeXTimesVanishingBuffer,
   lowDegreeYTimesVanishingBuffer,
-} from "./polynomial-ops.js";
+} from "../polynomial/polynomial-ops.js";
 import {
   encodeSigma1CommitmentBarrier,
   requireCommitment,
   type ProverCommitmentEncoder,
-} from "./commitment-encoder.js";
+} from "../commitments/commitment-encoder.js";
 import type { ProverMixer } from "./state.js";
 import type { ProverState } from "./state.js";
 

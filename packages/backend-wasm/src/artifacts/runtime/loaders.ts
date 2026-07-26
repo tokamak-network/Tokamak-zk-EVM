@@ -1,5 +1,5 @@
-import { decodeBinaryArtifactFile } from "../format/binary-artifact-file.js";
-import type { BinarySectionView } from "../format/binary-format.js";
+import { decodeBinaryArtifactFile } from "../binary/binary-artifact-file.js";
+import type { BinarySectionView } from "../binary/binary-format.js";
 import type { RuntimeArtifactFile, RuntimeArtifactSectionQuery } from "./types.js";
 
 export type BinaryArtifactLoader = (bytes: Uint8Array) => Promise<RuntimeArtifactFile>;

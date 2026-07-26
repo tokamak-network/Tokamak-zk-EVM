@@ -10,9 +10,9 @@ import {
   mulByOneMinusX,
   mulByTerm9,
   multiplyByLagrangeK0,
-} from "./polynomial-ops.js";
+} from "../polynomial/polynomial-ops.js";
 import { encodePolynomialBufferWithSigma1, type InitialRelationComputation, type ProverOperationOptions } from "./initial-relation.js";
-import { encodeSigma1CommitmentBarrier, requireCommitment } from "./commitment-encoder.js";
+import { encodeSigma1CommitmentBarrier, requireCommitment } from "../commitments/commitment-encoder.js";
 import type { CopyQuotientComputation } from "./copy-quotient.js";
 import type { ChallengeEvaluations } from "./challenge-evaluations.js";
 import type { ProverState } from "./state.js";

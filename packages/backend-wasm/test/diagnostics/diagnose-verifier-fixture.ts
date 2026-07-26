@@ -15,7 +15,7 @@ import {
   SUBCIRCUIT_LIBRARY_PACKAGE_VERSION,
 } from "../../src/prover/generated/subcircuit-library.generated.js";
 import { GENERATED_VERIFIER_SIGMA } from "../../src/verifier/generated/sigma-verify.generated.js";
-import { verifySnark } from "../../src/verifier/internal/verify-snark.js";
+import { verifySnark } from "../../src/verifier/protocol/verify-snark.js";
 import { readVerifierBinaryInput } from "../support/runtime-inputs.js";
 
 interface CopyManifest {

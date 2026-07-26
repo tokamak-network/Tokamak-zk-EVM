@@ -9,7 +9,7 @@ import {
   mulByOneMinusX,
   mulByTerm9,
   multiplyByLagrangeK0,
-} from "../../../src/prover/internal/polynomial-ops.js";
+} from "../../../src/prover/polynomial/polynomial-ops.js";
 import type { PreparedProverContext } from "../support/prepared-prover-context.js";
 
 export interface OpeningBenchmarkInputs {

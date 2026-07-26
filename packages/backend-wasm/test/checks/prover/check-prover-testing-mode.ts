@@ -25,11 +25,11 @@ import {
   encodePolynomialBufferWithSigma1,
   computeInitialRelationCommitments,
   type InitialRelationComputation,
-} from "../../../src/prover/internal/initial-relation.js";
-import { computeRecursionCommitment, type RecursionComputation } from "../../../src/prover/internal/recursion-commitment.js";
-import { computeCopyQuotientCommitments, type CopyQuotientComputation } from "../../../src/prover/internal/copy-quotient.js";
-import { evaluateChallengePoints, type ChallengeEvaluations } from "../../../src/prover/internal/challenge-evaluations.js";
-import { computeOpeningCommitments } from "../../../src/prover/internal/opening-commitments.js";
+} from "../../../src/prover/protocol/initial-relation.js";
+import { computeRecursionCommitment, type RecursionComputation } from "../../../src/prover/protocol/recursion-commitment.js";
+import { computeCopyQuotientCommitments, type CopyQuotientComputation } from "../../../src/prover/protocol/copy-quotient.js";
+import { evaluateChallengePoints, type ChallengeEvaluations } from "../../../src/prover/protocol/challenge-evaluations.js";
+import { computeOpeningCommitments } from "../../../src/prover/protocol/opening-commitments.js";
 import {
   buildLagrangeK0,
   buildLagrangeKl,
@@ -41,7 +41,7 @@ import {
   mulByOneMinusX,
   mulByTerm9,
   mulByXMinusOne,
-} from "../../../src/prover/internal/polynomial-ops.js";
+} from "../../../src/prover/polynomial/polynomial-ops.js";
 
 interface ProverTestingModeOutput {
   readonly proofArtifact: Uint8Array;

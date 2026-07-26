@@ -11,7 +11,7 @@ import {
 import {
   encodeOMidNoZk,
   encodeOPrvNoZk,
-} from "../../../src/prover/internal/initial-relation.js";
+} from "../../../src/prover/protocol/initial-relation.js";
 import { proverCrsG1PointAt } from "../../../src/prover/api/binary-input.js";
 import { loadPreparedProverInput } from "../support/prepared-prover-context.js";
 

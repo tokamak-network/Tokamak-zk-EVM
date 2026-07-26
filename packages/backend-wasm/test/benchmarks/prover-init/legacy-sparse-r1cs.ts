@@ -2,7 +2,7 @@ import type { FieldElement } from "../../../src/runtime/field/field.js";
 import type {
   ProverPackedSparseSubcircuitR1cs,
   ProverWitnessInput,
-} from "../../../src/prover/internal/witness.js";
+} from "../../../src/prover/protocol/witness.js";
 
 export interface ProverSparseRowEntry {
   readonly column: number;

@@ -7,7 +7,7 @@ import {
   computeRecursionEvalsBuffer,
   constantPolynomialBuffer,
   linearCombinationBufferBatch,
-} from "./polynomial-ops.js";
+} from "../polynomial/polynomial-ops.js";
 import type { ProverState } from "./state.js";
 
 export interface RecursionCommitment {

@@ -17,11 +17,11 @@ import { readProverRuntimeInput, readVerifierBinaryInput } from "../../support/r
 import {
   buildProverBinding,
   computeInitialRelationCommitments,
-} from "../../../src/prover/internal/initial-relation.js";
-import { computeRecursionCommitment } from "../../../src/prover/internal/recursion-commitment.js";
-import { computeCopyQuotientCommitments } from "../../../src/prover/internal/copy-quotient.js";
-import { evaluateChallengePoints } from "../../../src/prover/internal/challenge-evaluations.js";
-import { computeOpeningCommitments } from "../../../src/prover/internal/opening-commitments.js";
+} from "../../../src/prover/protocol/initial-relation.js";
+import { computeRecursionCommitment } from "../../../src/prover/protocol/recursion-commitment.js";
+import { computeCopyQuotientCommitments } from "../../../src/prover/protocol/copy-quotient.js";
+import { evaluateChallengePoints } from "../../../src/prover/protocol/challenge-evaluations.js";
+import { computeOpeningCommitments } from "../../../src/prover/protocol/opening-commitments.js";
 
 async function main(): Promise<void> {
   const runtimeDir = path.resolve("fixtures/small/runtime");

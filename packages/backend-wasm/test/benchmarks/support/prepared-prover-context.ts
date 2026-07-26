@@ -12,20 +12,20 @@ import { readProverRuntimeInput } from "../../support/runtime-inputs.js";
 import {
   computeInitialRelationCommitments,
   type InitialRelationComputation,
-} from "../../../src/prover/internal/initial-relation.js";
+} from "../../../src/prover/protocol/initial-relation.js";
 import {
   computeRecursionCommitment,
   type RecursionComputation,
-} from "../../../src/prover/internal/recursion-commitment.js";
+} from "../../../src/prover/protocol/recursion-commitment.js";
 import {
   computeCopyQuotientCommitments,
   type CopyQuotientComputation,
-} from "../../../src/prover/internal/copy-quotient.js";
+} from "../../../src/prover/protocol/copy-quotient.js";
 import {
   evaluateChallengePoints,
   type ChallengeEvaluations,
-} from "../../../src/prover/internal/challenge-evaluations.js";
-import type { ProverState } from "../../../src/prover/internal/state.js";
+} from "../../../src/prover/protocol/challenge-evaluations.js";
+import type { ProverState } from "../../../src/prover/protocol/state.js";
 
 export interface PreparedProverContext {
   readonly input: ProverRuntimeInput;

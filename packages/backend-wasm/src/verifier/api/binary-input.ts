@@ -1,17 +1,17 @@
-import { loadRuntimeArtifactFile } from "../../artifacts/loaders/loaders.js";
+import { loadRuntimeArtifactFile } from "../../artifacts/runtime/loaders.js";
 import {
   loadVerifierPreprocessArtifact,
   loadVerifierProofArtifact,
-} from "../../artifacts/loaders/prepared-data.js";
-import type { RuntimeArtifactFile } from "../../artifacts/loaders/types.js";
+} from "../../artifacts/runtime/prepared-data.js";
+import type { RuntimeArtifactFile } from "../../artifacts/runtime/types.js";
 import { DensePolynomialExt } from "../../runtime/polynomial/dense-polynomial.js";
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import type { FieldElement } from "../../runtime/field/field.js";
-import { BinarySectionEncoding, BinarySectionType } from "../../artifacts/format/binary-format.js";
+import { BinarySectionEncoding, BinarySectionType } from "../../artifacts/binary/binary-format.js";
 import { GENERATED_PROVER_SETUP_PARAMS } from "../../prover/generated/subcircuit-library.generated.js";
-import type { VerifierSetupParams } from "../equations/domain-context.js";
+import type { VerifierSetupParams } from "../protocol/domain-context.js";
 import { GENERATED_VERIFIER_SIGMA } from "../generated/sigma-verify.generated.js";
-import type { VerifierInput, VerifierProof } from "../internal/verify-snark.js";
+import type { VerifierInput, VerifierProof } from "../protocol/verify-snark.js";
 
 export interface VerifierRuntimeArtifactFiles {
   readonly instance: RuntimeArtifactFile;

@@ -3,7 +3,7 @@ import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import type { FieldElement } from "../../runtime/field/field.js";
 import type { ProverRuntimeInput } from "../api/binary-input.js";
 import type { ProverVerifierProofOutputInput } from "../api/proof-output.js";
-import type { ProverCommitmentEncoder } from "./commitment-encoder.js";
+import type { ProverCommitmentEncoder } from "../commitments/commitment-encoder.js";
 import { createProverState } from "./state.js";
 import { buildWitnessPolynomials } from "./witness.js";
 import { buildProverBinding, computeInitialRelationCommitments } from "./initial-relation.js";

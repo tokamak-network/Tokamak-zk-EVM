@@ -1,13 +1,13 @@
-import { createBinaryArtifactFile, decodeBinaryArtifactFile } from "../../artifacts/format/binary-artifact-file.js";
+import { createBinaryArtifactFile, decodeBinaryArtifactFile } from "../../artifacts/binary/binary-artifact-file.js";
 import { GENERATED_PROVER_SETUP_PARAMS } from "../../prover/generated/subcircuit-library.generated.js";
-import { BACKEND_WASM_PACKAGE_VERSION } from "../../prover/internal/version.js";
+import { BACKEND_WASM_PACKAGE_VERSION } from "../../prover/api/version.js";
 import {
   BinaryArtifactFileKind,
   type BinaryArtifactFileView,
   BinarySectionEncoding,
   BinarySectionType,
   type BinarySectionView,
-} from "../../artifacts/format/binary-format.js";
+} from "../../artifacts/binary/binary-format.js";
 import { createCurveRuntime, type CurveRuntime } from "../../runtime/curve/curve.js";
 import type {
   BinaryArtifactInspection,

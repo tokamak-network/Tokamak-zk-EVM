@@ -21,10 +21,10 @@ packages/backend-wasm/
   src/
     index.ts
     artifacts/
-      format/
-      loaders/
+      binary/
+      runtime/
       specs/
-    core/
+    runtime/
       crypto/
       curve/
       field/
@@ -34,16 +34,17 @@ packages/backend-wasm/
       random/
     prover/
       api/
+      commitments/
       generated/
-      internal/
+      polynomial/
+      protocol/
     tooling/
-      artifact-converters/
-      artifact-validators/
+      converters/
+      validators/
     verifier/
       api/
-      equations/
       generated/
-      internal/
+      protocol/
   scripts/
   fixtures/
   test/
@@ -62,8 +63,8 @@ Runtime primitives that `src/prover` and `src/verifier` may directly depend on.
 
 Runtime artifact definitions and access helpers.
 
-- `format/`: binary artifact file format, typed file-kind/version/digest tables, and section table encoding.
-- `loaders/`: minimal runtime artifact file loading and typed section lookup.
+- `binary/`: binary artifact file format, typed file-kind/version/digest tables, and section table encoding.
+- `runtime/`: minimal runtime artifact file loading and typed section lookup.
 - `specs/`: JSON source specs and generated TypeScript constants for each binary artifact kind.
 
 ### `src/verifier/`
@@ -71,7 +72,7 @@ Runtime artifact definitions and access helpers.
 Verifier orchestration for the custom Tokamak protocol.
 
 - `api/`: public binary verifier entrypoint and runtime binary input assembly.
-- `equations/`: verifier equations, challenges, and domain context.
+- `protocol/`: verifier equations, challenges, domain context, and verification orchestration.
 - `generated/`: build-generated verifier CRS data.
 - `internal/`: decoded-input verifier core used by the public API and diagnostics.
 
@@ -102,7 +103,7 @@ Local fixture and generated-source maintenance wrappers.
 - `scripts/fixtures/`: local fixture copy, conversion, and preparation wrappers.
 - `scripts/generate/`: generated TypeScript source updaters for artifact specs, subcircuit-library data, and verifier CRS.
 
-`scripts/fixtures/copy-fixtures.ts` performs only the first fixture update stage. It copies source artifacts from existing owner package outputs under `packages/` into the package-local ignored work area under `packages/backend-wasm/tmp/fixture-work/`. It must not generate missing artifacts and must not write final runtime fixture files. `scripts/fixtures/prepare-runtime-fixtures.ts` is the local file I/O wrapper for the current verifier runtime fixture conversion stage and delegates artifact conversion to `src/tooling/artifact-converters/`.
+`scripts/fixtures/copy-fixtures.ts` performs only the first fixture update stage. It copies source artifacts from existing owner package outputs under `packages/` into the package-local ignored work area under `packages/backend-wasm/tmp/fixture-work/`. It must not generate missing artifacts and must not write final runtime fixture files. `scripts/fixtures/prepare-runtime-fixtures.ts` is the local file I/O wrapper for the current verifier runtime fixture conversion stage and delegates artifact conversion to `src/tooling/converters/`.
 
 ### `fixtures/`
 

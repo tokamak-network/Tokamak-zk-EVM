@@ -1,9 +1,9 @@
-import { loadRuntimeArtifactFile, requireRuntimeSection } from "../../artifacts/loaders/loaders.js";
-import { loadProverCrsArtifact } from "../../artifacts/loaders/prepared-data.js";
-import type { RuntimeArtifactFile } from "../../artifacts/loaders/types.js";
+import { loadRuntimeArtifactFile, requireRuntimeSection } from "../../artifacts/runtime/loaders.js";
+import { loadProverCrsArtifact } from "../../artifacts/runtime/prepared-data.js";
+import type { RuntimeArtifactFile } from "../../artifacts/runtime/types.js";
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import type { FieldElement } from "../../runtime/field/field.js";
-import { BinarySectionEncoding, BinarySectionType } from "../../artifacts/format/binary-format.js";
+import { BinarySectionEncoding, BinarySectionType } from "../../artifacts/binary/binary-format.js";
 import {
   GENERATED_PROVER_SETUP_PARAMS,
   GENERATED_PROVER_PACKED_R1CS,
@@ -16,7 +16,7 @@ import type {
   ProverPlacementVariables,
   ProverSetupParams,
   ProverWitnessInput,
-} from "../internal/witness.js";
+} from "../protocol/witness.js";
 
 export interface ProverRuntimeArtifactFiles {
   readonly placementVariables: RuntimeArtifactFile;

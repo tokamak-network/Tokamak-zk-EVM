@@ -13,7 +13,7 @@ import type {
   ProverSetupParams,
   ProverSubcircuitInfo,
   WitnessPolynomials,
-} from "../../../src/prover/internal/witness.js";
+} from "../../../src/prover/protocol/witness.js";
 import { loadPreparedProverInput } from "../support/prepared-prover-context.js";
 import {
   type LegacyProverWitnessInput,

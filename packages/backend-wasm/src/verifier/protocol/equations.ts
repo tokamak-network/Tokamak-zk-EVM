@@ -3,7 +3,7 @@ import type { FieldElement, FieldRuntime } from "../../runtime/field/field.js";
 import type { G1Point, G1Runtime } from "../../runtime/group/group.js";
 import type { VerifierChallenges } from "./challenges.js";
 import type { VerifierDomainContext } from "./domain-context.js";
-import type { VerifierInput, VerifierProof } from "../internal/verify-snark.js";
+import type { VerifierInput, VerifierProof } from "./verify-snark.js";
 
 export function evalLagrangeK0(
   field: FieldRuntime,

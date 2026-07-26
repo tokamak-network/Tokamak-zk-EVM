@@ -12,15 +12,15 @@ import {
   type BinaryDigestEntryView,
   type BinarySectionView,
   expectedElementByteLength,
-} from "../../artifacts/format/binary-format.js";
-import { decodeBinaryArtifactFile } from "../../artifacts/format/binary-artifact-file.js";
+} from "../../artifacts/binary/binary-format.js";
+import { decodeBinaryArtifactFile } from "../../artifacts/binary/binary-artifact-file.js";
 import {
   align8,
   bytesWithSelfDigestsZeroed,
   readFixedAscii,
   sha256,
   validateSourcePackageVersion,
-} from "../../artifacts/format/binary-table-utils.js";
+} from "../../artifacts/binary/binary-table-utils.js";
 import type { RuntimeArtifactFormatSpec, RuntimeArtifactSectionSpec } from "../../artifacts/specs/types.js";
 import { PROVER_CRS_V1_SPEC } from "../../artifacts/specs/prover-crs.v1.generated.js";
 import { PROVER_INSTANCE_V1_SPEC } from "../../artifacts/specs/prover-instance.v1.generated.js";

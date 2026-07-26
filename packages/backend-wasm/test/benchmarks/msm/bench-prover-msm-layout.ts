@@ -9,7 +9,7 @@ import {
   type ProverCrsRuntime,
   type ProverSetupParams,
 } from "../../../src/index.js";
-import { encodePolynomialBufferWithSigma1 } from "../../../src/prover/internal/initial-relation.js";
+import { encodePolynomialBufferWithSigma1 } from "../../../src/prover/protocol/initial-relation.js";
 
 const G1_AFFINE_BYTES = 96;
 

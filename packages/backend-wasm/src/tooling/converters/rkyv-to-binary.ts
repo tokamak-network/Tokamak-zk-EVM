@@ -1,11 +1,11 @@
-import { createBinaryArtifactFile } from "../../artifacts/format/binary-artifact-file.js";
+import { createBinaryArtifactFile } from "../../artifacts/binary/binary-artifact-file.js";
 import {
   BinaryArtifactFileKind,
   BinaryDigestEntryType,
   BinarySectionEncoding,
   BinarySectionType,
   type BinarySectionInput,
-} from "../../artifacts/format/binary-format.js";
+} from "../../artifacts/binary/binary-format.js";
 import { createCurveRuntime, type CurveRuntime } from "../../runtime/curve/curve.js";
 
 const G1_AFFINE_BYTES = 96;

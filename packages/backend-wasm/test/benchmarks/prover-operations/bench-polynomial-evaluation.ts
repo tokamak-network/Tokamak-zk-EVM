@@ -15,7 +15,7 @@ import { installLinearBatchPlugin } from "../../../src/runtime/field/linear-batc
 import {
   evaluateAtScaledChallengeSet,
   evaluateAtScaledChallengeSetBatch,
-} from "../../../src/prover/internal/polynomial-ops.js";
+} from "../../../src/prover/polynomial/polynomial-ops.js";
 
 interface Shape {
   readonly xSize: number;

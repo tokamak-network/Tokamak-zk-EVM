@@ -1,7 +1,7 @@
-import type { BinarySectionView } from "../format/binary-format.js";
-import { requireRuntimeSection } from "../loaders/loaders.js";
+import type { BinarySectionView } from "../binary/binary-format.js";
+import { requireRuntimeSection } from "../runtime/loaders.js";
 import type { RuntimeArtifactFormatSpec, RuntimeArtifactSectionSpec } from "./types.js";
-import type { RuntimeArtifactFile } from "../loaders/types.js";
+import type { RuntimeArtifactFile } from "../runtime/types.js";
 
 export interface LoadedRuntimeArtifactSpec {
   readonly spec: RuntimeArtifactFormatSpec;

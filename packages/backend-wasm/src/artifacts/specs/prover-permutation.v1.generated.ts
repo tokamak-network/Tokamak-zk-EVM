@@ -1,4 +1,4 @@
-import { BinarySectionEncoding, BinarySectionType } from "../format/binary-format.js";
+import { BinarySectionEncoding, BinarySectionType } from "../binary/binary-format.js";
 import type { RuntimeArtifactFormatSpec } from "./types.js";
 
 export const PROVER_PERMUTATION_V1_SPEC = {

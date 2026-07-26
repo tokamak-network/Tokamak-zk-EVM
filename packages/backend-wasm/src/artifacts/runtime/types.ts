@@ -4,7 +4,7 @@ import type {
   BinarySectionEncoding,
   BinarySectionType,
   BinarySectionView,
-} from "../format/binary-format.js";
+} from "../binary/binary-format.js";
 
 export interface RuntimeArtifactFile {
   readonly kind: BinaryArtifactFileKind;

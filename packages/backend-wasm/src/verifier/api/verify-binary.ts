@@ -3,7 +3,7 @@ import {
   loadVerifierInputFromBinaryInput,
   type VerifierBinaryInput,
 } from "./binary-input.js";
-import { verifySnark, type VerifySnarkOptions } from "../internal/verify-snark.js";
+import { verifySnark, type VerifySnarkOptions } from "../protocol/verify-snark.js";
 
 export async function verifyBinary(
   runtime: CurveRuntime,

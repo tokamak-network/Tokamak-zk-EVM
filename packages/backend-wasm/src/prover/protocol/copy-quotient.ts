@@ -3,7 +3,7 @@ import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import type { FieldElement } from "../../runtime/field/field.js";
 import type { ProverCrsRuntime } from "../api/binary-input.js";
 import { encodePolynomialBufferWithSigma1, type ProverOperationOptions } from "./initial-relation.js";
-import { encodeSigma1CommitmentBarrier, requireCommitment } from "./commitment-encoder.js";
+import { encodeSigma1CommitmentBarrier, requireCommitment } from "../commitments/commitment-encoder.js";
 import {
   buildLagrangeKl,
   combineLinearXWithScaled,
@@ -14,7 +14,7 @@ import {
   multiplyByLagrangeK0,
   multiplyByLagrangeKl,
   multiplyOmegaShiftedProducts,
-} from "./polynomial-ops.js";
+} from "../polynomial/polynomial-ops.js";
 import type { ProverState } from "./state.js";
 
 export interface CopyQuotientCommitments {

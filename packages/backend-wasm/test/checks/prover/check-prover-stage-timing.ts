@@ -23,11 +23,11 @@ import {
   encodePolynomialBufferWithSigma1,
   type InitialRelationComputation,
   type InitialRelationCommitments,
-} from "../../../src/prover/internal/initial-relation.js";
-import type { RecursionComputation } from "../../../src/prover/internal/recursion-commitment.js";
-import { type CopyQuotientComputation, type CopyQuotientCommitments } from "../../../src/prover/internal/copy-quotient.js";
-import type { ChallengeEvaluations } from "../../../src/prover/internal/challenge-evaluations.js";
-import type { OpeningCommitmentsComputation } from "../../../src/prover/internal/opening-commitments.js";
+} from "../../../src/prover/protocol/initial-relation.js";
+import type { RecursionComputation } from "../../../src/prover/protocol/recursion-commitment.js";
+import { type CopyQuotientComputation, type CopyQuotientCommitments } from "../../../src/prover/protocol/copy-quotient.js";
+import type { ChallengeEvaluations } from "../../../src/prover/protocol/challenge-evaluations.js";
+import type { OpeningCommitmentsComputation } from "../../../src/prover/protocol/opening-commitments.js";
 import {
   buildLagrangeKl,
   combineLinearXWithScaled,
@@ -45,7 +45,7 @@ import {
   multiplyByLagrangeK0,
   multiplyByLagrangeKl,
   multiplyOmegaShiftedProducts,
-} from "../../../src/prover/internal/polynomial-ops.js";
+} from "../../../src/prover/polynomial/polynomial-ops.js";
 
 interface SizeInfo {
   readonly label: string;

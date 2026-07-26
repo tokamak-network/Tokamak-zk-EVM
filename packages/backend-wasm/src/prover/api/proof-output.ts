@@ -1,16 +1,16 @@
-import { createBinaryArtifactFile } from "../../artifacts/format/binary-artifact-file.js";
+import { createBinaryArtifactFile } from "../../artifacts/binary/binary-artifact-file.js";
 import {
   BinaryArtifactFileKind,
   BinarySectionEncoding,
   BinarySectionType,
-} from "../../artifacts/format/binary-format.js";
+} from "../../artifacts/binary/binary-format.js";
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
-import type { ProverBinding, InitialRelationComputation } from "../internal/initial-relation.js";
-import type { RecursionComputation } from "../internal/recursion-commitment.js";
-import type { CopyQuotientComputation } from "../internal/copy-quotient.js";
-import type { ChallengeEvaluations } from "../internal/challenge-evaluations.js";
-import type { OpeningCommitmentsComputation } from "../internal/opening-commitments.js";
-import { BACKEND_WASM_PACKAGE_VERSION } from "../internal/version.js";
+import type { ProverBinding, InitialRelationComputation } from "../protocol/initial-relation.js";
+import type { RecursionComputation } from "../protocol/recursion-commitment.js";
+import type { CopyQuotientComputation } from "../protocol/copy-quotient.js";
+import type { ChallengeEvaluations } from "../protocol/challenge-evaluations.js";
+import type { OpeningCommitmentsComputation } from "../protocol/opening-commitments.js";
+import { BACKEND_WASM_PACKAGE_VERSION } from "./version.js";
 
 export interface ProverVerifierProofOutputInput {
   readonly runtime: CurveRuntime;

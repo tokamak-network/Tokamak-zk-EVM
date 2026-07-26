@@ -4,7 +4,7 @@ import type { FieldElement } from "../../runtime/field/field.js";
 import {
   evaluateAtScaledChallengeSetBatch,
   linearCombinationBufferBatch,
-} from "./polynomial-ops.js";
+} from "../polynomial/polynomial-ops.js";
 import type { ProverState } from "./state.js";
 
 export interface ChallengeEvaluations {

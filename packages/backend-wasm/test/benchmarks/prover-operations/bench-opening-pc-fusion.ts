@@ -7,7 +7,7 @@ import {
   type FieldElement,
   type FieldRuntime,
 } from "../../../src/index.js";
-import { linearCombinationBuffer } from "../../../src/prover/internal/polynomial-ops.js";
+import { linearCombinationBuffer } from "../../../src/prover/polynomial/polynomial-ops.js";
 
 interface Shape {
   readonly xSize: number;

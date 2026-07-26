@@ -13,7 +13,7 @@ import {
   mulByOneMinusX,
   mulByTerm9,
   mulByXMinusOne,
-} from "../../../src/prover/internal/polynomial-ops.js";
+} from "../../../src/prover/polynomial/polynomial-ops.js";
 import {
   createStructuredBenchmarkRuntimes,
 } from "./structured-wasm-benchmark-support.js";

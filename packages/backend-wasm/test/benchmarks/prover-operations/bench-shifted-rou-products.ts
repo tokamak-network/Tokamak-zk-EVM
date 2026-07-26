@@ -6,7 +6,7 @@ import {
   BivariatePolynomialBuffer,
   type FieldRuntime,
 } from "../../../src/index.js";
-import { multiplyOmegaShiftedProducts } from "../../../src/prover/internal/polynomial-ops.js";
+import { multiplyOmegaShiftedProducts } from "../../../src/prover/polynomial/polynomial-ops.js";
 import {
   batchMultiplyOneTask,
   batchMultiplyShiftedOneTask,

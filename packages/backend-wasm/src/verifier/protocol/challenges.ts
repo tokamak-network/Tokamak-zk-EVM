@@ -2,7 +2,7 @@ import { RollingKeccakTranscript } from "../../runtime/crypto/transcript.js";
 import type { FieldElement, FieldRuntime } from "../../runtime/field/field.js";
 import type { G1Runtime } from "../../runtime/group/group.js";
 import type { RandomScalarSource } from "../../runtime/random/random.js";
-import type { VerifierProof } from "../internal/verify-snark.js";
+import type { VerifierProof } from "./verify-snark.js";
 
 export interface VerifierChallenges {
   readonly thetas: readonly [FieldElement, FieldElement, FieldElement];

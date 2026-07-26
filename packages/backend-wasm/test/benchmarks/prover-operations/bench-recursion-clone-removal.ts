@@ -13,9 +13,9 @@ import {
   constantPolynomialBuffer,
   computeRecursionEvalsBuffer,
   linearCombinationBufferBatch,
-} from "../../../src/prover/internal/polynomial-ops.js";
-import { computeRecursionCommitment } from "../../../src/prover/internal/recursion-commitment.js";
-import type { ProverState } from "../../../src/prover/internal/state.js";
+} from "../../../src/prover/polynomial/polynomial-ops.js";
+import { computeRecursionCommitment } from "../../../src/prover/protocol/recursion-commitment.js";
+import type { ProverState } from "../../../src/prover/protocol/state.js";
 import { loadPreparedProverInput } from "../support/prepared-prover-context.js";
 
 type Candidate = "current-same-shape-resize" | "shape-assert-direct";

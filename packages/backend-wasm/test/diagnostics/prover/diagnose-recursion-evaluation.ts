@@ -17,13 +17,13 @@ import {
   buildProverBinding,
   computeInitialRelationCommitments,
   encodePolynomialBufferWithSigma1,
-} from "../../../src/prover/internal/initial-relation.js";
-import { computeCopyQuotientCommitments } from "../../../src/prover/internal/copy-quotient.js";
+} from "../../../src/prover/protocol/initial-relation.js";
+import { computeCopyQuotientCommitments } from "../../../src/prover/protocol/copy-quotient.js";
 import {
   computeRecursionEvalsBuffer,
   constantPolynomialBuffer,
   linearCombinationBuffer,
-} from "../../../src/prover/internal/polynomial-ops.js";
+} from "../../../src/prover/polynomial/polynomial-ops.js";
 
 interface DetailTiming {
   readonly section: string;

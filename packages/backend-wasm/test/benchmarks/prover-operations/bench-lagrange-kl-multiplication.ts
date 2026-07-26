@@ -9,7 +9,7 @@ import {
 import {
   buildLagrangeKl,
   multiplyByLagrangeKl,
-} from "../../../src/prover/internal/polynomial-ops.js";
+} from "../../../src/prover/polynomial/polynomial-ops.js";
 import {
   createStructuredBenchmarkRuntimes,
   klTemporaryBytes,

@@ -3,8 +3,8 @@ import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import type { FieldElement } from "../../runtime/field/field.js";
 import type { G1Point, G2Point } from "../../runtime/group/group.js";
 import type { RandomScalarSource } from "../../runtime/random/random.js";
-import { collectChallenges } from "../equations/challenges.js";
-import { buildDomainContext, type VerifierSetupParams } from "../equations/domain-context.js";
+import { collectChallenges } from "./challenges.js";
+import { buildDomainContext, type VerifierSetupParams } from "./domain-context.js";
 import {
   evalAPub,
   evalLagrangeK0,
@@ -12,7 +12,7 @@ import {
   lhsBinding,
   lhsCopyMsm,
   snarkAux,
-} from "../equations/equations.js";
+} from "./equations.js";
 
 export interface VerifySnarkResult {
   readonly valid: boolean;

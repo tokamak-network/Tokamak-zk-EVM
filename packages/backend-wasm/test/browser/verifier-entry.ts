@@ -11,7 +11,7 @@ import {
   type FieldElement,
   type VerifierBinaryInput,
 } from "../../src/index.js";
-import type { VerifierInput } from "../../src/verifier/internal/verify-snark.js";
+import type { VerifierInput } from "../../src/verifier/protocol/verify-snark.js";
 
 declare global {
   interface Window {
