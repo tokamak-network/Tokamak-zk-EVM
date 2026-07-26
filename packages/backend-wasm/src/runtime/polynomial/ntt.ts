@@ -1,4 +1,4 @@
-import type { FieldElement, FieldRuntime } from "../field/field.js";
+import type { FieldElement, FieldRuntime } from "../field/field-runtime.js";
 import { biNtt } from "./dense-polynomial.js";
 
 export type NttInput = readonly FieldElement[];

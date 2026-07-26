@@ -8,7 +8,7 @@ export * from "./runtime/polynomial/dense-polynomial.js";
 export * from "./runtime/polynomial/bivariate-polynomial-buffer.js";
 export * from "./runtime/polynomial/ntt.js";
 export * from "./runtime/curve/curve.js";
-export * from "./runtime/field/field.js";
+export * from "./runtime/field/field-runtime.js";
 export * from "./runtime/group/group.js";
 export * from "./runtime/pairing/pairing.js";
 export * from "./runtime/random/random.js";

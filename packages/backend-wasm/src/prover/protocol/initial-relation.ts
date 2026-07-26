@@ -1,6 +1,6 @@
 import { BivariatePolynomialBuffer } from "../../runtime/polynomial/bivariate-polynomial-buffer.js";
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
-import type { FieldElement } from "../../runtime/field/field.js";
+import type { FieldElement } from "../../runtime/field/field-runtime.js";
 import {
   proverCrsG1PointAt,
   proverCrsG1PointRange,

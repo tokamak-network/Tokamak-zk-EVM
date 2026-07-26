@@ -1,4 +1,4 @@
-import type { FieldElement, FieldRuntime } from "../field/field.js";
+import type { FieldElement, FieldRuntime } from "../field/field-runtime.js";
 import type { AffinePointJson, G1Point, G1Runtime } from "../group/group.js";
 import { keccak256 } from "./keccak.js";
 

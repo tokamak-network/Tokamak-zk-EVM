@@ -1,6 +1,6 @@
 import type { DensePolynomialExt } from "../../runtime/polynomial/dense-polynomial.js";
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
-import type { FieldElement } from "../../runtime/field/field.js";
+import type { FieldElement } from "../../runtime/field/field-runtime.js";
 import type { G1Point, G2Point } from "../../runtime/group/group.js";
 import type { RandomScalarSource } from "../../runtime/random/random.js";
 import { collectChallenges } from "./challenges.js";

@@ -1,6 +1,6 @@
 import { getCurveFromName } from "ffjavascript";
 
-import { createFieldRuntime, type FieldRuntime } from "../field/field.js";
+import { createFieldRuntime, type FieldRuntime } from "../field/field-runtime.js";
 import { installLinearBatchPlugin } from "../field/linear-batch-plugin.js";
 import { createG1Runtime, createG2Runtime, type G1Runtime, type G2Runtime } from "../group/group.js";
 import { createPairingRuntime, type PairingRuntime } from "../pairing/pairing.js";

@@ -1,5 +1,5 @@
 import type { DensePolynomialExt } from "../../runtime/polynomial/dense-polynomial.js";
-import type { FieldElement, FieldRuntime } from "../../runtime/field/field.js";
+import type { FieldElement, FieldRuntime } from "../../runtime/field/field-runtime.js";
 import type { G1Point, G1Runtime } from "../../runtime/group/group.js";
 import type { VerifierChallenges } from "./challenges.js";
 import type { VerifierDomainContext } from "./domain-context.js";

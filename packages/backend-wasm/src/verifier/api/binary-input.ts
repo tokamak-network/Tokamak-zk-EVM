@@ -6,7 +6,7 @@ import {
 import type { RuntimeArtifactFile } from "../../artifacts/runtime/types.js";
 import { DensePolynomialExt } from "../../runtime/polynomial/dense-polynomial.js";
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
-import type { FieldElement } from "../../runtime/field/field.js";
+import type { FieldElement } from "../../runtime/field/field-runtime.js";
 import { BinarySectionEncoding, BinarySectionType } from "../../artifacts/binary/binary-format.js";
 import { GENERATED_PROVER_SETUP_PARAMS } from "../../prover/generated/subcircuit-library.generated.js";
 import type { VerifierSetupParams } from "../protocol/domain-context.js";

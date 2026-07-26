@@ -1,5 +1,5 @@
 import type { FfGroup } from "../curve/curve.js";
-import { formatHex, parseCanonicalHex, type FieldElement, type FieldRuntime } from "../field/field.js";
+import { formatHex, parseCanonicalHex, type FieldElement, type FieldRuntime } from "../field/field-runtime.js";
 
 export type G1Point = Uint8Array;
 

@@ -1,4 +1,4 @@
-import type { FieldElement, FieldRuntime } from "../../runtime/field/field.js";
+import type { FieldElement, FieldRuntime } from "../../runtime/field/field-runtime.js";
 import type { VerifierChallenges } from "./challenges.js";
 
 export interface VerifierDomainContext {

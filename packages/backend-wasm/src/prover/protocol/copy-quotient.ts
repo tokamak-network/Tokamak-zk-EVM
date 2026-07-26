@@ -1,6 +1,6 @@
 import { BivariatePolynomialBuffer } from "../../runtime/polynomial/bivariate-polynomial-buffer.js";
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
-import type { FieldElement } from "../../runtime/field/field.js";
+import type { FieldElement } from "../../runtime/field/field-runtime.js";
 import type { ProverCrsRuntime } from "../api/binary-input.js";
 import { encodePolynomialBufferWithSigma1, type ProverOperationOptions } from "./initial-relation.js";
 import { encodeSigma1CommitmentBarrier, requireCommitment } from "../commitments/commitment-encoder.js";

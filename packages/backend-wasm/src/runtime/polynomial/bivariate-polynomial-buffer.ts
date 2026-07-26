@@ -1,5 +1,5 @@
 import { DensePolynomialExt } from "./dense-polynomial.js";
-import type { FieldElement, FieldRuntime } from "../field/field.js";
+import type { FieldElement, FieldRuntime } from "../field/field-runtime.js";
 
 export interface BivariatePolynomialBufferShape {
   readonly xSize: number;

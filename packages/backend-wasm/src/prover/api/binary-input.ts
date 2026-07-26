@@ -2,7 +2,7 @@ import { loadRuntimeArtifactFile, requireRuntimeSection } from "../../artifacts/
 import { loadProverCrsArtifact } from "../../artifacts/runtime/prepared-data.js";
 import type { RuntimeArtifactFile } from "../../artifacts/runtime/types.js";
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
-import type { FieldElement } from "../../runtime/field/field.js";
+import type { FieldElement } from "../../runtime/field/field-runtime.js";
 import { BinarySectionEncoding, BinarySectionType } from "../../artifacts/binary/binary-format.js";
 import {
   GENERATED_PROVER_SETUP_PARAMS,

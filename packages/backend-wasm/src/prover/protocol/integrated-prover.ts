@@ -1,6 +1,6 @@
 import { RollingKeccakTranscript } from "../../runtime/crypto/transcript.js";
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
-import type { FieldElement } from "../../runtime/field/field.js";
+import type { FieldElement } from "../../runtime/field/field-runtime.js";
 import type { ProverRuntimeInput } from "../api/binary-input.js";
 import type { ProverVerifierProofOutputInput } from "../api/proof-output.js";
 import type { ProverCommitmentEncoder } from "../commitments/commitment-encoder.js";
