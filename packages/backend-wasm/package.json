@@ -1,7 +1,7 @@
 {
   "name": "@tokamak-zk-evm/backend-wasm",
   "version": "2.1.1",
-  "description": "Web-compatible Tokamak zk-EVM prover and verifier package scaffold.",
+  "description": "Browser-compatible Tokamak zk-EVM prover, verifier, and artifact converters.",
   "license": "GPL-3.0-or-later",
   "author": "Tokamak Network",
   "type": "module",
@@ -40,7 +40,6 @@
     "fixtures:prepare": "tsx scripts/fixtures/prepare-runtime-fixtures.ts fixtures/small/copy-manifest.json",
     "fixtures:check:native-verifier": "tsx test/checks/fixtures/check-native-verifier-fixture.ts fixtures/small/copy-manifest.json",
     "fixtures:diagnose:verifier": "tsx test/diagnostics/diagnose-verifier-fixture.ts fixtures/small/copy-manifest.json",
-    "diagnose:prover:recursion-evaluation": "tsx test/diagnostics/prover/diagnose-recursion-evaluation.ts",
     "polynomial:buffer:check": "tsx test/checks/polynomial/check-polynomial-buffer.ts",
     "prover:ops:check": "npm run prover:ops:field && npm run polynomial:buffer:check && npm run prover:ops:polynomial && npm run prover:ops:commitment",
     "prover:ops:commitment": "tsx test/checks/prover/check-prover-commitment-ops.ts",

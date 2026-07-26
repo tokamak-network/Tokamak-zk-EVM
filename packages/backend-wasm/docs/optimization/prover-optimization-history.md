@@ -479,6 +479,9 @@ npm run diagnose:prover:recursion-evaluation
 ```
 
 The command writes structured output to `tmp/timing/prover-recursion-evaluation-breakdown.json`.
+This historical diagnostic was retired during pre-publication cleanup after its
+results were incorporated here; the retained timing command is
+`npm run prover:stage-timing:check`.
 
 Measured recursion breakdown:
 

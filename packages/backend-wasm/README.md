@@ -1,205 +1,260 @@
 # Tokamak zk-EVM Backend WASM
 
-`@tokamak-zk-evm/backend-wasm` is the web-compatible prover and verifier package for the Tokamak zk-EVM backend protocol.
+`@tokamak-zk-evm/backend-wasm` provides the browser-compatible prover,
+verifier, and artifact converters for the Tokamak zk-EVM backend protocol.
+The native backend under `packages/backend` remains the protocol reference and
+the accelerated ICICLE/arkworks implementation.
 
-The native backend in `packages/backend` remains the ICICLE/arkworks implementation. This package ports the same custom bivariate-polynomial protocol to TypeScript with browser-compatible runtime dependencies, primarily `ffjavascript` for BLS12-381 field, group, MSM, FFT, and pairing operations.
+The package uses `ffjavascript` for BLS12-381 field, group, MSM, FFT, and pairing
+operations. Prover and verifier hot paths consume binary artifacts only. JSON
+and rkyv conversion, optional inspection, and optional validation remain outside
+those runtime algorithms.
 
-The current implementation contains shared runtime primitives, binary artifact loaders, verifier orchestration, and an integrated prover path. Prover diagnostics still use historical native-stage labels in non-runtime scripts, but production prover code is organized by integrated protocol operations rather than `prove0` through `prove4` stage modules.
+## Public Entry Points
 
-## Purpose
-
-This package exists to provide a runtime boundary that can be used from web applications without depending on the native Rust/CUDA backend.
-
-Runtime prover and verifier APIs consume named objects whose properties are separate binary artifact files. They do not accept manifests, file lists, path resolvers, JSON, or rkyv input. Native artifact conversion, optional binary inspection and validation, fixture import, and debug export belong to tooling outside the hot prover and verifier paths.
-
-Runtime subcircuit artifacts come from the `@tokamak-zk-evm/subcircuit-library` package dependency. Verifier CRS data is generated into the package build output, while prover CRS data is prepared by the embedding application and passed to this package as a binary input. `src/prover`, `src/verifier`, and runtime loaders must not fetch Google Drive artifacts directly.
-
-## Package Structure
-
-```text
-packages/backend-wasm/
-  src/
-    index.ts
-    artifacts/
-      binary/
-      runtime/
-      specs/
-    runtime/
-      crypto/
-      curve/
-      field/
-      group/
-      pairing/
-      polynomial/
-      random/
-    prover/
-      api/
-      commitments/
-      generated/
-      polynomial/
-      protocol/
-    tooling/
-      converters/
-      validators/
-    verifier/
-      api/
-      generated/
-      protocol/
-  scripts/
-  fixtures/
-  test/
-  tools/
-```
-
-### `src/runtime/`
-
-Runtime primitives that `src/prover` and `src/verifier` may directly depend on.
-
-- `crypto/`: Keccak and transcript primitives matching the native backend byte layout.
-- `curve/`, `field/`, `group/`, `pairing/`, and `random/`: `ffjavascript` adapters for BLS12-381 runtime operations.
-- `polynomial/`: bivariate dense polynomial helpers, NTT wrappers, domains, and Lagrange evaluation helpers.
-
-### `src/artifacts/`
-
-Runtime artifact definitions and access helpers.
-
-- `binary/`: binary artifact file format, typed file-kind/version/digest tables, and section table encoding.
-- `runtime/`: minimal runtime artifact file loading and typed section lookup.
-- `specs/`: JSON source specs and generated TypeScript constants for each binary artifact kind.
-
-### `src/verifier/`
-
-Verifier orchestration for the custom Tokamak protocol.
-
-- `api/`: public binary verifier entrypoint and runtime binary input assembly.
-- `protocol/`: verifier equations, challenges, domain context, and verification orchestration.
-- `generated/`: build-generated verifier CRS data.
-- `internal/`: decoded-input verifier core used by the public API and diagnostics.
-
-This layer composes `src/runtime/` and `src/artifacts/` primitives and should not parse JSON, decode rkyv, or perform import/export formatting.
-
-### `src/prover/`
-
-Prover orchestration entry points and integrated prover implementation.
-
-- `api/`: public binary prover entrypoint, decoded prover orchestration, runtime binary input assembly, and proof output assembly.
-- `internal/`: integrated prover orchestration, operation-named protocol computations, witness/state construction, commitment encoding boundary, and package version helpers.
-- `generated/`: build-generated subcircuit-library data.
-
-The prover port should preserve the native backend's accepted algorithmic structure and optimization strategy while using web-compatible `ffjavascript` primitives. Production code must not reintroduce `src/prover/stages/` as an architectural boundary.
-
-### `src/tooling/`
-
-Web-compatible tooling libraries that are not imported by prover or verifier runtime orchestration. Artifact converters live here so applications or local CLIs can build conversion workflows without putting conversion work in runtime prove/verify paths.
-
-`convertProverCrs(rkyvBytes)` consumes a `Uint8Array` containing the native
-`combined_sigma.rkyv` artifact. It transfers the input buffer to a temporary
-module Worker without copying it, performs the complete conversion there, and
-terminates the Worker after receiving either a result or an error. The transfer
-detaches the caller's input buffer. An application that must retain the source
-must explicitly pass a copy:
+The package exposes exactly three subpaths:
 
 ```ts
-const proverCrs = await convertProverCrs(combinedSigmaRkyv.slice());
+import("@tokamak-zk-evm/backend-wasm/prover");
+import("@tokamak-zk-evm/backend-wasm/verifier");
+import("@tokamak-zk-evm/backend-wasm/converter");
 ```
 
-This explicit ownership rule avoids an unavoidable hidden copy of the complete
-CRS. Applications should not run multiple large converter calls concurrently
-unless they have budgeted for the resulting CPU and peak-memory contention.
+The package root and internal compiled paths are not public APIs.
 
-### `src/utils/`
+### Prover
 
-Small generic helpers shared by implementation modules. Protocol logic, artifact conversion, and runtime arithmetic should not be hidden here.
+The prover must be installed explicitly. Installation creates one multithreaded
+curve runtime that is reused for the lifetime of the page or host process.
 
-### `scripts/`
+```ts
+const prover = await import("@tokamak-zk-evm/backend-wasm/prover");
 
-Local fixture and generated-source maintenance wrappers.
+const installation = await prover.install({
+  chunkSizeExponent: 18,
+});
 
-- `scripts/fixtures/`: local fixture copy, conversion, and preparation wrappers.
-- `scripts/generate/`: generated TypeScript source updaters for artifact specs, subcircuit-library data, and verifier CRS.
-- `scripts/package/`: package build steps for browser Worker and WASM assets.
+const proof = await prover.prove({
+  witness,
+  permutation,
+  instance,
+  proverCrs,
+});
+```
 
-`scripts/fixtures/copy-fixtures.ts` performs only the first fixture update stage. It copies source artifacts from existing owner package outputs under `packages/` into the package-local ignored work area under `packages/backend-wasm/tmp/fixtures/`. It must not generate missing artifacts and must not write final runtime fixture files. `scripts/fixtures/prepare-runtime-fixtures.ts` is the local file I/O wrapper for the current verifier runtime fixture conversion stage and delegates artifact conversion to `src/tooling/converters/`.
+`chunkSizeExponent` controls the dense Sigma1 MSM chunk size as
+`2 ** chunkSizeExponent`. It accepts integers from `10` through `19`. Omitting
+the option uses `18`, or preserves the current value after installation.
 
-### `fixtures/`
-
-Curated parity fixtures for validating the TypeScript runtime against prepared native outputs. Test fixture preparation follows a controlled copy-convert-store pipeline: copy owner package outputs into a package-local temporary work area, convert them through web-compatible converter APIs, then store converted files under this package's ignored fixture directories. This package must not regenerate fixtures by running native binaries, setup flows, prover flows, verifier flows, or fixture exporters.
-
-Fixtures are development assets and are not included in the package distribution whitelist.
-
-### `test/`
-
-Development-only verification assets that are excluded from the package:
-
-- `test/checks/`: grouped validation programs for artifacts, browser behavior,
-  fixtures, polynomial operations, prover behavior, and verifier behavior.
-- `test/diagnostics/`: targeted diagnostic programs that are not production
-  runtime code.
-
-The prover timing-table generator remains under `test/checks/prover/` and is
-available through `npm run prover:stage-timing:check`. It is development-only
-and excluded from the published package.
-
-### `tools/`
-
-Independent helper sources that are built separately from the TypeScript
-runtime. `tools/rkyv-decoder-wasm/` owns the Rust/WASM rkyv decoder used by
-converter tooling. The package build bundles its generated glue into the
-temporary Prover CRS converter Worker and publishes the decoder WASM beside that
-Worker. Prover and verifier runtime algorithms must not import the decoder.
-
-## Artifact Policy
-
-The standalone validator tooling can check binary headers, file kinds, versions, digests, sections, runtime encodings, and artifact specs after npm or Google Drive provenance checks have already been handled by the artifact provider. Prover and verifier runtime algorithms decode their named binary inputs but do not invoke this optional validation API.
-
-The prover input object contains four independently prepared files:
+Each input property is a non-empty `Uint8Array` containing one independently
+prepared binary artifact:
 
 - `witness`: placement-variable and witness material.
 - `permutation`: permutation entries.
 - `instance`: public instance values.
 - `proverCrs`: prover CRS and prepared commitment data.
 
-The verifier input object contains three independently prepared files:
+`prove()` returns one verifier proof artifact as `Uint8Array`.
 
-- `proof`: verifier proof.
+### Verifier
+
+The verifier has a separate installation and runtime:
+
+```ts
+const verifier = await import("@tokamak-zk-evm/backend-wasm/verifier");
+
+const installation = await verifier.install();
+const valid = await verifier.verify({
+  proof,
+  instance,
+  verifierPreprocess,
+});
+```
+
+The verifier input contains:
+
+- `proof`: the verifier proof artifact.
 - `instance`: the same public instance material used by the prover.
 - `verifierPreprocess`: verifier preprocessing points.
 
-File identity, `formatVersion`, `sourcePackageVersion`, SHA-256 digests, and cross-file compatibility digests are stored in typed tables inside each binary artifact file. No external manifest is part of the runtime contract. Setup params and verifier CRS are generated into the package build output and are not runtime binary inputs.
+Verifier CRS data is regenerated from the native owner artifact during every
+package build and compiled into the verifier. It is not a runtime input.
+`verify()` returns `boolean`; a cryptographically invalid proof returns `false`.
 
-The `sigma_verify` binary layout must be managed by `src/artifacts/specs/sigma-verify.v1.json`. Generated verifier CRS data lives in `src/verifier/generated/sigma-verify.generated.ts`; runtime verifier code imports that generated data and must not load JSON assets or verifier CRS files directly.
+### Installation And Concurrency
+
+Prover and verifier installation are independent. Concurrent first installation
+calls for one family share that family's installation attempt. A failed attempt
+is not retried automatically, but a later explicit `install()` may retry.
+
+Only one operation may run in each family. A second prover operation or a second
+verifier operation is rejected with `BUSY`; operations are not queued. Prover
+and verifier may run concurrently because they own separate runtimes. The
+application is responsible for the resulting CPU and memory contention.
+
+A prover chunk-size change is rejected while `prove()` is active. Repeating
+`install()` without an option, or with the currently active value, is allowed
+and does not recreate the runtime.
+
+There is no public terminate or uninstall API. Runtime resources remain until
+the page or host process ends.
+
+### Errors
+
+All three subpaths export the same `BackendWasmError` class. Applications should
+branch on its stable `code`, not its message:
+
+- `INSTALL_REQUIRED`: prove or verify was called before successful installation.
+- `INSTALL_FAILED`: explicit runtime installation failed.
+- `BUSY`: the same runtime family is already active.
+- `INVALID_OPTION`: an option is unknown, malformed, or outside its range.
+- `INVALID_INPUT`: a required binary or converter source is unusable.
+- `RUNTIME_FAILED`: an installed prover or verifier runtime operation failed.
+
+`message` and optional `cause` provide diagnostic context.
+
+## Converter API
+
+Converter functions require no installation and handle one source material per
+call:
+
+```ts
+import {
+  convertInstance,
+  convertPermutation,
+  convertProof,
+  convertProverCrs,
+  convertVerifierPreprocess,
+  convertWitness,
+  inspectBinary,
+  validateBinary,
+} from "@tokamak-zk-evm/backend-wasm/converter";
+```
+
+- `convertWitness(value)`: parsed placement-variable JSON value to witness binary.
+- `convertPermutation(value)`: parsed permutation JSON value to permutation binary.
+- `convertInstance(value)`: parsed instance JSON value to shared instance binary.
+- `convertVerifierPreprocess(value)`: parsed preprocess JSON value to binary.
+- `convertProof({ sourceFormat: "json", proof })`: parsed native proof JSON value
+  to proof binary.
+- `convertProof({ sourceFormat: "binary", proof })`: proof binary to native proof
+  JSON value.
+- `convertProverCrs(rkyvBytes)`: native `combined_sigma.rkyv` to prover CRS binary.
+- `inspectBinary(bytes, options?)`: decode header and table information without
+  claiming validity.
+- `validateBinary(bytes)`: perform format, digest, layout, and artifact-spec
+  validation.
+
+The application parses JSON before calling a converter. Converter calls are not
+serialized by the package.
+
+`convertProverCrs` transfers the supplied `ArrayBuffer` to a temporary module
+Worker, so the caller's input buffer is detached. Pass an explicit copy when the
+source must remain available:
+
+```ts
+const proverCrs = await convertProverCrs(combinedSigmaRkyv.slice());
+```
+
+Avoid concurrent large conversions unless the application has budgeted for
+duplicate WASM memories, CPU contention, and peak-memory growth.
+
+## Binary Artifact Policy
+
+Runtime algorithms decode their named binary inputs but deliberately do not run
+the optional validator. Applications may call `validateBinary` before prove or
+verify when their trust boundary requires it.
+
+Each artifact contains its file kind, `formatVersion`,
+`sourcePackageVersion`, section table, and SHA-256 digest table. Every artifact
+kind has a versioned JSON layout specification under `src/artifacts/specs/`.
+There is no external runtime manifest or bundle file.
+
+Setup parameters and packed subcircuit data are generated from the pinned
+`@tokamak-zk-evm/subcircuit-library` dependency. The package never fetches CRS
+or other runtime artifacts from Google Drive.
+
+## Repository Structure
+
+```text
+packages/backend-wasm/
+  docs/
+    architecture/
+    optimization/
+  fixtures/
+  scripts/
+    fixtures/
+    generate/
+    package/
+  src/
+    artifacts/
+    prover/
+    runtime/
+    tooling/
+    verifier/
+  test/
+  tools/
+    rkyv-decoder-wasm/
+  tmp/
+```
+
+- `src/artifacts`: binary containers, runtime views, and versioned specs.
+- `src/runtime`: shared ffjavascript-backed field, curve, group, pairing,
+  transcript, random, and polynomial infrastructure.
+- `src/prover`: public prover lifecycle plus integrated protocol operations.
+- `src/verifier`: public verifier lifecycle plus verification protocol math.
+- `src/tooling`: browser-compatible converters and optional validators.
+- `scripts`: generated-source maintenance and local fixture I/O wrappers.
+- `fixtures`: ignored prepared parity artifacts and their tracked copy manifest.
+- `test`: checks, diagnostics, browser entry points, and test-only references.
+- `tools/rkyv-decoder-wasm`: separately built Rust/WASM rkyv decoder source.
+- `tmp`: ignored package-local work and report output.
+
+Maintainer dependency and publication rules are documented in
+`docs/architecture/package-boundaries.md`. Optimization history and retained
+performance decisions are under `docs/optimization/`.
 
 ## Development
+
+Prepare existing owner-package fixture outputs before copying them. The fixture
+commands never run native setup, preprocess, prove, or verifier programs:
+
+```sh
+npm run fixtures:copy
+npm run fixtures:prepare
+```
+
+The source copies are written to the ignored `tmp/fixtures/` tree. Converted
+runtime fixtures are written to ignored `fixtures/small/runtime/`.
+
+Common checks are:
 
 ```sh
 npm run typecheck
 npm run typecheck:scripts
-npm run fixtures:copy
-npm run fixtures:prepare
-npm run fixtures:check:native-verifier
 npm run binary:check
-npm run polynomial:buffer:check
 npm run prover:ops:check
 npm run prover:witness:check
-npm run prover:check
-npm run specs:check
 npm run verifier:check
+npm run prover:check
+npm run verifier:browser:check
+npm run prover:browser:check
+npm run converter:browser:check
 npm run build
-npm run clean
 ```
 
-Use `npm run fixtures:copy` only after the existing owner package output files listed in `fixtures/small/copy-manifest.json` have been prepared by their owning packages. The command copies those files into `packages/backend-wasm/tmp/fixtures/`; it does not convert them or write final runtime fixture files.
+`npm run prover:stage-timing:check` is the retained development-only prover
+timing-table generator. Tests, diagnostics, fixtures, scripts, tools, and
+`tmp` outputs are excluded from the npm package.
 
-Use `npm run fixtures:prepare` after `fixtures:copy` to convert the copied source artifacts into the ignored `fixtures/small/runtime/` files `witness.bin`, `permutation.bin`, `instance.bin`, `prover-crs.bin`, `proof.bin`, and `verifier-preprocess.bin`.
-
-Use `npm run verifier-crs:generate` only after the owner package has prepared `../backend/setup/output/sigma_verify.json`. The underlying generator requires an explicit `--input` path and fails if the source artifact cannot be read. `npm run build` runs this generation step before TypeScript compilation, so verifier builds must not reuse an existing generated CRS file.
-
-Use `npm run specs:generate` after editing JSON specs under `src/artifacts/specs/`.
+Use `npm run clean:temp` to remove package-local temporary outputs while
+preserving `tmp/planning.md`.
 
 ## License
 
 This package is licensed as `GPL-3.0-or-later`.
 
-This is a package-local license decision. Other packages in the Tokamak zk-EVM monorepo may remain licensed under `MIT OR Apache-2.0` unless they explicitly state otherwise.
-
-Permissively licensed packages in this monorepo should not import, bundle, or redistribute `packages/backend-wasm` without reviewing the resulting GPL obligations.
+This is a package-local license decision. Other Tokamak zk-EVM packages may
+remain licensed under `MIT OR Apache-2.0` unless they explicitly state
+otherwise. Permissively licensed packages should not import, bundle, or
+redistribute this package without reviewing the resulting GPL obligations.
