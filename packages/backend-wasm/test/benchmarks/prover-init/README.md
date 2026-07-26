@@ -4,15 +4,16 @@ Audience: backend-wasm developers isolating and optimizing prover initialization
 
 This benchmark is diagnostics-only. It is not imported by `src/`, is not part of package distribution, and writes latest reports under ignored `tmp/timing/`.
 
-The benchmark covers the initialization path that turns already-loaded prover runtime inputs into internal prover state:
+The retained timing program measures the actual production initialization calls
+that turn already-loaded prover runtime inputs into internal prover state:
 
-- witness polynomial construction
-- prover instance polynomial construction
-- permutation polynomial construction
-- vanishing polynomial construction
-- prover mixer allocation
+- `witness.build`: `buildWitnessPolynomials(...)`
+- `state.build`: `createProverState(...)`
+- `total`: the sum of those non-overlapping rows
 
-The benchmark first runs the production initialization path, then runs the phase-instrumented diagnostics path and compares the produced witness and instance polynomial buffers byte-for-byte. Mixer values are random by design, so the diagnostics path checks mixer shape instead of scalar equality.
+It does not maintain a benchmark-local copy of initialization algorithms.
+Correctness and optimization-specific parity are covered by the focused packed
+CSR, flat-witness, and sparse row-dot regressions below.
 
 ## Usage
 
@@ -43,9 +44,9 @@ kernels are not retained.
 
 Do not promote an init optimization candidate into production code from this benchmark alone. A production change must also pass full prover acceptance, generated-proof verification, and package distribution checks.
 
-## Initial Candidate Run
+## Historical Initial Candidate Run
 
-Command:
+Historical command:
 
 ```bash
 npm run bench:prover-init
@@ -61,6 +62,9 @@ Fixture: `fixtures/small/runtime`.
 | direct-sparse candidate | 16.15 s | parity passed; not a clear improvement |
 | row-major UVW candidate | 16.06 s | parity passed; not a clear improvement |
 | parallel ROU candidate | 15.64 s | parity passed; best diagnostic result; discarded |
+
+This table is retained as historical evidence. The current command no longer
+executes these rejected candidates.
 
 Interpretation:
 
