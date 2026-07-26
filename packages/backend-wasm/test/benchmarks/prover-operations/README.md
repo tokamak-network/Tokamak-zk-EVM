@@ -1664,26 +1664,6 @@ term2 and K0 term3 consumers remain separate optimized operations. Integrated
 from `145.26 s` to `143.06 s`. Chromium generated a 2408-byte proof in
 `137.57 s` and verified it in `18 ms`.
 
-## Degree Scan
-
-`bench-degree-scans.ts` compares the current scalar ffjavascript `isZero`
-degree scan with an aligned raw-word scan over the validated all-zero
-Montgomery representation. The benchmark uses `4096x256` buffers, one warmup,
-and five measured iterations.
-
-| case | scalar median | raw median | speedup |
-| --- | ---: | ---: | ---: |
-| dense | 0.003 ms | 0.002 ms | 1.23x |
-| trailing-zero | 81.681 ms | 4.905 ms | 16.65x |
-| sparse | 166.146 ms | 8.569 ms | 19.39x |
-| all-zero | 163.685 ms | 9.455 ms | 17.31x |
-
-All degree pairs match exactly. No production change is promoted: the actual
-dense representative profile remains immaterial, and there is no measured
-production hot path repeatedly scanning the synthetic worst-case shapes.
-Adding a WASM boundary would also copy the complete coefficient buffer to
-save at most a few milliseconds over the raw caller scan.
-
 ## Combined Final Openings
 
 `bench-combined-final-openings.ts` constructs the actual prepared-fixture
