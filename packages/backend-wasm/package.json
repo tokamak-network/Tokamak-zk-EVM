@@ -40,6 +40,8 @@
     "binary:check": "tsx test/checks/binary/check-binary-artifacts.ts",
     "benchmark:binary-digest:node": "node --expose-gc --import tsx test/benchmarks/binary-digest/benchmark-node.ts",
     "benchmark:binary-digest:browser": "tsx test/benchmarks/binary-digest/benchmark-browser.ts",
+    "benchmark:binary-digest-policy:node": "tsx test/benchmarks/binary-digest/benchmark-policy-node.ts",
+    "benchmark:binary-digest-policy:browser": "tsx test/benchmarks/binary-digest/benchmark-policy-browser.ts",
     "benchmark:prover-crs-conversion:node": "tsx test/benchmarks/prover-crs-conversion/benchmark-node.ts",
     "benchmark:prover-crs-conversion:check": "tsx test/benchmarks/prover-crs-conversion/check-candidate.ts",
     "benchmark:prover-crs-conversion:browser": "npm run build && tsx test/benchmarks/prover-crs-conversion/benchmark-browser.ts",
