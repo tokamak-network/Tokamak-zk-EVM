@@ -808,7 +808,7 @@ jobs:
           EOF_NODE
 
           tarball="$(find snark-browser-compat-tarball -maxdepth 1 -name '*.tgz' -type f)"
-          npm publish --dry-run --access public --ignore-scripts "$tarball"
+          npm publish --dry-run --access public --ignore-scripts "./$tarball"
           (
             cd snark-browser-compat-tarball
             sha256sum ./*.tgz > SHA256SUMS

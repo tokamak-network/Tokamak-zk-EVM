@@ -179,7 +179,7 @@ For the first publication:
 
    ```sh
    npm publish --access public --ignore-scripts \
-     tokamak-zk-evm-snark-browser-compat-X.Y.Z.tgz
+     ./tokamak-zk-evm-snark-browser-compat-X.Y.Z.tgz
    ```
 
 6. Configure npm Trusted Publisher for
