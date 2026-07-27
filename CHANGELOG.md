@@ -2,7 +2,7 @@
 
 All notable changes to Tokamak zk-EVM are documented in this file.
 
-The repository uses a synchronized release version for the CLI, subcircuit library, synthesizer packages, and backend Rust workspace. This root changelog is the only changelog source. npm package artifacts do not include changelog files; package READMEs link back to this root changelog.
+The repository uses a synchronized release version for the CLI, subcircuit library, synthesizer packages, browser-compatible SNARK package, and backend Rust workspace. This root changelog is the only changelog source. npm package artifacts do not include changelog files; package READMEs link back to this root changelog.
 
 The format is based on Keep a Changelog.
 
@@ -12,7 +12,7 @@ The format is based on Keep a Changelog.
 
 ### Repository
 
-- Synchronized the release version to `2.1.3` across the CLI, subcircuit library, synthesizer packages, and backend workspace.
+- Synchronized the release version to `2.1.3` across the CLI, subcircuit library, synthesizer packages, browser-compatible SNARK package, and backend workspace.
 
 ### CLI
 
@@ -27,6 +27,13 @@ The format is based on Keep a Changelog.
 
 - Bumped `@tokamak-zk-evm/synthesizer-node` and `@tokamak-zk-evm/synthesizer-web` to `2.1.3`.
 - Updated both synthesizer packages to consume `@tokamak-zk-evm/subcircuit-library` through the synchronized `^2.1.3` dependency range.
+
+### Browser-Compatible SNARK
+
+- Added the initial `@tokamak-zk-evm/snark-browser-compat` package for bundler-based browser proof generation, verification, and artifact conversion.
+- Added explicit prover and verifier installation lifecycles, named binary inputs, staged proving progress, browser examples, package-boundary checks, and publication documentation.
+- Kept the package outside the root npm workspace so release builds resolve the synchronized `@tokamak-zk-evm/subcircuit-library` version from npm.
+- Added release CI that builds the package only from a provenance-verified verifier CRS and skips automated publication until the package has been bootstrapped manually on npm.
 
 ### Backend Workspace
 
