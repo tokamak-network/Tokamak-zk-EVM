@@ -2,7 +2,7 @@
   "name": "@tokamak-zk-evm/backend-wasm",
   "version": "2.1.3",
   "description": "Browser-compatible Tokamak zk-EVM prover, verifier, and artifact converters.",
-  "license": "GPL-3.0-or-later",
+  "license": "MIT OR Apache-2.0",
   "author": "Tokamak Network",
   "type": "module",
   "exports": {
@@ -30,7 +30,10 @@
     "dist/converter",
     "dist/verifier",
     "README.md",
-    "LICENSE"
+    "LICENSE-MIT",
+    "LICENSE-APACHE",
+    "THIRD_PARTY_NOTICES.md",
+    "third-party-licenses"
   ],
   "scripts": {
     "build": "npm run subcircuit-library:generate && npm run verifier-crs:generate && npm run rkyv-decoder:build && tsc -p tsconfig.json --pretty false && npm run converter-worker:build",

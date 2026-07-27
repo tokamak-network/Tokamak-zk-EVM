@@ -347,9 +347,18 @@ preserving `tmp/planning.md`.
 
 ## License
 
-This package is licensed as `GPL-3.0-or-later`.
+Backend-wasm's own code is dual-licensed under `MIT OR Apache-2.0`, following
+the Tokamak zk-EVM repository policy. See `LICENSE-MIT` and `LICENSE-APACHE`.
+Embedded-component licenses and external dependency boundaries are recorded in
+`THIRD_PARTY_NOTICES.md`.
 
-This is a package-local license decision. Other Tokamak zk-EVM packages may
-remain licensed under `MIT OR Apache-2.0` unless they explicitly state
-otherwise. Permissively licensed packages should not import, bundle, or
-redistribute this package without reviewing the resulting GPL obligations.
+This permissive package license does not override the licenses of its
+dependencies. `ffjavascript` is GPL-licensed. An application distribution that
+imports, links, or bundles backend-wasm with `ffjavascript` must comply with the
+applicable GPL obligations for the resulting combination. The externalized
+converter Worker changes where the dependency is bundled; it does not remove
+those obligations.
+
+This section describes the package's distribution boundary and is not legal
+advice. Application distributors are responsible for evaluating their complete
+build and distribution.
