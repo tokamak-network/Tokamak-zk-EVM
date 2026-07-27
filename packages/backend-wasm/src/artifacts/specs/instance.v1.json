@@ -9,6 +9,14 @@
       "elementCount": null,
       "elementByteLength": 32,
       "points": []
+    },
+    {
+      "label": "instance.function",
+      "type": "Instance",
+      "encoding": "ffjs-fr-montgomery-le-32",
+      "elementCount": 600,
+      "elementByteLength": 32,
+      "points": []
     }
   ]
 }

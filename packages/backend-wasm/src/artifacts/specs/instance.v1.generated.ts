@@ -14,5 +14,14 @@ export const INSTANCE_V1_SPEC = {
       points: [
       ],
     },
+    {
+      label: "instance.function",
+      type: BinarySectionType.Instance,
+      encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
+      elementCount: 600,
+      elementByteLength: 32,
+      points: [
+      ],
+    },
   ],
 } as const satisfies RuntimeArtifactFormatSpec;

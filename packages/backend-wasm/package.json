@@ -63,7 +63,7 @@
     "prepack": "npm run clean && npm run build",
     "typecheck": "npm run subcircuit-library:check && npm run verifier-crs:check && tsc -p tsconfig.json --pretty false --noEmit",
     "typecheck:scripts": "tsc -p tsconfig.dev.json --pretty false",
-    "binary:check": "tsx test/checks/binary/check-binary-artifacts.ts && tsx test/checks/binary/check-crs-conversion.ts",
+    "binary:check": "tsx test/checks/binary/check-binary-artifacts.ts && tsx test/checks/binary/check-instance-conversion.ts && tsx test/checks/binary/check-crs-conversion.ts",
     "fixtures:copy": "tsx scripts/fixtures/copy-fixtures.ts fixtures/small/copy-manifest.json",
     "fixtures:prepare": "tsx scripts/fixtures/prepare-runtime-fixtures.ts fixtures/small/copy-manifest.json",
     "fixtures:check:native-verifier": "tsx test/checks/fixtures/check-native-verifier-fixture.ts fixtures/small/copy-manifest.json",

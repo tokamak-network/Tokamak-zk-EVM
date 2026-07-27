@@ -125,7 +125,7 @@ Public verifier types are `VerifierInput` and `VerifierInstallationInfo`.
 | --- | --- |
 | `convertWitness(value)` | Parsed placement-variable JSON to witness binary |
 | `convertPermutation(value)` | Parsed permutation JSON to permutation binary |
-| `convertInstance(value)` | Parsed instance JSON to instance binary |
+| `convertInstance(value)` | Parsed instance JSON to public and function instance sections |
 | `convertVerifierPreprocess(value)` | Parsed preprocess JSON to verifier-preprocess binary |
 | `convertProof(input)` | Convert native proof JSON to binary, or proof binary to a native proof JSON object, according to `sourceFormat` |
 | `convertCrs(bytes)` | `combined_sigma.rkyv` bytes to named prover, preprocess, and verifier CRS binaries |
@@ -308,7 +308,7 @@ storage, caching, and invalidation.
 | --- | --- | --- |
 | `witness` | Tokamak synthesizer placement-variable JSON | Parse JSON, then call `convertWitness()` |
 | `permutation` | Tokamak synthesizer permutation JSON | Parse JSON, then call `convertPermutation()` |
-| `instance` | Tokamak synthesizer instance JSON | Parse JSON, then call `convertInstance()` |
+| `instance` | Tokamak synthesizer instance JSON | Parse JSON, then call `convertInstance()`; the result contains distinct public and function sections |
 | `proverCrs` | Release `combined_sigma.rkyv` | Load bytes, then use `convertCrs().proverCrs` |
 | `verifierPreprocess` | Native verifier preprocess JSON | Parse JSON, then call `convertVerifierPreprocess()` |
 | `proof` | `prove()` output or native proof JSON | Use directly or call `convertProof()` |
