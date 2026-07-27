@@ -11,12 +11,12 @@ Audit date: 2026-07-27
 | Package | `@tokamak-zk-evm/backend-wasm@2.1.3` |
 | Package license | `MIT OR Apache-2.0` |
 | Tarball | `tokamak-zk-evm-backend-wasm-2.1.3.tgz` |
-| Compressed size | 852,830 bytes |
-| Unpacked size | 10,324,213 bytes |
-| Entry count | 384 |
-| SHA-1 reported by npm | `5c09a74b99f320269a5c6a4c56943dfac571d25b` |
-| SHA-256 | `9e83b94073dc34bc697b5e760bf93da7b8c6558c207e5d2821827d13c193d932` |
-| npm integrity | `sha512-3MrgfDS+1Y5Kb7waosG6xmCVH9r2nAo9hVWS559NLs6jN57l2L75NUHINMfx5J0UHGq31p2xxX43RZOZ44P7ZA==` |
+| Compressed size | 860,949 bytes |
+| Unpacked size | 10,345,018 bytes |
+| Entry count | 396 |
+| SHA-1 reported by npm | `c7efb9d10601ce70f6969815d8bb89ba00cf304a` |
+| SHA-256 | `b92e67227936b4c343b9283fdc10258fd2e9c6802d2b1aeb3e20e83d35bf3871` |
+| npm integrity | `sha512-EJKwcWmEaf6Y03/8SFQgBkPOziFIkRKF0RqS3DzvemR/bQwWR4uyytJr5XlHJYJ22je1XQ/htMbcUwLkTmnljA==` |
 
 The candidate was built and packed on Apple Silicon with Rust 1.95.0,
 `wasm-bindgen-cli` 0.2.126, Node.js 26.0.0, npm 11.12.1, Vite 8.1.5,
@@ -26,8 +26,9 @@ Playwright 1.61.1, and the package lockfile in this repository.
 
 The tarball contains package-authored JavaScript, declarations, source maps,
 binary format specifications, generated Tokamak setup data, the generated
-verifier CRS, the converter Worker, and the RKYV decoder WASM. It excludes
-tests, fixtures, benchmarks, diagnostics, scripts, `tmp`, and `node_modules`.
+verifier CRS, the converter Worker, the RKYV decoder WASM, application-facing
+documentation, and source-only browser examples. It excludes tests, fixtures,
+benchmarks, diagnostics, scripts, tools, `docs`, `tmp`, and `node_modules`.
 
 The converter Worker retains a bare `ffjavascript` import. Its build metadata
 and packed output contain no bundled `ffjavascript`, `wasmbuilder`, or
@@ -75,6 +76,7 @@ The following checks passed:
 - `npm run typecheck`
 - `npm run typecheck:scripts`
 - `npm run converter:browser:check`
+- `npm run docs:publication:check`
 - exact tarball metadata inspection
 - packed-file exclusion check
 - packed package-license and dependency metadata check

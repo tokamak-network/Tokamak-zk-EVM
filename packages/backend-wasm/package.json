@@ -1,9 +1,30 @@
 {
   "name": "@tokamak-zk-evm/backend-wasm",
   "version": "2.1.3",
-  "description": "Browser-compatible Tokamak zk-EVM prover, verifier, and artifact converters.",
+  "description": "@tokamak-zk-evm/backend-wasm provides browser-compatible Tokamak zk-EVM proof generation, verification, and artifact conversion.",
   "license": "MIT OR Apache-2.0",
   "author": "Tokamak Network",
+  "keywords": [
+    "tokamak-zk-evm",
+    "zero-knowledge-proofs",
+    "browser-prover",
+    "proof-verification",
+    "webassembly",
+    "wasm",
+    "bls12-381"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tokamak-network/Tokamak-zk-EVM.git",
+    "directory": "packages/backend-wasm"
+  },
+  "homepage": "https://github.com/tokamak-network/Tokamak-zk-EVM/tree/main/packages/backend-wasm#readme",
+  "bugs": {
+    "url": "https://github.com/tokamak-network/Tokamak-zk-EVM/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "exports": {
     "./prover": {
@@ -30,6 +51,8 @@
     "dist/converter",
     "dist/verifier",
     "README.md",
+    "CONTRIBUTING.md",
+    "examples/browser",
     "LICENSE-MIT",
     "LICENSE-APACHE",
     "THIRD_PARTY_NOTICES.md",
@@ -58,6 +81,8 @@
     "rkyv-decoder:check-tools": "npm --prefix tools/rkyv-decoder-wasm run check:build-tools",
     "converter-worker:build": "node scripts/package/build-converter-worker.mjs",
     "converter:browser:check": "npm run build && tsx test/checks/browser/check-prover-crs-converter-browser.ts",
+    "docs:examples:check": "npm run build && tsx test/checks/docs/check-browser-example.ts",
+    "docs:publication:check": "npm run docs:examples:check && tsx test/checks/docs/check-publication-docs.ts",
     "rkyv:payload:check": "tsx test/checks/binary/check-rkyv-decoder-payload.ts",
     "specs:check": "tsx scripts/generate/generate-format-specs.ts --check",
     "specs:generate": "tsx scripts/generate/generate-format-specs.ts",
@@ -79,6 +104,7 @@
   "devDependencies": {
     "@types/node": "^22.15.14",
     "esbuild": "^0.28.1",
+    "marked": "^18.0.7",
     "playwright": "^1.61.1",
     "tsx": "^4.20.5",
     "typescript": "^5.9.3",
