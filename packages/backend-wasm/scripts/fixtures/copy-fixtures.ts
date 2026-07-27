@@ -1,6 +1,13 @@
+import { createHash } from "node:crypto";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+import {
+  NATIVE_BACKEND_VERSION,
+  SUBCIRCUIT_LIBRARY_PACKAGE_VERSION,
+} from "../../src/prover/generated/subcircuit-library.generated.js";
+import { BACKEND_WASM_PACKAGE_VERSION } from "../../src/version.js";
 
 interface CopyManifest {
   readonly schemaVersion: 2;
@@ -14,32 +21,87 @@ interface CopySourceEntry {
   readonly destination: string;
 }
 
-async function main(argv: readonly string[]): Promise<void> {
-  if (argv.length !== 1) {
-    throw new Error("Usage: copy-fixtures <copy-manifest.json>");
-  }
+interface CopyArguments {
+  readonly manifestPath: string;
+  readonly sourceRepositoryRoot?: string;
+}
 
-  const manifestPath = path.resolve(argv[0]);
+async function main(argv: readonly string[]): Promise<void> {
+  const args = parseArguments(argv);
+  const manifestPath = path.resolve(args.manifestPath);
   const manifestDirectory = path.dirname(manifestPath);
   const backendWasmRoot = path.resolve(manifestDirectory, "../..");
-  const repositoryRoot = path.resolve(backendWasmRoot, "../..");
+  const destinationRepositoryRoot = path.resolve(backendWasmRoot, "../..");
+  const sourceRepositoryRoot = args.sourceRepositoryRoot === undefined
+    ? destinationRepositoryRoot
+    : path.resolve(args.sourceRepositoryRoot);
   const manifest = parseManifest(JSON.parse(await readFile(manifestPath, "utf8")) as unknown);
-  const workDirectory = resolveWorkDirectory(repositoryRoot, backendWasmRoot, manifest.workDirectory);
-
-  for (const source of manifest.sources) {
-    const sourcePath = resolveSourcePath(repositoryRoot, backendWasmRoot, source.source);
+  const workDirectory = resolveWorkDirectory(
+    destinationRepositoryRoot,
+    backendWasmRoot,
+    manifest.workDirectory,
+  );
+  const copies = await Promise.all(manifest.sources.map(async (source) => {
+    const sourcePath = resolveSourcePath(sourceRepositoryRoot, source.source);
     const destinationPath = resolveDestinationPath(workDirectory, source.destination);
 
     await assertSourceFile(sourcePath, source.source);
+    const bytes = await readFile(sourcePath);
+    return {
+      source,
+      destinationPath,
+      bytes,
+      sha256: createHash("sha256").update(bytes).digest("hex"),
+    };
+  }));
+
+  for (const copy of copies) {
+    const { destinationPath, bytes } = copy;
     await mkdir(path.dirname(destinationPath), { recursive: true });
-    await writeFile(destinationPath, await readFile(sourcePath));
+    await writeFile(destinationPath, bytes);
   }
+
+  await writeFile(
+    path.join(workDirectory, "source-metadata.json"),
+    `${JSON.stringify({
+      schemaVersion: 1,
+      suite: manifest.suite,
+      packageVersions: {
+        backendWasm: BACKEND_WASM_PACKAGE_VERSION,
+        nativeBackend: NATIVE_BACKEND_VERSION,
+        subcircuitLibrary: SUBCIRCUIT_LIBRARY_PACKAGE_VERSION,
+      },
+      files: copies.map(({ source, bytes, sha256 }) => ({
+        source: source.source,
+        destination: source.destination,
+        byteLength: bytes.byteLength,
+        sha256,
+      })),
+    }, null, 2)}\n`,
+  );
 
   console.log(
     `Copied ${manifest.sources.length} fixture source file(s) for suite '${manifest.suite}' into ${path.relative(
       process.cwd(),
       workDirectory,
     )}.`,
+  );
+}
+
+function parseArguments(argv: readonly string[]): CopyArguments {
+  if (argv.length === 1) {
+    return { manifestPath: argv[0] };
+  }
+
+  if (argv.length === 3 && argv[1] === "--source-repository-root") {
+    return {
+      manifestPath: argv[0],
+      sourceRepositoryRoot: argv[2],
+    };
+  }
+
+  throw new Error(
+    "Usage: copy-fixtures <copy-manifest.json> [--source-repository-root <repository-root>]",
   );
 }
 
@@ -79,11 +141,12 @@ function parseManifest(raw: unknown): CopyManifest {
   };
 }
 
-function resolveSourcePath(repositoryRoot: string, backendWasmRoot: string, source: string): string {
-  const sourcePath = path.resolve(repositoryRoot, source);
-  const packagesRoot = path.resolve(repositoryRoot, "packages");
-  const backendWasmTmpRoot = path.resolve(backendWasmRoot, "tmp");
-  const backendWasmFixturesRoot = path.resolve(backendWasmRoot, "fixtures");
+function resolveSourcePath(sourceRepositoryRoot: string, source: string): string {
+  const sourcePath = path.resolve(sourceRepositoryRoot, source);
+  const packagesRoot = path.resolve(sourceRepositoryRoot, "packages");
+  const sourceBackendWasmRoot = path.resolve(packagesRoot, "backend-wasm");
+  const backendWasmTmpRoot = path.resolve(sourceBackendWasmRoot, "tmp");
+  const backendWasmFixturesRoot = path.resolve(sourceBackendWasmRoot, "fixtures");
 
   if (!isPathInside(sourcePath, packagesRoot)) {
     throw new Error(`Fixture source must be under the repository packages/ directory: ${source}`);
