@@ -84,3 +84,17 @@ Median exclusive stage timing:
 The two dense polynomial commitments account for approximately 93.3% of
 preprocess time. This measurement is the comparison baseline only; it does not
 authorize production promotion of any optimization candidate.
+
+## Chromium Baseline
+
+The test-only browser harness loads the three binary preprocess inputs, runs
+the same preprocess protocol in Chromium, compares the output byte-for-byte
+with the copied native output, and verifies the refreshed native proof using
+the browser-generated preprocess.
+
+```sh
+npm run preprocess:browser:check
+```
+
+On the recorded Apple M4 Pro environment, the browser preprocess call took
+11,060.105 ms. Native parity and verifier acceptance both passed.
