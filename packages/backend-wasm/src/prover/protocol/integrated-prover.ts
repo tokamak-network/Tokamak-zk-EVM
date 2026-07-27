@@ -3,16 +3,31 @@ import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import type { FieldElement } from "../../runtime/field/field-runtime.js";
 import type { ProverRuntimeInput } from "../api/binary-input.js";
 import type { ProverVerifierProofOutputInput } from "../api/proof-output.js";
+import type { ProverBinding } from "../commitments/binding-commitments.js";
 import type { ProverCommitmentEncoder } from "../commitments/commitment-encoder.js";
 import { createSigma1CommitmentEncoder } from "../commitments/sigma1-encoder.js";
-import { createProverState } from "./state.js";
+import { createProverState, type ProverState } from "./state.js";
 import { buildWitnessPolynomials } from "./witness.js";
 import { buildProverBinding } from "../commitments/binding-commitments.js";
-import { computeInitialRelationCommitments } from "./initial-relation.js";
-import { computeRecursionCommitment } from "./recursion-commitment.js";
-import { computeCopyQuotientCommitments } from "./copy-quotient.js";
-import { evaluateChallengePoints } from "./challenge-evaluations.js";
-import { computeOpeningCommitments } from "./opening-commitments.js";
+import {
+  combineInitialRelation,
+  computeArithmeticArgumentCommitments,
+  computeCopyWitnessCommitment,
+  type ArithmeticArgumentComputation,
+  type InitialRelationComputation,
+} from "./initial-relation.js";
+import { computeRecursionCommitment, type RecursionComputation } from "./recursion-commitment.js";
+import {
+  computeCopyQuotientCommitments,
+  type CopyQuotientComputation,
+} from "./copy-quotient.js";
+import { evaluateChallengePoints, type ChallengeEvaluations } from "./challenge-evaluations.js";
+import {
+  combineOpeningCommitments,
+  computeCopyOpeningCommitments,
+  computeIntegratedOpeningCommitments,
+  type CopyOpeningComputation,
+} from "./opening-commitments.js";
 
 export interface IntegratedProverOptions {
   readonly commitmentEncoder?: ProverCommitmentEncoder;
@@ -20,85 +35,254 @@ export interface IntegratedProverOptions {
   readonly sourcePackageVersion?: string;
 }
 
-export async function runIntegratedProver(
+export interface ProverProtocolSession {
+  proveArithmetic(): Promise<void>;
+  proveCopy(): Promise<void>;
+  proveBinding(): Promise<void>;
+  finalize(): Promise<ProverVerifierProofOutputInput>;
+  dispose(): void;
+}
+
+type ProverProtocolStage =
+  | "ready"
+  | "running"
+  | "arithmetic"
+  | "copy"
+  | "binding"
+  | "finalized"
+  | "disposed";
+
+export function createProverProtocolSession(
   runtime: CurveRuntime,
   input: ProverRuntimeInput,
   options: IntegratedProverOptions = {},
-): Promise<ProverVerifierProofOutputInput> {
-  const commitmentEncoder = options.commitmentEncoder ?? createSigma1CommitmentEncoder(
-    runtime,
-    input.crs,
-    input.witness.setup,
-    options.denseSigma1MsmChunkPoints,
-  );
-  const witness = await buildWitnessPolynomials(runtime.Fr, input.witness);
-  const state = await createProverState({
-    runtime,
-    setup: input.witness.setup,
-    publicInstance: input.publicInstance,
-    permutation: input.permutation,
-    witness,
-  });
-  const binding = await buildProverBinding(
-    runtime,
-    input.crs,
-    input.witness.setup,
-    input.witness.placementVariables,
-    input.witness.subcircuitInfos,
-    state.instance.aFreeX,
-    state.mixer,
-    commitmentEncoder,
-  );
-  const transcript = new RollingKeccakTranscript(runtime.Fr);
-  const operationOptions = { commitmentEncoder };
-  const initialRelation = await computeInitialRelationCommitments(runtime, input.crs, state, operationOptions);
-  const thetas = collectThetaChallenges(runtime, transcript, initialRelation.commitments);
-  const recursion = await computeRecursionCommitment(runtime, input.crs, state, thetas, operationOptions);
-  const kappa0 = collectKappa0Challenge(runtime, transcript, recursion.commitment);
-  const copyQuotient = await computeCopyQuotientCommitments({
-    runtime,
-    crs: input.crs,
-    state,
-    rXY: recursion.rXY,
-    thetas,
-    kappa0,
-    options: operationOptions,
-  });
-  const { chi, zeta } = collectEvaluationChallenges(runtime, transcript, copyQuotient.commitments);
-  const evaluations = await evaluateChallengePoints({
-    runtime,
-    state,
-    rXY: recursion.rXY,
-    chi,
-    zeta,
-  });
-  const kappa1 = collectKappa1Challenge(transcript, evaluations);
-  const openings = await computeOpeningCommitments({
-    runtime,
-    crs: input.crs,
-    state,
-    rXY: recursion.rXY,
-    initialRelation,
-    copyQuotient,
-    evaluations,
-    thetas,
-    kappa0,
-    chi,
-    zeta,
-    kappa1,
-    options: operationOptions,
-  });
+): ProverProtocolSession {
+  return new StatefulProverProtocolSession(runtime, input, options);
+}
 
-  return {
-    runtime,
-    binding,
-    initialRelation,
-    recursion,
-    copyQuotient,
-    evaluations,
-    openings,
-    sourcePackageVersion: options.sourcePackageVersion,
-  };
+class StatefulProverProtocolSession implements ProverProtocolSession {
+  private readonly runtime: CurveRuntime;
+  private readonly options: IntegratedProverOptions;
+  private input: ProverRuntimeInput | undefined;
+  private commitmentEncoder: ProverCommitmentEncoder | undefined;
+  private transcript: RollingKeccakTranscript | undefined;
+  private stage: ProverProtocolStage = "ready";
+  private state: ProverState | undefined;
+  private arithmetic: ArithmeticArgumentComputation | undefined;
+  private initialRelation: InitialRelationComputation | undefined;
+  private recursion: RecursionComputation | undefined;
+  private copyQuotient: CopyQuotientComputation | undefined;
+  private evaluations: ChallengeEvaluations | undefined;
+  private copyOpenings: CopyOpeningComputation | undefined;
+  private binding: ProverBinding | undefined;
+  private thetas: readonly [FieldElement, FieldElement, FieldElement] | undefined;
+  private kappa0: FieldElement | undefined;
+  private chi: FieldElement | undefined;
+  private zeta: FieldElement | undefined;
+  private kappa1: FieldElement | undefined;
+
+  constructor(runtime: CurveRuntime, input: ProverRuntimeInput, options: IntegratedProverOptions) {
+    this.runtime = runtime;
+    this.input = input;
+    this.options = options;
+    this.commitmentEncoder = options.commitmentEncoder ?? createSigma1CommitmentEncoder(
+      runtime,
+      input.crs,
+      input.witness.setup,
+      options.denseSigma1MsmChunkPoints,
+    );
+    this.transcript = new RollingKeccakTranscript(runtime.Fr);
+  }
+
+  async proveArithmetic(): Promise<void> {
+    this.assertStage("ready", "proveArithmetic");
+    this.stage = "running";
+    const input = this.requireInput();
+    const witness = await buildWitnessPolynomials(this.runtime.Fr, input.witness);
+    const state = await createProverState({
+      runtime: this.runtime,
+      setup: input.witness.setup,
+      publicInstance: input.publicInstance,
+      permutation: input.permutation,
+      witness,
+    });
+    const arithmetic = await computeArithmeticArgumentCommitments(
+      this.runtime,
+      input.crs,
+      state,
+      this.operationOptions(),
+    );
+
+    this.state = state;
+    this.arithmetic = arithmetic;
+    this.stage = "arithmetic";
+  }
+
+  async proveCopy(): Promise<void> {
+    this.assertStage("arithmetic", "proveCopy");
+    this.stage = "running";
+    const input = this.requireInput();
+    const state = requireValue(this.state, "prover state");
+    const arithmetic = requireValue(this.arithmetic, "arithmetic argument");
+    const transcript = requireValue(this.transcript, "prover transcript");
+    const copyWitness = await computeCopyWitnessCommitment(
+      this.runtime,
+      input.crs,
+      state,
+      this.operationOptions(),
+    );
+    const initialRelation = combineInitialRelation(arithmetic, copyWitness);
+    const thetas = collectThetaChallenges(this.runtime, transcript, initialRelation.commitments);
+    const recursion = await computeRecursionCommitment(
+      this.runtime,
+      input.crs,
+      state,
+      thetas,
+      this.operationOptions(),
+    );
+    const kappa0 = collectKappa0Challenge(this.runtime, transcript, recursion.commitment);
+    const copyQuotient = await computeCopyQuotientCommitments({
+      runtime: this.runtime,
+      crs: input.crs,
+      state,
+      rXY: recursion.rXY,
+      thetas,
+      kappa0,
+      options: this.operationOptions(),
+    });
+    const { chi, zeta } = collectEvaluationChallenges(this.runtime, transcript, copyQuotient.commitments);
+    const evaluations = await evaluateChallengePoints({
+      runtime: this.runtime,
+      state,
+      rXY: recursion.rXY,
+      chi,
+      zeta,
+    });
+    const kappa1 = collectKappa1Challenge(transcript, evaluations);
+    const copyOpenings = await computeCopyOpeningCommitments({
+      runtime: this.runtime,
+      crs: input.crs,
+      state,
+      rXY: recursion.rXY,
+      chi,
+      zeta,
+      options: this.operationOptions(),
+    });
+
+    this.initialRelation = initialRelation;
+    this.recursion = recursion;
+    this.copyQuotient = copyQuotient;
+    this.evaluations = evaluations;
+    this.copyOpenings = copyOpenings;
+    this.thetas = thetas;
+    this.kappa0 = kappa0;
+    this.chi = chi;
+    this.zeta = zeta;
+    this.kappa1 = kappa1;
+    this.stage = "copy";
+  }
+
+  async proveBinding(): Promise<void> {
+    this.assertStage("copy", "proveBinding");
+    this.stage = "running";
+    const input = this.requireInput();
+    const state = requireValue(this.state, "prover state");
+    this.binding = await buildProverBinding(
+      this.runtime,
+      input.crs,
+      input.witness.setup,
+      input.witness.placementVariables,
+      input.witness.subcircuitInfos,
+      state.instance.aFreeX,
+      state.mixer,
+      requireValue(this.commitmentEncoder, "commitment encoder"),
+    );
+    this.stage = "binding";
+  }
+
+  async finalize(): Promise<ProverVerifierProofOutputInput> {
+    this.assertStage("binding", "finalize");
+    this.stage = "running";
+    const input = this.requireInput();
+    const state = requireValue(this.state, "prover state");
+    const initialRelation = requireValue(this.initialRelation, "initial relation");
+    const recursion = requireValue(this.recursion, "recursion argument");
+    const copyQuotient = requireValue(this.copyQuotient, "copy quotient");
+    const evaluations = requireValue(this.evaluations, "challenge evaluations");
+    const copyOpenings = requireValue(this.copyOpenings, "copy openings");
+    const integratedOpenings = await computeIntegratedOpeningCommitments({
+      runtime: this.runtime,
+      crs: input.crs,
+      state,
+      rXY: recursion.rXY,
+      initialRelation,
+      copyQuotient,
+      thetas: requireValue(this.thetas, "theta challenges"),
+      kappa0: requireValue(this.kappa0, "kappa0 challenge"),
+      chi: requireValue(this.chi, "chi challenge"),
+      zeta: requireValue(this.zeta, "zeta challenge"),
+      kappa1: requireValue(this.kappa1, "kappa1 challenge"),
+      copyOpenings,
+      options: this.operationOptions(),
+    });
+    this.stage = "finalized";
+
+    return {
+      runtime: this.runtime,
+      binding: requireValue(this.binding, "binding argument"),
+      initialRelation,
+      recursion,
+      copyQuotient,
+      evaluations,
+      openings: combineOpeningCommitments(copyOpenings, integratedOpenings),
+      sourcePackageVersion: this.options.sourcePackageVersion,
+    };
+  }
+
+  dispose(): void {
+    this.stage = "disposed";
+    this.input = undefined;
+    this.commitmentEncoder = undefined;
+    this.transcript = undefined;
+    this.state = undefined;
+    this.arithmetic = undefined;
+    this.initialRelation = undefined;
+    this.recursion = undefined;
+    this.copyQuotient = undefined;
+    this.evaluations = undefined;
+    this.copyOpenings = undefined;
+    this.binding = undefined;
+    this.thetas = undefined;
+    this.kappa0 = undefined;
+    this.chi = undefined;
+    this.zeta = undefined;
+    this.kappa1 = undefined;
+  }
+
+  private operationOptions(): { readonly commitmentEncoder: ProverCommitmentEncoder } {
+    return {
+      commitmentEncoder: requireValue(this.commitmentEncoder, "commitment encoder"),
+    };
+  }
+
+  private requireInput(): ProverRuntimeInput {
+    return requireValue(this.input, "prover input");
+  }
+
+  private assertStage(expected: ProverProtocolStage, operation: string): void {
+    if (this.stage !== expected) {
+      throw new Error(
+        `${operation} requires prover stage '${expected}', but the current stage is '${this.stage}'.`,
+      );
+    }
+  }
+}
+
+function requireValue<T>(value: T | undefined, label: string): T {
+  if (value === undefined) {
+    throw new Error(`Missing ${label} in prover session.`);
+  }
+  return value;
 }
 
 function collectThetaChallenges(

@@ -9,6 +9,7 @@ import { chromium } from "playwright";
 const OUTPUT_DIR = "tmp/browser/prover";
 const BUNDLE_PATH = path.join(OUTPUT_DIR, "prover-entry.js");
 const DEFAULT_TIMEOUT_MS = 1_800_000;
+type ProverExecutionMode = "one-call" | "staged";
 
 async function main(): Promise<void> {
   await rm(OUTPUT_DIR, { recursive: true, force: true });
@@ -23,6 +24,7 @@ async function main(): Promise<void> {
   });
 
   const timeoutMs = parseTimeoutMs(process.env.BACKEND_WASM_BROWSER_PROVER_TIMEOUT_MS);
+  const mode = parseExecutionMode(process.env.BACKEND_WASM_BROWSER_PROVER_MODE);
   const server = createServer(handleRequest);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
@@ -45,7 +47,7 @@ async function main(): Promise<void> {
       console.log(`[browser:${message.type()}] ${text}`);
     });
 
-    await page.goto(`http://127.0.0.1:${address.port}/browser/prover.html`, {
+    await page.goto(`http://127.0.0.1:${address.port}/browser/prover.html?mode=${mode}`, {
       waitUntil: "networkidle",
     });
     const result = await page.waitForFunction(() => {
@@ -61,17 +63,21 @@ async function main(): Promise<void> {
       throw new Error(`Browser prover emitted console/page errors:\n${errors.join("\n")}`);
     }
 
+    if (value.mode !== mode) {
+      throw new Error(`Browser prover reported mode '${value.mode}' instead of '${mode}'.`);
+    }
     printTimings(value);
   } finally {
     await browser?.close();
     server.close();
   }
 
-  console.log("Checked prover proof generation and verifier acceptance in Chromium");
+  console.log(`Checked ${mode} prover proof generation and verifier acceptance in Chromium`);
 }
 
 interface BrowserProverResult {
   readonly status: "pending" | "ok" | "error";
+  readonly mode?: ProverExecutionMode;
   readonly valid?: boolean;
   readonly proofBytes?: number;
   readonly timings?: readonly BrowserTiming[];
@@ -146,8 +152,18 @@ function parseTimeoutMs(raw: string | undefined): number {
   return value;
 }
 
+function parseExecutionMode(raw: string | undefined): ProverExecutionMode {
+  if (raw === undefined || raw === "" || raw === "one-call") {
+    return "one-call";
+  }
+  if (raw === "staged") {
+    return raw;
+  }
+  throw new Error(`BACKEND_WASM_BROWSER_PROVER_MODE must be 'one-call' or 'staged': ${raw}`);
+}
+
 function printTimings(result: BrowserProverResult): void {
-  console.log(`Browser prover generated ${result.proofBytes ?? 0} proof bytes.`);
+  console.log(`Browser prover (${result.mode}) generated ${result.proofBytes ?? 0} proof bytes.`);
   for (const timing of result.timings ?? []) {
     console.log(`${timing.label}: ${formatDuration(timing.ms)}`);
   }

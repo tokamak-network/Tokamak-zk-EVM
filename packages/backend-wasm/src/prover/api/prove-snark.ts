@@ -1,5 +1,5 @@
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
-import { runIntegratedProver } from "../protocol/integrated-prover.js";
+import { createProverProtocolSession } from "../protocol/integrated-prover.js";
 import { createVerifierProofArtifactFromProverOutput } from "./proof-output.js";
 import type { ProverRuntimeInput } from "./binary-input.js";
 
@@ -13,5 +13,13 @@ export async function proveSnark(
   input: ProverRuntimeInput,
   options: ProveSnarkOptions = {},
 ): Promise<Uint8Array> {
-  return createVerifierProofArtifactFromProverOutput(await runIntegratedProver(runtime, input, options));
+  const session = createProverProtocolSession(runtime, input, options);
+  try {
+    await session.proveArithmetic();
+    await session.proveCopy();
+    await session.proveBinding();
+    return await createVerifierProofArtifactFromProverOutput(await session.finalize());
+  } finally {
+    session.dispose();
+  }
 }

@@ -23,6 +23,12 @@ page-lifetime or process-lifetime curve runtime. They do not install implicitly,
 accept a public `CurveRuntime`, or expose runtime termination. Converter
 operations have no persistent installation.
 
+The prover exposes both `prove(input)` and `begin(input)`. `prove()` is the
+complete-proof convenience wrapper. `begin()` returns one opaque session whose
+ordered `proveArithmetic()`, `proveCopy()`, `proveBinding()`, and `finalize()`
+operations execute the same implementation. The session is an API boundary
+over one in-memory protocol flow, not four independent provers.
+
 ## Dependency Direction
 
 Production dependencies flow in this direction:
@@ -65,14 +71,16 @@ formats.
 
 - `api`: public lifecycle, binary input decoding, proof output, and internal
   decoded-input entry points.
-- `protocol`: one integrated prover flow and protocol-specific state/formulas.
+- `protocol`: one stateful prover flow and protocol-specific state/formulas.
 - `commitments`: Sigma1 encoding and statement/binding commitments.
 - `polynomial`: prover-owned polynomial formulas built on runtime buffers.
 - `generated`: build-generated setup parameters, packed R1CS data, and
   subcircuit metadata.
 
-File boundaries must not recreate `prove0` through `prove4` as production stage
-APIs or scheduling barriers.
+File boundaries must not recreate numbered `prove0` through `prove4` modules or
+independent scheduling barriers. The four public session operations preserve
+one transcript and retain all decoded input and intermediate state in memory;
+they do not serialize, validate, or recompute intermediates.
 
 ### `src/verifier`
 

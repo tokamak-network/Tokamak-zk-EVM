@@ -4,7 +4,11 @@ import {
   loadProverInputFromBinaryInput,
   type ProverBinaryInput,
 } from "./binary-input.js";
-import { proveSnark } from "./prove-snark.js";
+import { createVerifierProofArtifactFromProverOutput } from "./proof-output.js";
+import {
+  createProverProtocolSession,
+  type ProverProtocolSession,
+} from "../protocol/integrated-prover.js";
 import { BACKEND_WASM_PACKAGE_VERSION } from "../../version.js";
 import {
   NATIVE_BACKEND_VERSION,
@@ -28,6 +32,14 @@ export interface ProverInstallationInfo {
 }
 
 export type ProverInput = ProverBinaryInput;
+
+export interface ProverSession {
+  proveArithmetic(): Promise<void>;
+  proveCopy(): Promise<void>;
+  proveBinding(): Promise<void>;
+  finalize(): Promise<Uint8Array>;
+  dispose(): void;
+}
 
 let runtime: CurveRuntime | undefined;
 let installationPromise: Promise<CurveRuntime> | undefined;
@@ -53,11 +65,24 @@ export async function install(options: ProverInstallOptions = {}): Promise<Prove
 }
 
 export async function prove(input: ProverInput): Promise<Uint8Array> {
+  const session = await begin(input);
+  try {
+    await session.proveArithmetic();
+    await session.proveCopy();
+    await session.proveBinding();
+    return await session.finalize();
+  } catch (error) {
+    session.dispose();
+    throw error;
+  }
+}
+
+export async function begin(input: ProverInput): Promise<ProverSession> {
   const installedRuntime = runtime;
   if (installedRuntime === undefined) {
     throw new BackendWasmError(
       "INSTALL_REQUIRED",
-      "Call prover.install() successfully before prove().",
+      "Call prover.install() successfully before begin() or prove().",
     );
   }
   if (busy) {
@@ -79,18 +104,98 @@ export async function prove(input: ProverInput): Promise<Uint8Array> {
         { cause },
       );
     }
-
-    try {
-      return await proveSnark(installedRuntime, runtimeInput, {
+    return new PublicProverSession(
+      createProverProtocolSession(installedRuntime, runtimeInput, {
         denseSigma1MsmChunkPoints: proofChunkSize,
-      });
+      }),
+      releaseBusy,
+    );
+  } catch (error) {
+    busy = false;
+    throw error;
+  }
+}
+
+class PublicProverSession implements ProverSession {
+  private active = true;
+  private operationRunning = false;
+  private disposeRequested = false;
+  private released = false;
+
+  constructor(
+    private readonly protocol: ProverProtocolSession,
+    private readonly release: () => void,
+  ) {}
+
+  async proveArithmetic(): Promise<void> {
+    await this.runOperation(() => this.protocol.proveArithmetic());
+  }
+
+  async proveCopy(): Promise<void> {
+    await this.runOperation(() => this.protocol.proveCopy());
+  }
+
+  async proveBinding(): Promise<void> {
+    await this.runOperation(() => this.protocol.proveBinding());
+  }
+
+  async finalize(): Promise<Uint8Array> {
+    return this.runOperation(async () => {
+      const proof = await createVerifierProofArtifactFromProverOutput(
+        await this.protocol.finalize(),
+      );
+      this.dispose();
+      return proof;
+    });
+  }
+
+  dispose(): void {
+    if (this.released) {
+      return;
+    }
+    this.active = false;
+    this.disposeRequested = true;
+    if (!this.operationRunning) {
+      this.finishDispose();
+    }
+  }
+
+  private finishDispose(): void {
+    if (this.released) {
+      return;
+    }
+    this.released = true;
+    this.protocol.dispose();
+    this.release();
+  }
+
+  private async runOperation<T>(operation: () => Promise<T>): Promise<T> {
+    if (!this.active) {
+      throw new BackendWasmError("RUNTIME_FAILED", "The prover session is no longer active.");
+    }
+    if (this.operationRunning) {
+      throw new BackendWasmError(
+        "RUNTIME_FAILED",
+        "Another operation is already running on this prover session.",
+      );
+    }
+    this.operationRunning = true;
+    try {
+      return await operation();
     } catch (cause) {
+      this.dispose();
+      if (cause instanceof BackendWasmError) {
+        throw cause;
+      }
       throw new BackendWasmError("RUNTIME_FAILED", "The prover runtime failed.", {
         cause,
       });
+    } finally {
+      this.operationRunning = false;
+      if (this.disposeRequested) {
+        this.finishDispose();
+      }
     }
-  } finally {
-    busy = false;
   }
 }
 
@@ -177,4 +282,8 @@ function installationInfo(): ProverInstallationInfo {
     chunkSizeExponent,
     chunkSize: 2 ** chunkSizeExponent,
   };
+}
+
+function releaseBusy(): void {
+  busy = false;
 }

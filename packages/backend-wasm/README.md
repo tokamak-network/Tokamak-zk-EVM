@@ -42,6 +42,38 @@ const proof = await prover.prove({
 });
 ```
 
+Applications that need explicit protocol boundaries may run the same prover
+through one opaque session:
+
+```ts
+const session = await prover.begin({
+  witness,
+  permutation,
+  instance,
+  proverCrs,
+});
+
+try {
+  await session.proveArithmetic();
+  await session.proveCopy();
+  await session.proveBinding();
+  const proof = await session.finalize();
+} finally {
+  session.dispose();
+}
+```
+
+The four ordered operations advance construction through the arithmetic
+constraints, copy constraints, binding, and integrated-opening phases,
+respectively. Transcript dependencies mean that some final proof elements are
+materialized in a later phase. The session retains decoded inputs, transcript
+state, randomizers, polynomial buffers, and commitments in memory. It does not
+expose or serialize intermediate protocol objects. `finalize()` returns the
+same proof binary format as `prove()` and releases the session. `dispose()`
+releases an unfinished session and is idempotent. If an operation is already
+running, resource and busy-lock release is deferred until that operation
+settles.
+
 `chunkSizeExponent` controls the dense Sigma1 MSM chunk size as
 `2 ** chunkSizeExponent`. It accepts integers from `10` through `19`. Omitting
 the option uses `18`, or preserves the current value after installation.
@@ -87,14 +119,17 @@ Prover and verifier installation are independent. Concurrent first installation
 calls for one family share that family's installation attempt. A failed attempt
 is not retried automatically, but a later explicit `install()` may retry.
 
-Only one operation may run in each family. A second prover operation or a second
-verifier operation is rejected with `BUSY`; operations are not queued. Prover
-and verifier may run concurrently because they own separate runtimes. The
-application is responsible for the resulting CPU and memory contention.
+Only one operation may run in each family. The prover busy interval starts when
+`begin()` or `prove()` accepts an input and ends when the proof is finalized,
+the session fails, or the application calls `dispose()`. A second prover
+operation or a second verifier operation is rejected with `BUSY`; operations
+are not queued. Prover and verifier may run concurrently because they own
+separate runtimes. The application is responsible for the resulting CPU and
+memory contention.
 
-A prover chunk-size change is rejected while `prove()` is active. Repeating
-`install()` without an option, or with the currently active value, is allowed
-and does not recreate the runtime.
+A prover chunk-size change is rejected while `prove()` or a staged session is
+active. Repeating `install()` without an option, or with the currently active
+value, is allowed and does not recreate the runtime.
 
 There is no public terminate or uninstall API. Runtime resources remain until
 the page or host process ends.

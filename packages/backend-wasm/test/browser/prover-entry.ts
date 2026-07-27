@@ -1,5 +1,6 @@
 import {
   BackendWasmError,
+  begin,
   install as installProver,
   prove,
   type ProverInput,
@@ -18,11 +19,14 @@ declare global {
 
 interface BrowserProverResult {
   readonly status: "pending" | "ok" | "error";
+  readonly mode?: ProverExecutionMode;
   readonly valid?: boolean;
   readonly proofBytes?: number;
   readonly timings?: readonly BrowserTiming[];
   readonly error?: string;
 }
+
+type ProverExecutionMode = "one-call" | "staged";
 
 interface BrowserTiming {
   readonly label: string;
@@ -45,6 +49,7 @@ main().catch((error: unknown) => {
 
 async function main(): Promise<void> {
   const timings: BrowserTiming[] = [];
+  const mode = readExecutionMode();
   const fixture = await timed(timings, "load fixture binaries", loadPreparedBinaryFixture);
 
   await expectBackendError(() => prove(fixture.prover), "INSTALL_REQUIRED");
@@ -68,8 +73,24 @@ async function main(): Promise<void> {
     throw new Error("Concurrent prover install calls returned inconsistent configuration.");
   }
 
-  const proofPromise = timed(timings, "prove binary", () => prove(fixture.prover));
-  await expectBackendError(() => prove(fixture.prover), "BUSY");
+  const proofPromise = mode === "staged"
+    ? timed(timings, "prove binary staged", async () => {
+        const session = await begin(fixture.prover);
+        try {
+          await expectBackendError(() => prove(fixture.prover), "BUSY");
+          await session.proveArithmetic();
+          await session.proveCopy();
+          await session.proveBinding();
+          return await session.finalize();
+        } catch (error) {
+          session.dispose();
+          throw error;
+        }
+      })
+    : timed(timings, "prove binary one-call", () => prove(fixture.prover));
+  if (mode === "one-call") {
+    await expectBackendError(() => prove(fixture.prover), "BUSY");
+  }
   await expectBackendError(
     () => installProver({ chunkSizeExponent: 17 }),
     "BUSY",
@@ -87,6 +108,11 @@ async function main(): Promise<void> {
   ) {
     throw new Error("Optionless prover install did not preserve the updated configuration.");
   }
+  if (mode === "staged") {
+    await timed(timings, "check staged session lifecycle", () =>
+      checkStagedSessionLifecycle(fixture.prover)
+    );
+  }
 
   await timed(timings, "install verifier", installVerifier);
   const verificationResult = await timed(timings, "verify generated proof", () =>
@@ -98,10 +124,32 @@ async function main(): Promise<void> {
 
   window.__tokamakProverResult = {
     status: "ok",
+    mode,
     valid: verificationResult,
     proofBytes: proof.byteLength,
     timings,
   };
+}
+
+async function checkStagedSessionLifecycle(input: ProverInput): Promise<void> {
+  const disposedSession = await begin(input);
+  disposedSession.dispose();
+  await expectBackendError(() => disposedSession.proveArithmetic(), "RUNTIME_FAILED");
+
+  const invalidSequenceSession = await begin(input);
+  await expectBackendError(() => invalidSequenceSession.proveCopy(), "RUNTIME_FAILED");
+  await installProver();
+}
+
+function readExecutionMode(): ProverExecutionMode {
+  const mode = new URL(window.location.href).searchParams.get("mode");
+  if (mode === null || mode === "one-call") {
+    return "one-call";
+  }
+  if (mode === "staged") {
+    return mode;
+  }
+  throw new Error(`Unsupported prover execution mode: ${mode}.`);
 }
 
 async function loadPreparedBinaryFixture(): Promise<BinaryProverVerifierFixture> {

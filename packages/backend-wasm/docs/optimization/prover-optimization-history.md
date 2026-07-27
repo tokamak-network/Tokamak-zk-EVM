@@ -23,10 +23,13 @@ the current-state summary governs.
 
 ## Current Production Snapshot
 
-The current production prover is one integrated binary-input prover. Historical
-`prove0` through `prove4` names are diagnostics labels that map to native
-protocol terminology; they are not production modules, public APIs, scheduling
-boundaries, or separate prover implementations.
+The current production prover is one stateful binary-input prover.
+`prove(input)` is the complete wrapper over the same opaque session exposed by
+`begin(input)`. Applications may advance that session through arithmetic,
+copy, binding, and integrated-finalization calls. These calls preserve one
+in-memory transcript and are not numbered production modules, independent
+provers, serialization boundaries, or scheduling boundaries. Historical
+`prove0` through `prove4` names remain diagnostics labels only.
 
 Latest accepted fixed-taxonomy Node timing at the final publication gate:
 
@@ -66,6 +69,28 @@ Current correctness and distribution state:
 - production build and package inspection pass; and
 - `test/`, `scripts/`, `fixtures/`, and `tmp/` are excluded from the published
   package.
+
+## Staged Prover API
+
+On 2026-07-27, the complete prover was exposed through four ordered
+application-callable operations while preserving `prove()` and `proveSnark()`
+as wrappers over the same implementation. Initial-relation ownership was split
+between arithmetic commitments and the copy witness commitment. Opening
+ownership was split between copy openings and final integrated openings. No
+intermediate state is serialized, validated, or recomputed.
+
+Fresh Chromium runs generated 2328-byte proofs accepted by the browser
+verifier:
+
+| Mode | Mean proof time | Peak total RSS | Peak single RSS |
+| --- | ---: | ---: | ---: |
+| One-call `prove()` | 123.80 s | 9.813 GiB | 9.615 GiB |
+| Explicit four calls | 126.00 s | 9.784 GiB | 9.586 GiB |
+
+The paths execute identical session methods, so the 1.8% observed mean timing
+difference is full-run variation rather than evidence of additional staged
+work. No memory amplification was observed. Full method and interpretation are
+recorded in `staged-prover-api-benchmark.md`.
 
 ## End-To-End Timing Timeline
 

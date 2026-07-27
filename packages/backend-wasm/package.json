@@ -48,6 +48,7 @@
     "prover:ops:polynomial": "tsx test/checks/prover/check-prover-polynomial-ops.ts",
     "prover:check": "tsx test/checks/prover/check-prover-fixture.ts",
     "prover:browser:check": "tsx test/checks/browser/check-prover-browser.ts",
+    "prover:staged:browser:check": "BACKEND_WASM_BROWSER_PROVER_MODE=staged tsx test/checks/browser/check-prover-browser.ts",
     "prover:testing-mode:check": "tsx test/checks/prover/check-prover-testing-mode.ts",
     "prover:witness:check": "tsx test/checks/prover/check-prover-witness.ts",
     "rkyv-decoder:build": "npm --prefix tools/rkyv-decoder-wasm run build",
