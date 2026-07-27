@@ -74,6 +74,52 @@ releases an unfinished session and is idempotent. If an operation is already
 running, resource and busy-lock release is deferred until that operation
 settles.
 
+Applications can expose coarse progress by updating their own state immediately
+before each staged call:
+
+```ts
+type ProverPhase =
+  | "preparing"
+  | "arithmetic"
+  | "copy"
+  | "binding"
+  | "finalizing"
+  | "completed";
+
+async function proveWithProgress(
+  input: Parameters<typeof prover.begin>[0],
+  setPhase: (phase: ProverPhase) => void,
+): Promise<Uint8Array> {
+  setPhase("preparing");
+  const session = await prover.begin(input);
+
+  try {
+    setPhase("arithmetic");
+    await session.proveArithmetic();
+
+    setPhase("copy");
+    await session.proveCopy();
+
+    setPhase("binding");
+    await session.proveBinding();
+
+    setPhase("finalizing");
+    const proof = await session.finalize();
+
+    setPhase("completed");
+    return proof;
+  } finally {
+    session.dispose();
+  }
+}
+```
+
+The application knows that a phase started when it sets the state and that it
+completed when the corresponding Promise resolves. A rejected Promise identifies
+the active failing phase; the application decides how to represent that error.
+The package does not estimate percentages or remaining time and does not add
+callbacks inside protocol operations.
+
 `chunkSizeExponent` controls the dense Sigma1 MSM chunk size as
 `2 ** chunkSizeExponent`. It accepts integers from `10` through `19`. Omitting
 the option uses `18`, or preserves the current value after installation.

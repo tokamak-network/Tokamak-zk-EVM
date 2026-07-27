@@ -29,6 +29,11 @@ ordered `proveArithmetic()`, `proveCopy()`, `proveBinding()`, and `finalize()`
 operations execute the same implementation. The session is an API boundary
 over one in-memory protocol flow, not four independent provers.
 
+Coarse progress is application-owned. The caller updates its state before each
+ordered session operation and uses Promise resolution as the completion signal.
+The prover protocol does not own UI phase state, percentages, timers, or
+progress callbacks.
+
 ## Dependency Direction
 
 Production dependencies flow in this direction:

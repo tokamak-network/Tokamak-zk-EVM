@@ -10,6 +10,21 @@ const OUTPUT_DIR = "tmp/browser/prover";
 const BUNDLE_PATH = path.join(OUTPUT_DIR, "prover-entry.js");
 const DEFAULT_TIMEOUT_MS = 1_800_000;
 type ProverExecutionMode = "one-call" | "staged";
+type ProverPhase =
+  | "preparing"
+  | "arithmetic"
+  | "copy"
+  | "binding"
+  | "finalizing"
+  | "completed";
+const EXPECTED_STAGED_PHASES: readonly ProverPhase[] = [
+  "preparing",
+  "arithmetic",
+  "copy",
+  "binding",
+  "finalizing",
+  "completed",
+];
 
 async function main(): Promise<void> {
   await rm(OUTPUT_DIR, { recursive: true, force: true });
@@ -66,6 +81,7 @@ async function main(): Promise<void> {
     if (value.mode !== mode) {
       throw new Error(`Browser prover reported mode '${value.mode}' instead of '${mode}'.`);
     }
+    assertObservedPhases(value, mode);
     printTimings(value);
   } finally {
     await browser?.close();
@@ -80,6 +96,7 @@ interface BrowserProverResult {
   readonly mode?: ProverExecutionMode;
   readonly valid?: boolean;
   readonly proofBytes?: number;
+  readonly phases?: readonly ProverPhase[];
   readonly timings?: readonly BrowserTiming[];
   readonly error?: string;
 }
@@ -162,8 +179,25 @@ function parseExecutionMode(raw: string | undefined): ProverExecutionMode {
   throw new Error(`BACKEND_WASM_BROWSER_PROVER_MODE must be 'one-call' or 'staged': ${raw}`);
 }
 
+function assertObservedPhases(result: BrowserProverResult, mode: ProverExecutionMode): void {
+  const expected = mode === "staged" ? EXPECTED_STAGED_PHASES : [];
+  const actual = result.phases ?? [];
+  if (
+    actual.length !== expected.length
+    || actual.some((phase, index) => phase !== expected[index])
+  ) {
+    throw new Error(
+      `Browser prover phase sequence mismatch: expected ${expected.join(" -> ") || "(none)"}, `
+        + `got ${actual.join(" -> ") || "(none)"}.`,
+    );
+  }
+}
+
 function printTimings(result: BrowserProverResult): void {
   console.log(`Browser prover (${result.mode}) generated ${result.proofBytes ?? 0} proof bytes.`);
+  if (result.phases !== undefined) {
+    console.log(`Observed prover phases: ${result.phases.join(" -> ")}`);
+  }
   for (const timing of result.timings ?? []) {
     console.log(`${timing.label}: ${formatDuration(timing.ms)}`);
   }

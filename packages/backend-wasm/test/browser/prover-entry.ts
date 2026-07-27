@@ -22,11 +22,19 @@ interface BrowserProverResult {
   readonly mode?: ProverExecutionMode;
   readonly valid?: boolean;
   readonly proofBytes?: number;
+  readonly phases?: readonly ProverPhase[];
   readonly timings?: readonly BrowserTiming[];
   readonly error?: string;
 }
 
 type ProverExecutionMode = "one-call" | "staged";
+type ProverPhase =
+  | "preparing"
+  | "arithmetic"
+  | "copy"
+  | "binding"
+  | "finalizing"
+  | "completed";
 
 interface BrowserTiming {
   readonly label: string;
@@ -49,6 +57,7 @@ main().catch((error: unknown) => {
 
 async function main(): Promise<void> {
   const timings: BrowserTiming[] = [];
+  const phases: ProverPhase[] = [];
   const mode = readExecutionMode();
   const fixture = await timed(timings, "load fixture binaries", loadPreparedBinaryFixture);
 
@@ -75,13 +84,20 @@ async function main(): Promise<void> {
 
   const proofPromise = mode === "staged"
     ? timed(timings, "prove binary staged", async () => {
+        phases.push("preparing");
         const session = await begin(fixture.prover);
         try {
           await expectBackendError(() => prove(fixture.prover), "BUSY");
+          phases.push("arithmetic");
           await session.proveArithmetic();
+          phases.push("copy");
           await session.proveCopy();
+          phases.push("binding");
           await session.proveBinding();
-          return await session.finalize();
+          phases.push("finalizing");
+          const proof = await session.finalize();
+          phases.push("completed");
+          return proof;
         } catch (error) {
           session.dispose();
           throw error;
@@ -127,6 +143,7 @@ async function main(): Promise<void> {
     mode,
     valid: verificationResult,
     proofBytes: proof.byteLength,
+    phases: mode === "staged" ? phases : undefined,
     timings,
   };
 }
