@@ -21,10 +21,6 @@
       "destination": "setup/sigma_verify.json"
     },
     {
-      "source": "packages/backend/setup/output/sigma_preprocess.rkyv",
-      "destination": "setup/sigma_preprocess.rkyv"
-    },
-    {
       "source": "packages/backend/setup/output/combined_sigma.rkyv",
       "destination": "setup/combined_sigma.rkyv"
     },

@@ -2,7 +2,7 @@ import {
   convertInstance,
   convertPermutation,
   convertProof,
-  convertProverCrs,
+  convertCrs,
   convertVerifierPreprocess,
   convertWitness,
 } from "@tokamak-zk-evm/snark-browser-compat/converter";
@@ -23,16 +23,25 @@ export async function prepareArtifacts(sources: ArtifactSources): Promise<{
   readonly verifierPreprocess: Uint8Array;
   readonly proof: Uint8Array;
   readonly proverCrs: Uint8Array;
+  readonly preprocessCrs: Uint8Array;
+  readonly verifierCrs: Uint8Array;
 }> {
-  const [witness, permutation, instance, verifierPreprocess, proof, proverCrs] =
+  const [witness, permutation, instance, verifierPreprocess, proof, crs] =
     await Promise.all([
       convertWitness(sources.witness),
       convertPermutation(sources.permutation),
       convertInstance(sources.instance),
       convertVerifierPreprocess(sources.verifierPreprocess),
       convertProof({ sourceFormat: "json", proof: sources.proof }),
-      convertProverCrs(sources.combinedSigmaRkyv),
+      convertCrs(sources.combinedSigmaRkyv),
     ]);
 
-  return { witness, permutation, instance, verifierPreprocess, proof, proverCrs };
+  return {
+    witness,
+    permutation,
+    instance,
+    verifierPreprocess,
+    proof,
+    ...crs,
+  };
 }

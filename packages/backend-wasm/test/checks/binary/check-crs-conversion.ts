@@ -1,8 +1,10 @@
 import { getCurveFromName } from "ffjavascript";
 
 import { decodeBinaryArtifactFile } from "../../../src/artifacts/binary/binary-artifact-file.js";
+import { BinaryArtifactFileKind } from "../../../src/artifacts/binary/binary-format.js";
 import {
-  convertCombinedSigmaRkyvToProverCrsBinary,
+  convertCombinedSigmaRkyvToCrsBinaries,
+  type CsrSetupShape,
   type DecodedCombinedSigmaRkyv,
 } from "../../../src/converter/conversion/rkyv-to-binary.js";
 import { BACKEND_WASM_PACKAGE_VERSION } from "../../../src/version.js";
@@ -31,38 +33,76 @@ interface ExpectedSection {
 
 interface EdgeCaseFixture {
   readonly decoded: DecodedCombinedSigmaRkyv;
-  readonly expectedSections: readonly ExpectedSection[];
+  readonly proverSections: readonly ExpectedSection[];
+  readonly preprocessSections: readonly ExpectedSection[];
+  readonly verifierSections: readonly ExpectedSection[];
 }
+
+const TEST_SETUP = {
+  l: 3,
+  l_free: 1,
+  l_D: 5,
+  n: 2,
+  s_max: 2,
+} as const satisfies CsrSetupShape;
 
 async function main(): Promise<void> {
   const fixture = await createEdgeCaseFixture();
-  const artifact = await convertCombinedSigmaRkyvToProverCrsBinary(
+  const artifacts = await convertCombinedSigmaRkyvToCrsBinaries(
     new Uint8Array([0x52, 0x4b, 0x59, 0x56]),
     {
       sourcePackageVersion: BACKEND_WASM_PACKAGE_VERSION,
       decoder: {
         decodeCombinedSigma: () => fixture.decoded,
       },
+      setup: TEST_SETUP,
     },
   );
-  const artifactFile = await decodeBinaryArtifactFile(artifact);
 
-  if (artifactFile.sections.length !== fixture.expectedSections.length) {
-    throw new Error("Converted Prover CRS section count mismatch.");
+  await checkArtifact(
+    artifacts.proverCrs,
+    BinaryArtifactFileKind.ProverCrs,
+    fixture.proverSections,
+  );
+  await checkArtifact(
+    artifacts.preprocessCrs,
+    BinaryArtifactFileKind.PreprocessCrs,
+    fixture.preprocessSections,
+  );
+  await checkArtifact(
+    artifacts.verifierCrs,
+    BinaryArtifactFileKind.VerifierCrs,
+    fixture.verifierSections,
+  );
+
+  console.log("Checked one-pass CRS conversion for prover, preprocess, and verifier outputs");
+}
+
+async function checkArtifact(
+  artifact: Uint8Array,
+  expectedKind: BinaryArtifactFileKind,
+  expectedSections: readonly ExpectedSection[],
+): Promise<void> {
+  const artifactFile = await decodeBinaryArtifactFile(artifact);
+  if (artifactFile.kind !== expectedKind) {
+    throw new Error(`Converted CRS kind mismatch: expected ${expectedKind}, got ${artifactFile.kind}.`);
+  }
+  if (artifactFile.sections.length !== expectedSections.length) {
+    throw new Error(
+      `Converted CRS section count mismatch: expected ${expectedSections.length}, got ${artifactFile.sections.length}.`,
+    );
   }
 
-  for (let index = 0; index < fixture.expectedSections.length; index += 1) {
+  for (let index = 0; index < expectedSections.length; index += 1) {
     const actual = artifactFile.sections[index];
-    const expected = fixture.expectedSections[index];
+    const expected = expectedSections[index];
     if (actual.label !== expected.label) {
       throw new Error(
-        `Converted Prover CRS section label mismatch: expected ${expected.label}, got ${actual.label}.`,
+        `Converted CRS section label mismatch: expected ${expected.label}, got ${actual.label}.`,
       );
     }
     assertBytesEqual(actual.data, expected.data, expected.label);
   }
-
-  console.log("Checked batch Montgomery Prover CRS conversion for G1/G2 edge points");
 }
 
 async function createEdgeCaseFixture(): Promise<EdgeCaseFixture> {
@@ -88,8 +128,8 @@ async function createEdgeCaseFixture(): Promise<EdgeCaseFixture> {
     );
     const g1Patterns = [
       [0, 1, 2, 1, 0, 2],
-      [1, 2, 0],
-      [2, 1],
+      [0, 1, 2, 1, 1, 2, 0, 2, 2, 1, 0, 1, 1, 0, 2, 2],
+      [0, 1, 2],
       [0, 2, 1, 2],
       [1, 0, 1],
       [2, 2],
@@ -108,11 +148,11 @@ async function createEdgeCaseFixture(): Promise<EdgeCaseFixture> {
       "sigma1.delta-inv-alphak-yi-ty",
     ] as const;
     const nativeG1Sections = g1Patterns.map((pattern) => selectPoints(g1Native, pattern));
-    const expectedG1Sections = g1Patterns.map(
+    const montgomeryG1Sections = g1Patterns.map(
       (pattern) => selectPoints(g1Montgomery, pattern),
     );
     const nativeG2Section = selectPoints(g2Native, g2Pattern);
-    const expectedG2Section = selectPoints(g2Montgomery, g2Pattern);
+    const montgomeryG2Section = selectPoints(g2Montgomery, g2Pattern);
 
     return {
       decoded: {
@@ -126,14 +166,34 @@ async function createEdgeCaseFixture(): Promise<EdgeCaseFixture> {
         sigma1DeltaInvAlphakYiTy: nativeG1Sections[7],
         g2: nativeG2Section,
       },
-      expectedSections: [
+      proverSections: [
         ...labels.map((label, index) => ({
           label,
-          data: expectedG1Sections[index],
+          data: montgomeryG1Sections[index],
         })),
         {
           label: "sigma.g2",
-          data: expectedG2Section,
+          data: montgomeryG2Section,
+        },
+      ],
+      preprocessSections: [
+        {
+          label: "sigma1.xy-powers",
+          data: selectPoints(splitPoints(montgomeryG1Sections[1], 96), [0, 1, 4, 5]),
+        },
+        {
+          label: "sigma1.gamma-inv-o-inst",
+          data: selectPoints(splitPoints(montgomeryG1Sections[2], 96), [1, 2]),
+        },
+      ],
+      verifierSections: [
+        {
+          label: "sigma.g1",
+          data: selectPoints(splitPoints(montgomeryG1Sections[0], 96), [0, 1, 2, 5]),
+        },
+        {
+          label: "sigma.g2",
+          data: montgomeryG2Section,
         },
       ],
     };

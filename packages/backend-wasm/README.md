@@ -128,14 +128,14 @@ Public verifier types are `VerifierInput` and `VerifierInstallationInfo`.
 | `convertInstance(value)` | Parsed instance JSON to instance binary |
 | `convertVerifierPreprocess(value)` | Parsed preprocess JSON to verifier-preprocess binary |
 | `convertProof(input)` | Convert native proof JSON to binary, or proof binary to a native proof JSON object, according to `sourceFormat` |
-| `convertProverCrs(bytes)` | `combined_sigma.rkyv` bytes to prover-CRS binary |
+| `convertCrs(bytes)` | `combined_sigma.rkyv` bytes to named prover, preprocess, and verifier CRS binaries |
 | `inspectBinary(bytes, options?)` | Binary header and section information without a validity claim |
 | `validateBinary(bytes)` | Validated decoded artifact after layout, digest, and spec checks |
 
 Public converter types are `BinaryArtifactInspection`,
-`BinaryInspectionOptions`, `BinarySectionInspection`, `ConverterArtifactJson`,
-`ConvertProofBinaryInput`, `ConvertProofInput`, `ConvertProofJsonInput`, and
-`RuntimeArtifactFileValidationResult`.
+`BinaryInspectionOptions`, `BinarySectionInspection`, `ConvertedCrs`,
+`ConverterArtifactJson`, `ConvertProofBinaryInput`, `ConvertProofInput`,
+`ConvertProofJsonInput`, and `RuntimeArtifactFileValidationResult`.
 
 Every subpath exports `BackendWasmError` and `BackendWasmErrorCode`.
 
@@ -309,7 +309,7 @@ storage, caching, and invalidation.
 | `witness` | Tokamak synthesizer placement-variable JSON | Parse JSON, then call `convertWitness()` |
 | `permutation` | Tokamak synthesizer permutation JSON | Parse JSON, then call `convertPermutation()` |
 | `instance` | Tokamak synthesizer instance JSON | Parse JSON, then call `convertInstance()` |
-| `proverCrs` | Release `combined_sigma.rkyv` | Load bytes, then call `convertProverCrs()` |
+| `proverCrs` | Release `combined_sigma.rkyv` | Load bytes, then use `convertCrs().proverCrs` |
 | `verifierPreprocess` | Native verifier preprocess JSON | Parse JSON, then call `convertVerifierPreprocess()` |
 | `proof` | `prove()` output or native proof JSON | Use directly or call `convertProof()` |
 
@@ -317,7 +317,7 @@ The package pins `@tokamak-zk-evm/subcircuit-library` and generates setup
 parameters, packed R1CS data, and subcircuit metadata into the build. These are
 not runtime inputs.
 
-Obtain the large prover CRS from the immutable
+Obtain the large combined CRS source from the immutable
 [Tokamak zk-EVM CRS release folder](https://drive.google.com/drive/folders/14xqCbLoyoVmUVTTlopiXtKnoHPBGL-Sv).
 The package never downloads Google Drive artifacts. Keep provenance information
 from the release source and invalidate cached converted binaries when the
@@ -332,7 +332,7 @@ import {
   convertInstance,
   convertPermutation,
   convertProof,
-  convertProverCrs,
+  convertCrs,
   convertVerifierPreprocess,
   convertWitness,
   inspectBinary,
@@ -346,16 +346,21 @@ const witness = await convertWitness(witnessSource);
 
 const rkyvResponse = await fetch("/sources/combined_sigma.rkyv");
 const rkyvBytes = new Uint8Array(await rkyvResponse.arrayBuffer());
-const proverCrs = await convertProverCrs(rkyvBytes);
+const { proverCrs, preprocessCrs, verifierCrs } = await convertCrs(rkyvBytes);
 
 const inspection = await inspectBinary(proverCrs);
 const validated = await validateBinary(proverCrs);
 ```
 
-The application parses JSON before calling a converter. `convertProverCrs()`
+The application parses JSON before calling a converter. `convertCrs()`
 transfers its input `ArrayBuffer` to a temporary module Worker, detaching the
 caller's buffer. Pass `rkyvBytes.slice()` when the original bytes must remain
 available.
+
+`proverCrs` and `preprocessCrs` are application-owned runtime inputs for their
+respective APIs. `verifierCrs` is an independently inspectable and validatable
+converter output, but the current verifier continues using its build-generated
+hardcoded CRS and does not accept it as an input.
 
 `inspectBinary()` reads the file kind, versions, self-digest, and section table.
 It does not establish validity. `validateBinary()` checks the fixed layout,

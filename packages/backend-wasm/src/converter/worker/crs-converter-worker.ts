@@ -3,25 +3,26 @@ import initRkyvDecoder, {
   decodeCombinedSigma,
 } from "./rkyv-decoder/backend_wasm_rkyv_decoder.js";
 import {
-  convertCombinedSigmaRkyvToProverCrsBinary,
+  convertCombinedSigmaRkyvToCrsBinaries,
   createCombinedSigmaRkyvPayloadDecoder,
 } from "../conversion/rkyv-to-binary.js";
+import { GENERATED_PROVER_SETUP_PARAMS } from "../../prover/generated/subcircuit-library.generated.js";
 
-interface ProverCrsWorkerRequest {
+interface CrsWorkerRequest {
   readonly inputBuffer: ArrayBuffer;
   readonly byteOffset: number;
   readonly byteLength: number;
 }
 
-interface ProverCrsWorkerScope {
-  onmessage: ((event: MessageEvent<ProverCrsWorkerRequest>) => void) | null;
+interface CrsWorkerScope {
+  onmessage: ((event: MessageEvent<CrsWorkerRequest>) => void) | null;
   postMessage(message: unknown, transfer?: Transferable[]): void;
   close(): void;
 }
 
-const worker = self as unknown as ProverCrsWorkerScope;
+const worker = self as unknown as CrsWorkerScope;
 
-worker.onmessage = async (event: MessageEvent<ProverCrsWorkerRequest>): Promise<void> => {
+worker.onmessage = async (event: MessageEvent<CrsWorkerRequest>): Promise<void> => {
   try {
     await initRkyvDecoder();
     const input = new Uint8Array(
@@ -29,20 +30,23 @@ worker.onmessage = async (event: MessageEvent<ProverCrsWorkerRequest>): Promise<
       event.data.byteOffset,
       event.data.byteLength,
     );
-    const artifact = await convertCombinedSigmaRkyvToProverCrsBinary(input, {
+    const artifacts = await convertCombinedSigmaRkyvToCrsBinaries(input, {
       sourcePackageVersion: BACKEND_WASM_PACKAGE_VERSION,
       decoder: createCombinedSigmaRkyvPayloadDecoder(decodeCombinedSigma),
+      setup: GENERATED_PROVER_SETUP_PARAMS,
     });
-    const artifactBuffer = transferableBuffer(artifact);
+    const proverCrs = transferableArtifact(artifacts.proverCrs);
+    const preprocessCrs = transferableArtifact(artifacts.preprocessCrs);
+    const verifierCrs = transferableArtifact(artifacts.verifierCrs);
 
     worker.postMessage(
       {
         ok: true,
-        artifactBuffer,
-        byteOffset: artifact.byteOffset,
-        byteLength: artifact.byteLength,
+        proverCrs,
+        preprocessCrs,
+        verifierCrs,
       },
-      [artifactBuffer],
+      [proverCrs.buffer, preprocessCrs.buffer, verifierCrs.buffer],
     );
   } catch (error) {
     worker.postMessage({
@@ -54,12 +58,20 @@ worker.onmessage = async (event: MessageEvent<ProverCrsWorkerRequest>): Promise<
   }
 };
 
-function transferableBuffer(bytes: Uint8Array): ArrayBuffer {
+function transferableArtifact(bytes: Uint8Array): {
+  readonly buffer: ArrayBuffer;
+  readonly byteOffset: number;
+  readonly byteLength: number;
+} {
   if (!(bytes.buffer instanceof ArrayBuffer)) {
-    throw new TypeError("Prover CRS artifact must use a transferable ArrayBuffer.");
+    throw new TypeError("CRS artifacts must use transferable ArrayBuffers.");
   }
 
-  return bytes.buffer;
+  return {
+    buffer: bytes.buffer,
+    byteOffset: bytes.byteOffset,
+    byteLength: bytes.byteLength,
+  };
 }
 
 function serializeError(error: unknown): {

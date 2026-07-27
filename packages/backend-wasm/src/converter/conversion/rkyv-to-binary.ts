@@ -10,6 +10,8 @@ import {
 
 const G1_AFFINE_BYTES = 96;
 const G2_AFFINE_BYTES = 192;
+const FQ_BYTES = 48;
+const FQ_BATCH_CONVERSION_CHUNK_ELEMENTS = 1 << 18;
 const COMBINED_SIGMA_PAYLOAD_MAGIC = "TKCRS001";
 const COMBINED_SIGMA_PAYLOAD_SECTION_COUNT = 9;
 
@@ -34,6 +36,21 @@ interface PointSectionDefinition {
 export interface RkyvToBinaryConverterOptions {
   readonly sourcePackageVersion: string;
   readonly decoder: RkyvArchiveDecoder;
+  readonly setup: CsrSetupShape;
+}
+
+export interface CsrSetupShape {
+  readonly l: number;
+  readonly l_free: number;
+  readonly l_D: number;
+  readonly n: number;
+  readonly s_max: number;
+}
+
+export interface ConvertedCrsBinaries {
+  readonly proverCrs: Uint8Array;
+  readonly preprocessCrs: Uint8Array;
+  readonly verifierCrs: Uint8Array;
 }
 
 export interface RkyvArchiveDecoder {
@@ -52,15 +69,16 @@ export interface DecodedCombinedSigmaRkyv {
   readonly g2: Uint8Array;
 }
 
-export async function convertCombinedSigmaRkyvToProverCrsBinary(
+export async function convertCombinedSigmaRkyvToCrsBinaries(
   input: Uint8Array,
   options: RkyvToBinaryConverterOptions,
-): Promise<Uint8Array> {
+): Promise<ConvertedCrsBinaries> {
   const decoded = await options.decoder.decodeCombinedSigma(input);
+  const shape = requireCrsSetupShape(options.setup);
   const curve = await getCurveFromName("bls12381") as ConverterCurve;
 
   try {
-    const definitions: readonly PointSectionDefinition[] = [
+    const sourceDefinitions: readonly PointSectionDefinition[] = [
       g1Definition("sigma.g1", decoded.g1, 6),
       g1Definition("sigma1.xy-powers", decoded.sigma1XyPowers),
       g1Definition("sigma1.gamma-inv-o-inst", decoded.sigma1GammaInvOInst),
@@ -74,29 +92,183 @@ export async function convertCombinedSigmaRkyvToProverCrsBinary(
       g1Definition("sigma1.delta-inv-alphak-yi-ty", decoded.sigma1DeltaInvAlphakYiTy),
       g2Definition("sigma.g2", decoded.g2, 10),
     ];
-    const sections: BinarySectionInput[] = [];
-
-    for (const definition of definitions) {
+    const convertedDefinitions: PointSectionDefinition[] = [];
+    for (const definition of sourceDefinitions) {
       assertPointSectionShape(definition);
-      const data = await curve.F1.batchToMontgomery(definition.data);
-      sections.push({
-        type: definition.type,
-        encoding: definition.encoding,
-        label: definition.label,
-        elementCount: data.byteLength / definition.elementByteLength,
-        elementByteLength: definition.elementByteLength,
+      const data = await batchToMontgomeryInChunks(curve.F1, definition.data);
+      convertedDefinitions.push({
+        ...definition,
         data,
       });
     }
 
-    return createBinaryArtifactFile({
+    const sourcePackageVersion = requireSourcePackageVersion(options.sourcePackageVersion);
+    const proverCrs = await createBinaryArtifactFile({
       kind: BinaryArtifactFileKind.ProverCrs,
-      sourcePackageVersion: requireSourcePackageVersion(options.sourcePackageVersion),
-      sections,
+      sourcePackageVersion,
+      sections: convertedDefinitions.map(toBinarySectionInput),
     });
+    const preprocessCrs = await createPreprocessCrs(
+      convertedDefinitions[1].data,
+      convertedDefinitions[2].data,
+      shape,
+      sourcePackageVersion,
+    );
+    const verifierCrs = await createVerifierCrs(
+      convertedDefinitions[0].data,
+      convertedDefinitions[8].data,
+      sourcePackageVersion,
+    );
+
+    return { proverCrs, preprocessCrs, verifierCrs };
   } finally {
     await curve.terminate?.();
   }
+}
+
+async function batchToMontgomeryInChunks(
+  field: RawBaseField,
+  input: Uint8Array,
+): Promise<Uint8Array> {
+  if (input.byteLength % FQ_BYTES !== 0) {
+    throw new Error("CRS base-field buffer byte length must be divisible by 48.");
+  }
+
+  const chunkBytes = FQ_BATCH_CONVERSION_CHUNK_ELEMENTS * FQ_BYTES;
+  const output = new Uint8Array(input.byteLength);
+  for (let offset = 0; offset < input.byteLength; offset += chunkBytes) {
+    const end = Math.min(offset + chunkBytes, input.byteLength);
+    output.set(await field.batchToMontgomery(input.subarray(offset, end)), offset);
+  }
+  return output;
+}
+
+function toBinarySectionInput(definition: PointSectionDefinition): BinarySectionInput {
+  return {
+    type: definition.type,
+    encoding: definition.encoding,
+    label: definition.label,
+    elementCount: definition.data.byteLength / definition.elementByteLength,
+    elementByteLength: definition.elementByteLength,
+    data: definition.data,
+  };
+}
+
+async function createPreprocessCrs(
+  xyPowers: Uint8Array,
+  gammaInvOInst: Uint8Array,
+  shape: CsrSetupShape,
+  sourcePackageVersion: string,
+): Promise<Uint8Array> {
+  const mI = shape.l_D - shape.l;
+  const mFunction = shape.l - shape.l_free;
+  const sourceXSize = Math.max(shape.n * 2, mI * 2);
+  const sourceYSize = shape.s_max * 2;
+  assertPointCount(xyPowers, sourceXSize * sourceYSize, G1_AFFINE_BYTES, "sigma1.xy-powers");
+  assertPointCount(gammaInvOInst, shape.l, G1_AFFINE_BYTES, "sigma1.gamma-inv-o-inst");
+
+  const compactXyPowers = compactPointRectangle(
+    xyPowers,
+    sourceYSize,
+    mI,
+    shape.s_max,
+  );
+  const compactGammaInvOInst = pointTail(gammaInvOInst, mFunction);
+
+  return createBinaryArtifactFile({
+    kind: BinaryArtifactFileKind.PreprocessCrs,
+    sourcePackageVersion,
+    sections: [
+      toBinarySectionInput(g1Definition("sigma1.xy-powers", compactXyPowers, mI * shape.s_max)),
+      toBinarySectionInput(
+        g1Definition("sigma1.gamma-inv-o-inst", compactGammaInvOInst, mFunction),
+      ),
+    ],
+  });
+}
+
+async function createVerifierCrs(
+  sigmaG1: Uint8Array,
+  sigmaG2: Uint8Array,
+  sourcePackageVersion: string,
+): Promise<Uint8Array> {
+  assertPointCount(sigmaG1, 6, G1_AFFINE_BYTES, "sigma.g1");
+  assertPointCount(sigmaG2, 10, G2_AFFINE_BYTES, "sigma.g2");
+
+  return createBinaryArtifactFile({
+    kind: BinaryArtifactFileKind.VerifierCrs,
+    sourcePackageVersion,
+    sections: [
+      toBinarySectionInput(
+        g1Definition("sigma.g1", selectPoints(sigmaG1, [0, 1, 2, 5]), 4),
+      ),
+      toBinarySectionInput(g2Definition("sigma.g2", sigmaG2, 10)),
+    ],
+  });
+}
+
+function compactPointRectangle(
+  points: Uint8Array,
+  sourceColumns: number,
+  outputRows: number,
+  outputColumns: number,
+): Uint8Array {
+  if (outputColumns > sourceColumns) {
+    throw new Error("Preprocess CRS compact column count exceeds the source row width.");
+  }
+
+  const output = new Uint8Array(outputRows * outputColumns * G1_AFFINE_BYTES);
+  const sourceRowBytes = sourceColumns * G1_AFFINE_BYTES;
+  const outputRowBytes = outputColumns * G1_AFFINE_BYTES;
+  for (let row = 0; row < outputRows; row += 1) {
+    const sourceOffset = row * sourceRowBytes;
+    output.set(
+      points.subarray(sourceOffset, sourceOffset + outputRowBytes),
+      row * outputRowBytes,
+    );
+  }
+  return output;
+}
+
+function pointTail(points: Uint8Array, pointCount: number): Uint8Array {
+  const byteLength = pointCount * G1_AFFINE_BYTES;
+  return points.slice(points.byteLength - byteLength);
+}
+
+function selectPoints(points: Uint8Array, indexes: readonly number[]): Uint8Array {
+  const output = new Uint8Array(indexes.length * G1_AFFINE_BYTES);
+  for (let outputIndex = 0; outputIndex < indexes.length; outputIndex += 1) {
+    const sourceOffset = indexes[outputIndex] * G1_AFFINE_BYTES;
+    output.set(
+      points.subarray(sourceOffset, sourceOffset + G1_AFFINE_BYTES),
+      outputIndex * G1_AFFINE_BYTES,
+    );
+  }
+  return output;
+}
+
+function assertPointCount(
+  points: Uint8Array,
+  expected: number,
+  elementByteLength: number,
+  label: string,
+): void {
+  const actual = points.byteLength / elementByteLength;
+  if (points.byteLength % elementByteLength !== 0 || actual !== expected) {
+    throw new Error(`${label} must contain exactly ${expected} points; received ${actual}.`);
+  }
+}
+
+function requireCrsSetupShape(shape: CsrSetupShape): CsrSetupShape {
+  for (const [name, value] of Object.entries(shape)) {
+    if (!Number.isSafeInteger(value) || value <= 0) {
+      throw new Error(`CRS setup shape '${name}' must be a positive safe integer.`);
+    }
+  }
+  if (shape.l_free > shape.l || shape.l > shape.l_D) {
+    throw new Error("CRS setup shape must satisfy l_free <= l <= l_D.");
+  }
+  return shape;
 }
 
 export function createCombinedSigmaRkyvPayloadDecoder(
@@ -210,7 +382,7 @@ function readCombinedSigmaPayloadSections(payload: Uint8Array): readonly Uint8Ar
     if (offset + length > payload.byteLength) {
       throw new Error(`combined_sigma decoder payload section ${index} exceeds the payload length.`);
     }
-    sections.push(payload.slice(offset, offset + length));
+    sections.push(payload.subarray(offset, offset + length));
     offset += length;
   }
 

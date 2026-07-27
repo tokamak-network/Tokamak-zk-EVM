@@ -100,3 +100,41 @@ decisive conversion-time reduction. `F1.batchToMontgomery()` is now the
 production conversion path. Temporary candidate and benchmark programs were
 removed after preserving these results; the permanent binary check retains
 zero, generator, negated-generator, repeated-point, and G2 ordering coverage.
+
+## Unified CRS Output Follow-Up
+
+The converter was later changed from the single `proverCrs` output to the named
+`{ proverCrs, preprocessCrs, verifierCrs }` result. This follow-up used the same
+1,038,543,880-byte owner `combined_sigma.rkyv` on an Apple M4 Pro with Node.js
+26.0.0. Each case ran in a fresh process. Peak RSS is the maximum resident set
+reported by `/usr/bin/time -l`.
+
+| Converter | Function wall time | Peak RSS | Output bytes |
+| --- | ---: | ---: | ---: |
+| Former single-output converter | 2.118 s | 13.74 GiB | 1,038,337,912 |
+| Unified three-output converter | 3.324 s | 12.14 GiB | 1,139,061,864 |
+
+The unified converter adds approximately 1.206 seconds because it builds and
+digests two additional standalone binary files. Bounded Montgomery conversion
+batches reduce peak RSS by approximately 1.61 GiB despite retaining the
+additional 100,721,272-byte preprocess CRS and 2,680-byte verifier CRS outputs.
+
+The prover output remained byte-for-byte identical to the former converter:
+
+```text
+bytes:  1038337912
+sha256: b0ba69e86c385ad2b8e04602780f97ee3010996f643459e930e18c6e88f8eb90
+```
+
+The additional output identities were:
+
+```text
+preprocessCrs bytes:  100721272
+preprocessCrs sha256: 7d2c2aa777ada9ca44a6bc1b747bbdaadfee23f38f29b7794ea8ea757510b3af
+verifierCrs bytes:    2680
+verifierCrs sha256:   eebad343a54d44897feefa0abf0b5075d3edfeaf3cb6922f22acf41ee96db5b5
+```
+
+The accepted tradeoff is a one-time conversion-time increase for independently
+cacheable runtime artifacts, unchanged prover CRS bytes, and lower measured
+peak memory.

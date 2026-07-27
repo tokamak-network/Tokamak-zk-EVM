@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "name": "preprocess_crs",
+  "sections": [
+    {
+      "label": "sigma1.xy-powers",
+      "type": "CrsG1",
+      "encoding": "ffjs-g1-affine-96",
+      "elementCount": 1048576,
+      "elementByteLength": 96,
+      "points": []
+    },
+    {
+      "label": "sigma1.gamma-inv-o-inst",
+      "type": "CrsG1",
+      "encoding": "ffjs-g1-affine-96",
+      "elementCount": 600,
+      "elementByteLength": 96,
+      "points": []
+    }
+  ]
+}

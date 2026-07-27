@@ -11,6 +11,7 @@ export type RuntimeArtifactFormatSpecName =
   | "verifier_preprocess"
   | "verifier_proof"
   | "instance"
+  | "preprocess_crs"
   | "prover_crs"
   | "prover_placement_variables"
   | "prover_permutation"

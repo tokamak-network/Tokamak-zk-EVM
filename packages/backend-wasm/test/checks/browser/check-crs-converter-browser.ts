@@ -14,11 +14,11 @@ const TEST_PAGE = `<!doctype html>
 <html lang="en">
   <body>
     <script type="module">
-      import { convertProverCrs } from "@tokamak-zk-evm/snark-browser-compat/converter";
+      import { convertCrs } from "@tokamak-zk-evm/snark-browser-compat/converter";
 
       const input = new Uint8Array([1, 2, 3, 4]);
       try {
-        await convertProverCrs(input);
+        await convertCrs(input);
         window.__converterResult = { status: "unexpected-success" };
       } catch (error) {
         const cause = error && typeof error === "object" && "cause" in error
@@ -127,7 +127,7 @@ async function assertFfjavascriptIsExternal(installedPackageRoot: string): Promi
     "dist",
     "converter",
     "worker",
-    "prover-crs-converter-worker.js",
+    "crs-converter-worker.js",
   );
   const workerSource = await readFile(workerPath, "utf8");
   if (!/from\s+["']ffjavascript["']/.test(workerSource)) {
@@ -183,12 +183,12 @@ async function checkBuiltApplication(outputRoot: string): Promise<void> {
       throw new Error("Invalid rkyv input unexpectedly converted successfully.");
     }
     if (value.detached !== true) {
-      throw new Error("convertProverCrs did not transfer and detach its input buffer.");
+      throw new Error("convertCrs did not transfer and detach its input buffer.");
     }
     if (value.code !== "INVALID_INPUT") {
       throw new Error(`Unexpected converter error code: ${value.code ?? "missing error code"}.`);
     }
-    if (value.message !== "convertProverCrs could not process its input.") {
+    if (value.message !== "convertCrs could not process its input.") {
       throw new Error(`Unexpected converter failure: ${value.message ?? "missing error message"}.`);
     }
     if (!value.causeMessage?.includes("invalid archive shape")) {
@@ -243,6 +243,6 @@ function contentTypeFor(filePath: string): string {
 
 main().catch((error: unknown) => {
   const message = error instanceof Error ? error.stack ?? error.message : String(error);
-  console.error(`Browser Prover CRS converter check failed: ${message}`);
+    console.error(`Browser CRS converter check failed: ${message}`);
   process.exitCode = 1;
 });

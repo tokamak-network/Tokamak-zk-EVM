@@ -10,9 +10,10 @@ import {
   convertWitness,
 } from "../../src/converter/index.js";
 import {
-  convertCombinedSigmaRkyvToProverCrsBinary,
+  convertCombinedSigmaRkyvToCrsBinaries,
   createCombinedSigmaRkyvPayloadDecoder,
 } from "../../src/converter/conversion/rkyv-to-binary.js";
+import { GENERATED_PROVER_SETUP_PARAMS } from "../../src/prover/generated/subcircuit-library.generated.js";
 import { BACKEND_WASM_PACKAGE_VERSION } from "../../src/version.js";
 import { loadCombinedSigmaPayloadDecoder } from "../../tools/rkyv-decoder-wasm/src/node.js";
 
@@ -36,6 +37,14 @@ async function main(argv: readonly string[]): Promise<void> {
   const runtimeRoot = path.join(backendWasmRoot, "fixtures", manifest.suite, "runtime");
   const payloadDecoder = await loadCombinedSigmaPayloadDecoder();
   const instance = await readJson(path.join(sourceRoot, "synthesizer", "instance.json"));
+  const crs = await convertCombinedSigmaRkyvToCrsBinaries(
+    await readBinary(path.join(sourceRoot, "setup", "combined_sigma.rkyv")),
+    {
+      sourcePackageVersion: BACKEND_WASM_PACKAGE_VERSION,
+      decoder: createCombinedSigmaRkyvPayloadDecoder(payloadDecoder.decodeCombinedSigmaPayload),
+      setup: GENERATED_PROVER_SETUP_PARAMS,
+    },
+  );
   const outputs: Readonly<Record<string, Uint8Array>> = {
     "witness.bin": await convertWitness(
       await readJson(path.join(sourceRoot, "synthesizer", "placementVariables.json")),
@@ -44,13 +53,9 @@ async function main(argv: readonly string[]): Promise<void> {
       await readJson(path.join(sourceRoot, "synthesizer", "permutation.json")),
     ),
     "instance.bin": await convertInstance(instance),
-    "prover-crs.bin": await convertCombinedSigmaRkyvToProverCrsBinary(
-      await readBinary(path.join(sourceRoot, "setup", "combined_sigma.rkyv")),
-      {
-        sourcePackageVersion: BACKEND_WASM_PACKAGE_VERSION,
-        decoder: createCombinedSigmaRkyvPayloadDecoder(payloadDecoder.decodeCombinedSigmaPayload),
-      },
-    ),
+    "prover-crs.bin": crs.proverCrs,
+    "preprocess-crs.bin": crs.preprocessCrs,
+    "verifier-crs.bin": crs.verifierCrs,
     "proof.bin": await convertProof({
       sourceFormat: "json",
       proof: await readJson(path.join(sourceRoot, "prove", "proof.json")),

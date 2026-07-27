@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 
 import { PROVER_CRS_V1_SPEC } from "../../../src/artifacts/specs/prover-crs.v1.generated.js";
+import { PREPROCESS_CRS_V1_SPEC } from "../../../src/artifacts/specs/preprocess-crs.v1.generated.js";
 import { SIGMA_VERIFY_V1_SPEC } from "../../../src/artifacts/specs/sigma-verify.v1.generated.js";
 import { VERIFIER_PREPROCESS_V1_SPEC } from "../../../src/artifacts/specs/verifier-preprocess.v1.generated.js";
 import {
@@ -29,6 +30,7 @@ async function main(): Promise<void> {
     await checkSigmaVerifyArtifact(runtime);
     await checkVerifierPreprocessArtifact(runtime);
     await checkProverCrsArtifact(runtime);
+    await checkPreprocessCrsArtifact();
   } finally {
     await runtime.terminate();
   }
@@ -169,6 +171,48 @@ async function checkProverCrsArtifact(runtime: CurveRuntime): Promise<void> {
   assertEqual(proverCrs.pointsByName.G.byteLength, 96, "prover_crs G byte length");
   assertEqual(proverCrs.pointsByName["sigma1.delta"].byteLength, 96, "prover_crs sigma1.delta byte length");
   assertEqual(proverCrs.pointsByName["sigma2.y"].byteLength, 192, "prover_crs sigma2.y byte length");
+}
+
+async function checkPreprocessCrsArtifact(): Promise<void> {
+  const binary = await createBinaryArtifactFile({
+    kind: BinaryArtifactFileKind.PreprocessCrs,
+    sourcePackageVersion: "0.0.0",
+    sections: [
+      {
+        type: BinarySectionType.CrsG1,
+        encoding: BinarySectionEncoding.FfjsG1Affine96,
+        label: "sigma1.xy-powers",
+        elementCount: 1_048_576,
+        elementByteLength: 96,
+        data: new Uint8Array(1_048_576 * 96),
+      },
+      {
+        type: BinarySectionType.CrsG1,
+        encoding: BinarySectionEncoding.FfjsG1Affine96,
+        label: "sigma1.gamma-inv-o-inst",
+        elementCount: 600,
+        elementByteLength: 96,
+        data: new Uint8Array(600 * 96),
+      },
+    ],
+  });
+  const artifactFile = await decodeBinaryArtifactFile(binary);
+  await validateRuntimeArtifactFile(binary, PREPROCESS_CRS_V1_SPEC, {
+    expectedKind: BinaryArtifactFileKind.PreprocessCrs,
+  });
+  const preprocessCrs = loadRuntimeArtifactBySpec(artifactFile, PREPROCESS_CRS_V1_SPEC);
+
+  assertEqual(preprocessCrs.sections.length, 2, "preprocess_crs section count");
+  assertEqual(
+    artifactFile.sections[0].elementCount,
+    1_048_576,
+    "preprocess_crs xy-powers point count",
+  );
+  assertEqual(
+    artifactFile.sections[1].elementCount,
+    600,
+    "preprocess_crs gamma point count",
+  );
 }
 
 function createRepeatedG1Section(

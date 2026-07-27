@@ -13,7 +13,6 @@ const COMBINED_SIGMA_SECTION_COUNT: u32 = 9;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SupportedArchiveKind {
     CombinedSigma,
-    SigmaPreprocess,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -111,13 +110,6 @@ pub fn decode_combined_sigma(input: &[u8]) -> Result<Vec<u8>, ArchiveDecodeError
 #[wasm_bindgen(js_name = decodeCombinedSigma)]
 pub fn decode_combined_sigma_wasm(input: &[u8]) -> Result<Vec<u8>, JsValue> {
     decode_combined_sigma(input).map_err(|error| JsValue::from_str(&error.to_string()))
-}
-
-pub fn decode_sigma_preprocess(_input: &[u8]) -> Result<Vec<u8>, ArchiveDecodeError> {
-    Err(ArchiveDecodeError::new(
-        SupportedArchiveKind::SigmaPreprocess,
-        "sigma_preprocess.rkyv decoding is not implemented because verifier preprocess tooling currently uses native preprocess.json",
-    ))
 }
 
 fn encode_combined_sigma_payload(sigma: &ArchivedSigmaRkyv) -> Vec<u8> {

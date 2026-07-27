@@ -3,15 +3,15 @@ import {
 } from "../../../src/artifacts/binary/binary-artifact-file.js";
 import { BinaryArtifactFileKind } from "../../../src/artifacts/binary/binary-format.js";
 import {
-  convertCombinedSigmaRkyvToProverCrsBinary,
+  convertCombinedSigmaRkyvToCrsBinaries,
   createCombinedSigmaRkyvPayloadDecoder,
 } from "../../../src/converter/conversion/rkyv-to-binary.js";
 
 const magic = new TextEncoder().encode("TKCRS001");
 const sectionLengths = [
   6 * 96,
-  2 * 96,
-  1 * 96,
+  16 * 96,
+  3 * 96,
   3 * 96,
   1 * 96,
   3 * 96,
@@ -23,20 +23,33 @@ const sectionLengths = [
 async function main(): Promise<void> {
   const payload = createSyntheticCombinedSigmaPayload();
   const decoder = createCombinedSigmaRkyvPayloadDecoder(() => payload);
-  const artifactBytes = await convertCombinedSigmaRkyvToProverCrsBinary(new Uint8Array([1, 2, 3]), {
+  const artifacts = await convertCombinedSigmaRkyvToCrsBinaries(new Uint8Array([1, 2, 3]), {
     sourcePackageVersion: "2.1.1",
     decoder,
+    setup: {
+      l: 3,
+      l_free: 1,
+      l_D: 5,
+      n: 2,
+      s_max: 2,
+    },
   });
-  const artifact = await decodeBinaryArtifactFile(artifactBytes);
+  const prover = await decodeBinaryArtifactFile(artifacts.proverCrs);
+  const preprocess = await decodeBinaryArtifactFile(artifacts.preprocessCrs);
+  const verifier = await decodeBinaryArtifactFile(artifacts.verifierCrs);
 
-  assertEqual(artifact.kind, BinaryArtifactFileKind.ProverCrs, "artifact kind");
-  assertEqual(artifact.sections.length, sectionLengths.length, "section count");
-  assertEqual(artifact.sections[0].label, "sigma.g1", "first section label");
-  assertEqual(artifact.sections[0].byteLength, sectionLengths[0], "sigma.g1 byte length");
-  assertEqual(artifact.sections[8].label, "sigma.g2", "last section label");
-  assertEqual(artifact.sections[8].byteLength, sectionLengths[8], "sigma.g2 byte length");
+  assertEqual(prover.kind, BinaryArtifactFileKind.ProverCrs, "prover artifact kind");
+  assertEqual(prover.sections.length, sectionLengths.length, "prover section count");
+  assertEqual(prover.sections[0].label, "sigma.g1", "prover first section label");
+  assertEqual(prover.sections[8].label, "sigma.g2", "prover last section label");
+  assertEqual(preprocess.kind, BinaryArtifactFileKind.PreprocessCrs, "preprocess artifact kind");
+  assertEqual(preprocess.sections[0].elementCount, 4, "compact xy-powers point count");
+  assertEqual(preprocess.sections[1].elementCount, 2, "compact gamma point count");
+  assertEqual(verifier.kind, BinaryArtifactFileKind.VerifierCrs, "verifier artifact kind");
+  assertEqual(verifier.sections[0].elementCount, 4, "verifier G1 point count");
+  assertEqual(verifier.sections[1].elementCount, 10, "verifier G2 point count");
 
-  console.log("Checked rkyv decoder payload adapter");
+  console.log("Checked three-output rkyv decoder payload adapter");
 }
 
 function createSyntheticCombinedSigmaPayload(): Uint8Array {

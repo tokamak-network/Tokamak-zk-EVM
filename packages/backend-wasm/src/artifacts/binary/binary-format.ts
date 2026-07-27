@@ -16,6 +16,7 @@ export enum BinaryArtifactFileKind {
   VerifierPreprocess = 4,
   ProverPlacementVariables = 5,
   ProverCrs = 6,
+  PreprocessCrs = 7,
   ProverPermutation = 9,
 }
 

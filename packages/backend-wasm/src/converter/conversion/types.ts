@@ -1,5 +1,11 @@
 export type ConverterArtifactJson = Record<string, unknown>;
 
+export interface ConvertedCrs {
+  readonly proverCrs: Uint8Array;
+  readonly preprocessCrs: Uint8Array;
+  readonly verifierCrs: Uint8Array;
+}
+
 export interface ConvertProofJsonInput {
   readonly sourceFormat: "json";
   readonly proof: unknown;

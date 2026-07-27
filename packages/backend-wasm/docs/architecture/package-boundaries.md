@@ -102,17 +102,20 @@ The verifier returns boolean validity and does not produce an output artifact.
 - `conversion`: browser-compatible, material-specific converters plus binary
   inspection.
 - `validation`: optional binary layout, digest, and spec validation.
-- `worker`: temporary Prover CRS conversion Worker and its RKYV decoder
+- `worker`: temporary unified CRS conversion Worker and its RKYV decoder
   integration.
 
-Each material converter returns one binary artifact. No converter builds a
-bundle or manifest.
+Each converter handles one source material per call. `convertCrs` is the sole
+multi-output converter because one `combined_sigma.rkyv` decode produces the
+standalone prover, preprocess, and verifier CRS artifacts. No converter builds
+a bundle or manifest.
 
 ## Artifact Ownership
 
 Runtime inputs are independent binary files supplied as named object
 properties. Prover receives witness, permutation, instance, and prover CRS.
 Verifier receives proof, instance, and verifier preprocess.
+Preprocess receives permutation, instance, and preprocess CRS.
 
 The application completes transport and storage I/O before invoking the runtime
 API. Runtime code performs no network or filesystem I/O and does not fetch
@@ -121,7 +124,9 @@ Google Drive assets.
 Setup parameters and packed subcircuit material are generated at build time from
 the pinned `@tokamak-zk-evm/subcircuit-library` package. Verifier CRS is
 regenerated during every build from the explicit native owner artifact path.
-Prover CRS remains a runtime binary input prepared through `convertProverCrs`.
+Verifier does not consume the standalone verifier CRS emitted by `convertCrs`.
+Prover and preprocess CRS remain runtime binary inputs prepared through
+`convertCrs`.
 
 ## Generated And Development Assets
 
