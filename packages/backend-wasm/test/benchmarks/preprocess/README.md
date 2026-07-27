@@ -123,3 +123,26 @@ the fastest candidate, but it saves only about 10 ms against a 10.886-second
 preprocess baseline. The WASM kernel adds Worker transfer and allocation cost
 and has the highest observed peak RSS. Neither candidate is promoted by this
 benchmark.
+
+## Candidate: Combined Inverse NTT
+
+Run each mode in an isolated process:
+
+```sh
+npm run preprocess:bench:inverse-ntt -- --mode sequential
+npm run preprocess:bench:inverse-ntt -- --mode combined
+```
+
+The combined mode concatenates the two 4096-by-256 evaluation buffers and
+submits one batched transform for each dimension. Each mode performs one parity
+warm-up followed by five measured inverse NTT runs.
+
+| Mode | Median | Change | Peak RSS |
+| --- | ---: | ---: | ---: |
+| Sequential two-polynomial inverse NTT | 933.515 ms | baseline | 1.593 GiB |
+| Combined two-polynomial inverse NTT | 1,009.431 ms | +8.1% | 2.351 GiB |
+
+Both outputs matched byte-for-byte. Combined scheduling is slower and uses
+substantially more memory because concatenation and larger intermediate
+buffers outweigh the reduced task-queue setup. It is rejected and not promoted
+to production.
