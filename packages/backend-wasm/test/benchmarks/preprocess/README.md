@@ -47,43 +47,16 @@ preprocess, prove, and verify completed successfully.
 | `proof.json` | `7680f55edeb6fecc4314f4e8358daae6baa846acade0556c628cad33cfeb6b74` |
 | `proof4_test.json` | `10fd29784c57374128a5e964d09b31543112080f933f8b7c9a857efc08547a84` |
 
-## Recorded Baseline
+## Measurement Status
 
-Measured on:
+All previously recorded preprocess timing and memory measurements are invalid.
+The benchmark environment contained substantial uncontrolled noise. Do not use
+the removed values to compare implementations or select production behavior.
 
-- Apple M4 Pro, 14 cores (10 performance and 4 efficiency);
-- 48 GB unified memory;
-- macOS 26.5.2 (`25F84`);
-- Node.js 26.0.0, arm64;
-- chunk size `2^18 = 262,144` points.
-
-Each run used a new Node.js process. All three runs passed native-output
-parity.
-
-| Run | Preprocess | Process wall | Peak RSS |
-| ---: | ---: | ---: | ---: |
-| 1 | 10,866.626 ms | 11,117.008 ms | 3.149 GiB |
-| 2 | 10,886.429 ms | 11,141.061 ms | 3.128 GiB |
-| 3 | 11,101.066 ms | 11,359.171 ms | 3.140 GiB |
-| Median | 10,886.429 ms | 11,141.061 ms | 3.140 GiB |
-
-Median exclusive stage timing:
-
-| Stage | Time |
-| --- | ---: |
-| Fixture read | 20.981 ms |
-| Runtime install | 233.425 ms |
-| Input decode | 0.659 ms |
-| Permutation polynomials | 768.299 ms |
-| `s0` commitment | 5,034.884 ms |
-| `s1` commitment | 5,119.190 ms |
-| `O_pub_fix` | 1.318 ms |
-| Output | 1.461 ms |
-| Parity check | 0.152 ms |
-
-The two dense polynomial commitments account for approximately 93.3% of
-preprocess time. This measurement is the comparison baseline only; it does not
-authorize production promotion of any optimization candidate.
+The benchmark programs and fixture identities remain available for a future
+controlled rerun. No preprocess performance baseline is currently accepted.
+This invalidation applies to the preprocess measurements only; it does not
+alter separately recorded converter benchmarks.
 
 ## Chromium Baseline
 
@@ -96,8 +69,8 @@ the browser-generated preprocess.
 npm run preprocess:browser:check
 ```
 
-On the recorded Apple M4 Pro environment, the browser preprocess call took
-11,060.105 ms. Native parity and verifier acceptance both passed.
+Native parity and verifier acceptance passed. The former browser timing is
+invalid and has been removed.
 
 ## Candidate: Permutation Grid Construction
 
@@ -109,20 +82,9 @@ npm run preprocess:bench:permutation-grid -- --mode row-template
 npm run preprocess:bench:permutation-grid -- --mode wasm-kernel
 ```
 
-Each mode performs one parity warm-up followed by five measured evaluation-grid
-constructions. Inverse NTT is intentionally excluded.
-
-| Mode | Median | Change | Peak RSS |
-| --- | ---: | ---: | ---: |
-| Current element copy | 16.817 ms | baseline | 559.03 MiB |
-| Row-template doubling copy | 6.790 ms | -59.6% | 574.52 MiB |
-| Test-only WASM kernel | 7.925 ms | -52.9% | 744.22 MiB |
-
-All outputs matched the current implementation. Row-template construction is
-the fastest candidate, but it saves only about 10 ms against a 10.886-second
-preprocess baseline. The WASM kernel adds Worker transfer and allocation cost
-and has the highest observed peak RSS. Neither candidate is promoted by this
-benchmark.
+Each mode checks parity and measures evaluation-grid construction without
+inverse NTT. Previous performance results and ranking are invalid. All three
+modes remain unmeasured candidates.
 
 ## Candidate: Combined Inverse NTT
 
@@ -134,24 +96,14 @@ npm run preprocess:bench:inverse-ntt -- --mode combined
 ```
 
 The combined mode concatenates the two 4096-by-256 evaluation buffers and
-submits one batched transform for each dimension. Each mode performs one parity
-warm-up followed by five measured inverse NTT runs.
+submits one batched transform for each dimension. Both modes passed byte
+parity. Previous performance results and the rejection conclusion are invalid.
+Both modes remain unmeasured candidates.
 
-| Mode | Median | Change | Peak RSS |
-| --- | ---: | ---: | ---: |
-| Sequential two-polynomial inverse NTT | 933.515 ms | baseline | 1.593 GiB |
-| Combined two-polynomial inverse NTT | 1,009.431 ms | +8.1% | 2.351 GiB |
+## Candidate: Sigma1 Encoding Dispatch
 
-Both outputs matched byte-for-byte. Combined scheduling is slower and uses
-substantially more memory because concatenation and larger intermediate
-buffers outweigh the reduced task-queue setup. It is rejected and not promoted
-to production.
-
-## In Progress: Sigma1 Encoding Dispatch
-
-The adaptive-versus-known-dense benchmark is intentionally suspended. Initial
-isolated-process measurements passed commitment parity but had enough
-system-level variance that they do not support a performance conclusion.
+The adaptive and known-dense paths passed commitment parity. All prior
+performance measurements are invalid.
 
 The benchmark now supports paired runs in both orders:
 
@@ -160,5 +112,5 @@ npm run preprocess:bench:sigma1-encoding -- --mode paired-adaptive-first
 npm run preprocess:bench:sigma1-encoding -- --mode paired-known-dense-first
 ```
 
-Resume by running alternating paired modes. Do not promote either path based on
-the incomplete isolated measurements.
+Use alternating paired modes in a future controlled benchmark. Neither path
+has an accepted performance result or production decision.
