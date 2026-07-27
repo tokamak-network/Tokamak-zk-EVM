@@ -8,6 +8,38 @@ The format is based on Keep a Changelog.
 
 ## Unreleased
 
+## [2.1.3] - 2026-07-27
+
+### Repository
+
+- Synchronized the release version to `2.1.3` across the CLI, subcircuit library, synthesizer packages, and backend workspace.
+
+### CLI
+
+- Bumped `@tokamak-zk-evm/cli` to `2.1.3`.
+- Updated the CLI package to consume `@tokamak-zk-evm/synthesizer-node` through the synchronized `^2.1.3` dependency range.
+- Kept `packages/cli/package.json tokamakZkEvm.compatibleBackendVersion` at `2.1`.
+
+### Subcircuit Library
+
+- Bumped `@tokamak-zk-evm/subcircuit-library` to `2.1.3`.
+
+### Synthesizer
+
+- Bumped `@tokamak-zk-evm/synthesizer-node` and `@tokamak-zk-evm/synthesizer-web` to `2.1.3`.
+- Updated both synthesizer packages to consume `@tokamak-zk-evm/subcircuit-library` through the synchronized `^2.1.3` dependency range.
+
+### Backend Workspace
+
+- Bumped the backend Rust workspace version to `2.1.3`.
+- Added a typed polynomial expression evaluator that can fuse selected polynomial combinations in the evaluation domain while preserving coefficient-domain boundaries for callers.
+- Applied the fused polynomial expression path to `prove2.p_comb` and added targeted correctness coverage for the expression evaluator.
+- Added prover operation diagnostics and timing benchmarks for fused-expression candidates so future optimization work can compare candidates against the baseline.
+- Serialized backend library test execution and made NTT domain initialization reusable for larger polynomial test domains.
+- Added `combined_sigma.json` to final setup artifacts and dusk-backed MPC upload archives, including provenance tracking for its SHA-256 digest.
+- Fixed stale backend VS Code launch arguments and ignored backend-local temporary planning files.
+- Removed a stale checked-in setup output provenance artifact from the backend workspace.
+
 ## [2.1.2] - 2026-07-18
 
 ### Repository
