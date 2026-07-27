@@ -139,21 +139,55 @@ the repository's
 
 ## Publication preparation
 
-1. Keep the backend-wasm version aligned with the Tokamak zk-EVM release line.
-2. Regenerate production source and run the complete relevant check set.
-3. Build the exact package candidate.
-4. Inspect the actual packlist and packed metadata:
+1. Run `npm run version:sync -- X.Y.Z` at the repository root. This updates
+   the package manifest, lockfile declaration, generated version constants,
+   and private decoder package together with the other synchronized release
+   surfaces.
+2. Run `npm run version:check` at the repository root.
+3. Regenerate production source and run the complete relevant check set.
+4. Build the exact package candidate.
+5. Inspect the actual packlist and packed metadata:
 
    ```sh
    npm pack --dry-run
    ```
 
-5. Confirm that `dist`, README, both package licenses, third-party notices, the
+6. Confirm that `dist`, README, both package licenses, third-party notices, the
    converter Worker, and decoder WASM are included.
-6. Confirm that `test`, `scripts`, `fixtures`, `tools`, `tmp`, diagnostics, and
+7. Confirm that `test`, `scripts`, `fixtures`, `tools`, `tmp`, diagnostics, and
    copied artifacts are excluded.
-7. Exercise the packed package through the browser consumer checks before
+8. Exercise the packed package through the browser consumer checks before
    publication.
+
+The package intentionally remains outside the root npm workspace. Its release
+build resolves the exact synchronized `@tokamak-zk-evm/subcircuit-library`
+version from npm after the release workflow publishes that package.
+
+The repository release workflow validates the latest compatible public CRS,
+exports its verified `sigma_verify.json`, rebuilds the embedded verifier CRS,
+and uploads `snark-browser-compat-release-tarball`. The workflow does not
+automatically publish while the package is absent from npm.
+
+For the first publication:
+
+1. Merge the release PR into `main`.
+2. Wait for the `Build browser-compatible SNARK package` job to succeed.
+3. Download and extract the `snark-browser-compat-release-tarball` workflow
+   artifact.
+4. Run `sha256sum --check SHA256SUMS` in the extracted artifact directory.
+5. Publish the extracted tarball:
+
+   ```sh
+   npm publish --access public --ignore-scripts \
+     tokamak-zk-evm-snark-browser-compat-X.Y.Z.tgz
+   ```
+
+6. Configure npm Trusted Publisher for
+   `.github/workflows/publish-tokamak-zk-evm.yml`.
+
+After bootstrap, the same workflow compares the synchronized version with npm
+and publishes only a strictly newer package version. npm versions are
+immutable; never reuse a published version.
 
 License and redistribution findings for release 2.1.3 are recorded in the
 repository's

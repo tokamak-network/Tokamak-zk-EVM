@@ -809,6 +809,11 @@ jobs:
 
           tarball="$(find snark-browser-compat-tarball -maxdepth 1 -name '*.tgz' -type f)"
           npm publish --dry-run --access public --ignore-scripts "$tarball"
+          (
+            cd snark-browser-compat-tarball
+            sha256sum ./*.tgz > SHA256SUMS
+            sha256sum --check SHA256SUMS
+          )
 
       - name: Upload browser-compatible SNARK tarball
         uses: actions/upload-artifact@v4
@@ -946,7 +951,7 @@ jobs:
         shell: bash
         run: |
           node <<'EOF_NODE' >> "$GITHUB_OUTPUT"
-          const { execFileSync, execSync } = require('node:child_process');
+          const { execFileSync } = require('node:child_process');
           const fs = require('node:fs');
           const path = require('node:path');
 
@@ -985,13 +990,17 @@ jobs:
             throw new Error(`Unexpected package name ${pkg.name} in ${tarball}.`);
           }
 
-          let publishedVersion = null;
+          let publishedVersion;
           try {
-            publishedVersion = execSync(`npm view "${pkg.name}" version`, {
+            publishedVersion = execFileSync('npm', ['view', pkg.name, 'version'], {
               encoding: 'utf8',
               stdio: ['ignore', 'pipe', 'pipe'],
             }).trim();
           } catch (error) {
+            const stderr = String(error.stderr ?? '');
+            if (!/\bE404\b/u.test(stderr)) {
+              throw error;
+            }
             publishedVersion = null;
           }
 
@@ -1028,6 +1037,11 @@ jobs:
           echo "Bootstrap required: ${{ steps.version-check.outputs.bootstrap_required }}"
           echo "Should publish: ${{ steps.version-check.outputs.should_publish }}"
           echo "Tarball: ${{ steps.version-check.outputs.tarball }}"
+
+      - name: Verify tarball digest
+        run: |
+          cd snark-browser-compat-tarball
+          sha256sum --check SHA256SUMS
 
       - name: Require manual first publication
         if: steps.version-check.outputs.bootstrap_required == 'true'

@@ -10,8 +10,17 @@ must prepare and retain the required binary artifacts, install the prover or
 verifier runtime explicitly, and use a bundler that supports ESM, Web Workers,
 WebAssembly, and bare npm imports inside Worker graphs.
 
+## When to use this package
+
+Use this package when a bundler-based browser application must generate or
+verify Tokamak zk-SNARK proofs, or convert application artifacts into the
+binary formats consumed by those operations. Use `@tokamak-zk-evm/cli` instead
+for the complete local Node.js and native-backend workflow. This package is not
+a generic proving-system API and does not synthesize Tokamak L2 transactions.
+
 ## Contents
 
+- [When to use this package](#when-to-use-this-package)
 - [Install](#install)
 - [Package facts](#package-facts)
 - [Choose an API](#choose-an-api)
@@ -438,9 +447,9 @@ provide a generic proving-system abstraction.
 
 The repository root separately deprecates historical WASM verifier packages.
 That notice concerns the older verifier package surfaces. This README describes
-the first-publication `@tokamak-zk-evm/snark-browser-compat` 2.1.3 package candidate
-with the explicit `./prover`, `./verifier`, and `./converter` entry points; it
-does not revive or provide compatibility with those historical packages.
+the supported `@tokamak-zk-evm/snark-browser-compat` package with the explicit
+`./prover`, `./verifier`, and `./converter` entry points; it does not revive or
+provide compatibility with those historical packages.
 
 ## Measured browser performance
 
@@ -497,6 +506,7 @@ Additional troubleshooting:
 - [Tokamak zk-EVM repository](https://github.com/tokamak-network/Tokamak-zk-EVM)
 - [Snark-browser-compat package source](https://github.com/tokamak-network/Tokamak-zk-EVM/tree/main/packages/backend-wasm)
 - [Issue tracker](https://github.com/tokamak-network/Tokamak-zk-EVM/issues)
+- [Repository changelog](https://github.com/tokamak-network/Tokamak-zk-EVM/blob/main/CHANGELOG.md)
 - [Tokamak zk-SNARK protocol paper](https://eprint.iacr.org/2024/507)
 - [`@tokamak-zk-evm/subcircuit-library` on npm](https://www.npmjs.com/package/@tokamak-zk-evm/subcircuit-library)
 - [`@tokamak-zk-evm/snark-browser-compat` on npm](https://www.npmjs.com/package/@tokamak-zk-evm/snark-browser-compat)

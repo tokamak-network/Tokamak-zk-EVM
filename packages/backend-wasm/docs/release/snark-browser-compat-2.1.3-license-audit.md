@@ -11,12 +11,12 @@ Audit date: 2026-07-27
 | Package | `@tokamak-zk-evm/snark-browser-compat@2.1.3` |
 | Package license | `MIT OR Apache-2.0` |
 | Tarball | `tokamak-zk-evm-snark-browser-compat-2.1.3.tgz` |
-| Compressed size | 860,993 bytes |
-| Unpacked size | 10,345,290 bytes |
+| Compressed size | 861,685 bytes |
+| Unpacked size | 10,347,304 bytes |
 | Entry count | 396 |
-| SHA-1 reported by npm | `61ca3625004dc28ff6cd37d3102e8691728fe659` |
-| SHA-256 | `8e500360bd67b12040b7498b7b0652d96391b04d366f257e55b3620224743ec4` |
-| npm integrity | `sha512-vH7YyocvUpLazFXRUE0vS8R9i8V82hRikrVCnu2+30sSfRgsoAG7ucUpRP26D6Sw4I49gj4UuHmc7WGxYdpvsA==` |
+| SHA-1 reported by npm | `b7bc6bc9b7430656d1a8dae34b5d19e553cbea8f` |
+| SHA-256 | `ac346a5037f1f21753bd36dee2d80d44298fc6e55aa5f52834439663bc433a61` |
+| npm integrity | `sha512-sMIdaQBMg2ylpFIF1svahhS46a4uayE7mkyAjQsPVi17A5Wxu5E4yiUn5+/j4mkFSQ1aW9mzgLRTakRiFW7Dqg==` |
 
 The candidate was built and packed on Apple Silicon with Rust 1.95.0,
 `wasm-bindgen-cli` 0.2.126, Node.js 26.0.0, npm 11.12.1, Vite 8.1.5,
