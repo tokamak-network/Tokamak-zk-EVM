@@ -91,3 +91,29 @@ The staged API is accepted:
 Applications should use `prove()` when they need only a complete proof and use
 `begin()` when they need explicit progress boundaries. An unfinished staged
 session retains large prover state and must be finalized or disposed.
+
+## Post-Reboot Rerun
+
+The host was rebooted and the comparison was repeated on 2026-07-27. RSS
+sampling remained one second, but the measurement window was tightened to end
+when the proof operation finished. This matters for the staged browser check
+because it deliberately creates and rejects additional sessions after proof
+completion to test disposal and invalid-sequence behavior.
+
+| Mode | Proof time | Proof-window peak total RSS | Proof-window peak single RSS | Verification |
+| --- | ---: | ---: | ---: | --- |
+| One-call `prove()`, first run | 122.71 s | 9.875 GiB | 9.675 GiB | passed |
+| Explicit four calls | 119.77 s | 10.166 GiB | 9.969 GiB | passed |
+| One-call `prove()`, second run | 120.06 s | 10.388 GiB | 10.190 GiB | passed |
+
+An initial staged rerun completed in 119.22 seconds, but its 10.969/10.767 GiB
+whole-check peaks are excluded from the table because sampling continued
+through two post-proof lifecycle sessions. The proof-window rerun above is the
+comparable result.
+
+The two one-call runs differ by 2.65 seconds and 0.513 GiB total RSS despite
+executing identical code. The staged result lies inside the one-call RSS range,
+and the closest consecutive proof-window pair differs by 0.29 seconds, 0.222
+GiB total RSS, and 0.221 GiB single-process RSS in favor of the staged run.
+This rerun therefore confirms the original decision: no execution-time or
+peak-memory overhead can be attributed to the staged API boundary.

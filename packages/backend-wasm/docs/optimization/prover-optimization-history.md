@@ -92,6 +92,12 @@ difference is full-run variation rather than evidence of additional staged
 work. No memory amplification was observed. Full method and interpretation are
 recorded in `staged-prover-api-benchmark.md`.
 
+A post-reboot rerun tightened RSS sampling to the proof window. One-call runs
+measured `122.71 s / 9.875 GiB` and `120.06 s / 10.388 GiB`; the staged run
+measured `119.77 s / 10.166 GiB`. All proofs verified. The 0.513 GiB spread
+between identical one-call runs is larger than either staged comparison and
+confirms that no timing or memory increase is attributable to the staged API.
+
 ## End-To-End Timing Timeline
 
 The following checkpoints use the accepted production-like taxonomy. They are
