@@ -24,10 +24,17 @@ The synchronized package version applies to:
 - `packages/frontend/qap-compiler/dist/package.json`.
 - `packages/frontend/synthesizer/node-cli/package.json`.
 - `packages/frontend/synthesizer/web-app/package.json`.
+- `packages/backend-wasm/package.json`.
+- `packages/backend-wasm/tools/rkyv-decoder-wasm/package.json`.
+- `packages/backend-wasm/src/version.ts`.
 - `packages/backend/Cargo.toml` workspace package version.
 - Backend workspace packages such as `libs`, `mpc-setup`, `preprocess`, `prove`, `trusted-setup`, and `verify`.
 
 This version changes for every published release, including patch-only changes that do not change the circuit or CRS.
+
+`packages/backend-wasm` remains outside the root npm workspace intentionally. Its build must resolve the exact
+synchronized `@tokamak-zk-evm/subcircuit-library` version from npm after that package has been published, rather than
+substituting the qap-compiler source workspace. Root version tooling still updates and validates the package explicitly.
 
 ### CLI Compatibility Version
 
@@ -254,7 +261,7 @@ archive's embedded provenance, metadata, and hashes pass validation.
 ## Publish CI Checks
 
 The publish workflow must check the latest public CRS archive for the current CLI compatibility version before publishing
-the CLI package.
+the CLI package or building the browser-compatible SNARK package.
 
 The CRS check must:
 
@@ -270,6 +277,21 @@ The CRS check must:
 - Validate `build-metadata-mpc-setup.json packageVersion` after normalizing to `MAJOR.MINOR`.
 - Validate `build-metadata-mpc-setup.json dependencies.subcircuitLibrary.sourceDigest`.
 - Validate CRS artifact hashes against provenance.
+- Export the validated `sigma_verify.json` as a workflow artifact for the browser-compatible SNARK build.
+
+The browser-compatible SNARK release build must:
+
+- run only after the public CRS check succeeds;
+- regenerate its embedded verifier CRS from the exported, validated `sigma_verify.json`;
+- resolve the exact synchronized `@tokamak-zk-evm/subcircuit-library` version from npm;
+- build and validate the converter Worker without bundling `ffjavascript`, `wasmbuilder`, or `wasmcurves`;
+- pack and validate one `@tokamak-zk-evm/snark-browser-compat` tarball; and
+- skip automated publication while the package does not yet exist on npm, requiring the first publication to be
+  performed manually from the verified release tarball.
+
+After the first manual publication, maintainers must configure npm Trusted Publisher for
+`.github/workflows/publish-tokamak-zk-evm.yml`. Later synchronized releases may then publish the verified tarball through
+the same workflow.
 
 The check must not download every candidate archive in the Drive folder. It must first narrow candidates by strict file
 name and then download only the latest matching archive.
@@ -323,3 +345,5 @@ The following states are invalid:
   CLI package compatibility version.
 - Backend build metadata lacks `compatibleBackendVersion`.
 - Backend and CRS metadata report different subcircuit source digests.
+- The browser-compatible SNARK package version, generated package version, native backend version, or exact
+  subcircuit-library dependency differs from the synchronized repository release version.

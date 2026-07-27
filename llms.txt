@@ -19,6 +19,8 @@ Use this file as the root LLM-readable map for the repository. It points to the 
   - [Synthesizer Node README](packages/frontend/synthesizer/node-cli/README.md)
 - `@tokamak-zk-evm/synthesizer-web`: browser-facing package that accepts payload objects or uploaded files and uses bundled subcircuit-library assets.
   - [Synthesizer Web README](packages/frontend/synthesizer/web-app/README.md)
+- `@tokamak-zk-evm/snark-browser-compat`: browser-compatible Tokamak zk-SNARK prover, verifier, and artifact converter for bundler-based applications.
+  - [Browser-Compatible SNARK README](packages/backend-wasm/README.md)
 
 ## Synthesizer Workspace
 

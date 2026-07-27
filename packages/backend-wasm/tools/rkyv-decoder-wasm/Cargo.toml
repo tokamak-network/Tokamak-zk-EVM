@@ -1,0 +1,13 @@
+[package]
+name = "backend-wasm-rkyv-decoder"
+version = "0.0.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+rkyv = { version = "0.7", features = ["alloc", "bytecheck", "validation"] }
+wasm-bindgen = "0.2"

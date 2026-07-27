@@ -172,6 +172,26 @@ function updateSynthesizerPackageLock() {
   );
 }
 
+function updateBackendWasmPackageLock() {
+  updatePackageLock('packages/backend-wasm/package-lock.json', lockfile => {
+    lockfile.version = targetVersion;
+    if (lockfile.packages?.['']) {
+      lockfile.packages[''].version = targetVersion;
+      lockfile.packages[''].dependencies['@tokamak-zk-evm/subcircuit-library'] = targetVersion;
+    }
+  });
+}
+
+function replaceVersionConstant(relativePath, constantName) {
+  const absolutePath = path.join(repoRoot, relativePath);
+  const original = fs.readFileSync(absolutePath, 'utf8');
+  const pattern = new RegExp(`(${constantName}\\s*=\\s*)"[^"]+"`, 'u');
+  if (!pattern.test(original)) {
+    throw new Error(`Could not find ${constantName} in ${relativePath}`);
+  }
+  fs.writeFileSync(absolutePath, original.replace(pattern, `$1"${targetVersion}"`), 'utf8');
+}
+
 updatePackageVersion('package.json');
 updatePackageVersion('packages/cli/package.json', {
   '@tokamak-zk-evm/synthesizer-node': `^${targetVersion}`,
@@ -187,10 +207,27 @@ updatePackageVersion('packages/frontend/synthesizer/node-cli/package.json', {
 updatePackageVersion('packages/frontend/synthesizer/web-app/package.json', {
   '@tokamak-zk-evm/subcircuit-library': `^${targetVersion}`,
 });
+updatePackageVersion('packages/backend-wasm/package.json', {
+  '@tokamak-zk-evm/subcircuit-library': targetVersion,
+});
+updatePackageVersion('packages/backend-wasm/tools/rkyv-decoder-wasm/package.json');
 updateBackendWorkspaceVersion();
 updateBackendCargoLock();
 updateRootPackageLock();
 updateQapCompilerPackageLock();
 updateSynthesizerPackageLock();
+updateBackendWasmPackageLock();
+replaceVersionConstant(
+  'packages/backend-wasm/src/version.ts',
+  'BACKEND_WASM_PACKAGE_VERSION',
+);
+replaceVersionConstant(
+  'packages/backend-wasm/src/prover/generated/subcircuit-library.generated.ts',
+  'NATIVE_BACKEND_VERSION',
+);
+replaceVersionConstant(
+  'packages/backend-wasm/src/prover/generated/subcircuit-library.generated.ts',
+  'SUBCIRCUIT_LIBRARY_PACKAGE_VERSION',
+);
 
 console.log(`[sync-version] Synchronized repository release version to ${targetVersion}.`);

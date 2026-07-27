@@ -1,0 +1,2602 @@
+# Prover Optimization History
+
+Audience: backend-wasm engineers measuring and optimizing prover performance.
+
+This document records prover timing baselines and optimization decisions. `tmp/timing/prover-stage-timing.json` and `tmp/timing/prover-stage-timing.md` are overwritten on each run, so this file is the durable audit trail.
+
+## Document Authority
+
+This report is the durable source of truth for backend-wasm prover
+optimization history. Temporary planning notes may be deleted and must not be
+required to understand:
+
+- the current production architecture and performance baseline;
+- why an optimization was accepted or rejected;
+- which benchmark and correctness boundaries were used;
+- which execution and representation policies future work must preserve; and
+- which deferred ideas require new evidence before production work.
+
+The chronological sections below retain detailed benchmark commands, local
+measurements, implementation boundaries, and acceptance results. When a
+historical section conflicts with the current-state summary in this section,
+the current-state summary governs.
+
+## Current Production Snapshot
+
+The current production prover is one stateful binary-input prover.
+`prove(input)` is the complete wrapper over the same opaque session exposed by
+`begin(input)`. Applications may advance that session through arithmetic,
+copy, binding, and integrated-finalization calls. These calls preserve one
+in-memory transcript and are not numbered production modules, independent
+provers, serialization boundaries, or scheduling boundaries. Historical
+`prove0` through `prove4` names remain diagnostics labels only.
+
+Latest accepted fixed-taxonomy Node timing at the final publication gate:
+
+| layer | row | total | count |
+| --- | --- | ---: | ---: |
+| lowest | `polynomial.combination_without_multiplication` | 4.32 s | 49 |
+| lowest | `polynomial.combination_with_multiplication` | 15.27 s | 18 |
+| lowest | `polynomial.recursion` | 1.35 s | 1 |
+| lowest | `polynomial.evaluation` | 209 ms | 7 |
+| lowest | `polynomial.div_ruffini` | 382 ms | 2 |
+| lowest | `polynomial.div_vanishing` | 872 ms | 2 |
+| lowest | `polynomial.encode` | 91.77 s | 14 |
+| lowest | `binding.encode` | 1.60 s | 1 |
+| top | `field.operations` | 22.42 s | 79 |
+| top | `encode` | 93.36 s | 15 |
+| boundary | `init` | 2.57 s | 2 |
+| boundary | `stage.unclassified` | 4 ms | 1 |
+| boundary | `io` | 162 ms | 2 |
+| boundary | `verify` | 17 ms | 1 |
+| boundary | `output` | 2 ms | 1 |
+| total | prover stage total | 114.19 s | - |
+| total | total wall | 118.53 s | - |
+
+The final publication-gate Chromium check generated and verified a 2328-byte
+proof at the selected `262144`-point dense Sigma1 MSM chunk size in `118.82 s`,
+with observed peak total RSS `10.03 GiB` and largest-process RSS `9.83 GiB`.
+These RSS values are local process-level observations, not a portable browser
+memory guarantee.
+
+Current correctness and distribution state:
+
+- native testing-mode-style witness, arithmetic, recursion, copy-quotient, and
+  opening invariants pass;
+- Node proof generation followed by backend-wasm verifier acceptance passes;
+- Chromium proof generation followed by same-browser verifier acceptance
+  passes;
+- production build and package inspection pass; and
+- `test/`, `scripts/`, `fixtures/`, and `tmp/` are excluded from the published
+  package.
+
+## Staged Prover API
+
+On 2026-07-27, the complete prover was exposed through four ordered
+application-callable operations while preserving `prove()` and `proveSnark()`
+as wrappers over the same implementation. Initial-relation ownership was split
+between arithmetic commitments and the copy witness commitment. Opening
+ownership was split between copy openings and final integrated openings. No
+intermediate state is serialized, validated, or recomputed.
+
+Fresh Chromium runs generated 2328-byte proofs accepted by the browser
+verifier:
+
+| Mode | Mean proof time | Peak total RSS | Peak single RSS |
+| --- | ---: | ---: | ---: |
+| One-call `prove()` | 123.80 s | 9.813 GiB | 9.615 GiB |
+| Explicit four calls | 126.00 s | 9.784 GiB | 9.586 GiB |
+
+The paths execute identical session methods, so the 1.8% observed mean timing
+difference is full-run variation rather than evidence of additional staged
+work. No memory amplification was observed. Full method and interpretation are
+recorded in `staged-prover-api-benchmark.md`.
+
+A post-reboot rerun tightened RSS sampling to the proof window. One-call runs
+measured `122.71 s / 9.875 GiB` and `120.06 s / 10.388 GiB`; the staged run
+measured `119.77 s / 10.166 GiB`. All proofs verified. The 0.513 GiB spread
+between identical one-call runs is larger than either staged comparison and
+confirms that no timing or memory increase is attributable to the staged API.
+
+## End-To-End Timing Timeline
+
+The following checkpoints use the accepted production-like taxonomy. They are
+not an additive attribution table: full runs include runtime and system noise,
+and some entries were accepted from a narrower repeatable benchmark even when
+the total-wall delta was noise-sized. The table exists to preserve the sequence
+of measured production states.
+
+| production state | related commit | total wall | interpretation |
+| --- | --- | ---: | --- |
+| Stable pre-linear rewrite baseline | `3c7da223` | 381.08 s | Baseline copied into the corrected timing runner. |
+| Flat linear accumulation | `cddceefe` | 370.68 s | Direct combination work decreased; proof verified. |
+| Batched independent 2D NTT segments | `9d7624a8` | 287.48 s | Major NTT/ROU and init reduction. |
+| Whole-chunk WASM linear operations | `6b41bff7` | 207.99 s | JS-to-WASM coefficient-call boundary removed. |
+| Same code after system reboot | no code change | 186.31 s | Demonstrates system-state sensitivity; not an optimization delta. |
+| Whole-buffer pointwise multiplication | `c6e82f5d` | 179.51 s | Generic and shifted pointwise loops moved to worker-sharded WASM. |
+| Raw-byte commitment scans | `c06f8844` | 172.94 s | Scalar `isZero` scans removed from commitment preparation. |
+| Whole-loop Ruffini division | `f94f9942` | 164.65 s | Ordered recurrences retained inside backend-owned WASM. |
+| Whole-loop polynomial evaluation | `19e46791` | 159.89 s | Row work sharded; ordered X Horner reduction retained. |
+| Whole-loop vanishing division | `72c8c379` | 154.85 s | Independent row/column recurrences sharded. |
+| Lagrange K0 recurrence | `49448d7c` | 151.46 s | Sliding recurrence preserved and moved into WASM. |
+| Lagrange KL recurrences | `f28a5c7a` | 148.72 s | Independent X/Y recurrence dimensions sharded. |
+| Special-form products | `8fa5174d` | 145.26 s | Structured products replaced scalar JS loops. |
+| Fused linear-plus-scaled terms | `a3773077` | 143.06 s | Linear factor and scaled addend fused in one WASM pass. |
+| Sparse witness row-dot kernel | `2d45a0e7` | 142.30 s | Isolated boundary improved; total delta remains noise-sized. |
+| Raw CRS descriptors | `83afc2ea` | 135.74 s | Persistent per-point view explosion removed. |
+| Packed CSR and direct-flat witness | `b5c795d6` | 135.92 s | Init improved; total-wall movement is run variation. |
+| Combined Pi and shared M/N openings | `cd7e47d3` | 121.47 s | Four redundant commitment jobs eliminated. |
+| Zero-compacted statement bindings | `7e683191` | 120.65 s | `O_prv` boundary improved and temporary bytes decreased. |
+| Direct 2D NTT task shards | `4cd23c9e` | 121.94 s | Isolated NTT improved; no full-wall reduction is claimed. |
+| Recursion same-shape clone removal | `824db138` | 119.41 s | 64 MiB copy removed; broad wall delta is not attributed. |
+| Pre-publication API and ownership cleanup | `e8ecb234` | 119.45 s | Public lifecycle and chunk configuration were wired without a material default-path regression. |
+| Direct witness conversion and flat placement storage | `f4d30bdf` | 119.40 s | Conversion/loading allocations fell without a material prover-time regression. |
+| Direct permutation buffers and row-prefix resize | `86189e69`, `35542a4f` | 118.53 s | Isolated initialization and resize boundaries improved; proof verified. |
+
+Across the stable corrected-taxonomy endpoints, total wall decreased from
+`381.08 s` to `118.53 s`, a `262.55 s` (`68.9%`) reduction. This endpoint
+comparison describes the campaign result; it must not be used to infer the
+effect of an individual optimization.
+
+## Production Optimization Contracts
+
+Future prover work must preserve these accepted decisions unless the project
+owner explicitly reopens one with new benchmark and correctness evidence.
+
+### Runtime And Representation
+
+- Prover and verifier main algorithms consume binary inputs and do not perform
+  optional artifact-format validation internally.
+- Prover arithmetic uses contiguous row-major
+  `BivariatePolynomialBuffer` storage in
+  `ffjs-fr-montgomery-le-32`. MSM scalars cross the commitment boundary only
+  after conversion to `scalar-raw-le-32`.
+- Large prover CRS sections remain raw section descriptors. Do not recreate
+  millions of per-point JavaScript views or objects.
+- Generated sparse R1CS remains persistent packed CSR. Witness construction
+  writes directly into final flat row-major buffers.
+- Coordinate-form selection follows the input shape. Do not pre-convert
+  affine points to projective, or projective points to affine, solely to call a
+  preferred group primitive.
+
+### Parallel Execution
+
+- Production uses ffjavascript primitive-level parallelism through
+  `createCurveRuntime()` with `singleThread: false`.
+- Backend-owned WASM kernels may submit independent compact shards through the
+  existing ffjavascript thread manager. They must include worker copy,
+  dispatch, result transfer, and output assembly in benchmarks.
+- Sequential recurrence dependencies remain ordered. Only mathematically
+  independent rows, columns, segments, or output shards may run in parallel.
+- ffjavascript, wasmcurves, and wasmbuilder dependency source must not be
+  forked or patched for these optimizations. Backend-owned module plugins use
+  public extension boundaries and fail explicitly when required pinned exports
+  are unavailable.
+- A separate backend-wasm Web Worker wrapper around complete MSM jobs is not a
+  production strategy. Its executable experiments were removed after their
+  evidence was preserved in
+  [`rejected/outer-worker-msm.md`](./rejected/outer-worker-msm.md).
+
+### Commitment And MSM
+
+- Dense Sigma1 commitments use bounded outer MSM calls of `262144` points.
+  This is the final production value selected on 2026-07-26 and recorded by
+  commit `6e716ab0`.
+- The outer bound is a backend-wasm delivery boundary, not ffjavascript's
+  internal Pippenger or worker chunk size.
+- The final benchmark measured `262144` at `121.25 s` and `10.22 GiB` peak
+  total RSS. `524288` measured `121.39 s` and `11.71 GiB`.
+- Removing the outer bound did not emit an explicit OOM on the local 48-GiB
+  machine, but it produced no proof before the 1,800-second browser timeout.
+  Do not describe current unbounded behavior as a proven OOM; describe it as a
+  non-completing browser path under the measured limit.
+- Dense full-row CRS ranges should remain zero-copy views when layout permits.
+  Narrower logical rows may use bounded compact row-prefix buffers.
+- Sparse commitments retain nonzero compaction and batched
+  Montgomery-to-raw conversion. Do not reintroduce per-scalar conversion.
+- The commitment result may combine deterministic partial MSM points, but the
+  transcript-visible affine point and proof bytes must remain unchanged.
+
+### Correctness And Diagnostics
+
+- Prover debugging follows native testing-mode mathematical invariants. It
+  must not compare randomized native and wasm intermediate proof points or
+  treat `proof0.U` equality as a correctness oracle.
+- Every production optimization requires exact unit-level byte or group parity
+  at the changed boundary, the relevant independent mathematical invariant,
+  Node proof verification, and Chromium proof verification.
+- Diagnostics and timing hooks remain outside `src/` and outside package
+  output. Production code must not contain dormant timing branches.
+- Test fixtures are copied from existing owner-package outputs, converted by
+  the package tooling, and stored only in ignored backend-wasm fixture paths.
+  Optimization checks must not regenerate setup, CRS, proof, preprocess,
+  placement, permutation, or instance artifacts.
+- No production fallback to a superseded slow implementation is permitted.
+  Retained legacy implementations may exist only as explicitly named
+  diagnostics or small-shape parity oracles.
+
+## Rejected And Deferred Approaches
+
+These records prevent repeated work and distinguish a rejected production
+strategy from an idea that still needs research.
+
+| approach | status | reason or reopening requirement |
+| --- | --- | --- |
+| Backend-wasm outer Web Worker MSM scheduler | Rejected | ffjavascript primitive parallelism was faster and avoided full runtime/CRS duplication. |
+| Shared-JS-buffer CRS worker design | Rejected for current dependencies | ffjavascript workers use independent WASM memories; arbitrary JS `SharedArrayBuffer` data is not directly the worker WASM linear memory. |
+| Unbounded dense MSM API call | Rejected | No proof within 1,800 seconds; bounded `262144` calls are faster and operationally safe on the measured browser. |
+| Global projective conversion | Rejected | Projective MSM wins were inconsistent, and conversion solely for API selection violates the input-shape policy. |
+| Single-scan JavaScript commitment compaction | Rejected | Over-allocation increased temporary storage and did not beat aligned raw-byte two-scan preparation. |
+| WASM commitment scan/compaction | Rejected | Worker/input materialization used substantially more temporary memory and did not win end to end. |
+| Compact-rectangle commitment as the universal path | Rejected | Density benchmarks support the current sparse/dense routing rather than one global representation. |
+| Coefficient-oriented N-term JavaScript combination | Rejected | It did not justify replacing the accepted buffer/WASM execution boundaries. |
+| Separate custom worker add/sub/scale wrapper | Rejected | Backend-owned whole-chunk kernels through the existing ffjavascript thread manager are the accepted path. |
+| Cached NTT bit-reversal tables, candidate G1 | Rejected | Three of four representative final measurements regressed. |
+| Direct inverse NTT output assembly, candidate G3 | Rejected | Complete-boundary results changed direction across repeated runs. |
+| G1+G2 NTT combination | Rejected | Slower than G2 direct task shards alone in three of four representative cases. |
+| `O_pub_free` zero compaction | Rejected | Scan/allocation overhead regressed the 109-scalar input. |
+| Init independent ROU scheduling candidate | Rejected | Isolated result did not justify production promotion; do not reopen without new evidence. |
+| Evaluation-domain `u*v-w` and quotient split | Deferred research | Define the exact Tokamak bivariate quotient-split algorithm, prove small-shape parity, then benchmark representative fixtures before production work. |
+| Verifier-only snarkjs/PLONK cleanup | Deferred | The verified browser path is approximately 20 ms and is not a current prover bottleneck. |
+
+## Future Optimization Workflow
+
+No production optimization is currently pre-approved. Start future work from a
+fresh fixed-taxonomy profile and select one measured boundary.
+
+1. Add a diagnostics-only benchmark under `test/benchmarks/` that includes all
+   input preparation, allocation, worker transfer, execution, result transfer,
+   and output assembly owned by the candidate.
+2. Compare one candidate against current production with alternating execution
+   order, warmups, repeated measurements, exact parity, explicit temporary
+   bytes, and peak memory where process isolation makes it meaningful.
+3. Benchmark candidates independently before testing compatible combinations.
+4. Record rejected candidates and their evidence before considering production
+   promotion.
+5. Obtain explicit project-owner approval when a benchmark result changes an
+   architecture, runtime policy, binary boundary, dependency strategy, or
+   production candidate set.
+6. Promote one attributable production change at a time and update this
+   report with the implementation commit, direct benchmark, full timing table,
+   browser result, memory result where available, and package-exclusion check.
+
+The standard production acceptance sequence is:
+
+```bash
+npm run typecheck
+npm run typecheck:scripts
+npm run polynomial:buffer:check
+npm run prover:ops:check
+npm run prover:testing-mode:check
+npm run prover:stage-timing:check
+npm run build
+npm run prover:browser:check
+npm pack --dry-run --json
+```
+
+The fixture-dependent commands require the controlled copied and converted
+runtime fixtures. Missing owner-package outputs must fail explicitly rather
+than trigger fixture regeneration or a fallback path.
+
+## Supporting Durable Reports
+
+This history is the primary optimization record. The following focused reports
+retain larger benchmark tables or deprecated implementation details:
+
+- [`chunk-size-decision.md`](./chunk-size-decision.md): final dense MSM chunk
+  selection, Chromium timing/RSS results, and the unbounded-call timeout.
+- [`priority-32-promotion-review.md`](./priority-32-promotion-review.md):
+  independent Priority 32 candidate and combination evidence.
+- [`rejected/outer-worker-msm.md`](./rejected/outer-worker-msm.md):
+  the complete history and rejection rationale for the outer worker-wrapper
+  MSM design.
+
+## Reporting Rules
+
+The backend-wasm prover timing runner follows the native-style flat accumulated timing model:
+
+- Raw events contain only `name`, `category`, `durationMs`, and `sizes`.
+- Report rows are reconstructed bottom-up from accumulated events.
+- No nested span tree, exclusive-self reconstruction, or overlapping child totals are used.
+- Diagnostics remain outside the published package.
+
+Published reports must use this fixed taxonomy:
+
+Lowest operation layer:
+
+| operation | definition |
+| --- | --- |
+| `polynomial.combination_without_multiplication` | Add, subtract, scale, fused scaled-add accumulation, coefficient rescale, and related shape/materialization work when the measured call site does not perform polynomial multiplication. |
+| `polynomial.combination_with_multiplication` | Generic polynomial multiplication, special-form polynomial products, shared-right products, and protocol products that perform polynomial multiplication. |
+| `polynomial.recursion` | Recursion polynomial calculation for the copy-constraint recursion path, including ROU-evaluation conversion, recursion evaluation buffer construction, and inverse conversion at the measured call-site boundary. |
+| `polynomial.evaluation` | Polynomial evaluation at transcript challenge points. |
+| `polynomial.div_ruffini` | Ruffini division. |
+| `polynomial.div_vanishing` | Vanishing-polynomial division. |
+| `polynomial.encode` | Polynomial commitment encoding, including MSM input preparation and the MSM call. |
+| `binding.encode` | Binding commitment encoding, meaning `buildProverBinding(...)` and its four G1 binding commitments: `A_free`, `O_pub_free`, `O_mid`, and `O_prv`. |
+
+Middle operation layer:
+
+| operation | definition |
+| --- | --- |
+| `polynomial.combination` | `polynomial.combination_without_multiplication + polynomial.combination_with_multiplication` |
+| `polynomial.recursion` | Lowest-layer `polynomial.recursion` |
+| `polynomial.evaluation` | Lowest-layer `polynomial.evaluation` |
+| `polynomial.division` | `polynomial.div_ruffini + polynomial.div_vanishing` |
+| `encode` | `polynomial.encode + binding.encode` |
+
+Top operation layer:
+
+| operation | definition |
+| --- | --- |
+| `field.operations` | `polynomial.combination + polynomial.recursion + polynomial.evaluation + polynomial.division` |
+| `encode` | `polynomial.encode + binding.encode` |
+
+Execution boundary layer:
+
+| row | definition |
+| --- | --- |
+| `init` | Witness polynomial construction and prover state construction. |
+| `field.operations` | Top-layer field operation total. |
+| `encode` | Top-layer encode total: `polynomial.encode + binding.encode`. |
+| `stage.unclassified` | Prover stage wall time not assigned to `field.operations` or `polynomial.encode`. |
+| `io` | Runtime bundle and generated artifact file loading. |
+| `verify` | Generated proof verification check. |
+| `output` | Verifier proof artifact creation. |
+| `external.unclassified` | Root wall time not assigned to another execution-boundary row. |
+
+The runner enforces:
+
+- Every `prove*` diagnostic stage satisfies `poly + encode <= total`.
+- Old lowest-layer categories such as `polynomial.add`, `polynomial.sub`, `polynomial.mul`, `polynomial.scale`, and `polynomial.combine` are absent.
+- Middle and top rows are derived from lower-layer totals.
+- Execution boundary rows sum to total wall time.
+- `classified operation time <= total wall time + tolerance`.
+- `unclassified prover time >= -tolerance`.
+
+## Same-Code Post-Reboot Timing Refresh
+
+The post-Priority-23 timing run was repeated after a system reboot without a
+code change. This separates system-state variation from deterministic encoder
+regression.
+
+| row | before reboot | after reboot | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.encode` | 129.95 s | 115.70 s | -14.25 s |
+| `binding.encode` | 2.19 s | 2.14 s | -0.05 s |
+| encode | 132.14 s | 117.84 s | -14.29 s (-10.8%) |
+| `field.operations` | 69.62 s | 61.96 s | -7.65 s (-11.0%) |
+| total wall | 207.99 s | 186.31 s | -21.68 s (-10.4%) |
+
+The after-reboot encode total differs by only `0.52%` from the valid earlier
+current-taxonomy result of `117.23 s`. No encode implementation changed
+between these two runs, so the elevated pre-reboot value is not treated as a
+code regression.
+
+## Timing Taxonomy Extension For Recursion And Evaluation
+
+Related commit: `800516da Add recursion and evaluation timing rows`.
+
+This is a diagnostics-only timing taxonomy change, not a prover performance optimization. The previous timing table left recursion polynomial construction and challenge-point polynomial evaluation inside `stage.unclassified`. The timing runner now reports them as first-class field-operation rows:
+
+- `polynomial.recursion`: prove1 recursion polynomial calculation.
+- `polynomial.evaluation`: prove3/prove4 polynomial evaluations at transcript challenge points.
+
+Latest timing after the taxonomy change:
+
+| row | total | count |
+| --- | ---: | ---: |
+| `polynomial.combination_without_multiplication` | 60.31 s | 61 |
+| `polynomial.combination_with_multiplication` | 67.86 s | 23 |
+| `polynomial.recursion` | 10.08 s | 1 |
+| `polynomial.evaluation` | 8.40 s | 11 |
+| `polynomial.div_ruffini` | 10.84 s | 5 |
+| `polynomial.div_vanishing` | 5.83 s | 2 |
+| `polynomial.encode` | 116.40 s | 18 |
+| `binding.encode` | 2.02 s | 1 |
+| `field.operations` | 163.31 s | 103 |
+| `encode` | 118.42 s | 19 |
+| `stage.unclassified` | 99 ms | 1 |
+| prover stage total | 279.81 s | - |
+| total wall | 288.45 s | - |
+
+Classification effect:
+
+- The immediately preceding timing taxonomy reported `stage.unclassified` around 18.13 s because recursion and evaluation work had no official rows.
+- The new taxonomy reports `polynomial.recursion = 10.08 s` and `polynomial.evaluation = 8.40 s`, leaving only 99 ms of stage-level unclassified time.
+- All timing invariant checks pass, including derived-layer equality and execution-boundary total-wall equality.
+
+Verification:
+
+```bash
+npm run typecheck:scripts
+npm run prover:stage-timing:check
+```
+
+## Adjusted-Point Evaluation Benchmark
+
+Related commit: `917ca065` (`Benchmark adjusted-point polynomial evaluation`).
+
+This is benchmark evidence only. It does not change production prover code.
+
+The benchmark tests the identity `scaleCoeffsX(a)(P)(x,y) = P(a*x,y)` and `scaleCoeffsY(b)(P)(x,y) = P(x,b*y)` for the current bivariate buffer representation. The goal is to determine whether evaluation-only scaled-polynomial paths should avoid materializing scaled coefficient buffers.
+
+Command:
+
+```bash
+npm run bench:prover-ops -- --groups=evaluation --shapes=4096x256,8192x512 --iterations=1 --warmup=0 --json=tmp/timing/evaluation-adjusted-point-representative.json
+```
+
+Representative result:
+
+| candidate | 4096x256 | 8192x512 |
+| --- | ---: | ---: |
+| `current-scale-x-then-eval` | 587.169 ms | 2328.985 ms |
+| `adjusted-point-x-eval` | 336.211 ms | 1396.252 ms |
+| `current-scale-y-then-eval` | 598.810 ms | 2315.450 ms |
+| `adjusted-point-y-eval` | 342.664 ms | 1390.405 ms |
+| `current-scale-xy-then-eval` | 837.558 ms | 3261.847 ms |
+| `adjusted-point-xy-eval` | 349.626 ms | 1399.149 ms |
+| `current-prove3-like-scaled-set` | 1524.671 ms | 6111.938 ms |
+| `adjusted-point-prove3-like-set` | 1081.993 ms | 4220.614 ms |
+
+Interpretation:
+
+- Adjusted-point direct evaluation is consistently faster for the measured shapes.
+- The prove3-like set improves by `1.41x` at `4096x256` and `1.45x` at `8192x512`.
+- This candidate is applicable only where the scaled polynomial is needed solely for evaluation. It must not remove scaled-polynomial materialization from paths that later use the scaled polynomial in arithmetic.
+
+Verification:
+
+```bash
+npm run typecheck:scripts
+npm run bench:prover-ops -- --groups=evaluation --shapes=16x16 --iterations=1 --warmup=0 --json=tmp/timing/evaluation-adjusted-point-smoke.json
+npm run bench:prover-ops -- --groups=evaluation --shapes=4096x256,8192x512 --iterations=1 --warmup=0 --json=tmp/timing/evaluation-adjusted-point-representative.json
+```
+
+## Accepted Production Adjusted-Point Challenge Evaluation
+
+Related commit: `f9a3539c Apply adjusted-point challenge evaluations`.
+
+Production `evaluateChallengePoints(...)` now computes `R_omegaX_eval` and `R_omegaX_omegaY_eval` by adjusting the evaluation point instead of materializing `RXY.scaleCoeffsX(...)` and `scaleCoeffsY(...)`.
+
+Correctness boundary:
+
+- `V_eval` and `R_eval` are unchanged.
+- `R_omegaX_eval` now uses `RXY.eval(omega_m_i^-1 * chi, zeta)`.
+- `R_omegaX_omegaY_eval` now uses `RXY.eval(omega_m_i^-1 * chi, omega_s_max^-1 * zeta)`.
+- Opening-commitment scaled `rXY` polynomials are unchanged because those scaled polynomials are used later in polynomial arithmetic, not only for evaluation.
+- The timing runner mirrors this production path so prove3-style diagnostics no longer include old scaled-polynomial materialization.
+
+Stage timing comparison:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| challenge-evaluation diagnostic label | 8.44 s | 6.23 s | -2.21 s |
+| `polynomial.combination_without_multiplication` | 60.31 s / 61 events | 58.53 s / 59 events | -1.78 s / -2 events |
+| `polynomial.evaluation` | 8.40 s / 11 events | 8.42 s / 11 events | +0.02 s / 0 events |
+| `field.operations` | 163.31 s | 163.36 s | +0.05 s |
+| `stage.unclassified` | 99 ms | 113 ms | +14 ms |
+| prover stage total | 279.81 s | 280.95 s | +1.14 s |
+| total wall | 288.45 s | 288.91 s | +0.46 s |
+
+Interpretation:
+
+- The direct target improved: the prove3-style challenge-evaluation label no longer pays for two scaled-polynomial materializations.
+- `polynomial.evaluation` stays effectively unchanged because the number of Horner evaluations is unchanged; the improvement is recorded in the removed non-multiplication combination work.
+- Overall wall-time changes are within single-run noise for this small targeted rewrite, so future optimization selection should treat the operation-local reduction as the acceptance signal.
+
+Verification:
+
+```bash
+npm run typecheck
+npm run typecheck:scripts
+npm run prover:ops:check
+npm run prover:testing-mode:check
+npm run prover:stage-timing:check
+npm run build
+npm run prover:browser:check
+npm pack --dry-run --json
+```
+
+## Recursion And Evaluation Internal Breakdown
+
+Related commit: `ae75603a` (`Diagnose recursion and evaluation timing internals`).
+
+This is diagnostics-only evidence. It does not change production prover code.
+
+The dedicated diagnostic command breaks down the two timing rows that were not intuitively explained by the official timing table:
+
+```bash
+npm run diagnose:prover:recursion-evaluation
+```
+
+The command writes structured output to `tmp/timing/prover-recursion-evaluation-breakdown.json`.
+This historical diagnostic was retired during pre-publication cleanup after its
+results were incorporated here; the retained timing command is
+`npm run prover:stage-timing:check`.
+
+Measured recursion breakdown:
+
+| substep | shape | time |
+| --- | ---: | ---: |
+| build `fXY` linear combination | 4096x256 | 1062.005 ms |
+| build `gXY` linear combination | 4096x256 | 54.014 ms |
+| resize `fXY` | 4096x256 | 3.317 ms |
+| forward 2D NTT `fXY.toRouEvals` | 4096x256 | 426.056 ms |
+| resize `gXY` | 4096x256 | 2.458 ms |
+| forward 2D NTT `gXY.toRouEvals` | 4096x256 | 475.119 ms |
+| recursion recurrence buffer | 4096x256 | 8731.575 ms |
+| inverse 2D NTT `rXY.fromRouEvals` | 4096x256 | 550.855 ms |
+| build `RXY` linear combination | 4096x256 | 72.817 ms |
+| commit `RXY` encode | 8192x512 | 5691.022 ms |
+
+Interpretation:
+
+- The recursion-polynomial bottleneck is the recurrence buffer, not the 2D NTT implementation.
+- The three 2D NTT operations together are about `1.45 s`; the recurrence buffer alone is about `8.73 s`.
+- The recurrence performs about `m_i * s_max = 1,048,576` sequential field steps and currently uses one field division per step. Future recursion optimization should investigate eliminating repeated divisions or batching inversions before changing NTT scheduling again.
+- `commit RXY encode` is listed for context, but it is a commitment/MSM cost, not part of the recursion-polynomial calculation row.
+
+Measured challenge-evaluation breakdown:
+
+| substep | shape | time |
+| --- | ---: | ---: |
+| build `VXY` linear combination | 4096x256 | 101.829 ms |
+| build `RXY` linear combination | 4096x256 | 97.309 ms |
+| compute scaled chi | - | 0.052 ms |
+| compute scaled zeta | - | 0.008 ms |
+| Horner eval `VXY(chi,zeta)` | 8192x512 | 1602.647 ms |
+| Horner eval `RXY(chi,zeta)` | 8192x512 | 1582.092 ms |
+| Horner eval `RXY(omega^-1 chi,zeta)` | 8192x512 | 1501.435 ms |
+| Horner eval `RXY(omega^-1 chi,omega^-1 zeta)` | 8192x512 | 1482.823 ms |
+
+Interpretation:
+
+- The evaluation cost is almost entirely four full-size Horner passes over `8192x512` coefficient grids.
+- Point adjustment is effectively free; the accepted adjusted-point rewrite removed scaled-polynomial materialization but did not reduce the number of full Horner passes.
+- Future evaluation optimization must reduce repeated full-grid passes or reuse powers/intermediate row values across the three `RXY` evaluations. Another point-scaling rewrite will not materially improve this row by itself.
+
+## Accepted Production Sparse Batch Scalar Conversion
+
+Related commit: `ca4513c5` (`Apply sparse batch scalar conversion`).
+
+Production `encodeSigma1Sparse(...)` now collects selected nonzero Montgomery scalars into one compact scalar buffer and converts that buffer with `Fr.batchFromMontgomeryBuffer(...)`. The previous production sparse path converted each selected scalar with `Fr.toRawLittleEndian(...)` while scanning coefficients.
+
+Correctness boundary:
+
+- sparse coefficient scan, zero skipping, CRS base selection, and row-major scalar/base ordering are unchanged;
+- dense Sigma1 chunk encoding is unchanged;
+- `G1.multiExpAffine(...)` still receives affine CRS bases and raw little-endian scalar bytes;
+- the change affects only the sparse polynomial commitment path.
+
+Benchmark evidence:
+
+```bash
+npm run bench:commitment-density -- --multi-thread --lengths=262144 --densities=0.1,0.25,0.5,0.75,1 --iterations=2 --warmup=0 --json=tmp/timing/commitment-density-sparse-batch-multi-thread-2pow18-iter2.json
+```
+
+At the current dense Sigma1 MSM chunk size, sparse-batch beat the previous sparse path end-to-end by `1.02x` to `1.06x` across the measured densities.
+
+| density | previous sparse total ms | sparse-batch total ms | speedup |
+| ---: | ---: | ---: | ---: |
+| 0.10 | 163.191 | 154.173 | 1.06x |
+| 0.25 | 363.380 | 355.334 | 1.02x |
+| 0.50 | 667.983 | 652.061 | 1.02x |
+| 0.75 | 962.074 | 937.015 | 1.03x |
+| 1.00 | 1305.060 | 1262.759 | 1.03x |
+
+Post-promotion timing:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.encode` | 117.48 s | 113.99 s | -3.49 s |
+| `binding.encode` | 1.99 s | 2.01 s | +0.02 s |
+| `encode` | 119.47 s | 116.01 s | -3.46 s |
+| `field.operations` | 143.50 s | 141.39 s | -2.11 s |
+| prover stage total | 279.63 s | 273.52 s | -6.11 s |
+| total wall time | 287.48 s | 281.43 s | -6.05 s |
+
+Verification commands:
+
+```bash
+npm run typecheck
+npm run typecheck:scripts
+npm run prover:ops:commitment
+npm run prover:check
+npm run prover:stage-timing:check
+npm run build
+npm pack --dry-run --json
+```
+
+Encode optimization closure:
+
+- Project-owner conclusion: the encode area has no remaining optimization room under the current implementation plan and benchmark evidence.
+- Encode optimization work is closed after the snarkjs-style large-MSM delivery, dense MSM chunk-size selection, primitive-parallelism confirmation, density benchmark review, and sparse batch scalar conversion.
+- Closure scope: accepted encode work covers ffjavascript primitive-level MSM parallelism, bounded dense Sigma1 chunks at `262144` points, raw CRS section reuse for dense chunks, sparse/dense density routing, and sparse-path batch scalar conversion.
+- Historical notes about compact rectangle extraction, CRS/base layout experiments, worker-wrapper commitment scheduling, encode input reporters, or additional commitment-input delivery work are audit records only. They are not active encode optimization backlog.
+- Future prover optimization work should focus on non-encode bottlenecks shown by the current timing table.
+- Do not add more encode optimization tasks unless new external evidence or a new project-owner decision explicitly reopens this area.
+
+## Accepted Production Batched 2D NTT Segment Scheduler
+
+Related commit: `9d7624a8` (`Optimize 2D NTT segment scheduling`).
+
+Production `biNttBuffer()` now batches independent same-size row and column transforms at the ffjavascript worker-task boundary. The previous production path called ffjavascript's public `Fr.fft()` / `Fr.ifft()` once per row and once per column, which made prover-size grids submit thousands of small FFT calls.
+
+Correctness boundary:
+
+- independent rows or columns are not concatenated into one large 1D FFT;
+- the row-major `(x, y)` layout is preserved by transposing before and after the column pass;
+- inverse normalization and output rotation match ffjavascript's public `Fr.ifft()` behavior;
+- segment sizes that exceed ffjavascript's direct mix path continue to use the public 1D FFT algorithm per segment.
+
+Benchmark command:
+
+```bash
+npm run bench:2d-ntt -- --shapes=1024x256,4096x256 --modes=single,parallel --directions=forward,inverse --iterations=1 --warmup=0 --json=tmp/timing/2d-ntt-segment-scheduler.json
+```
+
+The benchmark parity-checks the batched candidate against production `biNttBuffer()` before timing.
+
+Pre-promotion benchmark result:
+
+| mode | direction | candidate | shape | ms/op |
+| --- | --- | --- | ---: | ---: |
+| single | forward | current-biNttBuffer | 1024x256 | 468.413 |
+| single | forward | batched-segment-biNttBuffer | 1024x256 | 443.903 |
+| single | inverse | current-biNttBuffer | 1024x256 | 505.052 |
+| single | inverse | batched-segment-biNttBuffer | 1024x256 | 479.064 |
+| single | forward | current-biNttBuffer | 4096x256 | 2081.253 |
+| single | forward | batched-segment-biNttBuffer | 4096x256 | 1961.657 |
+| single | inverse | current-biNttBuffer | 4096x256 | 2254.328 |
+| single | inverse | batched-segment-biNttBuffer | 4096x256 | 2100.196 |
+| parallel | forward | current-biNttBuffer | 1024x256 | 750.972 |
+| parallel | forward | batched-segment-biNttBuffer | 1024x256 | 94.062 |
+| parallel | inverse | current-biNttBuffer | 1024x256 | 753.399 |
+| parallel | inverse | batched-segment-biNttBuffer | 1024x256 | 102.221 |
+| parallel | forward | current-biNttBuffer | 4096x256 | 2415.140 |
+| parallel | forward | batched-segment-biNttBuffer | 4096x256 | 362.200 |
+| parallel | inverse | current-biNttBuffer | 4096x256 | 2835.549 |
+| parallel | inverse | batched-segment-biNttBuffer | 4096x256 | 411.732 |
+
+Post-promotion benchmark result:
+
+| mode | direction | candidate | shape | ms/op |
+| --- | --- | --- | ---: | ---: |
+| single | forward | legacy-sequential-biNttBuffer | 1024x256 | 458.463 |
+| single | forward | production-biNttBuffer | 1024x256 | 455.499 |
+| single | inverse | legacy-sequential-biNttBuffer | 1024x256 | 525.494 |
+| single | inverse | production-biNttBuffer | 1024x256 | 480.133 |
+| single | forward | legacy-sequential-biNttBuffer | 4096x256 | 2066.471 |
+| single | forward | production-biNttBuffer | 4096x256 | 1971.661 |
+| single | inverse | legacy-sequential-biNttBuffer | 4096x256 | 2231.297 |
+| single | inverse | production-biNttBuffer | 4096x256 | 2110.126 |
+| parallel | forward | legacy-sequential-biNttBuffer | 1024x256 | 701.210 |
+| parallel | forward | production-biNttBuffer | 1024x256 | 91.218 |
+| parallel | inverse | legacy-sequential-biNttBuffer | 1024x256 | 711.655 |
+| parallel | inverse | production-biNttBuffer | 1024x256 | 94.094 |
+| parallel | forward | legacy-sequential-biNttBuffer | 4096x256 | 2433.564 |
+| parallel | forward | production-biNttBuffer | 4096x256 | 378.400 |
+| parallel | inverse | legacy-sequential-biNttBuffer | 4096x256 | 2457.709 |
+| parallel | inverse | production-biNttBuffer | 4096x256 | 421.063 |
+
+Full prover timing comparison:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_without_multiplication` | 60.37 s | 59.16 s | -1.21 s |
+| `polynomial.combination_with_multiplication` | 132.87 s | 68.26 s | -64.61 s |
+| `polynomial.div_ruffini` | 11.19 s | 10.09 s | -1.10 s |
+| `polynomial.div_vanishing` | 5.67 s | 6.00 s | +0.33 s |
+| `polynomial.encode` | 117.67 s | 117.48 s | -0.19 s |
+| `binding.encode` | 1.91 s | 1.99 s | +0.08 s |
+| `field.operations` | 210.11 s | 143.50 s | -66.61 s |
+| `encode` | 119.58 s | 119.47 s | -0.11 s |
+| `init` | 15.80 s | 4.79 s | -11.01 s |
+| `stage.unclassified` | 24.13 s | 18.65 s | -5.48 s |
+| prover stage total | 351.91 s | 279.63 s | -72.28 s |
+| total wall | 370.68 s | 287.48 s | -83.20 s |
+
+Interpretation:
+
+- The main confirmed improvement is in `polynomial.combination_with_multiplication`, down 64.61 s.
+- The optimization targets bivariate NTT/ROU scheduling, so commitment encoding is effectively unchanged.
+- `init` also drops because witness/state construction uses `fromRouEvals(...)` and therefore uses the production batched 2D NTT path.
+
+Verification:
+
+```bash
+npm run typecheck
+npm run typecheck:scripts
+npm run polynomial:buffer:check
+npm run prover:ops:polynomial
+npm run prover:ops:check
+npm run bench:2d-ntt -- --shapes=1024x256,4096x256 --modes=single,parallel --directions=forward,inverse --iterations=1 --warmup=0 --json=tmp/timing/2d-ntt-segment-scheduler-after-production.json
+npm run prover:testing-mode:check
+npm run prover:stage-timing:check
+```
+
+## Active Linear Accumulation Comparison
+
+This is the active before/after comparison. Both runs use the same production-like timing taxonomy.
+
+Commands:
+
+```bash
+# Before optimization: temporary worktree at 3c7da223 with the current timing runner copied in.
+npm run prover:stage-timing:check
+
+# After optimization: current package/backend-wasm branch.
+npm run prover:stage-timing:check
+```
+
+Compared code points:
+
+- Before: `3c7da223` (`Benchmark linear operation optimization candidates`), before the production linear accumulation rewrite.
+- Optimization commit: `cddceefe` (`Optimize polynomial linear accumulation`).
+- After: current branch with the production-like timing taxonomy.
+
+Status:
+
+- Before proof generation completed and generated proof verification completed.
+- After proof generation completed and generated proof verification completed.
+- Timing invariant failures: `0` in both runs.
+
+Lowest operation layer:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_without_multiplication` | 66.78 s | 60.37 s | -6.41 s |
+| `polynomial.combination_with_multiplication` | 135.62 s | 132.87 s | -2.75 s |
+| `polynomial.div_ruffini` | 10.51 s | 11.19 s | +0.69 s |
+| `polynomial.div_vanishing` | 5.98 s | 5.67 s | -0.31 s |
+| `polynomial.encode` | 118.02 s | 117.67 s | -0.35 s |
+| `binding.encode` | 1.99 s | 1.91 s | -0.08 s |
+
+Middle operation layer:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination` | 202.41 s | 193.24 s | -9.16 s |
+| `polynomial.division` | 16.49 s | 16.87 s | +0.38 s |
+| `encode` | 120.01 s | 119.58 s | -0.43 s |
+
+Top operation layer:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `field.operations` | 218.89 s | 210.11 s | -8.78 s |
+| `encode` | 120.01 s | 119.58 s | -0.43 s |
+
+Execution boundary layer:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `init` | 16.43 s | 15.80 s | -0.63 s |
+| `field.operations` | 218.89 s | 210.11 s | -8.78 s |
+| `encode` | 120.01 s | 119.58 s | -0.43 s |
+| `stage.unclassified` | 24.74 s | 24.13 s | -0.61 s |
+| `io` | 0.98 s | 1.06 s | +0.08 s |
+| `verify` | 0.02 s | 0.02 s | 0.00 s |
+| `output` | 0.00 s | 0.00 s | 0.00 s |
+| `external.unclassified` | 0.00 s | 0.00 s | 0.00 s |
+
+Execution boundary:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| prover stage total | 361.65 s | 351.91 s | -9.74 s |
+| classified operation time | 338.90 s | 329.69 s | -9.21 s |
+| unclassified prover time | 42.17 s | 40.99 s | -1.18 s |
+| total wall | 381.08 s | 370.68 s | -10.39 s |
+
+Interpretation:
+
+- The production linear accumulation rewrite reduced total wall time by 10.39 s under the active taxonomy in the latest run.
+- The main measured improvement is in `polynomial.combination`, down 9.16 s.
+- `polynomial.combination_with_multiplication` also decreased by 2.75 s, but that bucket still contains multiplication-heavy call sites and remains the largest active optimization target at 132.87 s.
+- Upper-layer `encode` is now `polynomial.encode + binding.encode`, and it is the second largest active bucket at 119.58 s.
+- `binding.encode` means `buildProverBinding(...)`; it is binding commitment work, not binary serialization.
+
+## Recursion Recurrence Batch-Inverse Optimization
+
+Related commit: `5ee48194` (`Optimize prover recursion recurrence`).
+
+Change:
+
+- Exposed ffjavascript `Fr.batchInverse(...)` as `FieldRuntime.batchInverseBuffer(...)`.
+- Rewrote recursion recurrence construction to avoid per-element `field.div(...)`.
+- The optimized path computes denominator inverses in one batch, multiplies each numerator by the corresponding inverse, and writes the suffix-product recurrence directly into final row-major output positions.
+- The hot loop now avoids `readBufferElement(...)` and `writeBufferElement(...)` validation overhead after the input lengths have already been checked.
+- No binary artifact validation, JSON/rkyv parsing, or fallback behavior was added to the prover runtime path.
+
+Recursion/evaluation diagnostic comparison:
+
+| metric | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `recursion recurrence buffer` | 8731.575 ms | 710.206 ms | -8021.369 ms |
+
+Standalone stage-timing comparison:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.recursion` | 10.08 s | 2.30 s | -7.78 s |
+| prover stage total | 279.81 s | 269.37 s | -10.44 s |
+| total wall | 288.45 s | 278.10 s | -10.35 s |
+
+Verification:
+
+- `npm run prover:ops:field` passed.
+- `npm run prover:ops:polynomial` passed.
+- `npm run typecheck` passed.
+- `npm run typecheck:scripts` passed.
+- `npm run diagnose:prover:recursion-evaluation` passed and wrote `tmp/timing/prover-recursion-evaluation-breakdown.json`.
+- `npm run prover:check` passed and verified the generated proof through the prepared verifier runtime path.
+- `npm run prover:stage-timing:check` passed in a standalone run and wrote `tmp/timing/prover-stage-timing.json`.
+
+## Prover Evaluation Reuse Optimization
+
+Related commit: `b5901e11` (`Optimize prover evaluation reuse`).
+
+Change:
+
+- Added the internal `evaluateAtScaledChallengeSet(...)` helper for the prover hot path. It evaluates one polynomial at `(x,y)`, `(scaledX,y)`, and `(scaledX,scaledY)` while sharing the row reductions for the first two values.
+- Rewrote challenge evaluation for the three `RXY` values to use the shared-row helper.
+- Rewrote the opening-commitment `rXY` evaluation values to use the shared-row helper while keeping the required `rOmegaX`, `rOmegaXOmegaY`, `rD1`, and `rD2` polynomial objects materialized for later polynomial arithmetic.
+- Replaced `rD1.eval(chi,zeta)` and `rD2.eval(chi,zeta)` with derived scalar values: `rD1Eval = rXY(chi,zeta) - rXY(omegaMI^-1 * chi,zeta)` and `rD2Eval = rXY(chi,zeta) - rXY(omegaMI^-1 * chi,omegaSMax^-1 * zeta)`.
+- Replaced the scalar `lagrangeK0Eval` calculation with the direct `L_0(chi)` formula while keeping the materialized `lagrangeK0XY` polynomial for `lagrangeK0XY.mul(...)`.
+- Updated the stage-timing mirror and prover polynomial-operation parity checks for the new helpers.
+
+Standalone stage-timing comparison:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.evaluation` | 8.42 s | 5.31 s | -3.11 s |
+| `field.operations` | 151.31 s | 144.26 s | -7.05 s |
+| prover stage total | 269.37 s | 258.49 s | -10.88 s |
+| total wall | 278.10 s | 266.36 s | -11.74 s |
+
+The before values are the latest recorded standalone stage-timing result after the recursion recurrence batch-inverse optimization. The after values are from the standalone `npm run prover:stage-timing:check` run for this change.
+
+Verification:
+
+- `npm run typecheck` passed.
+- `npm run typecheck:scripts` passed.
+- `npm run prover:ops:polynomial` passed.
+- `npm run prover:testing-mode:check` passed.
+- `npm run prover:check` passed and verified the generated proof through the prepared verifier runtime path.
+- `npm run prover:stage-timing:check` passed and wrote `tmp/timing/prover-stage-timing.json`.
+- `npm run build` passed.
+- `npm run prover:browser:check` passed and verified the generated proof in Chromium.
+- `npm pack --dry-run --json` passed.
+
+## Ruffini Opening Division Optimization
+
+Related commit: `1d18b1c5` (`Optimize Ruffini opening division`).
+
+Candidate selection:
+
+- Candidate A changed the X recurrence from fixed-Y strided traversal to reverse-X steps over contiguous Y rows. Its independent five-call estimate improved from `9387.557 ms` to `7937.845 ms` (`15.4%`).
+- Candidate B retained the old traversal and replaced repeated coefficient accessors with one-time validation and direct raw-buffer offsets. Its independent five-call estimate improved from `9533.085 ms` to `8778.695 ms` (`7.9%`).
+- Candidate C removed full `P-c` materialization by dividing `P` and subtracting `c` only from the scalar remainder. Its independent generic five-call estimate improved from `12481.953 ms` to `8980.260 ms` (`28.1%`).
+- After all candidates were measured independently, A+B improved the division-kernel five-call estimate from `8936.214 ms` to `7204.623 ms` (`19.4%`).
+- The generic A+B+C benchmark improved from `12624.563 ms` to `7339.050 ms` (`41.9%`). This was a candidate-selection result, not an integrated prover prediction.
+
+Production change:
+
+- `BivariatePolynomialBuffer.divByRuffini(...)` now validates input points once, processes each reverse X recurrence step across a contiguous Y row, and reads and writes field elements through direct byte views.
+- Opening commitments no longer allocate complete constant-corrected numerator polynomials for `Pi_A`, `M`, `N`, `Pi_B`, or `Pi_C`.
+- Constant corrections are applied only to the returned scalar remainder. Quotient polynomials are unchanged because subtracting a scalar constant does not change either synthetic-division quotient.
+- The stage-timing mirror uses the same production expressions and retains the fixed timing taxonomy.
+
+Standalone stage-timing comparison:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_without_multiplication` | 55.43 s | 52.78 s | -2.65 s |
+| `polynomial.combination_with_multiplication` | 65.92 s | 66.51 s | +0.59 s |
+| `polynomial.recursion` | 2.09 s | 1.91 s | -0.18 s |
+| `polynomial.evaluation` | 5.31 s | 5.28 s | -0.03 s |
+| `polynomial.div_ruffini` | 9.97 s | 8.79 s | -1.18 s |
+| `polynomial.div_vanishing` | 5.54 s | 5.64 s | +0.10 s |
+| `polynomial.encode` | 114.21 s | 114.51 s | +0.30 s |
+| `binding.encode` | 1.98 s | 1.95 s | -0.03 s |
+| `field.operations` | 144.26 s | 140.92 s | -3.34 s |
+| prover stage total | 258.49 s | 255.44 s | -3.05 s |
+| total wall | 266.36 s | 263.51 s | -2.85 s |
+
+Interpretation:
+
+- The intended rows improved: Ruffini division decreased by `1.18 s`, and removing constant-polynomial construction reduced combination-without-multiplication by `2.65 s`.
+- Small increases in unchanged multiplication, vanishing division, and encode categories are run-to-run variance; they are not part of the promoted rewrite.
+- The integrated total-wall reduction is `2.85 s` (`1.1%`). It is smaller than the generic candidate estimate because only a portion of the five real opening numerators is removable constant materialization and the rest of the prover is unchanged.
+
+Verification:
+
+- `npm run typecheck` passed.
+- `npm run typecheck:scripts` passed.
+- `npm run prover:ops:check` passed.
+- `npm run prover:testing-mode:check` passed, including native testing-mode-style witness, quotient, recursion, and opening invariants.
+- `npm run prover:check` passed and verified the generated proof through the prepared verifier runtime path.
+- `npm run prover:stage-timing:check` passed and wrote the latest report to `tmp/timing/prover-stage-timing.json`.
+- `npm run build` passed.
+- `npm run prover:browser:check` passed; Chromium generated a 2408-byte proof in `257.57 s` and verified it in `20 ms`.
+- `npm pack --dry-run --json` passed, and diagnostics and benchmark sources were absent from the package file list.
+
+## Lagrange K0 Multiplication Optimization
+
+Related commit: `c02865f9` (`Optimize Lagrange K0 multiplication`).
+
+Benchmark commits:
+
+- `38a3a054` (`Benchmark K0 multiplication data path`)
+- `eb52001b` (`Benchmark batched K0 multiplication`)
+- `5ba49b2f` (`Benchmark K0 sliding convolution`)
+- `fe77809b` (`Benchmark optimized K0 sliding data path`)
+- `b623816f` (`Select optimized K0 multiplication candidate`)
+
+Production commit: `c02865f9` (`Optimize Lagrange K0 multiplication`).
+
+Candidate selection:
+
+- Candidate A retained the sequential per-column FFT/IFFT algorithm and changed only direct buffer access and output ownership. Its weighted four-call estimate improved by `2.0%`, which was insufficient for standalone promotion.
+- Candidate B batched the independent X transforms. It improved the weighted estimate by `29.4%`, but its largest explicit temporary footprint was approximately `768.5 MiB`, excluding internal worker-task allocations.
+- Candidate C used the exact K0 sliding-window recurrence and improved the weighted estimate by `56.0%`.
+- C+A added direct coefficient-buffer views and owned output construction, improving the weighted estimate by `57.0%` relative to current production.
+- The selected C+A+batch-scale combination moved the final scalar multiplication into one `batchApplyKeyBuffer(...)` call. It improved the weighted estimate from `22442.132 ms` to `5353.075 ms` (`76.1%`) with one output-sized unscaled buffer plus a small Y-row window.
+
+Production change:
+
+- Added the dedicated `multiplyByLagrangeK0(polynomial, mI)` helper. It requires the known K0 domain size and does not inspect arbitrary coefficients to infer polynomial identity.
+- Replaced exactly four K0 products in copy-quotient and opening-commitment construction.
+- Kept generic X-univariate multiplication unchanged.
+- Updated the timing mirror without changing the fixed timing taxonomy.
+
+Standalone stage-timing comparison:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| four K0 multiplication events | 18.584 s | 5.491 s | -13.093 s |
+| `polynomial.combination_without_multiplication` | 52.78 s | 52.46 s | -0.32 s |
+| `polynomial.combination_with_multiplication` | 66.51 s | 53.64 s | -12.87 s |
+| `polynomial.recursion` | 1.91 s | 1.98 s | +0.07 s |
+| `polynomial.evaluation` | 5.28 s | 5.32 s | +0.04 s |
+| `polynomial.div_ruffini` | 8.79 s | 8.59 s | -0.20 s |
+| `polynomial.div_vanishing` | 5.64 s | 5.60 s | -0.04 s |
+| `polynomial.encode` | 114.51 s | 114.48 s | -0.03 s |
+| `binding.encode` | 1.95 s | 1.95 s | 0.00 s |
+| `field.operations` | 140.92 s | 127.59 s | -13.33 s |
+| prover stage total | 255.44 s | 242.08 s | -13.36 s |
+| total wall | 263.51 s | 250.15 s | -13.36 s |
+
+Interpretation:
+
+- The four production K0 calls improved by `70.5%`, close to the selected isolated candidate's `76.1%` estimate.
+- The intended multiplication category decreased by `12.87 s`, while unrelated categories stayed within small run-to-run variation.
+- Total wall time decreased by `13.36 s` (`5.1%`). This integrated result, not the isolated benchmark percentage, is the prover-level improvement.
+
+Verification:
+
+- `npm run typecheck` passed.
+- `npm run typecheck:scripts` passed.
+- `npm run prover:ops:polynomial` passed.
+- `npm run prover:ops:check` passed.
+- `npm run prover:testing-mode:check` passed.
+- `npm run prover:check` passed and verified the generated proof.
+- `npm run prover:stage-timing:check` passed and produced the timing table above.
+- `npm run build` passed.
+- `npm run prover:browser:check` passed; Chromium generated a 2408-byte proof in `243.08 s` and verified it in `19 ms`.
+- `npm pack --dry-run --json` passed with 249 files and no test, script, temporary, benchmark, or diagnostics paths.
+
+## Special-Form Polynomial Multiplication Optimization
+
+Related commit: `06ea4a26` (`Fuse special-form polynomial products`).
+
+Independent candidate results at input shape `4096x256`:
+
+| operation | legacy median | fused median | reduction |
+| --- | ---: | ---: | ---: |
+| `(X-1)P` | 610.016 ms | 168.640 ms | 72.4% |
+| `(1-X)P` | 607.958 ms | 169.154 ms | 72.2% |
+| X-linear | 1264.852 ms | 538.572 ms | 57.4% |
+| Y-linear | 1264.385 ms | 540.269 ms | 57.3% |
+| term9 | 2495.228 ms | 869.045 ms | 65.2% |
+
+Candidate selection:
+
+- Each candidate was measured independently before production code changed.
+- Every candidate passed exact byte parity on deterministic full, sparse, zero, and boundary inputs.
+- The combined pre-promotion run totaled `6269.880 ms` legacy versus `2323.621 ms` fused (`62.9%`).
+- All five candidates are compatible because each replaces one operation-local materialization chain with a direct owned-output kernel without sharing mutable state or changing formulas.
+
+Production change:
+
+- `(X-1)P` and `(1-X)P` now perform one direct subtraction traversal.
+- X-linear and Y-linear products now write the two scaled source terms directly into one output.
+- term9 now writes `c*P[x,y] + a*P[x-1,y] + b*P[x,y-1]` directly into one output.
+- Existing helper names, call sites, allocated-shape semantics, transcript behavior, and timing taxonomy are unchanged.
+- The executable benchmark retains both the old formulas and an independent benchmark-local fused oracle. Post-promotion timing measured `6271.535 ms` legacy versus `2320.722 ms` production (`63.0%`).
+
+Standalone stage-timing comparison:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| ten promoted special-form events | 17.67 s | 6.56 s | -11.11 s |
+| `polynomial.combination_without_multiplication` | 52.46 s | 53.64 s | +1.18 s |
+| `polynomial.combination_with_multiplication` | 53.64 s | 42.79 s | -10.85 s |
+| `polynomial.recursion` | 1.98 s | 2.29 s | +0.31 s |
+| `polynomial.evaluation` | 5.32 s | 5.33 s | +0.01 s |
+| `polynomial.div_ruffini` | 8.59 s | 8.83 s | +0.24 s |
+| `polynomial.div_vanishing` | 5.60 s | 5.72 s | +0.12 s |
+| `polynomial.encode` | 114.48 s | 115.37 s | +0.89 s |
+| `binding.encode` | 1.95 s | 2.03 s | +0.08 s |
+| `field.operations` | 127.59 s | 118.62 s | -8.97 s |
+| encode | 116.43 s | 117.40 s | +0.97 s |
+| prover stage total | 242.08 s | 234.00 s | -8.08 s |
+| total wall | 250.15 s | 241.90 s | -8.25 s |
+
+Interpretation:
+
+- The intended ten events decreased by `11.11 s` (`62.9%`), matching the independent combined benchmark.
+- The complete multiplication category decreased by `10.85 s`; unchanged categories varied upward by smaller amounts in this run.
+- Total wall time decreased by `8.25 s` (`3.3%`).
+- The non-instrumented Node run measured the copy-quotient span at `87.84 s` and the opening span at `81.67 s`, and the generated proof verified successfully.
+- Chromium proof generation decreased from the previous `243.08 s` to `233.30 s` and verification completed in `24 ms`.
+
+Verification:
+
+- `npm run typecheck` passed.
+- `npm run typecheck:scripts` passed.
+- `npm run prover:ops:polynomial` passed.
+- `npm run prover:ops:check` passed.
+- `npm run prover:testing-mode:check` passed.
+- `npm run prover:check` passed and verified the generated proof.
+- `npm run prover:stage-timing:check` passed and produced the timing table above.
+- `npm run build` passed.
+- `npm run prover:browser:check` passed.
+- `npm pack --dry-run --json` passed with 249 files and no test, script, temporary, benchmark, or diagnostics paths.
+
+## Lagrange KL Multiplication Optimization
+
+Related commit: `5f8723bd` (`Optimize Lagrange KL multiplication`).
+
+Production commit: `5f8723bd` (`Optimize Lagrange KL multiplication`).
+
+Candidate selection:
+
+- Direct KL construction uses the exact separable geometric coefficient
+  formula instead of two inverse transforms.
+- KL multiplication uses weighted X/Y sliding recurrences instead of generic
+  2D polynomial multiplication.
+- Construction and multiplication were benchmarked independently before
+  promotion. Both pass exact byte parity and an independent small-shape dense
+  convolution oracle.
+- At `mI=4096`, `sMax=256`, and polynomial shape `4096x256`, construction
+  decreased from `940.573 ms` to `195.987 ms` (`79.2%`), multiplication
+  decreased from `5454.478 ms` to `2368.567 ms` (`56.6%`), and the independent
+  combined path decreased from `6409.385 ms` to `2564.554 ms` (`60.0%`).
+- The selected multiplication path reduces explicit temporary storage from
+  approximately `384 MiB` to approximately `192 MiB` at the representative
+  shape.
+
+Production change:
+
+- `buildLagrangeKl(...)` now writes the separable geometric coefficients
+  directly.
+- Added `multiplyByLagrangeKl(...)`, whose API requires the known `mI` and
+  `sMax` semantics.
+- Replaced only the measured `p1` generic product in copy-quotient
+  construction.
+- Retained generic polynomial multiplication unchanged.
+- The post-promotion benchmark measured `6376.665 ms` for the legacy combined
+  path and `2578.966 ms` for current production (`59.6%`).
+
+Standalone stage-timing comparison:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| KL construction plus `p1` multiplication | 7.304 s | 2.820 s | -4.484 s |
+| `polynomial.combination_without_multiplication` | 53.64 s | 53.39 s | -0.25 s |
+| `polynomial.combination_with_multiplication` | 42.79 s | 37.96 s | -4.83 s |
+| `polynomial.recursion` | 2.29 s | 1.92 s | -0.37 s |
+| `polynomial.evaluation` | 5.33 s | 5.41 s | +0.08 s |
+| `polynomial.div_ruffini` | 8.83 s | 8.81 s | -0.02 s |
+| `polynomial.div_vanishing` | 5.72 s | 5.66 s | -0.06 s |
+| `polynomial.encode` | 115.37 s | 115.11 s | -0.26 s |
+| `binding.encode` | 2.03 s | 1.96 s | -0.07 s |
+| `field.operations` | 118.62 s | 113.15 s | -5.47 s |
+| encode | 117.40 s | 117.07 s | -0.33 s |
+| prover stage total | 234.00 s | 228.26 s | -5.74 s |
+| total wall | 241.90 s | 236.86 s | -5.04 s |
+
+Interpretation:
+
+- The two targeted events decreased by `4.484 s` (`61.4%`), consistent with
+  the independent and post-promotion benchmarks.
+- The complete multiplication category decreased by `4.83 s`.
+- Total wall time decreased by `5.04 s` (`2.1%`).
+- Chromium proof generation completed in `229.72 s`, and verification
+  completed in `20 ms`.
+
+Verification:
+
+- `npm run typecheck` passed.
+- `npm run typecheck:scripts` passed.
+- `npm run prover:ops:check` passed.
+- `npm run prover:testing-mode:check` passed.
+- `npm run prover:check` passed and verified the generated proof.
+- `npm run prover:stage-timing:check` passed and produced the timing table above.
+- `npm run build` passed.
+- `npm run prover:browser:check` passed.
+- `npm pack --dry-run --json` passed with 249 files and no test, script,
+  temporary, benchmark, or diagnostics paths.
+
+## Shifted ROU Product Reuse
+
+Related commit: `13cf6744` (`Reuse shifted ROU evaluations in copy quotient`).
+
+Production commit: `13cf6744` (`Reuse shifted ROU evaluations in copy
+quotient`).
+
+Candidate selection:
+
+- The three copy-quotient products share the same base polynomial `r`, while
+  two left operands are coefficient-scaled versions of `r` and two right
+  operands share `f`.
+- On the enlarged multiplication domain, scaling by `omega_mI^-1` and
+  `omega_sMax^-1` is exactly a cyclic evaluation-index shift. Small-domain
+  tests verify the relation against independent forward transforms byte for
+  byte.
+- The candidate transforms `r`, `g`, and `f` once each, applies the two
+  required shifts while reading the `r` evaluation buffer, and runs the same
+  three inverse transforms as before. It removes two forward transforms
+  without materializing shifted evaluation buffers.
+- At input shape `4096x256`, the independent benchmark decreased from
+  `14703.416 ms` to `11505.709 ms` (`21.7%`) with unchanged reported explicit
+  temporary storage of `384 MiB`, excluding the three required result buffers.
+
+Production change:
+
+- Added `multiplyOmegaShiftedProducts(...)` with explicit source-domain
+  dimensions.
+- Replaced the separate `rG` product and shared-right pair only in
+  copy-quotient construction.
+- Removed the superseded shared-right-only production helper.
+- Preserved coefficient-domain `rOmegaX` and `rOmegaXOmegaY` construction
+  because later copy-quotient subtraction formulas still require them.
+- The post-promotion benchmark measured `14456.432 ms` for the retained legacy
+  path and `11483.241 ms` for current production (`20.6%`).
+
+Standalone stage-timing comparison:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_without_multiplication` | 53.39 s | 53.82 s | +0.43 s |
+| `polynomial.combination_with_multiplication` | 37.96 s | 34.73 s | -3.23 s |
+| `polynomial.recursion` | 1.92 s | 2.17 s | +0.25 s |
+| `polynomial.evaluation` | 5.41 s | 5.36 s | -0.05 s |
+| `polynomial.div_ruffini` | 8.81 s | 8.81 s | 0.00 s |
+| `polynomial.div_vanishing` | 5.66 s | 5.69 s | +0.03 s |
+| `polynomial.encode` | 115.11 s | 115.12 s | +0.01 s |
+| `binding.encode` | 1.96 s | 2.04 s | +0.08 s |
+| `field.operations` | 113.15 s | 110.58 s | -2.57 s |
+| encode | 117.07 s | 117.16 s | +0.09 s |
+| prover stage total | 228.26 s | 225.71 s | -2.55 s |
+| total wall | 236.86 s | 234.06 s | -2.80 s |
+
+Interpretation:
+
+- The multiplication category decreased by `3.23 s`, consistent with the
+  isolated three-product benchmark.
+- Total wall time decreased by `2.80 s` (`1.2%`).
+- Chromium proof generation completed in `226.78 s`, and verification
+  completed in `21 ms`.
+
+Verification:
+
+- `npm run typecheck` passed.
+- `npm run typecheck:scripts` passed.
+- `npm run prover:ops:check` passed.
+- `npm run prover:testing-mode:check` passed.
+- `npm run prover:check` passed and verified the generated proof.
+- `npm run prover:stage-timing:check` passed and produced the timing table above.
+- `npm run build` passed.
+- `npm run prover:browser:check` passed.
+- `npm pack --dry-run --json` passed with 249 files and no test, script,
+  temporary, benchmark, or diagnostics paths.
+
+## Generic Multiplication Buffer Optimization
+
+Related commit: `348db687` (`Optimize generic polynomial multiplication buffers`).
+
+Benchmark commit: `99947f12` (`Benchmark generic multiplication buffers`).
+
+Production commit: `348db687` (`Optimize generic polynomial multiplication
+buffers`).
+
+Candidate selection:
+
+- The remaining standalone generic multiplication is `prove0.p0XY.mul` with
+  two `4096x256` inputs and an `8192x512` output.
+- D1 replaces nested per-element resize access with zero allocation and
+  contiguous source-row copies. It decreased the complete product from
+  `5363.381 ms` to `5202.393 ms` (`3.0%`).
+- D2 keeps current padding and changes only the pointwise loop. It measured
+  `5348.244 ms` current versus `5330.142 ms` candidate (`0.34%`) with
+  overlapping ranges and was rejected as a standalone promotion.
+- The compatibility run measured `5337.722 ms` current, `5246.047 ms` D1,
+  `5270.137 ms` D2, and `5175.420 ms` D1+D2. The selected combination's
+  maximum `5180.980 ms` was below the current minimum `5322.863 ms`.
+
+Production change:
+
+- Generic `BivariatePolynomialBuffer.mul(...)` uses operation-local row-copy
+  padding and validated raw pointwise writes.
+- Public `resize(...)`, forward/inverse NTT scheduling, univariate
+  multiplication, and protocol-specific multiplication helpers are unchanged.
+- The executable benchmark retains the previous generic implementation.
+- The post-promotion comparison measured `5374.002 ms` legacy versus
+  `5138.923 ms` current production (`4.4%`).
+
+Standalone stage-timing comparison:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `prove0.p0XY.mul` | 6.336 s | 6.055 s | -0.281 s |
+| `polynomial.combination_without_multiplication` | 53.82 s | 53.97 s | +0.15 s |
+| `polynomial.combination_with_multiplication` | 34.73 s | 34.17 s | -0.56 s |
+| `polynomial.recursion` | 2.17 s | 2.00 s | -0.17 s |
+| `polynomial.evaluation` | 5.36 s | 5.33 s | -0.03 s |
+| `polynomial.div_ruffini` | 8.81 s | 8.85 s | +0.04 s |
+| `polynomial.div_vanishing` | 5.69 s | 5.75 s | +0.06 s |
+| `polynomial.encode` | 115.12 s | 115.20 s | +0.08 s |
+| `binding.encode` | 2.04 s | 2.03 s | -0.01 s |
+| `field.operations` | 110.58 s | 110.07 s | -0.51 s |
+| encode | 117.16 s | 117.23 s | +0.07 s |
+| prover stage total | 225.71 s | 225.27 s | -0.44 s |
+| total wall | 234.06 s | 233.71 s | -0.35 s |
+
+Interpretation:
+
+- The direct target decreased by `0.281 s` (`4.4%`), matching the
+  post-promotion benchmark percentage.
+- The full multiplication category changed by `0.56 s`; only the target row
+  is attributed to this rewrite, while other event changes are timing
+  variation.
+- Chromium proof generation completed in `226.13 s`, and verification
+  completed in `24 ms`.
+
+Verification:
+
+- `npm run typecheck` passed.
+- `npm run typecheck:scripts` passed.
+- `npm run prover:ops:check` passed.
+- `npm run prover:testing-mode:check` passed.
+- `npm run prover:check` passed and verified the generated proof.
+- `npm run prover:stage-timing:check` passed and produced the timing table above.
+- `npm run build` passed.
+- `npm run prover:browser:check` passed.
+- `npm pack --dry-run --json` passed with 249 files and no test, script,
+  temporary, benchmark, or diagnostics paths.
+
+## Same-Shape Add/Sub Single-Pass Construction
+
+Related commit: `9edb6876` (`Optimize same-shape polynomial addition`).
+
+Production commit: `9edb6876` (`Optimize same-shape polynomial addition`).
+
+Production change:
+
+- `BivariatePolynomialBuffer.add(...)` and `sub(...)` now construct a
+  same-shape output in one coefficient traversal.
+- Mixed-shape operations retain the previous zero-accumulator and prefix
+  accumulation path.
+- The change removes the previous same-shape sequence of zero allocation,
+  complete left-input accumulation, and complete right-input accumulation.
+
+Representative post-promotion benchmark:
+
+| operation | shape | promoted production | retained direct candidate |
+| --- | ---: | ---: | ---: |
+| add | `4096x256` | 190.550 ms | 190.496 ms |
+| sub | `4096x256` | 190.058 ms | 200.176 ms |
+| add | `8192x512` | 876.130 ms | 765.305 ms |
+| sub | `8192x512` | 872.330 ms | 906.986 ms |
+
+The promoted production path is the current result in this table. The
+retained candidates are independent benchmark implementations and do not
+replace production.
+
+Integrated target-event comparison:
+
+| target event set | before | after | delta |
+| --- | ---: | ---: | ---: |
+| same-shape and mixed add/sub call-site events | 10.790 s | 8.917 s | -1.873 s (-17.4%) |
+
+The mixed-shape events are included to keep the call-site set stable even
+though their implementation was intentionally unchanged. The largest direct
+same-shape reductions were `prove2.p2_input` (`1.517 s` to `0.904 s`) and
+`prove2.p3.sub` (`1.616 s` to `0.884 s`).
+
+Standalone stage-timing context:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_without_multiplication` | 53.97 s | 56.11 s | +2.14 s |
+| `polynomial.combination_with_multiplication` | 34.17 s | 37.49 s | +3.32 s |
+| `field.operations` | 110.07 s | 117.84 s | +7.77 s |
+| encode | 117.23 s | 134.03 s | +16.80 s |
+| prover stage total | 225.27 s | 249.75 s | +24.48 s |
+| total wall | 233.71 s | 258.28 s | +24.57 s |
+
+Interpretation:
+
+- The stable target call-site set decreased by `1.873 s`; this is the
+  attributable integrated result for the rewrite.
+- The standalone full-run totals regressed while unrelated multiplication and
+  encode rows also increased. Those changes are recorded as run variation and
+  are not attributed to the add/sub rewrite.
+- Chromium proof generation completed in `242.56 s`, and verification
+  completed in `22 ms`.
+
+Verification:
+
+- `npm run typecheck` passed.
+- `npm run polynomial:buffer:check` passed.
+- `npm run prover:ops:polynomial` passed.
+- `npm run prover:ops:check` passed.
+- `npm run prover:testing-mode:check` passed.
+- `npm run prover:stage-timing:check` passed and verified the generated proof.
+- `npm run build` passed.
+- `npm run prover:browser:check` passed.
+- `npm pack --dry-run --json` passed with 249 files and no test, script,
+  temporary, benchmark, or diagnostics paths.
+
+## Zero-Buffer Initialization Removal
+
+Related commit: `217becb8` (`Remove redundant field zero initialization`).
+
+Production commit: `217becb8` (`Remove redundant field zero initialization`).
+
+Production change:
+
+- `createFieldRuntime(...)` now rejects a field whose additive identity is not
+  represented by all-zero bytes.
+- `FieldRuntime.createZeroBuffer(...)` returns the already zero-initialized
+  `Uint8Array` directly instead of rewriting every field-element slot.
+- The field-buffer parity check covers both the field-zero representation and
+  the complete raw zero-buffer bytes.
+
+Standalone stage-timing comparison:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_without_multiplication` | 56.11 s | 55.63 s | -0.48 s |
+| `polynomial.combination_with_multiplication` | 37.49 s | 37.84 s | +0.35 s |
+| `field.operations` | 117.84 s | 117.65 s | -0.19 s |
+| encode | 134.03 s | 134.47 s | +0.44 s |
+| prover stage total | 249.75 s | 249.98 s | +0.23 s |
+| total wall | 258.28 s | 258.94 s | +0.66 s |
+
+Interpretation:
+
+- The full-run changes are within the observed run-to-run range. This rewrite
+  is retained because it removes semantically redundant writes and adds an
+  explicit representation invariant, not because a standalone full-prover
+  speedup was measurable.
+- Chromium proof generation completed in `242.81 s`, and verification
+  completed in `52 ms`.
+
+Verification:
+
+- `npm run prover:ops:field` passed.
+- `npm run typecheck` passed.
+- `npm run prover:ops:check` passed.
+- `npm run prover:testing-mode:check` passed.
+- `npm run prover:stage-timing:check` passed and verified the generated proof.
+- `npm run build` passed.
+- `npm run prover:browser:check` passed.
+- `npm pack --dry-run --json` passed with 249 files and no test, script,
+  temporary, benchmark, or diagnostics paths.
+
+## Opening pC Term Fusion
+
+Related commit: `3930b3f0` (`Fuse opening polynomial terms`).
+
+Benchmark commit: `55bfacae` (`Benchmark opening polynomial term fusion`).
+
+Production commit: `3930b3f0` (`Fuse opening polynomial terms`).
+
+Candidate result:
+
+- The complete current path materialized
+  `term5 = rEval*g - rOmegaXEval*f` and
+  `term6 = rEval*g - rOmegaXYEval*f` before constructing `pC`.
+- The fused candidate applies
+  `a*term5 + b*term6 = rEval*(a+b)*g -
+  (a*rOmegaXEval + b*rOmegaXYEval)*f`.
+- Exact output-buffer parity passed at smoke and representative shapes.
+- At base shape `4096x256` and output shape `8192x512`, the complete current
+  path measured `5477.132 ms` and the fused path measured `4156.551 ms`, a
+  `1320.581 ms` (`24.1%`) reduction.
+
+Production change:
+
+- Opening `pC` now computes the final `gXY` and `fXY` scalars directly.
+- The two temporary polynomial objects are removed.
+- The timing mirror uses the same fused equation and no longer reports
+  separate `prove4.term5` and `prove4.term6` events.
+
+Integrated target comparison:
+
+| target event set | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `term5 + term6 + pC` / fused `pC` | 7.043 s | 5.510 s | -1.533 s (-21.8%) |
+
+Standalone stage-timing comparison:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_without_multiplication` | 55.63 s | 53.78 s | -1.85 s |
+| `polynomial.combination_with_multiplication` | 37.84 s | 37.68 s | -0.16 s |
+| `field.operations` | 117.65 s | 115.56 s | -2.09 s |
+| encode | 134.47 s | 135.08 s | +0.61 s |
+| prover stage total | 249.98 s | 248.38 s | -1.60 s |
+| total wall | 258.94 s | 256.76 s | -2.18 s |
+
+Chromium proof generation completed in `242.78 s`, and verification completed
+in `22 ms`.
+
+Verification:
+
+- `npm run typecheck` passed.
+- `npm run typecheck:scripts` passed.
+- `npm run prover:testing-mode:check` passed.
+- `npm run prover:stage-timing:check` passed and verified the generated proof.
+- `npm run build` passed.
+- `npm run prover:browser:check` passed.
+- `npm pack --dry-run --json` passed with 249 files and no test, script,
+  temporary, benchmark, or diagnostics paths.
+
+## Copy Quotient Linear-Term Fusion
+
+Related commit: `ec31e7dd` (`Fuse copy quotient linear terms`).
+
+Benchmark commit: `6e50df0b` (`Benchmark copy polynomial term fusion`).
+
+Production commit: `ec31e7dd` (`Fuse copy quotient linear terms`).
+
+The independent benchmark covered X/Y linear factors, zero/unit/non-unit
+addend scales, and complete term2 and Lagrange-K0 term3 paths. At the real
+`4096x256` input shape, the four complete paths decreased from `8773.274 ms`
+to `7190.939 ms`, a `1582.335 ms` (`18.0%`) reduction with exact output parity.
+
+Production adds dedicated X/Y helpers that construct
+`linearFactor(rD) + rR*gD` in one output buffer. Only the four copy-quotient
+call sites use them.
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_without_multiplication` | 53.78 s | 54.09 s | +0.31 s |
+| `polynomial.combination_with_multiplication` | 37.68 s | 35.79 s | -1.89 s |
+| `field.operations` | 115.56 s | 113.67 s | -1.89 s |
+| encode | 135.08 s | 135.71 s | +0.63 s |
+| prover stage total | 248.38 s | 247.26 s | -1.12 s |
+| total wall | 256.76 s | 255.25 s | -1.51 s |
+
+Chromium proof generation completed in `241.44 s`, and verification completed
+in `22 ms`. Type checks, testing-mode invariants, stage timing and generated
+proof verification, build, Chromium verification, and package inspection
+passed.
+
+## Coefficient Rescale and Batch-Key Scaling
+
+Related commit: `9f35558c` (`Optimize polynomial coefficient scaling`).
+
+Benchmark commit: `1f789b58` (`Benchmark coefficient rescale paths`).
+
+Production commit: `9f35558c` (`Optimize polynomial coefficient scaling`).
+
+Candidate result:
+
+- Validated-once direct subarray loops improved the complete uniform/X/Y
+  scaling paths at both `4096x256` and `8192x512`.
+- Public ffjavascript batch-key scaling reduced representative uniform and Y
+  root-cycle scaling by about one order of magnitude.
+- Exact byte parity passed for all candidates.
+- Y batch scaling is restricted to factors whose order divides `ySize`; the
+  production `omegaSMax^-1` factors satisfy this requirement.
+
+Production change:
+
+- `scaleAssign`, `scaleCoeffsXAssign`, and `scaleCoeffsYAssign` now validate
+  their owned coefficient buffer once and use direct element subarrays.
+- Copy and opening use `batchApplyKeyBuffer(...)` for the
+  `omegaSMax^-1` Y rescale.
+- Opening uses `batchApplyKeyBuffer(...)` for the uniform `term10` scale.
+- Generic Y factors and all X rescaling remain on explicit loops.
+
+Integrated target comparison:
+
+| target event set | before | after | delta |
+| --- | ---: | ---: | ---: |
+| two Y root-cycle rescale events | 0.598 s | 0.247 s | -0.351 s |
+| opening `term10` scale | 0.269 s | 0.028 s | -0.241 s |
+
+Standalone stage-timing comparison:
+
+| operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_without_multiplication` | 54.09 s | 53.42 s | -0.67 s |
+| `polynomial.combination_with_multiplication` | 35.79 s | 34.82 s | -0.97 s |
+| `field.operations` | 113.67 s | 111.49 s | -2.19 s |
+| encode | 135.71 s | 135.98 s | +0.27 s |
+| prover stage total | 247.26 s | 245.21 s | -2.06 s |
+| total wall | 255.25 s | 253.74 s | -1.51 s |
+
+Chromium proof generation completed in `236.67 s`, and verification completed
+in `19 ms`.
+
+Verification:
+
+- `npm run typecheck` passed.
+- `npm run typecheck:scripts` passed.
+- `npm run polynomial:buffer:check` passed.
+- `npm run prover:ops:polynomial` passed.
+- `npm run prover:testing-mode:check` passed.
+- `npm run prover:stage-timing:check` passed and verified the generated proof.
+- `npm run build` passed.
+- `npm run prover:browser:check` passed.
+- `npm pack --dry-run --json` passed with 249 files and no test, script,
+  temporary, benchmark, or diagnostics paths.
+
+## Superseded Old-Taxonomy Comparison
+
+The old comparison below is preserved only as historical context. It must not be used as the active timing table because it used add/sub/mul/scale rows that are no longer part of the accepted taxonomy.
+
+| old lowest operation | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.add` | 7.63 s | 6.28 s | -1.35 s |
+| `polynomial.sub` | 15.99 s | 11.25 s | -4.74 s |
+| `polynomial.mul` | 134.86 s | 130.55 s | -4.31 s |
+| `polynomial.div_ruffini` | 10.81 s | 10.08 s | -0.73 s |
+| `polynomial.div_vanishing` | 5.92 s | 5.64 s | -0.27 s |
+| `polynomial.scale` | 41.44 s | 38.33 s | -3.11 s |
+| `polynomial.encode` | 119.50 s | 114.74 s | -4.76 s |
+
+## Superseded Artificial Split Timing
+
+Related commit: `fbd38fe4` (`Fix prover timing taxonomy`).
+
+Status:
+
+- Proof generation completed.
+- Generated proof verification completed.
+- Timing invariant failures: `0`.
+- Superseded reason: non-unit fused scaled-add operations were decomposed into separate diagnostic scale and add steps. This made the measured prover slower than the production-like path and made the report unsuitable for selecting hot-path rewrites.
+
+| row | total |
+| --- | ---: |
+| prover stage total | 378.13 s |
+| classified operation time | 349.08 s |
+| unclassified prover time | 47.70 s |
+| total wall | 396.78 s |
+
+## Whole-Chunk WASM Linear Operations
+
+Related commit: `6b41bff7` (`Parallelize polynomial linear operations in WASM`).
+
+The previous production path invoked scalar ffjavascript field operations once
+per coefficient for general polynomial addition, subtraction, scale,
+add-scaled accumulation, and X/Y coefficient scaling. This change installs a
+backend-owned module plugin through the public
+`getCurveFromName(..., plugins)` hook. No ffjavascript, wasmcurves,
+wasmbuilder, or `node_modules` source was modified.
+
+The accepted runtime boundary is:
+
+- explicitly export wasmcurves' generated `frm_batchAdd` and `frm_batchSub`;
+- add fused add-scaled, strided prefix add-scaled, and layout-aware X/Y scale
+  kernels in backend-wasm source;
+- use ffjavascript's existing `batchApplyKey(buffer, scalar, 1)` for uniform
+  scaling;
+- schedule disjoint chunks through the existing ffjavascript thread manager;
+- validate every required WASM export during curve-runtime creation and fail
+  explicitly when the pinned dependency contract is unavailable;
+- preserve the existing `ffjs-fr-montgomery-le-32` representation and all
+  transcript, artifact, and verifier boundaries.
+
+The benchmark measured complete end-to-end execution, including worker data
+movement and output assembly. All small, `4096x256`, and `8192x512` cases
+passed exact byte parity. At `4096x256`, accepted 14-worker candidates improved
+add by `14.42x`, subtract by `14.63x`, uniform scale by `9.67x`, fused
+add-scaled by `18.33x`, prefix add-scaled by `15.43x`, X scaling by `16.54x`,
+and Y scaling by `18.09x`. The fused add-scaled kernel was faster and required
+less explicit intermediate storage than the rejected two-pass candidate.
+
+Fixed-taxonomy timing comparison:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_without_multiplication` | 53.420 s | 10.300 s | -43.120 s |
+| `field.operations` | 111.487 s | 69.620 s | -41.867 s |
+| prover stage total | 245.206 s | 199.570 s | -45.636 s |
+| total wall | 253.738 s | 207.990 s | -45.748 s |
+
+The first row is the direct optimization target. The total wall reduction is
+similar in magnitude after unrelated field-operation variation, while
+commitment encoding, initialization, I/O, and other prover work remain outside
+that target.
+
+Acceptance results:
+
+- field-buffer, polynomial-buffer, prover polynomial, and commitment parity
+  checks passed;
+- native testing-mode-style arithmetic, recursion, copy quotient, and opening
+  invariants passed;
+- the Node timing runner generated a proof accepted by the verifier;
+- Chromium generated a 2408-byte proof in `177.28 s` and verified it in
+  `19 ms`;
+- type checks, build, and package dry-run passed;
+- package inspection found no `test/`, `scripts/`, or `tmp/` paths in the
+  published file list.
+
+## Whole-Buffer WASM Pointwise Multiplication
+
+Related commit: `c6e82f5d` (`Optimize prover pointwise multiplication`).
+
+The remaining general and omega-shifted multiplication paths invoked one
+JavaScript-to-WASM field multiplication per evaluation element. The accepted
+implementation exports wasmcurves' existing `frm_batchMul` and adds one
+layout-aware shifted multiplication kernel through the backend-owned
+ffjavascript plugin. Both runtime methods shard disjoint inputs through the
+existing ffjavascript thread manager and include worker input copies and
+output assembly.
+
+Representative `4096x256` end-to-end benchmark:
+
+| workload | retained scalar | single-task WASM | worker-sharded WASM | accepted reduction |
+| --- | ---: | ---: | ---: | ---: |
+| generic product | 5178.222 ms | 4516.056 ms | 4304.207 ms | 16.9% |
+| three shifted products | 11676.935 ms | 9629.446 ms | 8818.729 ms | 24.5% |
+
+The generic benchmark's isolated pointwise stage measured `958.958 ms` for
+the retained scalar loop, `322.108 ms` for one WASM task, and `68.986 ms` for
+worker-sharded WASM. Every candidate passed small-domain independent parity
+and complete inverse-NTT byte parity.
+
+Integrated fixed-taxonomy comparison against the same-code post-reboot
+baseline:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `prove0.p0XY.mul` | 6.157 s | 5.023 s | -1.134 s (-18.4%) |
+| `prove2.omega_shifted_products` | 13.085 s | 10.464 s | -2.621 s (-20.0%) |
+| `polynomial.combination_with_multiplication` | 31.479 s | 27.627 s | -3.852 s (-12.2%) |
+| `field.operations` | 61.965 s | 57.607 s | -4.358 s (-7.0%) |
+| encode | 117.843 s | 116.254 s | -1.589 s |
+| prover stage total | 177.669 s | 171.893 s | -5.776 s |
+| total wall | 186.308 s | 179.505 s | -6.803 s (-3.7%) |
+
+Only the first three rows are direct optimization targets. Encode variation
+is reported for transparency and is not attributed to pointwise
+multiplication.
+
+Production scope:
+
+- generic `BivariatePolynomialBuffer.mul(...)` uses worker-sharded
+  `batchMulBuffer(...)`;
+- omega-shifted products use `batchMulShiftedBuffer(...)`, which reads shifted
+  Y indices in WASM and copies only each worker's shifted X-row shard;
+- scalar field methods, specialized X/Y univariate products, K0/KL products,
+  binary formats, transcript bytes, and verifier logic are unchanged;
+- the production call-site audit found no prover hot path invoking generic
+  X-only or Y-only `BivariatePolynomialBuffer.mul(...)`; those specialized
+  structured kernels remain in their dedicated benchmark campaign.
+
+Verification:
+
+- field-buffer, polynomial-buffer, prover polynomial, and commitment parity
+  checks passed;
+- native testing-mode-style arithmetic, recursion, copy quotient, and opening
+  invariants passed;
+- Node stage timing generated a proof accepted by the verifier;
+- Chromium generated a 2408-byte proof in `172.55 s` and verified it in
+  `18 ms`;
+- type checks and build passed;
+- package dry-run contained 253 files and no `test/`, `scripts/`, or `tmp/`
+  paths.
+
+## Raw-Byte Commitment Input Scan
+
+Related commit: `c06f8844`.
+
+The previous Sigma1 commitment boundary called scalar ffjavascript
+`isZero(...)` once per coefficient while discovering the active rectangle,
+counting nonzero coefficients, and compacting sparse inputs. The accepted path
+interprets the existing validated `ffjs-fr-montgomery-le-32` coefficient
+buffer as aligned 32-bit words and detects zero by OR-reducing the eight words
+of each field element. It preserves the two-scan sparse allocation policy,
+dense threshold, `262144`-point chunk size, raw conversion, and ffjavascript
+MSM implementation.
+
+The corrected diagnostics benchmark included degree discovery, initial
+nonzero counting, sparse/dense routing, input preparation, Montgomery
+conversion, MSM, and partial-point accumulation. At `4096x256`, 14 workers,
+one warmup, and two alternating-order measured iterations:
+
+| density | path | previous total | raw-byte total | reduction |
+| ---: | --- | ---: | ---: | ---: |
+| 0.00 | zero | 170.80 ms | 16.71 ms | 90.2% |
+| 0.10 | sparse | 592.38 ms | 494.89 ms | 16.5% |
+| 0.25 | sparse | 1304.97 ms | 1187.76 ms | 9.0% |
+| 0.50 | sparse | 2437.98 ms | 2293.88 ms | 5.9% |
+| 0.75 | dense | 3505.85 ms | 3434.71 ms | 2.0% |
+| 1.00 | dense | 4602.13 ms | 4530.95 ms | 1.5% |
+
+The accepted candidate used the same explicit temporary storage as the
+previous path. JavaScript single-scan over-allocation and WASM compaction were
+rejected because they used 128 MiB and 397-512 MiB respectively without
+beating raw-byte two-scan end to end.
+
+Integrated fixed-taxonomy comparison:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| encode | 116.254 s | 109.702 s | -6.552 s (-5.6%) |
+| prover stage total | 171.893 s | 164.973 s | -6.920 s (-4.0%) |
+| total wall | 179.505 s | 172.942 s | -6.563 s (-3.7%) |
+
+The new lowest-layer `polynomial.encode` value is `107.719 s`; the exact
+pre-change lowest-layer value was not retained separately, so it is not
+reconstructed from the aggregate encode row.
+
+Verification:
+
+- type checks and field, polynomial, and commitment parity checks passed;
+- native testing-mode-style witness, arithmetic, recursion, copy quotient, and
+  opening invariants passed;
+- Node stage timing generated a proof accepted by the verifier;
+- Chromium generated a 2408-byte proof in `167.04 s` and verified it in
+  `19 ms`;
+- build and package dry-run passed;
+- package inspection found 253 files and no `test/`, `scripts/`, `fixtures/`,
+  or `tmp/` paths.
+
+## Batched Binding Scalar Conversion
+
+Related commit: `8ac0d692`.
+
+The binding MSM helper previously called `toRawLittleEndian(...)` for every
+scalar and then concatenated the resulting small buffers. The accepted path
+concatenates the existing Montgomery field elements once and converts the
+complete buffer with ffjavascript `batchFromMontgomery(...)`. Base
+concatenation and `G1.multiExpAffine(...)` are unchanged.
+
+The fixture-derived benchmark covered every binding input and required exact
+G1 equality:
+
+| binding | scalars | per-scalar total | batched total | reduction |
+| --- | ---: | ---: | ---: | ---: |
+| `O_pub_free` | 109 | 1.53 ms | 1.54 ms | -0.7% |
+| `O_mid` | 6,820 | 12.57 ms | 11.03 ms | 12.3% |
+| `O_prv` | 650,925 | 1705.12 ms | 1573.26 ms | 7.7% |
+
+The common batched path was accepted because the sub-millisecond
+`O_pub_free` difference is immaterial while both representative larger inputs
+improve. Integrated fixed-taxonomy timing:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `binding.encode` | 1.984 s | 1.809 s | -0.175 s (-8.8%) |
+| encode | 109.702 s | 109.625 s | -0.077 s |
+| prover stage total | 164.973 s | 165.300 s | +0.327 s |
+| total wall | 172.942 s | 172.570 s | -0.372 s |
+
+Only `binding.encode` is the direct target. MSM-dominated polynomial
+commitments and unrelated field-operation variation account for the aggregate
+rows.
+
+Verification:
+
+- type checks and commitment parity passed;
+- native testing-mode-style witness, arithmetic, recursion, copy quotient, and
+  opening invariants passed;
+- Node stage timing generated a proof accepted by the verifier;
+- Chromium generated a 2408-byte proof in `167.10 s` and verified it in
+  `19 ms`;
+- build and package dry-run passed;
+- package inspection found 253 files and no `test/`, `scripts/`, `fixtures/`,
+  or `tmp/` paths.
+
+## Whole-Loop WASM Ruffini Division
+
+Related commit: `f94f9942`.
+
+The accepted rewrite replaces five large JavaScript scalar recurrences with
+backend-owned WASM kernels. The X recurrence is partitioned only across
+independent Y columns through the existing ffjavascript worker queue. The
+dependent Y recurrence remains one ordered task. The previously accepted
+row-major layout, direct field-buffer access, and constant-correction elision
+remain unchanged.
+
+Representative pre-promotion benchmark:
+
+| shape | scalar JS | caller-thread WASM | worker-sharded WASM | worker reduction |
+| --- | ---: | ---: | ---: | ---: |
+| `8192x512` | 1428.639 ms | 334.120 ms | 122.492 ms | 91.4% |
+| `16384x512` | 2881.126 ms | 694.283 ms | 244.438 ms | 91.5% |
+| `128x1` | 0.056 ms | 0.019 ms | 0.052 ms | 7.1% |
+| five-call weighted estimate | 7167.099 ms | 1696.662 ms | 611.965 ms | 91.5% |
+
+All candidates passed exact quotient/remainder parity and independent
+reconstruction. Integrated fixed-taxonomy timing:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.div_ruffini` | 8.58 s | 0.801 s | -7.78 s (-90.7%) |
+| prover stage total | 165.300 s | 156.511 s | -8.789 s |
+| total wall | 172.570 s | 164.651 s | -7.919 s |
+
+Native testing-mode-style invariants and Node proof verification passed.
+Chromium generated a 2408-byte proof in `160.48 s` and verified it in `19 ms`.
+Build and package inspection passed; the 253-file package contains no
+`test/`, `scripts/`, `fixtures/`, or `tmp/` paths.
+
+## Whole-Loop WASM Polynomial Evaluation
+
+Related commit: `19e46791`.
+
+The previous nested Horner paths called scalar ffjavascript field operations
+from JavaScript for every coefficient. The accepted implementation moves each
+row reduction into backend-owned WASM, shards independent rows through the
+existing ffjavascript worker queue, and performs the dependent X reduction
+once in WASM. The fused path shares base-Y row reductions between base and
+scaled-X evaluations and computes scaled-Y rows for scaled-XY evaluation.
+
+Representative pre-promotion medians:
+
+| workload | shape | scalar JS | caller-thread WASM | row workers |
+| --- | --- | ---: | ---: | ---: |
+| single | `4096x256` | 334.796 ms | 76.588 ms | 15.496 ms |
+| single | `8192x512` | 1330.758 ms | 310.753 ms | 55.205 ms |
+| single | `16384x512` | 2702.805 ms | 623.114 ms | 105.439 ms |
+| fused | `4096x256` | 642.013 ms | 150.808 ms | 26.977 ms |
+| fused | `8192x512` | 2550.235 ms | 606.148 ms | 93.428 ms |
+| fused | `16384x512` | 5170.854 ms | 1229.728 ms | 173.258 ms |
+
+Exact parity passed for single and fused output sets. Integrated
+fixed-taxonomy timing:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.evaluation` | 5.272 s | 0.228 s | -5.044 s (-95.7%) |
+| prover stage total | 156.511 s | 152.070 s | -4.441 s |
+| total wall | 164.651 s | 159.890 s | -4.761 s |
+
+Operation parity, native testing-mode-style invariants, and Node proof
+verification passed. Chromium generated a 2408-byte proof in `155.02 s` and
+verified it in `20 ms`. Build and package inspection passed; the 253-file
+package contains no `test/`, `scripts/`, `fixtures/`, or `tmp/` paths.
+
+## Whole-Loop WASM Vanishing Division
+
+Related commit: `72c8c379`.
+
+The accepted implementation preserves the native-style coefficient-domain
+recurrence while moving its complete row and column loops into backend-owned
+WASM. It shards X-block accumulation and the Y quotient by independent local
+X rows, then shards the X quotient by independent Y columns. Task copying and
+quotient assembly are included in the benchmark boundary.
+
+| numerator / vanishing degree | scalar JS | worker shards | reduction |
+| --- | ---: | ---: | ---: |
+| `8192x512 / 4096x256` | 1668.829 ms | 123.671 ms | 92.6% |
+| `16384x512 / 4096x256` | 3216.914 ms | 233.578 ms | 92.7% |
+
+Exact quotient parity and reconstruction passed. Integrated fixed-taxonomy
+timing:
+
+| row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.div_vanishing` | 5.701 s | 0.940 s | -4.761 s (-83.5%) |
+| prover stage total | 152.070 s | 147.400 s | -4.670 s |
+| total wall | 159.890 s | 154.850 s | -5.040 s |
+
+Polynomial parity, native testing-mode-style invariants, and Node proof
+verification passed. Chromium generated a 2408-byte proof in `150.46 s` and
+verified it in `19 ms`. Build and package inspection passed; the 253-file
+package contains no `test/`, `scripts/`, `fixtures/`, or `tmp/` paths.
+
+## Recursion Recurrence WASM Boundary
+
+Related commit: `35bef9cc` (`Move recursion recurrence into WASM`).
+
+The accepted batch inversion remains unchanged. This change moves only the
+dependent post-inversion recurrence from a JavaScript loop with two scalar
+ffjavascript multiplications per element into one backend-owned WASM task.
+The recurrence order and final row-major mapping are unchanged. The work does
+not split the dependency chain across workers.
+
+| recurrence-only candidate | median | min | max |
+| --- | ---: | ---: | ---: |
+| JavaScript after batch inversion | 455.413 ms | 451.528 ms | 496.436 ms |
+| one-worker WASM after batch inversion | 212.279 ms | 207.081 ms | 217.814 ms |
+
+The isolated complete recurrence boundary improved by `243.134 ms` (`53.4%`)
+and passed exact byte parity.
+
+| integrated timing row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.recursion` | 1.78 s | 1.87 s | +0.09 s |
+| prover stage total | 147.40 s | 147.92 s | +0.52 s |
+| total wall | 154.85 s | 155.67 s | +0.82 s |
+
+The integrated run does not establish a full-prover speedup. Its recursion
+category includes the unchanged batch inversion and NTT work, and the observed
+deltas are below the run-to-run variation of complete prover measurements.
+The production promotion is supported by the repeated recurrence-only
+end-to-end result, not by an aggregate timing claim.
+
+Type checks, polynomial operation parity, native testing-mode-style
+invariants, Node proof generation and verifier acceptance, build, Chromium
+proof generation (`150.53 s`) and verification (`19 ms`), and package-content
+inspection passed. The package contains 253 files and no `test/`, `scripts/`,
+`fixtures/`, or `tmp/` paths.
+
+## Whole-Loop WASM Lagrange K0 Recurrence
+
+Related commit: `49448d7c` (`Parallelize Lagrange K0 recurrence`).
+
+The previously accepted K0 sliding algorithm and final
+`batchApplyKeyBuffer(...)` scaling pass remain unchanged. This promotion moves
+the recurrence itself from per-coefficient JavaScript field calls into a
+backend-owned WASM kernel and partitions independent Y columns through the
+existing ffjavascript worker queue. Compact shard extraction, output
+reassembly, and final scaling are included in the benchmark boundary.
+
+| shape | JavaScript production | caller WASM | one worker | Y-sharded workers |
+| --- | ---: | ---: | ---: | ---: |
+| `4096x8192x512` | 1691.572 ms | 1210.145 ms | 304.860 ms | 268.403 ms |
+| `4096x8192x256` | 852.841 ms | 624.194 ms | 146.298 ms | 143.962 ms |
+| `4096x4096x512` | 866.008 ms | 622.909 ms | 161.310 ms | 136.642 ms |
+| four-call weighted total | 5101.993 ms | 3667.393 ms | 917.328 ms | 817.410 ms |
+
+All candidates passed exact byte parity and the independent small-domain
+convolution oracle. The selected worker path reduced the weighted workload by
+`4284.583 ms` (`84.0%`). Its largest explicit temporary bound is about
+`640 MiB`, including compact input shards, shard outputs, assembled output,
+and recurrence windows; it does not replicate the full input per worker.
+
+| integrated timing row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_with_multiplication` | 27.54 s | 23.38 s | -4.16 s |
+| prover stage total | 147.92 s | 143.76 s | -4.16 s |
+| total wall | 155.67 s | 151.46 s | -4.21 s |
+
+Type checks, polynomial operation parity, native testing-mode-style
+invariants, Node proof generation and verifier acceptance, build, Chromium
+proof generation (`146.82 s`) and verification (`18 ms`), and package-content
+inspection passed. The package contains 253 files and no `test/`, `scripts/`,
+`fixtures/`, or `tmp/` paths.
+
+## Whole-Loop WASM Lagrange KL Recurrences
+
+Related commit: `f28a5c7a` (`Parallelize Lagrange KL recurrences`).
+
+Direct KL construction, the accepted weighted recurrence formulas, and final
+batch scaling remain unchanged. The X recurrence now partitions independent
+Y columns through WASM workers. Its row-major intermediate is then partitioned
+into independent X-row shards for the WASM Y recurrence. All compact copies,
+assembly, and scaling are included in the benchmark.
+
+| boundary at `4096x256` | JavaScript production | caller WASM | one worker | workers |
+| --- | ---: | ---: | ---: | ---: |
+| KL multiplication | 2425.599 ms | 1156.151 ms | 683.929 ms | 198.416 ms |
+| KL construction plus multiplication | 2621.620 ms | 1365.213 ms | 906.783 ms | 401.267 ms |
+
+Exact bytes and the independent small-domain dense convolution oracle passed.
+The selected worker path reduced multiplication by `2227.183 ms` (`91.8%`).
+Its explicit temporary bound is approximately `480 MiB`, versus `192 MiB`
+for the retained JavaScript baseline.
+
+| integrated timing row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_with_multiplication` | 23.38 s | 21.71 s | -1.67 s |
+| prover stage total | 143.76 s | 141.18 s | -2.58 s |
+| total wall | 151.46 s | 148.72 s | -2.74 s |
+
+Type checks, polynomial operation parity, native testing-mode-style
+invariants, Node proof generation and verifier acceptance, build, Chromium
+proof generation (`144.49 s`) and verification (`19 ms`), and package-content
+inspection passed. The package contains 253 files and no `test/`, `scripts/`,
+`fixtures/`, or `tmp/` paths.
+
+## Whole-Loop WASM Special-Form Products
+
+Related commit: `8fa5174d` (`Parallelize special-form polynomial products`).
+
+The accepted algebraic formulas for `(X-1)P`, `(1-X)P`, X/Y linear products,
+and term9 remain unchanged. Backend-owned WASM kernels now execute each
+complete active coefficient loop. The production runtime partitions active
+output X rows across ffjavascript workers, gives each shard only its required
+source rows plus the preceding row needed by X-shifted terms, and assembles
+the row-major result. Input preparation, transfer, result transfer, and
+assembly are included in the benchmark.
+
+| operation at `4096x256` | JavaScript production | caller WASM | one worker | workers |
+| --- | ---: | ---: | ---: | ---: |
+| `(X-1)P` | 169.322 ms | 10.027 ms | 17.961 ms | 9.784 ms |
+| `(1-X)P` | 170.662 ms | 10.425 ms | 18.025 ms | 8.337 ms |
+| X-linear product | 545.703 ms | 158.164 ms | 163.244 ms | 27.081 ms |
+| Y-linear product | 552.593 ms | 159.696 ms | 168.202 ms | 28.146 ms |
+| term9 product | 887.635 ms | 244.078 ms | 253.412 ms | 38.896 ms |
+
+Exact byte parity passed for zero, sparse, edge, and representative inputs.
+
+| integrated timing row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_with_multiplication` | 21.71 s | 17.91 s | -3.80 s |
+| prover stage total | 141.18 s | 137.89 s | -3.29 s |
+| total wall | 148.72 s | 145.26 s | -3.46 s |
+
+Type checks, polynomial operation parity, native testing-mode-style
+invariants, build, Chromium proof generation (`141.14 s`) and verification
+(`19 ms`), and package-content inspection passed. The package contains 253
+files and no `test/`, `scripts/`, or `tmp/` paths.
+
+## Sparse Witness Row-Dot WASM Kernel
+
+Related commit: `2d45a0e7` (`Move sparse witness accumulation into WASM`).
+
+Witness construction retains the existing sparse R1CS representation,
+active-wire mapping, row order, and validation. Each matrix is packed into
+CSR row offsets, columns, coefficients, and active-variable buffers. One
+backend-owned WASM task evaluates all rows in that matrix in original entry
+order. The rejected row-sharded alternative is not used in production.
+
+| real-fixture boundary | current JavaScript | caller WASM | one worker | 14 row-sharded workers |
+| --- | ---: | ---: | ---: | ---: |
+| sparse accumulation | 822.279 ms | 323.193 ms | 328.331 ms | 529.133 ms |
+| complete witness | 2.76 s | 2.27 s | 2.16 s | 2.55 s |
+
+The measured sparse boundary includes active-wire and CSR packing, worker
+input transfer, kernel execution, result transfer, and output assembly.
+All candidates produced exact `b`, `u`, `v`, `w`, and `r` polynomial bytes.
+The one-worker production shape reduces the isolated sparse accumulation by
+`493.948 ms` (`60.1%`). Row sharding is slower because these matrices do not
+contain enough work per shard to amortize repeated task and transfer overhead.
+
+| integrated timing row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| prover stage total | 134.99 s | 135.07 s | +0.08 s |
+| total wall | 143.06 s | 142.30 s | -0.76 s |
+
+The integrated delta is within full-run variation and is not claimed as an
+aggregate prover speedup. Type checks, exact real-fixture witness parity,
+native testing-mode-style witness/copy and stage invariants, Node proof
+generation and verifier acceptance, build, Chromium proof generation
+(`137.02 s`) and verification (`19 ms`), and package inspection passed. The
+package contains 253 files and no `test/`, `scripts/`, `fixtures/`, or `tmp/`
+paths.
+
+## Whole-Loop WASM Fused Linear-Plus-Scaled Terms
+
+Related commit: `a3773077` (`Parallelize fused linear polynomial terms`).
+
+The copy-quotient inner terms retain the exact expression
+`linearFactor(rD) + rR*gD`. A backend-owned WASM kernel now computes the two
+linear-factor terms and scaled addend in one coefficient pass. Independent
+output X rows are compactly worker-sharded. Existing optimized `(X-1)` and
+Lagrange-K0 consumers remain separate and unchanged.
+
+| boundary at `4096x256` | current production | JavaScript fused | caller WASM | one worker | workers |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| X inner | 754.556 ms | 925.724 ms | 239.414 ms | 252.929 ms | 40.309 ms |
+| X term2 | 830.353 ms | 1000.764 ms | 316.310 ms | 330.689 ms | 117.073 ms |
+| X term3 | 915.441 ms | 1089.552 ms | 407.537 ms | 416.774 ms | 205.370 ms |
+| Y inner | 762.490 ms | 938.908 ms | 242.006 ms | 256.952 ms | 40.763 ms |
+| Y term2 | 896.942 ms | 1061.334 ms | 366.318 ms | 378.837 ms | 172.301 ms |
+| Y term3 | 1017.897 ms | 1189.820 ms | 508.863 ms | 516.720 ms | 305.647 ms |
+
+Zero, unit, and non-unit addend scales pass exact output bytes for both axes
+and both complete consumers.
+
+| integrated timing row | before | after | delta |
+| --- | ---: | ---: | ---: |
+| `polynomial.combination_without_multiplication` | 8.73 s | 5.40 s | -3.33 s |
+| prover stage total | 137.89 s | 134.99 s | -2.90 s |
+| total wall | 145.26 s | 143.06 s | -2.20 s |
+
+Type checks, polynomial operation parity, native testing-mode-style
+invariants, build, Chromium proof generation (`137.57 s`) and verification
+(`18 ms`), and package-content inspection passed. The package contains 253
+files and no `test/`, `scripts/`, or `tmp/` paths.
+
+## Raw Prover CRS Section Descriptors
+
+Related commit: `83afc2ea` (`Use raw descriptors for prover CRS sections`).
+
+Related commits: `ceb619e2` (independent benchmark) and this production
+promotion commit.
+
+The prover CRS binary format, section order, point encoding, and validation
+ownership remain unchanged. Production parsing now retains the seven dynamic
+Sigma1 G1 sections as raw byte descriptors containing data, point count, and
+point width. Individual points and contiguous ranges are exposed as on-demand
+views over those bytes. It no longer constructs and retains one `Uint8Array`
+view for every dynamic CRS point.
+
+The post-promotion benchmark used the real approximately `990 MiB` prepared
+CRS and included complete section-digest parity plus deterministic point
+samples.
+
+| representation | construction | 100k point accesses | 262144-point range | retained objects | heap delta | RSS delta |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| legacy per-point views | 874.843 ms | 23.907 ms | 3.277 ms | 10,815,983 | 1155.280 MiB | 1227.500 MiB |
+| production raw descriptors | 0.209 ms | 10.484 ms | 0.005 ms | 7 | 0.263 MiB | 0.141 MiB |
+
+Latest fixed-taxonomy timing:
+
+| layer | row | total | count |
+| --- | --- | ---: | ---: |
+| lowest | `polynomial.combination_without_multiplication` | 4.10 s | 48 |
+| lowest | `polynomial.combination_with_multiplication` | 16.58 s | 18 |
+| lowest | `polynomial.recursion` | 1.46 s | 1 |
+| lowest | `polynomial.evaluation` | 211 ms | 8 |
+| lowest | `polynomial.div_ruffini` | 683 ms | 5 |
+| lowest | `polynomial.div_vanishing` | 708 ms | 2 |
+| lowest | `polynomial.encode` | 106.18 s | 18 |
+| lowest | `binding.encode` | 1.76 s | 1 |
+| top | `field.operations` | 23.74 s | 82 |
+| top | `encode` | 107.94 s | 19 |
+| boundary | `init` | 3.88 s | 2 |
+| boundary | `stage.unclassified` | 5 ms | 1 |
+| boundary | `io` | 147 ms | 2 |
+| boundary | `verify` | 17 ms | 1 |
+| boundary | `output` | 2 ms | 1 |
+| total | prover stage total | 129.93 s | - |
+| total | total wall | 135.74 s | - |
+
+The immediately preceding accepted full-run record was `135.07 s` prover
+stage total and `142.30 s` total wall. The new run is `5.14 s` and `6.56 s`
+lower respectively, but the representation benchmark is the attribution
+boundary for parser time and memory; full-run deltas are not treated as
+deterministic parser-only savings.
+
+Type checks, field/polynomial/commitment parity, native testing-mode-style
+invariants, Node proof generation and verifier acceptance, build, Chromium
+proof generation (`136.89 s`) and verification (`19 ms`), and package
+inspection passed. The package contains 253 files and no `test/`, `scripts/`,
+`fixtures/`, or `tmp/` paths.
+
+## Persistent Packed CSR And Direct-Flat Witness
+
+Related commit: `b5c795d6` (`Use packed R1CS for witness construction`).
+
+Related benchmark commits: `fe155acb` and `e044165f`. Production promotion:
+`b5c795d6`.
+
+The build-generated subcircuit R1CS now remains in packed CSR form as
+`rowOffsets`, `columns`, coefficient bytes, active-wire indexes, and row
+counts. Production no longer expands these matrices into JavaScript sparse-row
+objects or reconstructs the same CSR buffers for every placement.
+
+Witness construction allocates the final row-major B/U/V/W evaluation buffers
+once. Placement values and sparse row-dot results are written directly to
+their final offsets. The legacy placement-major field-element arrays,
+object-array transpose, and final concatenation are removed from production
+and retained only as diagnostics oracles.
+
+The approved pre-promotion combination benchmark measured the legacy boundary
+at `4143.801 ms` and packed/direct-flat at `2781.108 ms`, a `1362.693 ms`
+(`32.9%`) reduction. The post-promotion benchmark directly compared the
+production function against the legacy oracle and passed exact B/U/V/W
+coefficient parity.
+
+| post-promotion candidate | median | JS array entries | explicit copied bytes |
+| --- | ---: | ---: | ---: |
+| legacy object/transpose | 3485.854 ms | 7,340,032 | 224.000 MiB |
+| production-equivalent packed/direct-flat | 1940.198 ms | 0 | 87.750 MiB |
+
+Latest fixed-taxonomy timing:
+
+| layer | row | total | count |
+| --- | --- | ---: | ---: |
+| lowest | `polynomial.combination_without_multiplication` | 4.09 s | 48 |
+| lowest | `polynomial.combination_with_multiplication` | 16.72 s | 18 |
+| lowest | `polynomial.recursion` | 1.48 s | 1 |
+| lowest | `polynomial.evaluation` | 210 ms | 8 |
+| lowest | `polynomial.div_ruffini` | 678 ms | 5 |
+| lowest | `polynomial.div_vanishing` | 842 ms | 2 |
+| lowest | `polynomial.encode` | 107.07 s | 18 |
+| lowest | `binding.encode` | 1.77 s | 1 |
+| top | `field.operations` | 24.02 s | 82 |
+| top | `encode` | 108.85 s | 19 |
+| boundary | `init` | 2.87 s | 2 |
+| boundary | `stage.unclassified` | 5 ms | 1 |
+| boundary | `io` | 157 ms | 2 |
+| boundary | `verify` | 18 ms | 1 |
+| boundary | `output` | 2 ms | 1 |
+| total | prover stage total | 131.10 s | - |
+| total | total wall | 135.92 s | - |
+
+The immediately preceding accepted record was `init = 3.88 s`, prover stage
+total `129.93 s`, and total wall `135.74 s`. Init decreased by `1.01 s`; the
+stage and wall deltas are not attributed to this change because unrelated
+polynomial and encode variation exceeds the overall difference.
+
+Production and diagnostics type checks, field/polynomial/commitment parity,
+native testing-mode-style invariants, Node proof generation and verifier
+acceptance, production build, Chromium proof generation (`137.69 s`) and
+verification (`18 ms`), and package inspection passed. The package contains
+253 files and no `test/`, `scripts/`, `fixtures/`, or `tmp/` paths.
+
+## Combined Pi And Shared M/N Openings
+
+Related commit: `cd7e47d3` (`Combine final prover openings`).
+
+Related benchmark files:
+`bench-combined-final-openings.ts`, `bench-shared-mn-opening.ts`, and
+`bench-opening-winners-combined.ts`.
+
+Production now combines the Pi_A, Pi_C, and `kappa1^4 * Pi_B` numerators
+before one bivariate Ruffini split. Only the final Pi_X and Pi_Y quotients are
+committed. The split Pi_A/Pi_C/Pi_B commitments were diagnostics-only
+intermediates and are no longer generated or exposed by production.
+
+M and N use the same blinded R polynomial and X evaluation point. Production
+therefore performs one X Ruffini division and one X commitment, then performs
+the distinct M_Y and N_Y divisions and commitments. Both M_X and N_X remain
+serialized as separate proof fields with identical point bytes.
+
+The first post-promotion real-fixture benchmark iteration directly compared
+the production function against the legacy split implementation. Pi_X, Pi_Y,
+M_X, M_Y, N_X, and N_Y all matched as G1 elements.
+
+| complete opening boundary | median | Pi | M/N | explicit polynomial storage |
+| --- | ---: | ---: | ---: | ---: |
+| legacy split/independent | 40132.677 ms | 29724.346 ms | 10408.327 ms | 896.082 MiB |
+| production combined/shared | 24874.299 ms | 19688.843 ms | 5185.451 ms | 640.047 MiB |
+
+The directly measured reduction is `15258.378 ms` (`38.0%`) with
+`256.035 MiB` less explicitly retained polynomial storage.
+
+Latest fixed-taxonomy timing:
+
+| layer | row | total | count |
+| --- | --- | ---: | ---: |
+| lowest | `polynomial.combination_without_multiplication` | 4.28 s | 49 |
+| lowest | `polynomial.combination_with_multiplication` | 16.88 s | 18 |
+| lowest | `polynomial.recursion` | 1.48 s | 1 |
+| lowest | `polynomial.evaluation` | 208 ms | 7 |
+| lowest | `polynomial.div_ruffini` | 393 ms | 2 |
+| lowest | `polynomial.div_vanishing` | 862 ms | 2 |
+| lowest | `polynomial.encode` | 92.51 s | 14 |
+| lowest | `binding.encode` | 1.75 s | 1 |
+| top | `field.operations` | 24.10 s | 79 |
+| top | `encode` | 94.27 s | 15 |
+| boundary | `init` | 2.91 s | 2 |
+| boundary | `stage.unclassified` | 6 ms | 1 |
+| boundary | `io` | 160 ms | 2 |
+| boundary | `verify` | 18 ms | 1 |
+| boundary | `output` | 2 ms | 1 |
+| total | prover stage total | 116.62 s | - |
+| total | total wall | 121.47 s | - |
+
+The immediately preceding accepted record was prover stage total `131.10 s`
+and total wall `135.92 s`. The observed reductions are `14.48 s` and
+`14.45 s`, respectively. The opening module itself changed from `42.98 s` to
+`28.21 s`, consistent with the eliminated four commitment jobs.
+
+Production and diagnostics type checks, field/polynomial/commitment parity,
+native testing-mode-style polynomial invariants, Node proof generation and
+verifier acceptance, production build, Chromium proof generation (`122.79 s`)
+and verification (`19 ms`), and package inspection passed. The package
+contains 253 files and no `test/`, `scripts/`, `fixtures/`, or `tmp/` paths.
+
+## Zero-Compacted Statement Bindings
+
+Related commit: `7e683191`.
+
+Production `O_mid` and `O_prv` statement commitments now allocate contiguous
+base and Montgomery-scalar buffers for the exact selected-variable capacity
+and write only nonzero pairs into the active prefix. The active scalar prefix
+is batch-converted once and submitted to the existing ffjavascript MSM
+primitive. Selected-variable count validation and base/scalar order are
+unchanged. `O_pub_free` retains its previous path because the independent
+benchmark measured a regression for that small input.
+
+The post-promotion benchmark directly compared the actual production
+`encodeOMidNoZk(...)` and `encodeOPrvNoZk(...)` results with the independent
+all-scalar implementation and passed exact G1 equality. Synthetic all-zero,
+first/last-nonzero, alternating, partial-density, and all-nonzero cases also
+retained exact candidate parity.
+
+| binding | selected | nonzero | legacy all-scalar | compact | reduction | legacy temporary | compact temporary |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `O_mid` | 6,820 | 4,391 | 14.767 ms | 14.772 ms | -0.0% | 1.041 MiB | 0.967 MiB |
+| `O_prv` | 650,925 | 352,160 | 1706.290 ms | 1539.455 ms | 9.8% | 99.323 MiB | 90.206 MiB |
+
+The `O_mid` wall-time difference in this run is noise-sized; the earlier
+alternating-order benchmark measured a `5.4%` reduction. No deterministic
+full-prover speedup is attributed to that small binding.
+
+Latest fixed-taxonomy timing:
+
+| layer | row | total | count |
+| --- | --- | ---: | ---: |
+| lowest | `polynomial.combination_without_multiplication` | 4.25 s | 49 |
+| lowest | `polynomial.combination_with_multiplication` | 16.62 s | 18 |
+| lowest | `polynomial.recursion` | 1.48 s | 1 |
+| lowest | `polynomial.evaluation` | 206 ms | 7 |
+| lowest | `polynomial.div_ruffini` | 404 ms | 2 |
+| lowest | `polynomial.div_vanishing` | 882 ms | 2 |
+| lowest | `polynomial.encode` | 92.13 s | 14 |
+| lowest | `binding.encode` | 1.60 s | 1 |
+| top | `field.operations` | 23.84 s | 79 |
+| top | `encode` | 93.73 s | 15 |
+| boundary | `init` | 2.91 s | 2 |
+| boundary | `stage.unclassified` | 7 ms | 1 |
+| boundary | `io` | 151 ms | 2 |
+| boundary | `verify` | 18 ms | 1 |
+| boundary | `output` | 3 ms | 1 |
+| total | prover stage total | 115.97 s | - |
+| total | total wall | 120.65 s | - |
+
+The immediately preceding accepted record had `binding.encode = 1.75 s`,
+prover stage total `116.62 s`, and total wall `121.47 s`. The binding row
+decreased by `0.15 s`; broader movement is not attributed solely to this
+change.
+
+Production and diagnostics type checks, field/polynomial/commitment parity,
+native testing-mode-style invariants, Node proof generation and verifier
+acceptance, production build, Chromium proof generation (`122.82 s`) and
+verification (`19 ms`), and package inspection passed. The package contains
+253 files and no `test/`, `scripts/`, `fixtures/`, or `tmp/` paths.
+
+## Direct 2D NTT Task Shards
+
+Related commit: `4cd23c9e`.
+
+The small-segment ffjavascript FFT path previously allocated one full
+bit-reversed buffer and then allocated an owned slice for every worker-task
+segment. Production now writes bit-reversed elements directly into one
+contiguous shard per worker task and passes segment views from that shard.
+The ffjavascript worker primitive, transform order, inverse normalization,
+inverse output rotation, row-major transposes, and coset handling are
+unchanged.
+
+The post-promotion benchmark uses the production `biNttBuffer(...)` result as
+the correctness oracle. Exact forward, inverse, 1D edge, true 2D, and coset
+round-trip parity passed.
+
+| shape | direction | legacy current | production-equivalent direct shards | reduction | legacy allocation | direct-shard allocation |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| 4096x256 | forward | 353.885 ms | 321.557 ms | 9.1% | 128 MiB | 64 MiB |
+| 4096x256 | inverse | 376.121 ms | 343.988 ms | 8.5% | 192 MiB | 128 MiB |
+| 8192x512 | forward | 1415.507 ms | 1289.748 ms | 8.9% | 512 MiB | 256 MiB |
+| 8192x512 | inverse | 1450.114 ms | 1353.083 ms | 6.7% | 768 MiB | 512 MiB |
+
+Latest fixed-taxonomy timing:
+
+| layer | row | total | count |
+| --- | --- | ---: | ---: |
+| lowest | `polynomial.combination_without_multiplication` | 4.34 s | 49 |
+| lowest | `polynomial.combination_with_multiplication` | 16.18 s | 18 |
+| lowest | `polynomial.recursion` | 1.42 s | 1 |
+| lowest | `polynomial.evaluation` | 209 ms | 7 |
+| lowest | `polynomial.div_ruffini` | 383 ms | 2 |
+| lowest | `polynomial.div_vanishing` | 904 ms | 2 |
+| lowest | `polynomial.encode` | 93.73 s | 14 |
+| lowest | `binding.encode` | 1.69 s | 1 |
+| top | `field.operations` | 23.44 s | 79 |
+| top | `encode` | 95.42 s | 15 |
+| boundary | `init` | 2.89 s | 2 |
+| boundary | `stage.unclassified` | 9 ms | 1 |
+| boundary | `io` | 168 ms | 2 |
+| boundary | `verify` | 18 ms | 1 |
+| boundary | `output` | 2 ms | 1 |
+| total | prover stage total | 117.17 s | - |
+| total | total wall | 121.94 s | - |
+
+The immediately preceding accepted record had `field.operations = 23.84 s`,
+prover stage total `115.97 s`, and total wall `120.65 s`. Field operations
+decreased by `0.40 s`. The total-wall increase is caused by variation in the
+separate commitment-encode bucket and is not attributed to this NTT change;
+the direct transform benchmark is the primary attribution boundary.
+
+Production and diagnostics type checks, field/polynomial/commitment parity,
+native testing-mode-style invariants, Node proof generation and verifier
+acceptance, production build, Chromium proof generation (`121.16 s`) and
+verification (`19 ms`), and package inspection passed. The package contains
+253 files and no `test/`, `scripts/`, `fixtures/`, or `tmp/` paths.
+
+## Recursion Same-Shape Clone Removal
+
+Related commit: `824db138`.
+
+The recursion commitment path previously called `resize(mI, sMax)` on both
+`fXY` and `gXY` even though both buffers already had exactly that shape.
+`BivariatePolynomialBuffer.resize(...)` intentionally clones same-shape
+buffers, so these calls copied `64 MiB` before two non-mutating NTTs.
+
+Production now validates both shapes before starting either transform and
+passes the immutable source buffers directly to `toRouEvals()`. The recursion
+equations, batch inverse and recurrence, inverse transform, blinding,
+commitment, and artifact formats are unchanged.
+
+The post-promotion benchmark compares the actual production recursion
+polynomial against the independent legacy resize path. ROU evaluations,
+production recursion coefficients, source immutability, small-shape behavior,
+and wrong-shape rejection all pass exactly.
+
+| candidate | median | shape/resize | f NTT | g NTT | explicit copied bytes |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| legacy same-shape resize | 690.316 ms | 3.019 ms | 337.949 ms | 349.261 ms | 64 MiB |
+| production shape assert/direct | 682.691 ms | 0.005 ms | 348.859 ms | 333.748 ms | 0 |
+
+Only the `3.014 ms` clone removal and `64 MiB` copy removal are directly
+attributed to this change. The complete-boundary difference is not treated as
+deterministic because the two NTT timings exchange runtime noise.
+
+Latest fixed-taxonomy timing:
+
+| layer | row | total | count |
+| --- | --- | ---: | ---: |
+| lowest | `polynomial.combination_without_multiplication` | 4.28 s | 49 |
+| lowest | `polynomial.combination_with_multiplication` | 15.77 s | 18 |
+| lowest | `polynomial.recursion` | 1.42 s | 1 |
+| lowest | `polynomial.evaluation` | 220 ms | 7 |
+| lowest | `polynomial.div_ruffini` | 391 ms | 2 |
+| lowest | `polynomial.div_vanishing` | 864 ms | 2 |
+| lowest | `polynomial.encode` | 91.97 s | 14 |
+| lowest | `binding.encode` | 1.59 s | 1 |
+| top | `field.operations` | 22.94 s | 79 |
+| top | `encode` | 93.56 s | 15 |
+| boundary | `init` | 2.73 s | 2 |
+| boundary | `stage.unclassified` | 10 ms | 1 |
+| boundary | `io` | 152 ms | 2 |
+| boundary | `verify` | 17 ms | 1 |
+| boundary | `output` | 2 ms | 1 |
+| total | prover stage total | 114.92 s | - |
+| total | total wall | 119.41 s | - |
+
+The immediately preceding accepted record had
+`polynomial.recursion = 1.42 s`, prover stage total `117.17 s`, and total wall
+`121.94 s`. The recursion
+row is unchanged at displayed precision; broader reductions are not
+attributed to this small clone removal.
+
+Production and diagnostics type checks, field/polynomial/commitment parity,
+native testing-mode-style invariants, Node proof generation and verifier
+acceptance, production build, Chromium proof generation (`120.86 s`) and
+verification (`25 ms`), and package inspection passed. The package contains
+253 files and no `test/`, `scripts/`, `fixtures/`, or `tmp/` paths.
+
+## Direct Witness Conversion And Flat Placement Storage
+
+The witness converter previously retained 658,454 converted field-element
+arrays and concatenated them after conversion. Runtime loading then retained
+one subarray object per field element plus one variable array per placement.
+
+Production now writes converted field values directly into the final
+preallocated section buffer. Runtime input keeps the section as one contiguous
+buffer with `Uint32Array` subcircuit IDs and placement offsets; prover
+consumers create short-lived field-element views only when reading a value.
+The named witness input and its three-section binary layout are unchanged.
+
+The real 234-placement, 658,454-variable selection benchmark produced:
+
+| operation | previous | promoted | time reduction | peak RSS reduction |
+| --- | ---: | ---: | ---: | ---: |
+| witness conversion | 1007.05 ms / 669.61 MiB | 932.46 ms / 544.08 MiB | 7.4% | 125.53 MiB |
+| placement loading | 44.24 ms / 521.42 MiB | 0.10 ms / 423.12 MiB | 99.8% | 98.30 MiB |
+
+The complete artifact matched byte-for-byte before promotion, and both loader
+representations produced the same ordered traversal checksum (`69,544,477`).
+
+Post-promotion fixed-taxonomy timing:
+
+| layer | row | total | count |
+| --- | --- | ---: | ---: |
+| lowest | `polynomial.combination_without_multiplication` | 4.40 s | 49 |
+| lowest | `polynomial.combination_with_multiplication` | 15.61 s | 18 |
+| lowest | `polynomial.recursion` | 1.37 s | 1 |
+| lowest | `polynomial.evaluation` | 209 ms | 7 |
+| lowest | `polynomial.div_ruffini` | 389 ms | 2 |
+| lowest | `polynomial.div_vanishing` | 867 ms | 2 |
+| lowest | `polynomial.encode` | 92.07 s | 14 |
+| lowest | `binding.encode` | 1.59 s | 1 |
+| top | `field.operations` | 22.85 s | 79 |
+| top | `encode` | 93.66 s | 15 |
+| boundary | `init` | 2.70 s | 2 |
+| boundary | `stage.unclassified` | 4 ms | 1 |
+| boundary | `io` | 162 ms | 2 |
+| boundary | `verify` | 17 ms | 1 |
+| boundary | `output` | 2 ms | 1 |
+| total | prover stage total | 114.92 s | - |
+| total | total wall | 119.40 s | - |
+
+The preceding accepted record was `119.41 s` total wall and `114.92 s`
+prover-stage total, so the representation change introduced no material
+time regression. Type checks, binary and witness checks, Node proof generation,
+testing-mode invariants, verifier acceptance, and Chromium proof generation
+(`120.57 s`) and verification (`20 ms`) passed.
+
+## Direct Permutation Buffers And Row-Prefix Resize
+
+Related commits: `86189e69` and `35542a4f`.
+
+Permutation polynomial initialization previously created two 1,048,576-entry
+JavaScript arrays of field-element references and concatenated them into two
+32 MiB buffers. Production now allocates those final buffers directly, fills
+the repeated X/Y rows, and applies the 5,053 permutation overrides in place.
+The selection benchmark measured `86.53 ms` for the prior path and `11.77 ms`
+for direct construction, a `7.35x` speedup, with exact byte parity. It also
+removes about 16 MiB of temporary reference slots before JavaScript array
+metadata.
+
+Polynomial resize previously copied retained coefficients one field element at
+a time through bounds-checked accessors. Production now performs one contiguous
+prefix copy per retained row. The pre-promotion benchmark measured:
+
+| resize | element-wise | row-prefix | speedup |
+| --- | ---: | ---: | ---: |
+| `4096x256` to `8192x512` | 45.65 ms | 3.85 ms | 11.86x |
+| `4096x256` to `2048x128` | 12.34 ms | 0.67 ms | 18.38x |
+
+Same-shape resize retains its existing clone semantics. Grow, shrink, and
+same-shape outputs matched byte-for-byte.
+
+Post-promotion fixed-taxonomy timing:
+
+| layer | row | total | count |
+| --- | --- | ---: | ---: |
+| lowest | `polynomial.combination_without_multiplication` | 4.32 s | 49 |
+| lowest | `polynomial.combination_with_multiplication` | 15.27 s | 18 |
+| lowest | `polynomial.recursion` | 1.35 s | 1 |
+| lowest | `polynomial.evaluation` | 209 ms | 7 |
+| lowest | `polynomial.div_ruffini` | 382 ms | 2 |
+| lowest | `polynomial.div_vanishing` | 872 ms | 2 |
+| lowest | `polynomial.encode` | 91.77 s | 14 |
+| lowest | `binding.encode` | 1.60 s | 1 |
+| top | `field.operations` | 22.42 s | 79 |
+| top | `encode` | 93.36 s | 15 |
+| boundary | `init` | 2.57 s | 2 |
+| boundary | `stage.unclassified` | 4 ms | 1 |
+| boundary | `io` | 162 ms | 2 |
+| boundary | `verify` | 17 ms | 1 |
+| boundary | `output` | 2 ms | 1 |
+| total | prover stage total | 114.19 s | - |
+| total | total wall | 118.53 s | - |
+
+The preceding accepted record was `119.40 s` total wall, `114.92 s`
+prover-stage total, and `2.70 s` init. The full-wall reduction is directionally
+consistent but is not used to attribute more than the isolated boundary
+evidence. Type checks, operation and polynomial parity, native testing-mode
+invariants, Node verifier acceptance, and Chromium proof generation
+(`120.18 s`) and verification (`20 ms`) passed.
+
+## Final Publication Gate
+
+The final gate passed:
+
+- generated-source freshness, production and development type checks, artifact
+  specs, binary formats, RKYV payload handling, and build-tool availability;
+- field, polynomial, commitment, witness, native testing-mode, Node prover,
+  native verifier, backend-wasm verifier, and Chromium verifier checks;
+- Chromium proof generation in `118.82 s`, verification in `19 ms`, peak total
+  RSS `10.03 GiB`, and peak single-process RSS `9.83 GiB`;
+- production build and actual npm tarball inspection.
+
+The preceding frozen browser snapshot was `121.19 s` with `10.19 GiB` peak
+total RSS and `9.99 GiB` peak single-process RSS, so the final code has no
+unexplained material time or memory regression.
+
+The actual `2.1.1` tarball is 1,006,510 bytes compressed, 11,428,801 bytes
+unpacked, and contains 336 files. Its exports are exactly `./converter`,
+`./prover`, and `./verifier`. Required public entry points, the converter
+Worker, and decoder WASM are present. No `test`, `scripts`, `fixtures`, `tmp`,
+or `tools` path is included.

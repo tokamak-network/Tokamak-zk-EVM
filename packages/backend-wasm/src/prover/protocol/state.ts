@@ -1,0 +1,155 @@
+import { BivariatePolynomialBuffer } from "../../runtime/polynomial/bivariate-polynomial-buffer.js";
+import type { CurveRuntime } from "../../runtime/curve/curve.js";
+import type { FieldElement, FieldRuntime } from "../../runtime/field/field-runtime.js";
+import type { ProverPermutationEntry, ProverSetupParams, WitnessPolynomials } from "./witness.js";
+
+export interface ProverInstancePolynomials {
+  readonly aFreeX: BivariatePolynomialBuffer;
+  readonly tN: BivariatePolynomialBuffer;
+  readonly tMi: BivariatePolynomialBuffer;
+  readonly tSMax: BivariatePolynomialBuffer;
+  readonly s0XY: BivariatePolynomialBuffer;
+  readonly s1XY: BivariatePolynomialBuffer;
+}
+
+export interface ProverMixer {
+  readonly rU_X: FieldElement;
+  readonly rU_Y: FieldElement;
+  readonly rV_X: FieldElement;
+  readonly rV_Y: FieldElement;
+  readonly rW_X: readonly FieldElement[];
+  readonly rW_Y: readonly FieldElement[];
+  readonly rB_X: readonly FieldElement[];
+  readonly rB_Y: readonly FieldElement[];
+  readonly rR_X: FieldElement;
+  readonly rR_Y: FieldElement;
+  readonly rO_mid: FieldElement;
+}
+
+export interface ProverState {
+  readonly setup: ProverSetupParams;
+  readonly instance: ProverInstancePolynomials;
+  readonly witness: WitnessPolynomials;
+  readonly mixer: ProverMixer;
+}
+
+export async function buildProverInstancePolynomials(
+  field: FieldRuntime,
+  setup: ProverSetupParams,
+  publicInstance: readonly FieldElement[],
+  permutation: readonly ProverPermutationEntry[],
+): Promise<ProverInstancePolynomials> {
+  if (publicInstance.length !== setup.l_free) {
+    throw new Error(`Prover public instance length must equal setup.l_free (${setup.l_free}).`);
+  }
+
+  const mI = setup.l_D - setup.l;
+
+  const [s0XY, s1XY] = await buildPermutationPolynomials(field, setup, permutation);
+
+  return {
+    aFreeX: await BivariatePolynomialBuffer.fromRouEvals(field, field.concat(publicInstance), setup.l_free, 1),
+    tN: vanishingPolynomialX(field, setup.n),
+    tMi: vanishingPolynomialX(field, mI),
+    tSMax: vanishingPolynomialY(field, setup.s_max),
+    s0XY,
+    s1XY,
+  };
+}
+
+export async function createProverMixer(runtime: CurveRuntime): Promise<ProverMixer> {
+  return {
+    rU_X: await runtime.randomScalar(),
+    rU_Y: await runtime.randomScalar(),
+    rV_X: await runtime.randomScalar(),
+    rV_Y: await runtime.randomScalar(),
+    rW_X: [await runtime.randomScalar(), await runtime.randomScalar(), await runtime.randomScalar(), runtime.Fr.zero],
+    rW_Y: [await runtime.randomScalar(), await runtime.randomScalar(), await runtime.randomScalar(), runtime.Fr.zero],
+    rB_X: [await runtime.randomScalar(), await runtime.randomScalar()],
+    rB_Y: [await runtime.randomScalar(), await runtime.randomScalar()],
+    rO_mid: await runtime.randomScalar(),
+    rR_X: await runtime.randomScalar(),
+    rR_Y: await runtime.randomScalar(),
+  };
+}
+
+export async function createProverState(input: {
+  readonly runtime: CurveRuntime;
+  readonly setup: ProverSetupParams;
+  readonly publicInstance: readonly FieldElement[];
+  readonly permutation: readonly ProverPermutationEntry[];
+  readonly witness: WitnessPolynomials;
+}): Promise<ProverState> {
+  const instance = await buildProverInstancePolynomials(
+    input.runtime.Fr,
+    input.setup,
+    input.publicInstance,
+    input.permutation,
+  );
+
+  return {
+    setup: input.setup,
+    instance,
+    witness: input.witness,
+    mixer: await createProverMixer(input.runtime),
+  };
+}
+
+async function buildPermutationPolynomials(
+  field: FieldRuntime,
+  setup: ProverSetupParams,
+  permutation: readonly ProverPermutationEntry[],
+): Promise<readonly [BivariatePolynomialBuffer, BivariatePolynomialBuffer]> {
+  const mI = setup.l_D - setup.l;
+  const omegaMI = field.rootOfUnity(mI);
+  const omegaSMax = field.rootOfUnity(setup.s_max);
+  const xPowers = powerTable(field, omegaMI, mI);
+  const yPowers = powerTable(field, omegaSMax, setup.s_max);
+  const rowBytes = setup.s_max * field.byteLength;
+  const s0Evals = field.createZeroBuffer(mI * setup.s_max);
+  const s1Evals = field.createZeroBuffer(mI * setup.s_max);
+  const yRow = field.concat(yPowers);
+
+  for (let row = 0; row < mI; row += 1) {
+    const rowOffset = row * rowBytes;
+    const xValue = xPowers[row];
+    for (let col = 0; col < setup.s_max; col += 1) {
+      s0Evals.set(xValue, rowOffset + col * field.byteLength);
+    }
+    s1Evals.set(yRow, rowOffset);
+  }
+
+  for (const entry of permutation) {
+    const byteOffset = (entry.row * setup.s_max + entry.col) * field.byteLength;
+    s0Evals.set(xPowers[entry.X], byteOffset);
+    s1Evals.set(yPowers[entry.Y], byteOffset);
+  }
+
+  return [
+    await BivariatePolynomialBuffer.fromRouEvals(field, s0Evals, mI, setup.s_max),
+    await BivariatePolynomialBuffer.fromRouEvals(field, s1Evals, mI, setup.s_max),
+  ];
+}
+
+function powerTable(field: FieldRuntime, base: FieldElement, length: number): FieldElement[] {
+  const output = Array.from({ length }, () => field.one);
+  for (let index = 1; index < length; index += 1) {
+    output[index] = field.mul(output[index - 1], base);
+  }
+
+  return output;
+}
+
+function vanishingPolynomialX(field: FieldRuntime, degree: number): BivariatePolynomialBuffer {
+  const coefficients = Array.from({ length: degree * 2 }, () => field.zero);
+  coefficients[0] = field.neg(field.one);
+  coefficients[degree] = field.one;
+  return BivariatePolynomialBuffer.fromCoeffs(field, coefficients, degree * 2, 1);
+}
+
+function vanishingPolynomialY(field: FieldRuntime, degree: number): BivariatePolynomialBuffer {
+  const coefficients = Array.from({ length: degree * 2 }, () => field.zero);
+  coefficients[0] = field.neg(field.one);
+  coefficients[degree] = field.one;
+  return BivariatePolynomialBuffer.fromCoeffs(field, coefficients, 1, degree * 2);
+}

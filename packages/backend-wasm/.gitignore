@@ -1,0 +1,8 @@
+# Prepared runtime fixture artifacts.
+/fixtures/small/runtime/
+/tools/rkyv-decoder-wasm/pkg/
+/tools/rkyv-decoder-wasm/target/
+
+# The repository-level artifacts rule must not hide package source modules.
+!/src/artifacts/
+!/src/artifacts/**

@@ -652,6 +652,12 @@ jobs:
                           f"expected={expected} actual={actual}"
                       )
 
+              verified_crs_dir = Path("verified-verifier-crs")
+              verified_crs_dir.mkdir(parents=True, exist_ok=True)
+              (verified_crs_dir / "sigma_verify.json").write_bytes(
+                  archive.read("sigma_verify.json")
+              )
+
           print(
               json.dumps(
                   {
@@ -666,6 +672,156 @@ jobs:
               )
           )
           PY
+
+      - name: Upload verified verifier CRS
+        uses: actions/upload-artifact@v4
+        with:
+          name: verified-verifier-crs
+          path: verified-verifier-crs/sigma_verify.json
+          if-no-files-found: error
+          retention-days: 7
+
+  build-snark-browser-compat:
+    name: Build browser-compatible SNARK package
+    runs-on: ubuntu-22.04
+    needs: check-main-crs
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Install Rust and Cargo
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-bindgen CLI
+        run: cargo install wasm-bindgen-cli --version 0.2.126 --locked
+
+      - name: Download verified verifier CRS
+        uses: actions/download-artifact@v4
+        with:
+          name: verified-verifier-crs
+          path: packages/backend/setup/output
+
+      - name: Validate verifier CRS input
+        run: test -s packages/backend/setup/output/sigma_verify.json
+
+      - name: Install package dependencies
+        working-directory: packages/backend-wasm
+        run: npm install --package-lock=false --ignore-scripts
+
+      - name: Install Chromium
+        working-directory: packages/backend-wasm
+        run: npx playwright install --with-deps chromium
+
+      - name: Build package
+        working-directory: packages/backend-wasm
+        run: npm run build
+
+      - name: Check package types and generated inputs
+        working-directory: packages/backend-wasm
+        run: |
+          npm run typecheck
+          npm run typecheck:scripts
+
+      - name: Check converter browser boundary
+        working-directory: packages/backend-wasm
+        run: npm run converter:browser:check
+
+      - name: Check publication documentation and package boundary
+        working-directory: packages/backend-wasm
+        run: npx tsx test/checks/docs/check-publication-docs.ts
+
+      - name: Pack browser-compatible SNARK package
+        working-directory: packages/backend-wasm
+        run: |
+          mkdir -p ../../snark-browser-compat-tarball
+          npm pack --ignore-scripts --pack-destination ../../snark-browser-compat-tarball
+
+      - name: Validate browser-compatible SNARK tarball
+        run: |
+          node <<'EOF_NODE'
+          const { execFileSync } = require('node:child_process');
+          const fs = require('node:fs');
+          const path = require('node:path');
+
+          const tarballDir = path.resolve('snark-browser-compat-tarball');
+          const tarballs = fs.readdirSync(tarballDir).filter((file) => file.endsWith('.tgz'));
+          if (tarballs.length !== 1) {
+            throw new Error(`Expected one browser-compatible SNARK tarball, found ${tarballs.length}.`);
+          }
+
+          const tarball = path.join(tarballDir, tarballs[0]);
+          const manifest = JSON.parse(
+            execFileSync('tar', ['-xOf', tarball, 'package/package.json'], {
+              encoding: 'utf8',
+            }),
+          );
+          const rootVersion = require('./package.json').version;
+          if (manifest.name !== '@tokamak-zk-evm/snark-browser-compat') {
+            throw new Error(`Unexpected package name ${manifest.name}.`);
+          }
+          if (manifest.version !== rootVersion) {
+            throw new Error(
+              `Browser-compatible SNARK version ${manifest.version} does not match root ${rootVersion}.`,
+            );
+          }
+
+          const entries = execFileSync('tar', ['-tzf', tarball], { encoding: 'utf8' })
+            .split('\n')
+            .filter(Boolean);
+          for (const forbiddenPrefix of [
+            'package/test/',
+            'package/fixtures/',
+            'package/scripts/',
+            'package/tools/',
+            'package/tmp/',
+            'package/docs/',
+          ]) {
+            if (entries.some((entry) => entry.startsWith(forbiddenPrefix))) {
+              throw new Error(`${tarballs[0]} contains forbidden path ${forbiddenPrefix}.`);
+            }
+          }
+          if (entries.includes('package/CHANGELOG.md')) {
+            throw new Error(`${tarballs[0]} must not include CHANGELOG.md.`);
+          }
+
+          console.log(
+            JSON.stringify(
+              {
+                package: manifest.name,
+                version: manifest.version,
+                tarball: tarballs[0],
+                entries: entries.length,
+              },
+              null,
+              2,
+            ),
+          );
+          EOF_NODE
+
+          tarball="$(find snark-browser-compat-tarball -maxdepth 1 -name '*.tgz' -type f)"
+          npm publish --dry-run --access public --ignore-scripts "$tarball"
+          (
+            cd snark-browser-compat-tarball
+            sha256sum ./*.tgz > SHA256SUMS
+            sha256sum --check SHA256SUMS
+          )
+
+      - name: Upload browser-compatible SNARK tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: snark-browser-compat-release-tarball
+          path: snark-browser-compat-tarball/
+          if-no-files-found: error
+          retention-days: 7
 
   publish-cli:
     name: Publish @tokamak-zk-evm/cli to npm
@@ -769,6 +925,137 @@ jobs:
       - name: Publish to npm
         if: steps.version-check.outputs.should_publish == 'true'
         run: npm publish --ignore-scripts "${{ steps.version-check.outputs.tarball }}"
+
+  publish-snark-browser-compat:
+    name: Publish browser-compatible SNARK package to npm
+    runs-on: ubuntu-22.04
+    needs:
+      - build-snark-browser-compat
+      - pre-publish-test-build
+
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Download browser-compatible SNARK tarball
+        uses: actions/download-artifact@v4
+        with:
+          name: snark-browser-compat-release-tarball
+          path: snark-browser-compat-tarball
+
+      - name: Compare package version with npm
+        id: version-check
+        shell: bash
+        run: |
+          node <<'EOF_NODE' >> "$GITHUB_OUTPUT"
+          const { execFileSync } = require('node:child_process');
+          const fs = require('node:fs');
+          const path = require('node:path');
+
+          function compareSemver(left, right) {
+            const leftParts = left.split('.').map((value) => Number(value));
+            const rightParts = right.split('.').map((value) => Number(value));
+            const maxLength = Math.max(leftParts.length, rightParts.length);
+
+            for (let index = 0; index < maxLength; index += 1) {
+              const leftValue = leftParts[index] ?? 0;
+              const rightValue = rightParts[index] ?? 0;
+              if (leftValue > rightValue) return 1;
+              if (leftValue < rightValue) return -1;
+            }
+
+            return 0;
+          }
+
+          const packageName = '@tokamak-zk-evm/snark-browser-compat';
+          const tarballDir = path.resolve('snark-browser-compat-tarball');
+          const tarballs = fs
+            .readdirSync(tarballDir)
+            .filter((file) => file.endsWith('.tgz'))
+            .map((file) => path.join(tarballDir, file));
+          if (tarballs.length !== 1) {
+            throw new Error(`Expected one tarball for ${packageName}, found ${tarballs.length}.`);
+          }
+
+          const tarball = tarballs[0];
+          const pkg = JSON.parse(
+            execFileSync('tar', ['-xOf', tarball, 'package/package.json'], {
+              encoding: 'utf8',
+            }),
+          );
+          if (pkg.name !== packageName) {
+            throw new Error(`Unexpected package name ${pkg.name} in ${tarball}.`);
+          }
+
+          let publishedVersion;
+          try {
+            publishedVersion = execFileSync('npm', ['view', pkg.name, 'version'], {
+              encoding: 'utf8',
+              stdio: ['ignore', 'pipe', 'pipe'],
+            }).trim();
+          } catch (error) {
+            const stderr = String(error.stderr ?? '');
+            if (!/\bE404\b/u.test(stderr)) {
+              throw error;
+            }
+            publishedVersion = null;
+          }
+
+          if (publishedVersion === null) {
+            console.log(`package_name=${pkg.name}`);
+            console.log(`local_version=${pkg.version}`);
+            console.log('published_version=none');
+            console.log('bootstrap_required=true');
+            console.log('should_publish=false');
+            console.log(`tarball=${tarball}`);
+            process.exit(0);
+          }
+
+          const comparison = compareSemver(pkg.version, publishedVersion);
+          if (comparison < 0) {
+            throw new Error(
+              `Local version ${pkg.version} is behind npm version ${publishedVersion} for ${pkg.name}.`,
+            );
+          }
+
+          console.log(`package_name=${pkg.name}`);
+          console.log(`local_version=${pkg.version}`);
+          console.log(`published_version=${publishedVersion}`);
+          console.log('bootstrap_required=false');
+          console.log(`should_publish=${comparison > 0}`);
+          console.log(`tarball=${tarball}`);
+          EOF_NODE
+
+      - name: Show version decision
+        run: |
+          echo "Package: ${{ steps.version-check.outputs.package_name }}"
+          echo "Local version: ${{ steps.version-check.outputs.local_version }}"
+          echo "Published version: ${{ steps.version-check.outputs.published_version }}"
+          echo "Bootstrap required: ${{ steps.version-check.outputs.bootstrap_required }}"
+          echo "Should publish: ${{ steps.version-check.outputs.should_publish }}"
+          echo "Tarball: ${{ steps.version-check.outputs.tarball }}"
+
+      - name: Verify tarball digest
+        run: |
+          cd snark-browser-compat-tarball
+          sha256sum --check SHA256SUMS
+
+      - name: Require manual first publication
+        if: steps.version-check.outputs.bootstrap_required == 'true'
+        run: |
+          echo "::notice::Download the verified snark-browser-compat-release-tarball artifact and publish it manually."
+          echo "::notice::After the package exists, configure npm Trusted Publisher for this workflow."
+
+      - name: Validate npm package contents
+        if: steps.version-check.outputs.should_publish == 'true'
+        run: npm publish --dry-run --access public --ignore-scripts "${{ steps.version-check.outputs.tarball }}"
+
+      - name: Publish to npm
+        if: steps.version-check.outputs.should_publish == 'true'
+        run: npm publish --access public --ignore-scripts "${{ steps.version-check.outputs.tarball }}"
 
   evm-compat-test:
     name: EVM compatibility tests

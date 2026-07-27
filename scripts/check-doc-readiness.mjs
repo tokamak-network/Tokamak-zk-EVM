@@ -79,6 +79,7 @@ function checkLlmsTxt() {
     '@tokamak-zk-evm/subcircuit-library',
     '@tokamak-zk-evm/synthesizer-node',
     '@tokamak-zk-evm/synthesizer-web',
+    '@tokamak-zk-evm/snark-browser-compat',
   ]) {
     if (!text.includes(packageName)) {
       fail(`${relativePath} must include ${packageName}.`);
@@ -112,21 +113,22 @@ function checkRootReadme() {
     '@tokamak-zk-evm/subcircuit-library',
     '@tokamak-zk-evm/synthesizer-node',
     '@tokamak-zk-evm/synthesizer-web',
+    '@tokamak-zk-evm/snark-browser-compat',
     '## Repository FAQ',
     '### What is Tokamak zk-EVM?',
     '### What is a Tokamak Layer 2 transaction?',
     'tokamak-l2js',
     'https://github.com/tokamak-network/TokamakL2JS',
     '### What are the main package groups in this monorepo?',
-    'The CLI package is the end-to-end user entry point.',
+    'The CLI package is the end-to-end local entry point.',
     'The Synthesizer packages convert Tokamak L2 transaction replay data into circuit-ready inputs.',
     'The subcircuit library package publishes the prebuilt R1CS',
-    'The backend packages implement setup, proof generation, and proof verification',
+    'The native backend packages implement setup, proof generation, and proof verification',
     'An Efficient SNARK for Field-Programmable and RAM Circuits',
     'https://eprint.iacr.org/2024/507',
     'bridge/src/verifiers/TokamakVerifier.sol',
     'https://etherscan.io/address/0x0C467a5082323Cc6F4b7077A9dFb0bbdaf6eC626',
-    'The WASM verifier packages are deprecated.',
+    'Use `@tokamak-zk-evm/snark-browser-compat` for supported bundler-based browser proof generation and verification.',
     'CHANGELOG.md',
   ]) {
     requireIncludes(relativePath, required);
@@ -134,8 +136,8 @@ function checkRootReadme() {
 
   requirePattern(
     relativePath,
-    /Are the WASM verifier packages officially supported\?[\s\S]*?historical or reference material\./u,
-    'the deprecated WASM verifier FAQ answer',
+    /Is browser proof generation and verification officially supported\?[\s\S]*?Legacy WASM verifier packages remain deprecated/u,
+    'the supported browser SNARK and legacy WASM distinction',
   );
 
   if (/@tokamak-zk-evm\/verify-wasm|verify-wasm-web|verify-wasm-nodejs|verify-wasm-bundler/u.test(readText(relativePath))) {
@@ -149,6 +151,7 @@ function checkPackageReadmes() {
     ['packages/frontend/qap-compiler/README.md', '@tokamak-zk-evm/subcircuit-library'],
     ['packages/frontend/synthesizer/node-cli/README.md', '@tokamak-zk-evm/synthesizer-node'],
     ['packages/frontend/synthesizer/web-app/README.md', '@tokamak-zk-evm/synthesizer-web'],
+    ['packages/backend-wasm/README.md', '@tokamak-zk-evm/snark-browser-compat'],
   ];
 
   for (const [relativePath, packageName] of packageReadmes) {
@@ -164,6 +167,7 @@ function checkPackageMetadata() {
     'packages/frontend/qap-compiler/package.json',
     'packages/frontend/synthesizer/node-cli/package.json',
     'packages/frontend/synthesizer/web-app/package.json',
+    'packages/backend-wasm/package.json',
   ];
 
   for (const relativePath of manifests) {

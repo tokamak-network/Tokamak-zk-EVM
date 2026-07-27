@@ -59,6 +59,8 @@ if (!strictSemverPattern.test(expectedVersion)) {
 
 const packageTargets = [
   'packages/cli/package.json',
+  'packages/backend-wasm/package.json',
+  'packages/backend-wasm/tools/rkyv-decoder-wasm/package.json',
   'packages/frontend/qap-compiler/package.json',
   'packages/frontend/synthesizer/node-cli/package.json',
   'packages/frontend/synthesizer/web-app/package.json',
@@ -76,6 +78,11 @@ for (const relativePath of packageTargets) {
 
 const dependencyTargets = [
   ['packages/cli/package.json', '@tokamak-zk-evm/synthesizer-node', `^${expectedVersion}`],
+  [
+    'packages/backend-wasm/package.json',
+    '@tokamak-zk-evm/subcircuit-library',
+    expectedVersion,
+  ],
   ['packages/frontend/synthesizer/node-cli/package.json', '@tokamak-zk-evm/subcircuit-library', `^${expectedVersion}`],
   ['packages/frontend/synthesizer/web-app/package.json', '@tokamak-zk-evm/subcircuit-library', `^${expectedVersion}`],
 ];
@@ -94,6 +101,7 @@ const lockfileTargets = [
   ['package-lock.json', 'packages/frontend/qap-compiler', expectedVersion],
   ['package-lock.json', 'packages/frontend/synthesizer/node-cli', expectedVersion],
   ['package-lock.json', 'packages/frontend/synthesizer/web-app', expectedVersion],
+  ['packages/backend-wasm/package-lock.json', '', expectedVersion],
   ['packages/frontend/qap-compiler/package-lock.json', '', expectedVersion],
   ['packages/frontend/synthesizer/package-lock.json', 'node-cli', expectedVersion],
   ['packages/frontend/synthesizer/package-lock.json', 'web-app', expectedVersion],
@@ -110,6 +118,38 @@ for (const [relativePath, packageKey, expectedPackageVersion] of lockfileTargets
   const actualVersion = packageKey === '' ? (packageEntry?.version ?? lockfile.version) : packageEntry?.version;
   if (actualVersion !== expectedPackageVersion) {
     fail(`${relativePath} package entry '${packageKey}' is '${actualVersion}', expected '${expectedPackageVersion}'.`);
+  }
+}
+
+const backendWasmPackageLock = readJson('packages/backend-wasm/package-lock.json');
+const backendWasmLockDependency =
+  backendWasmPackageLock.packages?.['']?.dependencies?.['@tokamak-zk-evm/subcircuit-library'];
+if (backendWasmLockDependency !== expectedVersion) {
+  fail(
+    `packages/backend-wasm/package-lock.json dependency @tokamak-zk-evm/subcircuit-library is '${backendWasmLockDependency}', expected '${expectedVersion}'.`,
+  );
+}
+
+const backendWasmVersionModule = readText('packages/backend-wasm/src/version.ts');
+const backendWasmVersionMatch =
+  /BACKEND_WASM_PACKAGE_VERSION\s*=\s*"([^"]+)"/u.exec(backendWasmVersionModule);
+if (backendWasmVersionMatch?.[1] !== expectedVersion) {
+  fail(
+    `packages/backend-wasm/src/version.ts package version is '${backendWasmVersionMatch?.[1] ?? 'missing'}', expected '${expectedVersion}'.`,
+  );
+}
+
+const backendWasmGeneratedModule = readText(
+  'packages/backend-wasm/src/prover/generated/subcircuit-library.generated.ts',
+);
+for (const constantName of ['NATIVE_BACKEND_VERSION', 'SUBCIRCUIT_LIBRARY_PACKAGE_VERSION']) {
+  const match = new RegExp(`${constantName}\\s*=\\s*"([^"]+)"`, 'u').exec(
+    backendWasmGeneratedModule,
+  );
+  if (match?.[1] !== expectedVersion) {
+    fail(
+      `packages/backend-wasm generated ${constantName} is '${match?.[1] ?? 'missing'}', expected '${expectedVersion}'.`,
+    );
   }
 }
 

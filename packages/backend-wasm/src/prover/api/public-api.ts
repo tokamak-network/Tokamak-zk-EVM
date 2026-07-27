@@ -1,0 +1,289 @@
+import { BackendWasmError } from "../../backend-wasm-error.js";
+import { createCurveRuntime, type CurveRuntime } from "../../runtime/curve/curve.js";
+import {
+  loadProverInputFromBinaryInput,
+  type ProverBinaryInput,
+} from "./binary-input.js";
+import { createVerifierProofArtifactFromProverOutput } from "./proof-output.js";
+import {
+  createProverProtocolSession,
+  type ProverProtocolSession,
+} from "../protocol/integrated-prover.js";
+import { BACKEND_WASM_PACKAGE_VERSION } from "../../version.js";
+import {
+  NATIVE_BACKEND_VERSION,
+  SUBCIRCUIT_LIBRARY_PACKAGE_VERSION,
+} from "../generated/subcircuit-library.generated.js";
+
+const DEFAULT_CHUNK_SIZE_EXPONENT = 18;
+const MIN_CHUNK_SIZE_EXPONENT = 10;
+const MAX_CHUNK_SIZE_EXPONENT = 19;
+
+export interface ProverInstallOptions {
+  readonly chunkSizeExponent?: number;
+}
+
+export interface ProverInstallationInfo {
+  readonly packageVersion: string;
+  readonly nativeBackendVersion: string;
+  readonly subcircuitLibraryVersion: string;
+  readonly chunkSizeExponent: number;
+  readonly chunkSize: number;
+}
+
+export type ProverInput = ProverBinaryInput;
+
+export interface ProverSession {
+  proveArithmetic(): Promise<void>;
+  proveCopy(): Promise<void>;
+  proveBinding(): Promise<void>;
+  finalize(): Promise<Uint8Array>;
+  dispose(): void;
+}
+
+let runtime: CurveRuntime | undefined;
+let installationPromise: Promise<CurveRuntime> | undefined;
+let busy = false;
+let chunkSizeExponent = DEFAULT_CHUNK_SIZE_EXPONENT;
+
+export async function install(options: ProverInstallOptions = {}): Promise<ProverInstallationInfo> {
+  const requestedExponent = parseInstallOptions(options);
+  const installedRuntime = await requireInstalledRuntime();
+  runtime = installedRuntime;
+
+  if (requestedExponent !== undefined && requestedExponent !== chunkSizeExponent) {
+    if (busy) {
+      throw new BackendWasmError(
+        "BUSY",
+        "The prover chunk size cannot be changed while a proof is running.",
+      );
+    }
+    chunkSizeExponent = requestedExponent;
+  }
+
+  return installationInfo();
+}
+
+export async function prove(input: ProverInput): Promise<Uint8Array> {
+  const session = await begin(input);
+  try {
+    await session.proveArithmetic();
+    await session.proveCopy();
+    await session.proveBinding();
+    return await session.finalize();
+  } catch (error) {
+    session.dispose();
+    throw error;
+  }
+}
+
+export async function begin(input: ProverInput): Promise<ProverSession> {
+  const installedRuntime = runtime;
+  if (installedRuntime === undefined) {
+    throw new BackendWasmError(
+      "INSTALL_REQUIRED",
+      "Call prover.install() successfully before begin() or prove().",
+    );
+  }
+  if (busy) {
+    throw new BackendWasmError("BUSY", "The prover is already running.");
+  }
+
+  assertProverInput(input);
+  busy = true;
+  const proofChunkSize = 2 ** chunkSizeExponent;
+
+  try {
+    let runtimeInput;
+    try {
+      runtimeInput = await loadProverInputFromBinaryInput(installedRuntime, input);
+    } catch (cause) {
+      throw new BackendWasmError(
+        "INVALID_INPUT",
+        "The prover input binaries could not be decoded.",
+        { cause },
+      );
+    }
+    return new PublicProverSession(
+      createProverProtocolSession(installedRuntime, runtimeInput, {
+        denseSigma1MsmChunkPoints: proofChunkSize,
+      }),
+      releaseBusy,
+    );
+  } catch (error) {
+    busy = false;
+    throw error;
+  }
+}
+
+class PublicProverSession implements ProverSession {
+  private active = true;
+  private operationRunning = false;
+  private disposeRequested = false;
+  private released = false;
+
+  constructor(
+    private readonly protocol: ProverProtocolSession,
+    private readonly release: () => void,
+  ) {}
+
+  async proveArithmetic(): Promise<void> {
+    await this.runOperation(() => this.protocol.proveArithmetic());
+  }
+
+  async proveCopy(): Promise<void> {
+    await this.runOperation(() => this.protocol.proveCopy());
+  }
+
+  async proveBinding(): Promise<void> {
+    await this.runOperation(() => this.protocol.proveBinding());
+  }
+
+  async finalize(): Promise<Uint8Array> {
+    return this.runOperation(async () => {
+      const proof = await createVerifierProofArtifactFromProverOutput(
+        await this.protocol.finalize(),
+      );
+      this.dispose();
+      return proof;
+    });
+  }
+
+  dispose(): void {
+    if (this.released) {
+      return;
+    }
+    this.active = false;
+    this.disposeRequested = true;
+    if (!this.operationRunning) {
+      this.finishDispose();
+    }
+  }
+
+  private finishDispose(): void {
+    if (this.released) {
+      return;
+    }
+    this.released = true;
+    this.protocol.dispose();
+    this.release();
+  }
+
+  private async runOperation<T>(operation: () => Promise<T>): Promise<T> {
+    if (!this.active) {
+      throw new BackendWasmError("RUNTIME_FAILED", "The prover session is no longer active.");
+    }
+    if (this.operationRunning) {
+      throw new BackendWasmError(
+        "RUNTIME_FAILED",
+        "Another operation is already running on this prover session.",
+      );
+    }
+    this.operationRunning = true;
+    try {
+      return await operation();
+    } catch (cause) {
+      this.dispose();
+      if (cause instanceof BackendWasmError) {
+        throw cause;
+      }
+      throw new BackendWasmError("RUNTIME_FAILED", "The prover runtime failed.", {
+        cause,
+      });
+    } finally {
+      this.operationRunning = false;
+      if (this.disposeRequested) {
+        this.finishDispose();
+      }
+    }
+  }
+}
+
+async function requireInstalledRuntime(): Promise<CurveRuntime> {
+  if (runtime !== undefined) {
+    return runtime;
+  }
+  if (installationPromise !== undefined) {
+    return installationPromise;
+  }
+
+  const pending = createCurveRuntime().catch((cause: unknown) => {
+    throw new BackendWasmError("INSTALL_FAILED", "The prover runtime could not be installed.", {
+      cause,
+    });
+  });
+  installationPromise = pending;
+
+  try {
+    return await pending;
+  } catch (error) {
+    if (installationPromise === pending) {
+      installationPromise = undefined;
+    }
+    throw error;
+  }
+}
+
+function parseInstallOptions(options: ProverInstallOptions): number | undefined {
+  if (typeof options !== "object" || options === null || Array.isArray(options)) {
+    throw new BackendWasmError("INVALID_OPTION", "Prover install options must be an object.");
+  }
+
+  const unsupported = Object.keys(options).filter((key) => key !== "chunkSizeExponent");
+  if (unsupported.length > 0) {
+    throw new BackendWasmError(
+      "INVALID_OPTION",
+      `Unsupported prover install option: ${unsupported.join(", ")}.`,
+    );
+  }
+
+  const exponent = options.chunkSizeExponent;
+  if (exponent === undefined) {
+    return undefined;
+  }
+  if (
+    !Number.isInteger(exponent)
+    || exponent < MIN_CHUNK_SIZE_EXPONENT
+    || exponent > MAX_CHUNK_SIZE_EXPONENT
+  ) {
+    throw new BackendWasmError(
+      "INVALID_OPTION",
+      `chunkSizeExponent must be an integer from ${MIN_CHUNK_SIZE_EXPONENT} through ${MAX_CHUNK_SIZE_EXPONENT}.`,
+    );
+  }
+  return exponent;
+}
+
+function assertProverInput(input: ProverInput): void {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) {
+    throw new BackendWasmError("INVALID_INPUT", "Prover input must be an object.");
+  }
+
+  assertBinary(input.witness, "witness");
+  assertBinary(input.permutation, "permutation");
+  assertBinary(input.instance, "instance");
+  assertBinary(input.proverCrs, "proverCrs");
+}
+
+function assertBinary(value: Uint8Array, name: keyof ProverInput): void {
+  if (!(value instanceof Uint8Array) || value.byteLength === 0) {
+    throw new BackendWasmError(
+      "INVALID_INPUT",
+      `Prover input '${name}' must be a non-empty Uint8Array.`,
+    );
+  }
+}
+
+function installationInfo(): ProverInstallationInfo {
+  return {
+    packageVersion: BACKEND_WASM_PACKAGE_VERSION,
+    nativeBackendVersion: NATIVE_BACKEND_VERSION,
+    subcircuitLibraryVersion: SUBCIRCUIT_LIBRARY_PACKAGE_VERSION,
+    chunkSizeExponent,
+    chunkSize: 2 ** chunkSizeExponent,
+  };
+}
+
+function releaseBusy(): void {
+  busy = false;
+}

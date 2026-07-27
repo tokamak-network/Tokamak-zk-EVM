@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 2,
+  "suite": "small",
+  "description": "Copy source artifacts from existing owner package outputs into backend-wasm's ignored fixture work area. This manifest does not write final test fixtures.",
+  "workDirectory": "packages/backend-wasm/tmp/fixtures/small/source",
+  "sources": [
+    {
+      "source": "packages/frontend/synthesizer/outputs/instance.json",
+      "destination": "synthesizer/instance.json"
+    },
+    {
+      "source": "packages/frontend/synthesizer/outputs/permutation.json",
+      "destination": "synthesizer/permutation.json"
+    },
+    {
+      "source": "packages/frontend/synthesizer/outputs/placementVariables.json",
+      "destination": "synthesizer/placementVariables.json"
+    },
+    {
+      "source": "packages/backend/setup/output/sigma_verify.json",
+      "destination": "setup/sigma_verify.json"
+    },
+    {
+      "source": "packages/backend/setup/output/sigma_preprocess.rkyv",
+      "destination": "setup/sigma_preprocess.rkyv"
+    },
+    {
+      "source": "packages/backend/setup/output/combined_sigma.rkyv",
+      "destination": "setup/combined_sigma.rkyv"
+    },
+    {
+      "source": "packages/backend/preprocess/output/preprocess.json",
+      "destination": "preprocess/preprocess.json"
+    },
+    {
+      "source": "packages/backend/prove/output/proof.json",
+      "destination": "prove/proof.json"
+    },
+    {
+      "source": "packages/backend/prove/output/proof4_test.json",
+      "destination": "prove/proof4_test.json"
+    }
+  ]
+}
