@@ -146,3 +146,19 @@ Both outputs matched byte-for-byte. Combined scheduling is slower and uses
 substantially more memory because concatenation and larger intermediate
 buffers outweigh the reduced task-queue setup. It is rejected and not promoted
 to production.
+
+## In Progress: Sigma1 Encoding Dispatch
+
+The adaptive-versus-known-dense benchmark is intentionally suspended. Initial
+isolated-process measurements passed commitment parity but had enough
+system-level variance that they do not support a performance conclusion.
+
+The benchmark now supports paired runs in both orders:
+
+```sh
+npm run preprocess:bench:sigma1-encoding -- --mode paired-adaptive-first
+npm run preprocess:bench:sigma1-encoding -- --mode paired-known-dense-first
+```
+
+Resume by running alternating paired modes. Do not promote either path based on
+the incomplete isolated measurements.
