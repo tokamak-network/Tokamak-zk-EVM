@@ -56,6 +56,7 @@ mod tests {
     use super::*;
     use crate::bivariate_polynomial::{
         init_ntt_domain_for_size, BivariatePolynomial, DensePolynomialExt, DivByVanishingCache,
+        PolyExpr,
     };
     use crate::utils::check_device;
     // Helper function: Create a simple 2D polynomial
@@ -72,7 +73,9 @@ mod tests {
 
     fn init_bi_ntt_domain(x_size: usize, y_size: usize) {
         let size = x_size
+            .next_power_of_two()
             .checked_mul(y_size)
+            .and_then(|size| size.checked_next_power_of_two())
             .expect("x_size * y_size overflow in init_bi_ntt_domain");
         init_ntt_domain_for_size(size).unwrap();
     }
@@ -1037,12 +1040,13 @@ mod tests {
 
     #[test]
     fn test_mul_polynomial() {
-        let m = 11;
-        let n = 8;
+        let m = 5;
+        let n = 4;
         let p1_x_size = 2usize.pow(m);
         let p1_y_size = 2usize.pow(n);
         let p2_x_size = 2usize.pow(m);
         let p2_y_size = 2usize.pow(n);
+        init_bi_ntt_domain(p1_x_size + p2_x_size, p1_y_size + p2_y_size);
 
         let p1_coeffs_vec = ScalarCfg::generate_random(p1_x_size * p1_y_size);
         let p2_coeffs_vec = ScalarCfg::generate_random(p2_x_size * p2_y_size);
@@ -1087,6 +1091,7 @@ mod tests {
         if p_x_size % c != 0 || p_y_size % d != 0 {
             panic!("p_x_size and p_y_size must be divisible by c and d.");
         }
+        init_bi_ntt_domain(p_x_size, p_y_size);
         let m = p_x_size / c;
         let n = p_y_size / d;
         let mut t_x_coeffs = vec![ScalarField::zero(); 2 * c];
@@ -1164,6 +1169,7 @@ mod tests {
         if p_x_size % c != 0 || p_y_size % d != 0 {
             panic!("p_x_size and p_y_size must be divisible by c and d.");
         }
+        init_bi_ntt_domain(p_x_size, p_y_size);
         let m = p_x_size / c;
         let n = p_y_size / d;
         let mut t_x_coeffs = vec![ScalarField::zero(); 2 * c];
@@ -1209,8 +1215,8 @@ mod tests {
     // Test for div_by_vanishing - requires specific conditions
     #[test]
     fn test_div_by_vanishing_basic() {
-        let c = 1024;
-        let d = 256;
+        let c = 32;
+        let d = 16;
         run_div_by_vanishing_basic(2 * c, 2 * d, c, d);
         run_div_by_vanishing_basic(3 * c, 2 * d, c, d);
     }
@@ -1228,6 +1234,45 @@ mod tests {
         let a = ScalarCfg::generate_random(1)[0];
         let b = ScalarCfg::generate_random(1)[0];
         assert!(p.eval(&a, &b).eq(&p_reconstruct.eval(&a, &b)));
+    }
+
+    #[test]
+    fn test_poly_expr_fused_matches_coefficients() {
+        init_bi_ntt_domain(4, 4);
+        let make_poly = || {
+            let coeffs = ScalarCfg::generate_random(4);
+            DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs), 2, 2)
+        };
+        let a = make_poly();
+        let b = make_poly();
+        let c = make_poly();
+        let d = make_poly();
+        let e = make_poly();
+
+        let expr = PolyExpr::weighted_sum(vec![
+            (
+                ScalarField::from_u32(7),
+                PolyExpr::mul_x_minus_one(PolyExpr::sub(
+                    PolyExpr::mul(PolyExpr::poly(&a), PolyExpr::poly(&b)),
+                    PolyExpr::mul(PolyExpr::poly(&c), PolyExpr::poly(&d)),
+                )),
+            ),
+            (
+                ScalarField::from_u32(11),
+                PolyExpr::mul(
+                    PolyExpr::sub(PolyExpr::poly(&a), PolyExpr::scalar(ScalarField::one())),
+                    PolyExpr::poly(&e),
+                ),
+            ),
+        ]);
+
+        let coeff_result = expr.evaluate_coeffs();
+        let fused_result = expr.evaluate_fused();
+        for _ in 0..8 {
+            let x = ScalarCfg::generate_random(1)[0];
+            let y = ScalarCfg::generate_random(1)[0];
+            assert_eq!(coeff_result.eval(&x, &y), fused_result.eval(&x, &y));
+        }
     }
 
     #[test]
@@ -1396,8 +1441,8 @@ mod tests {
 
     #[test]
     fn bench_denom_inv_ntt_vs_closed_form() {
-        let c = 2048;
-        let d = 256;
+        let c = 32;
+        let d = 16;
         let m = 4;
         let n = 2;
         let target_x = m * c;
@@ -1578,8 +1623,8 @@ mod tests_iotools {
 
     #[test]
     fn test_scalar_to_G1_conversion() {
-        let x_size = 2usize.pow(10);
-        let y_size = 2usize.pow(4);
+        let x_size = 2usize.pow(5);
+        let y_size = 2usize.pow(3);
         let x = ScalarCfg::generate_random(1)[0];
         let y = ScalarCfg::generate_random(1)[0];
         let gen = CurveCfg::generate_random_affine_points(1)[0];

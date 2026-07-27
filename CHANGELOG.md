@@ -8,6 +8,34 @@ The format is based on Keep a Changelog.
 
 ## Unreleased
 
+## [2.1.3] - 2026-07-27
+
+### Repository
+
+- Synchronized the release version to `2.1.3` across the CLI, subcircuit library, synthesizer packages, and backend workspace.
+
+### CLI
+
+- Bumped `@tokamak-zk-evm/cli` to `2.1.3` and updated its `@tokamak-zk-evm/synthesizer-node` dependency to `^2.1.3`.
+- Kept `packages/cli/package.json tokamakZkEvm.compatibleBackendVersion` at `2.1`.
+
+### Subcircuit Library
+
+- Bumped `@tokamak-zk-evm/subcircuit-library` to `2.1.3`.
+
+### Synthesizer
+
+- Bumped `@tokamak-zk-evm/synthesizer-node` and `@tokamak-zk-evm/synthesizer-web` to `2.1.3`.
+- Updated both synthesizer packages to consume `@tokamak-zk-evm/subcircuit-library` through the synchronized `^2.1.3` dependency range.
+
+### Backend Workspace
+
+- Bumped the backend Rust workspace version to `2.1.3`.
+- Added a typed polynomial expression evaluator with coefficient-domain and fused evaluation-domain execution, and applied the fused path to the prover's `prove2.p_comb` expression.
+- Added focused correctness coverage, prover operation diagnostics, and timing benchmarks for fused polynomial expression candidates.
+- Stabilized backend library tests by serializing test execution and making NTT domain initialization reusable.
+- Updated stale VS Code launch arguments and ignored backend-local temporary planning files.
+
 ## [2.1.2] - 2026-07-18
 
 ### Repository
