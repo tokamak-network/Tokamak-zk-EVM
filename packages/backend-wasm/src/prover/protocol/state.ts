@@ -1,4 +1,5 @@
 import { BivariatePolynomialBuffer } from "../../runtime/polynomial/bivariate-polynomial-buffer.js";
+import { buildPermutationPolynomials } from "../../runtime/polynomial/permutation-polynomials.js";
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import type { FieldElement, FieldRuntime } from "../../runtime/field/field-runtime.js";
 import type { ProverPermutationEntry, ProverSetupParams, WitnessPolynomials } from "./witness.js";
@@ -45,7 +46,12 @@ export async function buildProverInstancePolynomials(
 
   const mI = setup.l_D - setup.l;
 
-  const [s0XY, s1XY] = await buildPermutationPolynomials(field, setup, permutation);
+  const [s0XY, s1XY] = await buildPermutationPolynomials(
+    field,
+    mI,
+    setup.s_max,
+    permutation,
+  );
 
   return {
     aFreeX: await BivariatePolynomialBuffer.fromRouEvals(field, field.concat(publicInstance), setup.l_free, 1),
@@ -93,51 +99,6 @@ export async function createProverState(input: {
     witness: input.witness,
     mixer: await createProverMixer(input.runtime),
   };
-}
-
-async function buildPermutationPolynomials(
-  field: FieldRuntime,
-  setup: ProverSetupParams,
-  permutation: readonly ProverPermutationEntry[],
-): Promise<readonly [BivariatePolynomialBuffer, BivariatePolynomialBuffer]> {
-  const mI = setup.l_D - setup.l;
-  const omegaMI = field.rootOfUnity(mI);
-  const omegaSMax = field.rootOfUnity(setup.s_max);
-  const xPowers = powerTable(field, omegaMI, mI);
-  const yPowers = powerTable(field, omegaSMax, setup.s_max);
-  const rowBytes = setup.s_max * field.byteLength;
-  const s0Evals = field.createZeroBuffer(mI * setup.s_max);
-  const s1Evals = field.createZeroBuffer(mI * setup.s_max);
-  const yRow = field.concat(yPowers);
-
-  for (let row = 0; row < mI; row += 1) {
-    const rowOffset = row * rowBytes;
-    const xValue = xPowers[row];
-    for (let col = 0; col < setup.s_max; col += 1) {
-      s0Evals.set(xValue, rowOffset + col * field.byteLength);
-    }
-    s1Evals.set(yRow, rowOffset);
-  }
-
-  for (const entry of permutation) {
-    const byteOffset = (entry.row * setup.s_max + entry.col) * field.byteLength;
-    s0Evals.set(xPowers[entry.X], byteOffset);
-    s1Evals.set(yPowers[entry.Y], byteOffset);
-  }
-
-  return [
-    await BivariatePolynomialBuffer.fromRouEvals(field, s0Evals, mI, setup.s_max),
-    await BivariatePolynomialBuffer.fromRouEvals(field, s1Evals, mI, setup.s_max),
-  ];
-}
-
-function powerTable(field: FieldRuntime, base: FieldElement, length: number): FieldElement[] {
-  const output = Array.from({ length }, () => field.one);
-  for (let index = 1; index < length; index += 1) {
-    output[index] = field.mul(output[index - 1], base);
-  }
-
-  return output;
 }
 
 function vanishingPolynomialX(field: FieldRuntime, degree: number): BivariatePolynomialBuffer {

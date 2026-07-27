@@ -11,6 +11,7 @@ import {
 import { loadRuntimeArtifactBySpec } from "../../../src/artifacts/specs/format-spec-loader.js";
 import { VERIFIER_PROOF_V1_SPEC } from "../../../src/artifacts/specs/verifier-proof.v1.generated.js";
 import { createCurveRuntime } from "../../../src/runtime/curve/curve.js";
+import { BACKEND_WASM_PACKAGE_VERSION } from "../../../src/version.js";
 import type { FieldElement, FieldRuntime } from "../../../src/runtime/field/field-runtime.js";
 import { BivariatePolynomialBuffer } from "../../../src/runtime/polynomial/bivariate-polynomial-buffer.js";
 import {
@@ -289,7 +290,11 @@ async function main(): Promise<void> {
       }),
     );
     assertEqual(verifierProofArtifact.kind, BinaryArtifactFileKind.VerifierProof, "prover output artifact kind");
-    assertEqual(verifierProofArtifact.sourcePackageVersion, "2.1.1", "prover output source package version");
+    assertEqual(
+      verifierProofArtifact.sourcePackageVersion,
+      BACKEND_WASM_PACKAGE_VERSION,
+      "prover output source package version",
+    );
     const verifierProof = loadRuntimeArtifactBySpec(verifierProofArtifact, VERIFIER_PROOF_V1_SPEC);
     assertEqual(verifierProof.sections[0]?.section.data.byteLength, 19 * 96, "prover output proof.g1 byte length");
     assertEqual(verifierProof.sections[1]?.section.data.byteLength, 4 * 32, "prover output proof.evals byte length");

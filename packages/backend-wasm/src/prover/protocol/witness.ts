@@ -1,5 +1,6 @@
 import { BivariatePolynomialBuffer } from "../../runtime/polynomial/bivariate-polynomial-buffer.js";
 import type { FieldElement, FieldRuntime } from "../../runtime/field/field-runtime.js";
+import type { PermutationEntry } from "../../runtime/polynomial/permutation-polynomials.js";
 
 export interface ProverSetupParams {
   readonly l_free: number;
@@ -30,12 +31,7 @@ export interface ProverPlacementVariables {
   readonly fieldByteLength: number;
 }
 
-export interface ProverPermutationEntry {
-  readonly row: number;
-  readonly col: number;
-  readonly X: number;
-  readonly Y: number;
-}
+export type ProverPermutationEntry = PermutationEntry;
 
 export interface ProverPackedSparseMatrix {
   readonly activeWires: readonly number[];
