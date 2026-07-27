@@ -1,7 +1,7 @@
 import {
   install as installProver,
   prove,
-} from "@tokamak-zk-evm/backend-wasm/prover";
+} from "@tokamak-zk-evm/snark-browser-compat/prover";
 
 import { loadBinary } from "./load-binary.js";
 

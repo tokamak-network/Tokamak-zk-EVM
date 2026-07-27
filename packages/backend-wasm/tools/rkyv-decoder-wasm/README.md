@@ -66,7 +66,7 @@ loads the generated decoder WASM there, produces the Prover CRS artifact, and
 terminates the Worker.
 
 ```js
-import { convertProverCrs } from "@tokamak-zk-evm/backend-wasm/converter";
+import { convertProverCrs } from "@tokamak-zk-evm/snark-browser-compat/converter";
 
 const proverCrs = await convertProverCrs(combinedSigmaRkyv);
 ```

@@ -2,7 +2,7 @@ import {
   inspectBinary,
   validateBinary,
   type BinaryArtifactInspection,
-} from "@tokamak-zk-evm/backend-wasm/converter";
+} from "@tokamak-zk-evm/snark-browser-compat/converter";
 
 export async function inspectAndValidate(
   artifact: Uint8Array,

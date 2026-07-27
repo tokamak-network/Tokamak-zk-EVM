@@ -9,9 +9,9 @@ dependencies, generated assets, and publication contents.
 
 The npm package exposes only:
 
-- `@tokamak-zk-evm/backend-wasm/prover`
-- `@tokamak-zk-evm/backend-wasm/verifier`
-- `@tokamak-zk-evm/backend-wasm/converter`
+- `@tokamak-zk-evm/snark-browser-compat/prover`
+- `@tokamak-zk-evm/snark-browser-compat/verifier`
+- `@tokamak-zk-evm/snark-browser-compat/converter`
 
 The root aggregate, runtime primitives, protocol modules, validators, generated
 constants, and polynomial implementations are internal. Internal compiled files

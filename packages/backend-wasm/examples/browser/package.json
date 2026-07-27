@@ -1,5 +1,5 @@
 {
-  "name": "tokamak-backend-wasm-browser-example",
+  "name": "tokamak-snark-browser-compat-example",
   "private": true,
   "type": "module",
   "scripts": {
@@ -7,7 +7,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@tokamak-zk-evm/backend-wasm": "2.1.3"
+    "@tokamak-zk-evm/snark-browser-compat": "2.1.3"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

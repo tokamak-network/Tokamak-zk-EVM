@@ -1,7 +1,7 @@
 # Third-Party Notices
 
 This document is for application developers and distributors who consume
-`@tokamak-zk-evm/backend-wasm`. It distinguishes code embedded in this package
+`@tokamak-zk-evm/snark-browser-compat`. It distinguishes code embedded in this package
 from dependencies that remain external npm packages.
 
 ## External npm dependencies
@@ -22,7 +22,7 @@ application's bundler may include it in the application's distribution.
 `wasmbuilder`, `wasmcurves`, and `web-worker` are transitive dependencies of
 `ffjavascript`. The installed npm packages carry their own license files.
 
-Backend-wasm's `MIT OR Apache-2.0` license does not override these dependency
+This package's `MIT OR Apache-2.0` license does not override these dependency
 licenses. In particular, an application distribution that imports, links, or
 bundles backend-wasm with `ffjavascript` must comply with the applicable GPL
 obligations for the resulting combination. Externalizing `ffjavascript` from
@@ -85,6 +85,6 @@ The `seahash@4.1.0` crate archive declares MIT in `Cargo.toml` but does not ship
 a separate license file. Its author attribution and the MIT text are preserved
 in `third-party-licenses/rkyv-decoder-wasm/seahash-4.1.0/LICENSE-MIT`.
 
-This inventory describes the backend-wasm 2.1.3 publication candidate and is
+This inventory describes the snark-browser-compat 2.1.3 publication candidate and is
 not legal advice. Application distributors remain responsible for reviewing
 the licenses and source-distribution obligations of their complete build.

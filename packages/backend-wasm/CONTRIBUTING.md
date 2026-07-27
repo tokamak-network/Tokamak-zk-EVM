@@ -3,16 +3,16 @@
 ## Audience
 
 This document is for maintainers developing, testing, and preparing
-`@tokamak-zk-evm/backend-wasm` for publication. Application integration belongs
+`@tokamak-zk-evm/snark-browser-compat` for publication. Application integration belongs
 in `README.md`.
 
 ## Package boundaries
 
 The package exposes only:
 
-- `@tokamak-zk-evm/backend-wasm/prover`
-- `@tokamak-zk-evm/backend-wasm/verifier`
-- `@tokamak-zk-evm/backend-wasm/converter`
+- `@tokamak-zk-evm/snark-browser-compat/prover`
+- `@tokamak-zk-evm/snark-browser-compat/verifier`
+- `@tokamak-zk-evm/snark-browser-compat/converter`
 
 Internal runtime, protocol, generated, and binary implementation modules are
 not public APIs. See
@@ -157,7 +157,7 @@ the repository's
 
 License and redistribution findings for release 2.1.3 are recorded in the
 repository's
-[`backend-wasm-2.1.3-license-audit.md`](https://github.com/tokamak-network/Tokamak-zk-EVM/blob/main/packages/backend-wasm/docs/release/backend-wasm-2.1.3-license-audit.md).
+[`snark-browser-compat-2.1.3-license-audit.md`](https://github.com/tokamak-network/Tokamak-zk-EVM/blob/main/packages/backend-wasm/docs/release/snark-browser-compat-2.1.3-license-audit.md).
 
 Use `npm run clean:temp` to remove package-local temporary output while
 preserving `tmp/planning.md`.

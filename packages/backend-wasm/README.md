@@ -1,6 +1,6 @@
-# @tokamak-zk-evm/backend-wasm
+# @tokamak-zk-evm/snark-browser-compat
 
-`@tokamak-zk-evm/backend-wasm` provides browser-compatible proof generation,
+`@tokamak-zk-evm/snark-browser-compat` provides browser-compatible proof generation,
 proof verification, and artifact conversion for the Tokamak zk-EVM protocol.
 It is intended for application developers integrating Tokamak-specific proving
 workflows, not as a generic Groth16 or PLONK backend.
@@ -47,15 +47,15 @@ WebAssembly, and bare npm imports inside Worker graphs.
 Install the package and its runtime dependencies from npm:
 
 ```sh
-npm install @tokamak-zk-evm/backend-wasm
+npm install @tokamak-zk-evm/snark-browser-compat
 ```
 
 The package is ESM-only and exposes exactly three public subpaths:
 
 ```ts
-import("@tokamak-zk-evm/backend-wasm/prover");
-import("@tokamak-zk-evm/backend-wasm/verifier");
-import("@tokamak-zk-evm/backend-wasm/converter");
+import("@tokamak-zk-evm/snark-browser-compat/prover");
+import("@tokamak-zk-evm/snark-browser-compat/verifier");
+import("@tokamak-zk-evm/snark-browser-compat/converter");
 ```
 
 Do not import the package root, `dist/` files, runtime primitives, generated
@@ -157,7 +157,7 @@ named binaries:
 import {
   install as installVerifier,
   verify,
-} from "@tokamak-zk-evm/backend-wasm/verifier";
+} from "@tokamak-zk-evm/snark-browser-compat/verifier";
 
 import { loadBinary } from "./load-binary.js";
 
@@ -194,7 +194,7 @@ size:
 import {
   install as installProver,
   prove,
-} from "@tokamak-zk-evm/backend-wasm/prover";
+} from "@tokamak-zk-evm/snark-browser-compat/prover";
 
 import { loadBinary } from "./load-binary.js";
 
@@ -246,7 +246,7 @@ import {
   begin,
   install as installProver,
   type ProverInput,
-} from "@tokamak-zk-evm/backend-wasm/prover";
+} from "@tokamak-zk-evm/snark-browser-compat/prover";
 
 type ProverPhase =
   | "preparing"
@@ -328,7 +328,7 @@ import {
   convertWitness,
   inspectBinary,
   validateBinary,
-} from "@tokamak-zk-evm/backend-wasm/converter";
+} from "@tokamak-zk-evm/snark-browser-compat/converter";
 
 const witnessSource = await fetch("/sources/placementVariables.json").then(
   (response) => response.json(),
@@ -398,12 +398,12 @@ duplicate WASM memories and temporary buffers.
 
 ## Compatibility and versioning
 
-Backend-wasm 2.1.3 is aligned with the Tokamak zk-EVM native backend and
+Snark-browser-compat 2.1.3 is aligned with the Tokamak zk-EVM native backend and
 subcircuit-library 2.1.3 release line.
 
 | Boundary | Current value |
 | --- | --- |
-| Backend-wasm package | 2.1.3 |
+| Snark-browser-compat package | 2.1.3 |
 | Native backend release line | 2.1.3 |
 | `@tokamak-zk-evm/subcircuit-library` | 2.1.3 |
 | Binary `formatVersion` | 1 |
@@ -438,7 +438,7 @@ provide a generic proving-system abstraction.
 
 The repository root separately deprecates historical WASM verifier packages.
 That notice concerns the older verifier package surfaces. This README describes
-the first-publication `@tokamak-zk-evm/backend-wasm` 2.1.3 package candidate
+the first-publication `@tokamak-zk-evm/snark-browser-compat` 2.1.3 package candidate
 with the explicit `./prover`, `./verifier`, and `./converter` entry points; it
 does not revive or provide compatibility with those historical packages.
 
@@ -495,13 +495,13 @@ Additional troubleshooting:
 ## Project and license
 
 - [Tokamak zk-EVM repository](https://github.com/tokamak-network/Tokamak-zk-EVM)
-- [Backend-wasm package source](https://github.com/tokamak-network/Tokamak-zk-EVM/tree/main/packages/backend-wasm)
+- [Snark-browser-compat package source](https://github.com/tokamak-network/Tokamak-zk-EVM/tree/main/packages/backend-wasm)
 - [Issue tracker](https://github.com/tokamak-network/Tokamak-zk-EVM/issues)
 - [Tokamak zk-SNARK protocol paper](https://eprint.iacr.org/2024/507)
 - [`@tokamak-zk-evm/subcircuit-library` on npm](https://www.npmjs.com/package/@tokamak-zk-evm/subcircuit-library)
-- [`@tokamak-zk-evm/backend-wasm` on npm](https://www.npmjs.com/package/@tokamak-zk-evm/backend-wasm)
+- [`@tokamak-zk-evm/snark-browser-compat` on npm](https://www.npmjs.com/package/@tokamak-zk-evm/snark-browser-compat)
 
-Backend-wasm's own code follows the repository's `MIT OR Apache-2.0` policy.
+This package's own code follows the repository's `MIT OR Apache-2.0` policy.
 See [LICENSE-MIT](./LICENSE-MIT), [LICENSE-APACHE](./LICENSE-APACHE), and
 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
 

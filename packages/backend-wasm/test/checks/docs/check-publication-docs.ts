@@ -11,7 +11,7 @@ import { chromium } from "playwright";
 const execFileAsync = promisify(execFile);
 const DOCUMENTS = ["README.md", "CONTRIBUTING.md"] as const;
 const EXPECTED_UNPUBLISHED_NPM_URL =
-  "https://www.npmjs.com/package/@tokamak-zk-evm/backend-wasm";
+  "https://www.npmjs.com/package/@tokamak-zk-evm/snark-browser-compat";
 
 interface PackageFile {
   readonly path: string;
@@ -359,7 +359,7 @@ async function checkPackedPackage(): Promise<void> {
     );
     const manifest = JSON.parse(manifestSource) as PackageManifest;
     if (
-      manifest.name !== "@tokamak-zk-evm/backend-wasm" ||
+      manifest.name !== "@tokamak-zk-evm/snark-browser-compat" ||
       manifest.version !== "2.1.3" ||
       manifest.license !== "MIT OR Apache-2.0"
     ) {

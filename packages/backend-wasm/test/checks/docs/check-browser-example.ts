@@ -10,7 +10,7 @@ import { chromium } from "playwright";
 import { build } from "vite";
 
 const execFileAsync = promisify(execFile);
-const PACKAGE_NAME = "@tokamak-zk-evm/backend-wasm";
+const PACKAGE_NAME = "@tokamak-zk-evm/snark-browser-compat";
 const EXAMPLE_ROOT = "examples/browser";
 const FIXTURE_ROOT = "fixtures/small/runtime";
 

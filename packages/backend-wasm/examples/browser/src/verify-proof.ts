@@ -1,7 +1,7 @@
 import {
   install as installVerifier,
   verify,
-} from "@tokamak-zk-evm/backend-wasm/verifier";
+} from "@tokamak-zk-evm/snark-browser-compat/verifier";
 
 import { loadBinary } from "./load-binary.js";
 

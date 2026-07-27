@@ -2,7 +2,7 @@ import {
   begin,
   install as installProver,
   type ProverInput,
-} from "@tokamak-zk-evm/backend-wasm/prover";
+} from "@tokamak-zk-evm/snark-browser-compat/prover";
 
 export type ProverPhase =
   | "preparing"

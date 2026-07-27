@@ -1,6 +1,6 @@
-# Backend-wasm 2.1.3 License Audit
+# Snark-browser-compat 2.1.3 License Audit
 
-Audience: maintainers preparing the `@tokamak-zk-evm/backend-wasm` npm release.
+Audience: maintainers preparing the `@tokamak-zk-evm/snark-browser-compat` npm release.
 
 Audit date: 2026-07-27
 
@@ -8,15 +8,15 @@ Audit date: 2026-07-27
 
 | Property | Value |
 | --- | --- |
-| Package | `@tokamak-zk-evm/backend-wasm@2.1.3` |
+| Package | `@tokamak-zk-evm/snark-browser-compat@2.1.3` |
 | Package license | `MIT OR Apache-2.0` |
-| Tarball | `tokamak-zk-evm-backend-wasm-2.1.3.tgz` |
-| Compressed size | 860,949 bytes |
-| Unpacked size | 10,345,018 bytes |
+| Tarball | `tokamak-zk-evm-snark-browser-compat-2.1.3.tgz` |
+| Compressed size | 860,993 bytes |
+| Unpacked size | 10,345,290 bytes |
 | Entry count | 396 |
-| SHA-1 reported by npm | `c7efb9d10601ce70f6969815d8bb89ba00cf304a` |
-| SHA-256 | `b92e67227936b4c343b9283fdc10258fd2e9c6802d2b1aeb3e20e83d35bf3871` |
-| npm integrity | `sha512-EJKwcWmEaf6Y03/8SFQgBkPOziFIkRKF0RqS3DzvemR/bQwWR4uyytJr5XlHJYJ22je1XQ/htMbcUwLkTmnljA==` |
+| SHA-1 reported by npm | `61ca3625004dc28ff6cd37d3102e8691728fe659` |
+| SHA-256 | `8e500360bd67b12040b7498b7b0652d96391b04d366f257e55b3620224743ec4` |
+| npm integrity | `sha512-vH7YyocvUpLazFXRUE0vS8R9i8V82hRikrVCnu2+30sSfRgsoAG7ucUpRP26D6Sw4I49gj4UuHmc7WGxYdpvsA==` |
 
 The candidate was built and packed on Apple Silicon with Rust 1.95.0,
 `wasm-bindgen-cli` 0.2.126, Node.js 26.0.0, npm 11.12.1, Vite 8.1.5,
@@ -53,7 +53,7 @@ The exact Rust dependency inventory for the embedded decoder is recorded in
 ## Decisions and obligations
 
 1. The package owner superseded the earlier package-local GPL decision.
-   Backend-wasm now follows the repository's `MIT OR Apache-2.0` policy.
+   Snark-browser-compat now follows the repository's `MIT OR Apache-2.0` policy.
 2. The tarball includes the complete repository `LICENSE-MIT` and
    `LICENSE-APACHE` texts.
 3. The package license does not override dependency licenses. The README and

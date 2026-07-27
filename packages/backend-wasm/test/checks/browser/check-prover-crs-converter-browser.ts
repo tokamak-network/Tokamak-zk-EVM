@@ -9,12 +9,12 @@ import { chromium } from "playwright";
 import { build } from "vite";
 
 const execFileAsync = promisify(execFile);
-const PACKAGE_NAME = "@tokamak-zk-evm/backend-wasm";
+const PACKAGE_NAME = "@tokamak-zk-evm/snark-browser-compat";
 const TEST_PAGE = `<!doctype html>
 <html lang="en">
   <body>
     <script type="module">
-      import { convertProverCrs } from "@tokamak-zk-evm/backend-wasm/converter";
+      import { convertProverCrs } from "@tokamak-zk-evm/snark-browser-compat/converter";
 
       const input = new Uint8Array([1, 2, 3, 4]);
       try {

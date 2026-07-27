@@ -5,7 +5,7 @@ import {
   convertProverCrs,
   convertVerifierPreprocess,
   convertWitness,
-} from "@tokamak-zk-evm/backend-wasm/converter";
+} from "@tokamak-zk-evm/snark-browser-compat/converter";
 
 export interface ArtifactSources {
   readonly witness: unknown;
