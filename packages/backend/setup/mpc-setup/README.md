@@ -162,7 +162,6 @@ The intermediate directory contains ceremony state such as:
 The final output directory contains only:
 
 - `combined_sigma.rkyv`
-- `combined_sigma.json`
 - `sigma_preprocess.rkyv`
 - `sigma_verify.json`
 - `crs_provenance.json`
@@ -199,7 +198,6 @@ For dusk-backed mode, the manifest records:
 - the uploaded archive file name
 - the SHA-256 digests of:
   - `combined_sigma.rkyv`
-  - `combined_sigma.json`
   - `sigma_preprocess.rkyv`
   - `sigma_verify.json`
 
@@ -223,9 +221,7 @@ jq -r '.published_folder_url' "$CRS_DIR/crs_provenance.json"
 jq -r '.published_archive_name' "$CRS_DIR/crs_provenance.json"
 jq -r '.crs_download_url' "$CRS_DIR/crs_provenance.json"
 jq -r '.combined_sigma_sha256' "$CRS_DIR/crs_provenance.json"
-jq -r '.combined_sigma_json_sha256' "$CRS_DIR/crs_provenance.json"
 shasum -a 256 "$CRS_DIR/combined_sigma.rkyv"
-shasum -a 256 "$CRS_DIR/combined_sigma.json"
 ```
 
 The service wrapper must compare the digest recorded in the manifest against the digest of
