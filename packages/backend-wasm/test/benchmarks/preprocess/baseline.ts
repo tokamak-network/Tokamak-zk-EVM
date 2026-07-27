@@ -16,19 +16,25 @@ const chunkPoints = 1 << 18;
 
 async function main(): Promise<void> {
   const totalStarted = performance.now();
+  const readStarted = performance.now();
   const [permutation, instance, preprocessCrs, expected] = await Promise.all([
     readBinary("permutation.bin"),
     readBinary("instance.bin"),
     readBinary("preprocess-crs.bin"),
     readBinary("verifier-preprocess.bin"),
   ]);
+  const fixtureReadMs = performance.now() - readStarted;
+  const runtimeStarted = performance.now();
   const runtime = await createCurveRuntime();
+  const runtimeInstallMs = performance.now() - runtimeStarted;
   try {
+    const inputStarted = performance.now();
     const input = await loadPreprocessInputFromBinaryInput(runtime, {
       permutation,
       instance,
       preprocessCrs,
     });
+    const inputDecodeMs = performance.now() - inputStarted;
     const mI = input.setup.l_D - input.setup.l;
     const polynomialStarted = performance.now();
     const [s0XY, s1XY] = await buildPermutationPolynomials(
@@ -64,19 +70,40 @@ async function main(): Promise<void> {
     const outputStarted = performance.now();
     const output = await createPreprocessOutput(runtime, s0, s1, oPubFix);
     const outputMs = performance.now() - outputStarted;
+    const parityStarted = performance.now();
     await assertPreprocessParity(output, expected);
+    const parityCheckMs = performance.now() - parityStarted;
+    const preprocessMs = (
+      inputDecodeMs
+      + polynomialMs
+      + s0CommitmentMs
+      + s1CommitmentMs
+      + oPubFixMs
+      + outputMs
+    );
 
     console.log(JSON.stringify({
       parity: true,
       chunkPoints,
+      environment: {
+        platform: process.platform,
+        architecture: process.arch,
+        node: process.version,
+      },
       timingMs: {
+        fixtureRead: fixtureReadMs,
+        runtimeInstall: runtimeInstallMs,
+        inputDecode: inputDecodeMs,
         permutationPolynomials: polynomialMs,
         s0Commitment: s0CommitmentMs,
         s1Commitment: s1CommitmentMs,
         oPubFix: oPubFixMs,
         output: outputMs,
-        total: performance.now() - totalStarted,
+        preprocess: preprocessMs,
+        parityCheck: parityCheckMs,
+        processWall: performance.now() - totalStarted,
       },
+      peakRssBytes: process.resourceUsage().maxRSS * 1024,
     }));
   } finally {
     await runtime.terminate();
