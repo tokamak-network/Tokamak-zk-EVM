@@ -98,3 +98,28 @@ npm run preprocess:browser:check
 
 On the recorded Apple M4 Pro environment, the browser preprocess call took
 11,060.105 ms. Native parity and verifier acceptance both passed.
+
+## Candidate: Permutation Grid Construction
+
+Run each mode in an isolated process:
+
+```sh
+npm run preprocess:bench:permutation-grid -- --mode baseline
+npm run preprocess:bench:permutation-grid -- --mode row-template
+npm run preprocess:bench:permutation-grid -- --mode wasm-kernel
+```
+
+Each mode performs one parity warm-up followed by five measured evaluation-grid
+constructions. Inverse NTT is intentionally excluded.
+
+| Mode | Median | Change | Peak RSS |
+| --- | ---: | ---: | ---: |
+| Current element copy | 16.817 ms | baseline | 559.03 MiB |
+| Row-template doubling copy | 6.790 ms | -59.6% | 574.52 MiB |
+| Test-only WASM kernel | 7.925 ms | -52.9% | 744.22 MiB |
+
+All outputs matched the current implementation. Row-template construction is
+the fastest candidate, but it saves only about 10 ms against a 10.886-second
+preprocess baseline. The WASM kernel adds Worker transfer and allocation cost
+and has the highest observed peak RSS. Neither candidate is promoted by this
+benchmark.

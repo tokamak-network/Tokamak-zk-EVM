@@ -72,6 +72,7 @@
     "preprocess:verify:check": "tsx test/checks/preprocess/check-preprocess-native-proof.ts",
     "preprocess:baseline": "tsx test/benchmarks/preprocess/baseline.ts",
     "preprocess:browser:check": "tsx test/checks/browser/check-preprocess-browser.ts",
+    "preprocess:bench:permutation-grid": "tsx test/benchmarks/preprocess/permutation-grid.ts",
     "prover:ops:check": "npm run prover:ops:field && npm run polynomial:buffer:check && npm run prover:ops:polynomial && npm run prover:ops:commitment",
     "prover:ops:commitment": "tsx test/checks/prover/check-prover-commitment-ops.ts",
     "prover:ops:field": "tsx test/checks/prover/check-field-buffer-ops.ts",
