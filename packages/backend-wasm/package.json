@@ -78,7 +78,8 @@
     "esbuild": "^0.28.1",
     "playwright": "^1.61.1",
     "tsx": "^4.20.5",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vite": "^8.1.5"
   },
   "engines": {
     "node": ">=20"

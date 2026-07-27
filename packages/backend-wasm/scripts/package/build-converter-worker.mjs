@@ -10,7 +10,7 @@ const decoderWasmPath = path.join(decoderPackageRoot, "backend_wasm_rkyv_decoder
 const outputDirectory = path.join(packageRoot, "dist", "converter", "worker");
 
 await mkdir(outputDirectory, { recursive: true });
-await build({
+const buildResult = await build({
   entryPoints: [
     path.join(
       packageRoot,
@@ -26,6 +26,8 @@ await build({
   target: "es2022",
   outfile: path.join(outputDirectory, "prover-crs-converter-worker.js"),
   sourcemap: true,
+  external: ["ffjavascript"],
+  metafile: true,
   plugins: [
     {
       name: "rkyv-decoder",
@@ -38,6 +40,17 @@ await build({
     },
   ],
 });
+
+const forbiddenBundledPackages = ["ffjavascript", "wasmbuilder", "wasmcurves"];
+for (const inputPath of Object.keys(buildResult.metafile.inputs)) {
+  const normalizedPath = inputPath.replaceAll("\\", "/");
+  for (const packageName of forbiddenBundledPackages) {
+    if (normalizedPath.includes(`/node_modules/${packageName}/`)) {
+      throw new Error(`Converter Worker must not bundle ${packageName}: ${inputPath}`);
+    }
+  }
+}
+
 await copyFile(
   decoderWasmPath,
   path.join(outputDirectory, "backend_wasm_rkyv_decoder_bg.wasm"),

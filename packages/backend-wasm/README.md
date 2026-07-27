@@ -10,6 +10,10 @@ operations. Prover and verifier hot paths consume binary artifacts only. JSON
 and rkyv conversion, optional inspection, and optional validation remain outside
 those runtime algorithms.
 
+A browser bundler that resolves bare npm imports inside module Worker dependency
+graphs is required. Vite production builds are verified. Bundler-free static
+serving of the package's compiled ESM files is not supported.
+
 ## Public Entry Points
 
 The package exposes exactly three subpaths:
@@ -236,6 +240,13 @@ source must remain available:
 ```ts
 const proverCrs = await convertProverCrs(combinedSigmaRkyv.slice());
 ```
+
+The converter Worker keeps `ffjavascript` as an external package dependency.
+The application bundler must resolve and bundle that dependency for the Worker;
+`ffjavascript`, `wasmbuilder`, and `wasmcurves` are not copied into the
+backend-wasm package's Worker asset. A no-build browser application would need
+to supply its own import-map and asset-resolution policy and is outside the
+supported integration boundary.
 
 Avoid concurrent large conversions unless the application has budgeted for
 duplicate WASM memories, CPU contention, and peak-memory growth.
