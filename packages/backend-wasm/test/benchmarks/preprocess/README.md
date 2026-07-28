@@ -138,8 +138,15 @@ npm run preprocess:bench:inverse-ntt -- --mode combined
 
 The combined mode concatenates the two 4096-by-256 evaluation buffers and
 submits one batched transform for each dimension. Both modes passed byte
-parity. Previous performance results and the rejection conclusion are invalid.
-Both modes remain unmeasured candidates.
+parity.
+
+| Mode | Samples | Mean | Population standard deviation | Peak RSS |
+| --- | --- | ---: | ---: | ---: |
+| Sequential | 694.584, 690.825, 697.761 ms | 694.390 ms | 2.835 ms | 1.628 GiB |
+| Combined | 675.362, 710.348, 706.598 ms | 697.436 ms | 15.683 ms | 2.075 GiB |
+
+Combined scheduling was 0.44% slower by mean and had higher peak RSS in these
+three measurements. No candidate is promoted or rejected by this report.
 
 ## Candidate: Sigma1 Encoding Dispatch
 
