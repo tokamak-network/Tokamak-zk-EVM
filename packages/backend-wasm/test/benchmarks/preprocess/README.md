@@ -244,3 +244,46 @@ Zero-copy batch preparation was 0.306 ms slower by operation mean for this
 56.25 KiB. Process peak RSS is dominated by runtime installation and does not
 resolve that small allocation difference. No candidate is promoted or rejected
 by this report.
+
+## Complete Pipeline Comparison
+
+Run each Node.js mode in an independent process:
+
+```sh
+npm run preprocess:bench:pipeline -- --mode current
+npm run preprocess:bench:pipeline -- --mode speed-candidate
+```
+
+The test-only speed candidate combines the independently measured
+lowest-operation-mean choices:
+
+- row-template permutation-grid initialization;
+- the current sequential inverse NTT;
+- known-dense Sigma1 dispatch;
+- concurrent `s0` and `s1` commitments;
+- chunk exponent 17;
+- copied bases with elementwise scalar conversion for `O_pub_fix`.
+
+| Mode | Preprocess samples | Preprocess mean | Population standard deviation | Process-wall mean | Population standard deviation | Mean peak RSS | Population standard deviation |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Current | 10,783.064, 10,792.863, 10,888.042 ms | 10,821.323 ms | 47.347 ms | 11,066.985 ms | 48.947 ms | 3.022 GiB | 0.029 GiB |
+| Test-only speed candidate | 8,893.106, 9,253.949, 9,955.402 ms | 9,367.485 ms | 441.049 ms | 9,682.638 ms | 535.095 ms | 2.356 GiB | 0.042 GiB |
+
+The candidate reduced Node.js preprocess mean by 1,453.837 ms (13.43%),
+process-wall mean by 1,384.348 ms (12.51%), and mean peak RSS by 0.665 GiB
+(22.01%). Every run matched the native preprocess output.
+
+Run the Chromium comparison with:
+
+```sh
+npm run preprocess:bench:pipeline:browser -- --mode current
+npm run preprocess:bench:pipeline:browser -- --mode speed-candidate
+```
+
+| Mode | Samples | Mean | Population standard deviation | Native parity | Verifier accepted | OOM |
+| --- | --- | ---: | ---: | --- | --- | --- |
+| Current | 11,085.620, 10,935.520, 11,083.170 ms | 11,034.770 ms | 70.187 ms | 3/3 | 3/3 | 0/3 |
+| Test-only speed candidate | 8,874.800, 9,010.200, 9,032.500 ms | 8,972.500 ms | 69.682 ms | 3/3 | 3/3 | 0/3 |
+
+The candidate reduced Chromium preprocess mean by 2,062.270 ms (18.69%).
+This report does not authorize production promotion.

@@ -5,6 +5,7 @@ import {
   install as installVerifier,
   verify,
 } from "../../src/verifier/index.js";
+import { preprocessSpeedCandidate } from "../benchmarks/preprocess/pipeline-candidate.js";
 
 declare global {
   interface Window {
@@ -14,11 +15,14 @@ declare global {
 
 interface BrowserPreprocessResult {
   readonly status: "pending" | "ok" | "error";
+  readonly mode?: BrowserPreprocessMode;
   readonly nativeParity?: boolean;
   readonly verifierAccepted?: boolean;
   readonly preprocessMs?: number;
   readonly error?: string;
 }
+
+type BrowserPreprocessMode = "current" | "speed-candidate";
 
 window.__tokamakPreprocessResult = { status: "pending" };
 
@@ -30,6 +34,7 @@ main().catch((error: unknown) => {
 });
 
 async function main(): Promise<void> {
+  const mode = parseMode(new URL(window.location.href).searchParams.get("mode"));
   const [permutation, instance, preprocessCrs, expected, proof] = await Promise.all([
     fetchBinary("/fixtures/small/runtime/permutation.bin"),
     fetchBinary("/fixtures/small/runtime/instance.bin"),
@@ -47,7 +52,9 @@ async function main(): Promise<void> {
       preprocessCrs,
     });
     const started = performance.now();
-    actual = await preprocessSnark(runtime, input);
+    actual = mode === "current"
+      ? await preprocessSnark(runtime, input)
+      : await preprocessSpeedCandidate(runtime, input);
     preprocessMs = performance.now() - started;
   } finally {
     await runtime.terminate();
@@ -66,10 +73,21 @@ async function main(): Promise<void> {
 
   window.__tokamakPreprocessResult = {
     status: "ok",
+    mode,
     nativeParity: true,
     verifierAccepted,
     preprocessMs,
   };
+}
+
+function parseMode(value: string | null): BrowserPreprocessMode {
+  if (value === null || value === "current") {
+    return "current";
+  }
+  if (value === "speed-candidate") {
+    return value;
+  }
+  throw new Error(`Unsupported browser preprocess mode: ${value}`);
 }
 
 async function fetchBinary(path: string): Promise<Uint8Array> {

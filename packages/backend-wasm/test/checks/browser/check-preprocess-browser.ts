@@ -11,6 +11,7 @@ const BUNDLE_PATH = path.join(OUTPUT_DIR, "preprocess-entry.js");
 const TIMEOUT_MS = 300_000;
 
 async function main(): Promise<void> {
+  const mode = parseMode(process.argv.slice(2));
   await rm(OUTPUT_DIR, { recursive: true, force: true });
   await build({
     entryPoints: ["test/browser/preprocess-entry.ts"],
@@ -41,7 +42,7 @@ async function main(): Promise<void> {
       }
     });
 
-    await page.goto(`http://127.0.0.1:${address.port}/browser/preprocess.html`, {
+    await page.goto(`http://127.0.0.1:${address.port}/browser/preprocess.html?mode=${mode}`, {
       waitUntil: "networkidle",
     });
     const result = await page.waitForFunction(() => {
@@ -52,6 +53,7 @@ async function main(): Promise<void> {
 
     if (
       value.status !== "ok"
+      || value.mode !== mode
       || value.nativeParity !== true
       || value.verifierAccepted !== true
     ) {
@@ -62,6 +64,7 @@ async function main(): Promise<void> {
     }
 
     console.log(JSON.stringify({
+      mode,
       nativeParity: value.nativeParity,
       verifierAccepted: value.verifierAccepted,
       preprocessMs: value.preprocessMs,
@@ -76,10 +79,26 @@ async function main(): Promise<void> {
 
 interface BrowserPreprocessResult {
   readonly status: "pending" | "ok" | "error";
+  readonly mode?: BrowserPreprocessMode;
   readonly nativeParity?: boolean;
   readonly verifierAccepted?: boolean;
   readonly preprocessMs?: number;
   readonly error?: string;
+}
+
+type BrowserPreprocessMode = "current" | "speed-candidate";
+
+function parseMode(argv: readonly string[]): BrowserPreprocessMode {
+  if (argv.length === 0) {
+    return "current";
+  }
+  if (argv.length === 2 && argv[0] === "--mode") {
+    const mode = argv[1];
+    if (mode === "current" || mode === "speed-candidate") {
+      return mode;
+    }
+  }
+  throw new Error("Usage: check-preprocess-browser [--mode <current|speed-candidate>]");
 }
 
 async function handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
