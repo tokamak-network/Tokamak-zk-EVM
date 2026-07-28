@@ -23,6 +23,7 @@ interface BrowserPreprocessResult {
   readonly nativeParity?: boolean;
   readonly verifierAccepted?: boolean;
   readonly preprocessMs?: number;
+  readonly chunkSizeExponent?: number;
   readonly error?: string;
 }
 
@@ -41,7 +42,11 @@ main().catch((error: unknown) => {
 });
 
 async function main(): Promise<void> {
-  const mode = parseMode(new URL(window.location.href).searchParams.get("mode"));
+  const searchParams = new URL(window.location.href).searchParams;
+  const mode = parseMode(searchParams.get("mode"));
+  const chunkSizeExponent = parseChunkSizeExponent(
+    searchParams.get("chunkSizeExponent"),
+  );
   const [permutation, instance, preprocessCrs, expected, proof] = await Promise.all([
     fetchBinary("/fixtures/small/runtime/permutation.bin"),
     fetchBinary("/fixtures/small/runtime/instance.bin"),
@@ -52,10 +57,23 @@ async function main(): Promise<void> {
   let actual: Uint8Array;
   let preprocessMs: number;
   if (mode === "production") {
-    const installation = await installPreprocess();
-    if (installation.chunkSizeExponent !== 17) {
+    const installation = await installPreprocess(
+      chunkSizeExponent === undefined ? {} : { chunkSizeExponent },
+    );
+    if (
+      chunkSizeExponent === undefined
+      && installation.chunkSizeExponent !== 18
+    ) {
       throw new Error(
-        `Browser preprocess default chunk exponent must be 17; received ${installation.chunkSizeExponent}.`,
+        `Browser preprocess default chunk exponent must be 18; received ${installation.chunkSizeExponent}.`,
+      );
+    }
+    if (
+      chunkSizeExponent !== undefined
+      && installation.chunkSizeExponent !== chunkSizeExponent
+    ) {
+      throw new Error(
+        `Browser preprocess chunk exponent must be ${chunkSizeExponent}; received ${installation.chunkSizeExponent}.`,
       );
     }
     const started = performance.now();
@@ -100,6 +118,7 @@ async function main(): Promise<void> {
     nativeParity: true,
     verifierAccepted,
     preprocessMs,
+    chunkSizeExponent,
   };
 }
 
@@ -111,6 +130,17 @@ function parseMode(value: string | null): BrowserPreprocessMode {
     return value;
   }
   throw new Error(`Unsupported browser preprocess mode: ${value}`);
+}
+
+function parseChunkSizeExponent(value: string | null): number | undefined {
+  if (value === null) {
+    return undefined;
+  }
+  const exponent = Number(value);
+  if (!Number.isInteger(exponent) || exponent < 10 || exponent > 19) {
+    throw new Error(`Unsupported browser preprocess chunk exponent: ${value}`);
+  }
+  return exponent;
 }
 
 async function fetchBinary(path: string): Promise<Uint8Array> {

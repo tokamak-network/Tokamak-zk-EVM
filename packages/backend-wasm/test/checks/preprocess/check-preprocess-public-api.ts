@@ -40,7 +40,7 @@ async function main(): Promise<void> {
     "INVALID_OPTION",
   );
 
-  assertInstallation(await install(), 17);
+  assertInstallation(await install(), 18);
   assertInstallation(await install({ chunkSizeExponent: 18 }), 18);
   assertInstallation(await install(), 18);
   assertInstallation(await install({ chunkSizeExponent: 17 }), 17);

@@ -1,4 +1,8 @@
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
+import {
+  msmAffineMontgomeryChunks,
+  type AffineMontgomeryMsmChunk,
+} from "../../runtime/group/affine-msm.js";
 import type { BivariatePolynomialBuffer } from "../../runtime/polynomial/bivariate-polynomial-buffer.js";
 
 const G1_AFFINE_BYTES = 96;
@@ -18,21 +22,38 @@ export async function commitDensePreprocessPolynomial(
     "Preprocess polynomial coefficients",
   );
 
-  let commitment = runtime.G1.zero;
+  return msmAffineMontgomeryChunks(
+    runtime,
+    prepareDensePreprocessChunks(
+      xyPowers,
+      polynomial.coefficients,
+      pointCount,
+      runtime.Fr.byteLength,
+      chunkPoints,
+    ),
+  );
+}
+
+function* prepareDensePreprocessChunks(
+  xyPowers: Uint8Array,
+  coefficients: Uint8Array,
+  pointCount: number,
+  fieldElementBytes: number,
+  chunkPoints: number,
+): Iterable<AffineMontgomeryMsmChunk> {
   for (let start = 0; start < pointCount; start += chunkPoints) {
     const end = Math.min(start + chunkPoints, pointCount);
-    const bases = xyPowers.subarray(start * G1_AFFINE_BYTES, end * G1_AFFINE_BYTES);
-    const montgomeryScalars = polynomial.coefficients.subarray(
-      start * runtime.Fr.byteLength,
-      end * runtime.Fr.byteLength,
-    );
-    const scalars = await runtime.Fr.batchFromMontgomeryBuffer(montgomeryScalars);
-    commitment = runtime.G1.add(
-      commitment,
-      await runtime.G1.msmAffineRaw(bases, scalars),
-    );
+    yield {
+      bases: xyPowers.subarray(
+        start * G1_AFFINE_BYTES,
+        end * G1_AFFINE_BYTES,
+      ),
+      montgomeryScalars: coefficients.subarray(
+        start * fieldElementBytes,
+        end * fieldElementBytes,
+      ),
+    };
   }
-  return commitment;
 }
 
 export async function commitFunctionInstance(
@@ -49,27 +70,8 @@ export async function commitFunctionInstance(
     pointCount * runtime.Fr.byteLength,
     "Function instance",
   );
-  const bases = new Uint8Array(gammaInvOInst.byteLength);
-  const scalars = new Uint8Array(functionInstance.byteLength);
-  for (let index = 0; index < pointCount; index += 1) {
-    bases.set(
-      gammaInvOInst.subarray(
-        index * G1_AFFINE_BYTES,
-        (index + 1) * G1_AFFINE_BYTES,
-      ),
-      index * G1_AFFINE_BYTES,
-    );
-    scalars.set(
-      runtime.Fr.toRawLittleEndian(
-        functionInstance.subarray(
-          index * runtime.Fr.byteLength,
-          (index + 1) * runtime.Fr.byteLength,
-        ),
-      ),
-      index * runtime.Fr.byteLength,
-    );
-  }
-  return runtime.G1.msmAffineRaw(bases, scalars);
+  const rawScalars = await runtime.Fr.batchFromMontgomeryBuffer(functionInstance);
+  return runtime.G1.msmAffineRaw(gammaInvOInst, rawScalars);
 }
 
 function assertChunkPoints(value: number): void {

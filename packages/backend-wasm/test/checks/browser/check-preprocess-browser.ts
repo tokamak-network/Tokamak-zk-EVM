@@ -11,7 +11,8 @@ const BUNDLE_PATH = path.join(OUTPUT_DIR, "preprocess-entry.js");
 const TIMEOUT_MS = 300_000;
 
 async function main(): Promise<void> {
-  const mode = parseMode(process.argv.slice(2));
+  const options = parseOptions(process.argv.slice(2));
+  const { mode, chunkSizeExponent } = options;
   await rm(OUTPUT_DIR, { recursive: true, force: true });
   await build({
     entryPoints: ["test/browser/preprocess-entry.ts"],
@@ -42,7 +43,11 @@ async function main(): Promise<void> {
       }
     });
 
-    await page.goto(`http://127.0.0.1:${address.port}/browser/preprocess.html?mode=${mode}`, {
+    const searchParams = new URLSearchParams({ mode });
+    if (chunkSizeExponent !== undefined) {
+      searchParams.set("chunkSizeExponent", String(chunkSizeExponent));
+    }
+    await page.goto(`http://127.0.0.1:${address.port}/browser/preprocess.html?${searchParams}`, {
       waitUntil: "networkidle",
     });
     const result = await page.waitForFunction(() => {
@@ -56,6 +61,7 @@ async function main(): Promise<void> {
       || value.mode !== mode
       || value.nativeParity !== true
       || value.verifierAccepted !== true
+      || value.chunkSizeExponent !== chunkSizeExponent
     ) {
       throw new Error(`Browser preprocess failed: ${value.error ?? JSON.stringify(value)}.`);
     }
@@ -68,6 +74,7 @@ async function main(): Promise<void> {
       nativeParity: value.nativeParity,
       verifierAccepted: value.verifierAccepted,
       preprocessMs: value.preprocessMs,
+      chunkSizeExponent,
     }));
   } finally {
     await browser?.close();
@@ -83,6 +90,7 @@ interface BrowserPreprocessResult {
   readonly nativeParity?: boolean;
   readonly verifierAccepted?: boolean;
   readonly preprocessMs?: number;
+  readonly chunkSizeExponent?: number;
   readonly error?: string;
 }
 
@@ -91,9 +99,14 @@ type BrowserPreprocessMode =
   | "legacy-baseline"
   | "selected-candidate";
 
-function parseMode(argv: readonly string[]): BrowserPreprocessMode {
+interface BrowserPreprocessOptions {
+  readonly mode: BrowserPreprocessMode;
+  readonly chunkSizeExponent?: number;
+}
+
+function parseOptions(argv: readonly string[]): BrowserPreprocessOptions {
   if (argv.length === 0) {
-    return "production";
+    return { mode: "production" };
   }
   if (argv.length === 2 && argv[0] === "--mode") {
     const mode = argv[1];
@@ -102,11 +115,25 @@ function parseMode(argv: readonly string[]): BrowserPreprocessMode {
       || mode === "legacy-baseline"
       || mode === "selected-candidate"
     ) {
-      return mode;
+      return { mode };
+    }
+  }
+  if (
+    argv.length === 2
+    && argv[0] === "--chunk-size-exponent"
+  ) {
+    const chunkSizeExponent = Number(argv[1]);
+    if (
+      Number.isInteger(chunkSizeExponent)
+      && chunkSizeExponent >= 10
+      && chunkSizeExponent <= 19
+    ) {
+      return { mode: "production", chunkSizeExponent };
     }
   }
   throw new Error(
-    "Usage: check-preprocess-browser [--mode <production|legacy-baseline|selected-candidate>]",
+    "Usage: check-preprocess-browser [--mode <production|legacy-baseline|selected-candidate>]"
+      + " [--chunk-size-exponent <10..19>]",
   );
 }
 

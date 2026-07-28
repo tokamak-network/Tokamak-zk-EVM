@@ -44,3 +44,4 @@ async function readBinary(fileName: string): Promise<Uint8Array> {
 }
 
 await main();
+process.exit(0);

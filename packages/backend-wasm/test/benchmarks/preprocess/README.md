@@ -187,37 +187,62 @@ points against the native preprocess output.
 Concurrent scheduling reduced mean time by 22.30%. Mean peak RSS differed by
 0.004 GiB. No candidate is promoted or rejected by this report.
 
-## Candidate: Dense MSM Chunk Size
+## Final Production Chunk-Size Benchmark
 
-Run each exponent in an independent process:
+This benchmark was run only after preprocess had been restored to the settled
+prover polynomial and MSM methods. It changes only
+`preprocess.install({ chunkSizeExponent })`; it does not compare alternate
+algorithms or scheduling.
+
+Run the complete resumable suite with:
 
 ```sh
-npm run preprocess:bench:chunk-size -- --chunk-size-exponent <10..19>
+npm run preprocess:bench:chunk-size:final
 ```
 
-Each measurement sequentially commits both actual permutation polynomials,
-matching current production scheduling, and checks both points against the
-native preprocess output. `Temporary` is the largest raw-scalar conversion
-buffer directly controlled by the chunk loop; it excludes allocations internal
-to ffjavascript.
+Environment: Apple M4 Pro, 14 logical CPUs, 48 GiB RAM, Darwin 25.5.0 arm64,
+Node.js 26.0.0, and Chrome for Testing 149.0.7827.55. Source identity:
+`45470f343328acfdaa13484cefb06291378d264f789b284d052099775ead8603`.
 
-| Exponent | Points | Operation mean | Population standard deviation | Process-wall mean | Population standard deviation | Temporary | Mean peak RSS | Population standard deviation |
-| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 10 | 1,024 | 19,423.611 ms | 74.437 ms | 20,426.799 ms | 76.541 ms | 0.031 MiB | 1.729 GiB | 0.046 GiB |
-| 11 | 2,048 | 16,056.511 ms | 33.339 ms | 17,061.812 ms | 24.150 ms | 0.063 MiB | 1.715 GiB | 0.038 GiB |
-| 12 | 4,096 | 14,623.046 ms | 58.824 ms | 15,635.364 ms | 70.087 ms | 0.125 MiB | 1.657 GiB | 0.095 GiB |
-| 13 | 8,192 | 13,017.604 ms | 37.498 ms | 14,024.786 ms | 33.194 ms | 0.250 MiB | 1.820 GiB | 0.017 GiB |
-| 14 | 16,384 | 11,624.481 ms | 9.512 ms | 12,627.164 ms | 13.284 ms | 0.500 MiB | 1.860 GiB | 0.035 GiB |
-| 15 | 32,768 | 11,092.939 ms | 31.153 ms | 12,104.170 ms | 25.349 ms | 1.000 MiB | 1.890 GiB | 0.086 GiB |
-| 16 | 65,536 | 10,823.879 ms | 22.226 ms | 11,832.770 ms | 5.585 ms | 2.000 MiB | 1.978 GiB | 0.033 GiB |
-| 17 | 131,072 | 10,100.591 ms | 43.636 ms | 11,113.605 ms | 29.999 ms | 4.000 MiB | 2.269 GiB | 0.052 GiB |
-| 18 | 262,144 | 10,117.265 ms | 19.183 ms | 11,121.117 ms | 19.036 ms | 8.000 MiB | 3.077 GiB | 0.040 GiB |
-| 19 | 524,288 | 10,152.030 ms | 43.690 ms | 11,168.164 ms | 45.439 ms | 16.000 MiB | 4.678 GiB | 0.053 GiB |
+Each exponent was measured exactly three times in independent Node.js
+processes. `Preprocess` covers the complete public `preprocess()` call,
+including binary input decoding, polynomial construction, all three
+commitments, and output serialization.
 
-All 30 measurements passed commitment parity. Exponent 17 had the lowest
-operation mean. It was 16.674 ms faster than the current exponent-18 default
-and used 0.808 GiB less mean peak RSS. No chunk size is promoted by this
-report.
+| Exponent | Points | Preprocess samples | Mean | Population SD | Mean peak RSS | Population SD |
+| ---: | ---: | --- | ---: | ---: | ---: | ---: |
+| 10 | 1,024 | 27,391.873, 28,116.450, 28,100.275 ms | 27,869.533 ms | 337.821 ms | 1.775 GiB | 0.028 GiB |
+| 11 | 2,048 | 24,856.100, 25,246.301, 25,998.962 ms | 25,367.121 ms | 474.329 ms | 1.753 GiB | 0.066 GiB |
+| 12 | 4,096 | 22,466.334, 24,339.167, 22,306.676 ms | 23,037.392 ms | 922.799 ms | 1.725 GiB | 0.062 GiB |
+| 13 | 8,192 | 21,580.321, 21,359.054, 20,837.049 ms | 21,258.808 ms | 311.609 ms | 1.848 GiB | 0.057 GiB |
+| 14 | 16,384 | 18,623.985, 18,338.495, 20,039.194 ms | 19,000.558 ms | 743.617 ms | 1.790 GiB | 0.033 GiB |
+| 15 | 32,768 | 19,025.738, 17,751.212, 18,609.639 ms | 18,462.196 ms | 530.666 ms | 1.850 GiB | 0.061 GiB |
+| 16 | 65,536 | 17,154.245, 17,001.957, 18,650.380 ms | 17,602.194 ms | 743.782 ms | 1.943 GiB | 0.009 GiB |
+| 17 | 131,072 | 16,714.012, 15,735.778, 15,841.214 ms | 16,097.001 ms | 438.411 ms | 2.228 GiB | 0.044 GiB |
+| 18 | 262,144 | 15,677.826, 14,874.739, 15,026.278 ms | 15,192.948 ms | 348.398 ms | 3.079 GiB | 0.052 GiB |
+| 19 | 524,288 | 15,011.461, 14,926.623, 14,596.172 ms | 14,844.752 ms | 179.153 ms | 4.523 GiB | 0.110 GiB |
+
+Each exponent was also measured exactly three times in a fresh Chromium
+process. Every observation matched native preprocess output, made the verifier
+accept the native proof, and completed without OOM.
+
+| Exponent | Preprocess samples | Mean | Population SD | Native parity | Verifier accepted | OOM |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| 10 | 27,938.000, 27,138.290, 27,646.740 ms | 27,574.343 ms | 330.469 ms | 3/3 | 3/3 | 0/3 |
+| 11 | 23,457.185, 23,774.685, 23,465.080 ms | 23,565.650 ms | 147.845 ms | 3/3 | 3/3 | 0/3 |
+| 12 | 21,250.290, 21,193.855, 21,182.295 ms | 21,208.813 ms | 29.706 ms | 3/3 | 3/3 | 0/3 |
+| 13 | 18,653.830, 18,750.455, 18,594.200 ms | 18,666.162 ms | 64.384 ms | 3/3 | 3/3 | 0/3 |
+| 14 | 17,404.900, 17,652.705, 17,599.225 ms | 17,552.277 ms | 106.474 ms | 3/3 | 3/3 | 0/3 |
+| 15 | 16,593.840, 16,713.160, 16,576.270 ms | 16,627.757 ms | 60.814 ms | 3/3 | 3/3 | 0/3 |
+| 16 | 15,809.485, 15,827.335, 15,812.810 ms | 15,816.543 ms | 7.751 ms | 3/3 | 3/3 | 0/3 |
+| 17 | 14,772.440, 14,813.375, 14,835.625 ms | 14,807.147 ms | 26.168 ms | 3/3 | 3/3 | 0/3 |
+| 18 | 14,412.570, 14,392.345, 14,427.720 ms | 14,410.878 ms | 14.491 ms | 3/3 | 3/3 | 0/3 |
+| 19 | 14,613.800, 15,264.110, 14,815.490 ms | 14,897.800 ms | 271.793 ms | 3/3 | 3/3 | 0/3 |
+
+Exponent 19 had the lowest Node.js mean but used 1.444 GiB more mean peak RSS
+than exponent 18. Exponent 18 had the lowest Chromium mean and substantially
+lower variation than exponent 19. The owner must select the final default;
+this report does not promote one automatically.
 
 ## Candidate: `O_pub_fix` Input Preparation
 
@@ -288,29 +313,27 @@ npm run preprocess:bench:pipeline:browser -- --mode selected-candidate
 The candidate reduced Chromium preprocess mean by 2,062.270 ms (18.69%).
 This report does not authorize production promotion.
 
-## Production Selection
+## Superseded Production Selection
 
-The owner selected the complete speed candidate after the measurements above.
-Production preprocess now uses:
+The former complete speed-candidate selection was revoked. It independently
+changed settled prover behavior and is not the current production policy.
+Production preprocess now uses the shared prover permutation-polynomial,
+batched two-dimensional inverse-NTT, batch Montgomery conversion, affine MSM,
+and sequential commitment-call paths. Exponent 18 is provisional until the
+owner selects the final default from the benchmark above.
 
-- row-template permutation-grid initialization;
-- sequential inverse NTT;
-- known-dense Sigma1 dispatch;
-- concurrent `s0` and `s1` commitments;
-- default chunk exponent 17;
-- copied bases with elementwise scalar conversion for `O_pub_fix`.
+The superseded evaluation recorded the following decisions. They are retained
+only as historical context and do not govern current production behavior:
 
-The following alternatives were not selected:
-
-| Alternative | Reason |
+| Superseded decision | Historical rationale |
 | --- | --- |
 | Element-copy permutation grid | Row-template reduced the independent operation mean by 54.0%. |
 | Test-only permutation WASM kernel | It was slower and used more peak memory than row-template. |
 | Combined inverse NTT | It was 0.44% slower by mean and had higher peak RSS. |
 | Adaptive Sigma1 dispatch | The dense input is known by protocol construction and adaptive dispatch was 0.017% slower by mean. |
-| Sequential `s0`/`s1` commitments | Concurrent scheduling reduced the independent operation mean by 22.30%. |
-| Default chunk exponent 18 | Exponent 17 had the lowest operation mean and used 0.808 GiB less mean peak RSS. |
-| Zero-copy batch `O_pub_fix` preparation | Copied elementwise preparation was 0.306 ms faster by operation mean for the fixed 600-point input. |
+| Sequential `s0`/`s1` commitments | Retained because preprocess must follow the settled prover call path. |
+| Default chunk exponent 18 | Provisional pending the final production benchmark decision. |
+| Zero-copy batch `O_pub_fix` preparation | Retained because preprocess must follow the settled prover batch-conversion path. |
 
 The retained comparison modes are named `legacy-baseline` and
 `selected-candidate`:

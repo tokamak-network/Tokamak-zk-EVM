@@ -84,6 +84,7 @@
     "preprocess:bench:sigma1-encoding": "tsx test/benchmarks/preprocess/sigma1-encoding.ts",
     "preprocess:bench:msm-scheduling": "tsx test/benchmarks/preprocess/msm-scheduling.ts",
     "preprocess:bench:chunk-size": "tsx test/benchmarks/preprocess/chunk-size.ts",
+    "preprocess:bench:chunk-size:final": "tsx test/benchmarks/preprocess/chunk-size-suite.ts",
     "preprocess:bench:o-pub-fix": "tsx test/benchmarks/preprocess/o-pub-fix.ts",
     "preprocess:bench:pipeline": "tsx test/benchmarks/preprocess/pipeline.ts",
     "prover:ops:check": "npm run prover:ops:field && npm run polynomial:buffer:check && npm run prover:ops:polynomial && npm run prover:ops:commitment",

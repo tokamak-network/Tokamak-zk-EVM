@@ -5,13 +5,13 @@ import {
   commitDensePreprocessPolynomial,
   commitFunctionInstance,
 } from "../commitments/preprocess-commitments.js";
-import { buildPreprocessPermutationPolynomials } from "./permutation-polynomials.js";
+import { buildPermutationPolynomials } from "../../runtime/polynomial/permutation-polynomials.js";
 
 export interface PreprocessSnarkOptions {
   readonly denseMsmChunkPoints?: number;
 }
 
-const DEFAULT_DENSE_MSM_CHUNK_POINTS = 1 << 17;
+const DEFAULT_DENSE_MSM_CHUNK_POINTS = 1 << 18;
 
 export async function preprocessSnark(
   runtime: CurveRuntime,
@@ -20,26 +20,24 @@ export async function preprocessSnark(
 ): Promise<Uint8Array> {
   const mI = input.setup.l_D - input.setup.l;
   const chunkPoints = options.denseMsmChunkPoints ?? DEFAULT_DENSE_MSM_CHUNK_POINTS;
-  const [s0XY, s1XY] = await buildPreprocessPermutationPolynomials(
+  const [s0XY, s1XY] = await buildPermutationPolynomials(
     runtime.Fr,
     mI,
     input.setup.s_max,
     input.permutation,
   );
-  const [s0, s1] = await Promise.all([
-    commitDensePreprocessPolynomial(
-      runtime,
-      input.crs.xyPowers,
-      s0XY,
-      chunkPoints,
-    ),
-    commitDensePreprocessPolynomial(
-      runtime,
-      input.crs.xyPowers,
-      s1XY,
-      chunkPoints,
-    ),
-  ]);
+  const s0 = await commitDensePreprocessPolynomial(
+    runtime,
+    input.crs.xyPowers,
+    s0XY,
+    chunkPoints,
+  );
+  const s1 = await commitDensePreprocessPolynomial(
+    runtime,
+    input.crs.xyPowers,
+    s1XY,
+    chunkPoints,
+  );
   const oPubFix = await commitFunctionInstance(
     runtime,
     input.crs.gammaInvOInst,

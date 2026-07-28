@@ -202,7 +202,7 @@ const verifierPreprocess = await preprocess({
 console.log(installation.chunkSize, verifierPreprocess.byteLength);
 ```
 
-The default chunk exponent is `17`. An application may explicitly select an
+The current default chunk exponent is `18`. An application may explicitly select an
 integer from `10` through `19`. A later explicit option takes precedence while
 preprocess is idle; omitting the option preserves the installed value.
 
