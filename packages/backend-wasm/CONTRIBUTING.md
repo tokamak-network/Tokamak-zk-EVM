@@ -11,6 +11,7 @@ in `README.md`.
 The package exposes only:
 
 - `@tokamak-zk-evm/snark-browser-compat/prover`
+- `@tokamak-zk-evm/snark-browser-compat/preprocess`
 - `@tokamak-zk-evm/snark-browser-compat/verifier`
 - `@tokamak-zk-evm/snark-browser-compat/converter`
 
@@ -35,6 +36,7 @@ packages/backend-wasm/
   src/
     artifacts/
     converter/
+    preprocess/
     prover/
     runtime/
     verifier/
@@ -47,6 +49,8 @@ packages/backend-wasm/
 - `src/artifacts`: binary containers, decoded views, and versioned specs.
 - `src/converter`: public converter API, material conversion, optional
   inspection and validation, and the prover CRS Worker.
+- `src/preprocess`: independent preprocess lifecycle, permutation-polynomial
+  construction, and verifier-preprocess commitment output.
 - `src/prover`: public prover lifecycle and integrated protocol operations.
 - `src/runtime`: shared ffjavascript-backed field, curve, group, pairing,
   transcript, random, and polynomial infrastructure.
@@ -121,6 +125,8 @@ npm run binary:check
 npm run prover:ops:check
 npm run prover:witness:check
 npm run verifier:check
+npm run preprocess:public-api:check
+npm run preprocess:browser:check
 npm run prover:check
 npm run verifier:browser:check
 npm run prover:browser:check

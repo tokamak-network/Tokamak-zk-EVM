@@ -49,8 +49,27 @@ export async function commitFunctionInstance(
     pointCount * runtime.Fr.byteLength,
     "Function instance",
   );
-  const scalars = await runtime.Fr.batchFromMontgomeryBuffer(functionInstance);
-  return runtime.G1.msmAffineRaw(gammaInvOInst, scalars);
+  const bases = new Uint8Array(gammaInvOInst.byteLength);
+  const scalars = new Uint8Array(functionInstance.byteLength);
+  for (let index = 0; index < pointCount; index += 1) {
+    bases.set(
+      gammaInvOInst.subarray(
+        index * G1_AFFINE_BYTES,
+        (index + 1) * G1_AFFINE_BYTES,
+      ),
+      index * G1_AFFINE_BYTES,
+    );
+    scalars.set(
+      runtime.Fr.toRawLittleEndian(
+        functionInstance.subarray(
+          index * runtime.Fr.byteLength,
+          (index + 1) * runtime.Fr.byteLength,
+        ),
+      ),
+      index * runtime.Fr.byteLength,
+    );
+  }
+  return runtime.G1.msmAffineRaw(bases, scalars);
 }
 
 function assertChunkPoints(value: number): void {

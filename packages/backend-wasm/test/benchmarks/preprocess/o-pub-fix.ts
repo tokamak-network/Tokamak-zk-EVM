@@ -3,7 +3,6 @@ import path from "node:path";
 
 import { decodeBinaryArtifactFile } from "../../../src/artifacts/binary/binary-artifact-file.js";
 import { loadPreprocessInputFromBinaryInput } from "../../../src/preprocess/api/binary-input.js";
-import { commitFunctionInstance } from "../../../src/preprocess/commitments/preprocess-commitments.js";
 import { createCurveRuntime, type CurveRuntime } from "../../../src/runtime/curve/curve.js";
 
 const fixtureRoot = path.resolve("fixtures/small/runtime");
@@ -35,7 +34,7 @@ async function main(): Promise<void> {
           input.crs.gammaInvOInst,
           input.functionInstance,
         )
-      : await commitFunctionInstance(
+      : await commitZeroCopyBatch(
           runtime,
           input.crs.gammaInvOInst,
           input.functionInstance,
@@ -57,6 +56,15 @@ async function main(): Promise<void> {
   } finally {
     await runtime.terminate();
   }
+}
+
+async function commitZeroCopyBatch(
+  runtime: CurveRuntime,
+  gammaInvOInst: Uint8Array,
+  functionInstance: Uint8Array,
+): Promise<Uint8Array> {
+  const rawScalars = await runtime.Fr.batchFromMontgomeryBuffer(functionInstance);
+  return runtime.G1.msmAffineRaw(gammaInvOInst, rawScalars);
 }
 
 async function commitCopiedElementwise(

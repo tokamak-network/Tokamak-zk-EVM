@@ -1,7 +1,7 @@
 {
   "name": "@tokamak-zk-evm/snark-browser-compat",
   "version": "2.1.3",
-  "description": "@tokamak-zk-evm/snark-browser-compat provides browser-compatible Tokamak zk-EVM proof generation, verification, and artifact conversion.",
+  "description": "@tokamak-zk-evm/snark-browser-compat provides browser-compatible Tokamak zk-EVM preprocessing, proof generation, verification, and artifact conversion.",
   "license": "MIT OR Apache-2.0",
   "author": "Tokamak Network",
   "keywords": [
@@ -31,6 +31,10 @@
       "types": "./dist/prover/index.d.ts",
       "import": "./dist/prover/index.js"
     },
+    "./preprocess": {
+      "types": "./dist/preprocess/index.d.ts",
+      "import": "./dist/preprocess/index.js"
+    },
     "./verifier": {
       "types": "./dist/verifier/index.d.ts",
       "import": "./dist/verifier/index.js"
@@ -48,6 +52,7 @@
     "dist/artifacts",
     "dist/runtime",
     "dist/prover",
+    "dist/preprocess",
     "dist/converter",
     "dist/verifier",
     "README.md",
@@ -69,6 +74,7 @@
     "fixtures:check:native-verifier": "tsx test/checks/fixtures/check-native-verifier-fixture.ts fixtures/small/copy-manifest.json",
     "polynomial:buffer:check": "tsx test/checks/polynomial/check-polynomial-buffer.ts",
     "preprocess:check": "tsx test/checks/preprocess/check-preprocess-fixture.ts",
+    "preprocess:public-api:check": "tsx test/checks/preprocess/check-preprocess-public-api.ts",
     "preprocess:verify:check": "tsx test/checks/preprocess/check-preprocess-native-proof.ts",
     "preprocess:baseline": "tsx test/benchmarks/preprocess/baseline.ts",
     "preprocess:browser:check": "tsx test/checks/browser/check-preprocess-browser.ts",

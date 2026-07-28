@@ -191,6 +191,8 @@ function checkPublicApiReference(readme: string): void {
     "ProverSession.dispose()",
     "verifier.install()",
     "verifier.verify(input)",
+    "preprocess.install(options?)",
+    "preprocess.preprocess(input)",
     "convertWitness(value)",
     "convertPermutation(value)",
     "convertInstance(value)",
@@ -214,6 +216,9 @@ function checkPublicApiReference(readme: string): void {
     "ProverSession",
     "VerifierInput",
     "VerifierInstallationInfo",
+    "PreprocessInput",
+    "PreprocessInstallOptions",
+    "PreprocessInstallationInfo",
     "BinaryArtifactInspection",
     "BinaryInspectionOptions",
     "BinarySectionInspection",
@@ -233,7 +238,7 @@ function checkPublicApiReference(readme: string): void {
   }
 
   const workflows = readme.slice(reference.length);
-  for (const entry of ["install(", "verify(", "prove(", "begin(", "convert", "inspectBinary(", "validateBinary("]) {
+  for (const entry of ["install(", "preprocess(", "verify(", "prove(", "begin(", "convert", "inspectBinary(", "validateBinary("]) {
     if (!workflows.includes(entry)) {
       throw new Error(`README workflows do not use or select ${entry}.`);
     }
@@ -321,6 +326,8 @@ async function checkPackedPackage(): Promise<void> {
       "THIRD_PARTY_NOTICES.md",
       "dist/prover/index.js",
       "dist/prover/index.d.ts",
+      "dist/preprocess/index.js",
+      "dist/preprocess/index.d.ts",
       "dist/verifier/index.js",
       "dist/verifier/index.d.ts",
       "dist/converter/index.js",
@@ -367,7 +374,7 @@ async function checkPackedPackage(): Promise<void> {
       throw new Error(`Packed package metadata is inconsistent: ${manifestSource}`);
     }
     const exports = Object.keys(manifest.exports).sort();
-    const expectedExports = ["./converter", "./prover", "./verifier"];
+    const expectedExports = ["./converter", "./preprocess", "./prover", "./verifier"];
     if (JSON.stringify(exports) !== JSON.stringify(expectedExports)) {
       throw new Error(`Packed public exports changed: ${exports.join(", ")}.`);
     }

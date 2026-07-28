@@ -250,8 +250,8 @@ by this report.
 Run each Node.js mode in an independent process:
 
 ```sh
-npm run preprocess:bench:pipeline -- --mode current
-npm run preprocess:bench:pipeline -- --mode speed-candidate
+npm run preprocess:bench:pipeline -- --mode legacy-baseline
+npm run preprocess:bench:pipeline -- --mode selected-candidate
 ```
 
 The test-only speed candidate combines the independently measured
@@ -276,8 +276,8 @@ process-wall mean by 1,384.348 ms (12.51%), and mean peak RSS by 0.665 GiB
 Run the Chromium comparison with:
 
 ```sh
-npm run preprocess:bench:pipeline:browser -- --mode current
-npm run preprocess:bench:pipeline:browser -- --mode speed-candidate
+npm run preprocess:bench:pipeline:browser -- --mode legacy-baseline
+npm run preprocess:bench:pipeline:browser -- --mode selected-candidate
 ```
 
 | Mode | Samples | Mean | Population standard deviation | Native parity | Verifier accepted | OOM |
@@ -287,3 +287,43 @@ npm run preprocess:bench:pipeline:browser -- --mode speed-candidate
 
 The candidate reduced Chromium preprocess mean by 2,062.270 ms (18.69%).
 This report does not authorize production promotion.
+
+## Production Selection
+
+The owner selected the complete speed candidate after the measurements above.
+Production preprocess now uses:
+
+- row-template permutation-grid initialization;
+- sequential inverse NTT;
+- known-dense Sigma1 dispatch;
+- concurrent `s0` and `s1` commitments;
+- default chunk exponent 17;
+- copied bases with elementwise scalar conversion for `O_pub_fix`.
+
+The following alternatives were not selected:
+
+| Alternative | Reason |
+| --- | --- |
+| Element-copy permutation grid | Row-template reduced the independent operation mean by 54.0%. |
+| Test-only permutation WASM kernel | It was slower and used more peak memory than row-template. |
+| Combined inverse NTT | It was 0.44% slower by mean and had higher peak RSS. |
+| Adaptive Sigma1 dispatch | The dense input is known by protocol construction and adaptive dispatch was 0.017% slower by mean. |
+| Sequential `s0`/`s1` commitments | Concurrent scheduling reduced the independent operation mean by 22.30%. |
+| Default chunk exponent 18 | Exponent 17 had the lowest operation mean and used 0.808 GiB less mean peak RSS. |
+| Zero-copy batch `O_pub_fix` preparation | Copied elementwise preparation was 0.306 ms faster by operation mean for the fixed 600-point input. |
+
+The retained comparison modes are named `legacy-baseline` and
+`selected-candidate`:
+
+```sh
+npm run preprocess:bench:pipeline -- --mode legacy-baseline
+npm run preprocess:bench:pipeline -- --mode selected-candidate
+npm run preprocess:bench:pipeline:browser -- --mode legacy-baseline
+npm run preprocess:bench:pipeline:browser -- --mode selected-candidate
+```
+
+The normal Chromium correctness check uses the production public API:
+
+```sh
+npm run preprocess:browser:check
+```

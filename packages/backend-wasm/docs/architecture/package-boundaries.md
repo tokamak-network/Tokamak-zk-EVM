@@ -10,6 +10,7 @@ dependencies, generated assets, and publication contents.
 The npm package exposes only:
 
 - `@tokamak-zk-evm/snark-browser-compat/prover`
+- `@tokamak-zk-evm/snark-browser-compat/preprocess`
 - `@tokamak-zk-evm/snark-browser-compat/verifier`
 - `@tokamak-zk-evm/snark-browser-compat/converter`
 
@@ -18,10 +19,10 @@ constants, and polynomial implementations are internal. Internal compiled files
 may exist in the tarball as transitive dependencies, but the package `exports`
 map prevents direct consumer imports.
 
-Prover and verifier each own an explicit installation lifecycle and one
-page-lifetime or process-lifetime curve runtime. They do not install implicitly,
-accept a public `CurveRuntime`, or expose runtime termination. Converter
-operations have no persistent installation.
+Preprocess, prover, and verifier each own an explicit installation lifecycle
+and one page-lifetime or process-lifetime curve runtime. They do not install
+implicitly, accept a public `CurveRuntime`, or expose runtime termination.
+Converter operations have no persistent installation.
 
 The prover exposes both `prove(input)` and `begin(input)`. `prove()` is the
 complete-proof convenience wrapper. `begin()` returns one opaque session whose
@@ -39,9 +40,9 @@ progress callbacks.
 Production dependencies flow in this direction:
 
 ```text
-prover API ─┐
-            ├─> protocol operations ─> runtime primitives
-verifier API┘                         └> artifact binary/spec views
+preprocess API ─┐
+prover API ─────┼─> protocol operations ─> runtime primitives
+verifier API ───┘                         └> artifact binary/spec views
 
 converter API ─> converter implementations ─> artifact binary creation
                                       └──────> temporary conversion runtimes
@@ -49,9 +50,9 @@ converter API ─> converter implementations ─> artifact binary creation
 validator implementation ─> artifact binary/spec modules
 ```
 
-Prover and verifier must not import converter or validator entry points.
-Converters and validators must not be called implicitly by runtime prove or
-verify operations.
+Preprocess, prover, and verifier must not import converter or validator entry
+points. Converters and validators must not be called implicitly by runtime
+preprocess, prove, or verify operations.
 
 ## Directory Ownership
 
@@ -63,7 +64,7 @@ verify operations.
 
 ### `src/runtime`
 
-Shared execution infrastructure used by prover and verifier:
+Shared execution infrastructure used by preprocess, prover, and verifier:
 
 - curve construction and ffjavascript worker ownership;
 - field encoding, task construction, and custom WASM kernels;
@@ -95,6 +96,17 @@ they do not serialize, validate, or recompute intermediates.
 - `generated`: build-generated verifier CRS constants.
 
 The verifier returns boolean validity and does not produce an output artifact.
+
+### `src/preprocess`
+
+- `api`: independent public lifecycle, named binary input decoding, and binary
+  output creation.
+- `protocol`: permutation-polynomial construction and preprocess orchestration.
+- `commitments`: dense Sigma1 and function-instance commitments.
+
+Preprocess produces one verifier-preprocess binary containing `s0`, `s1`, and
+`O_pub_fix`. It does not call the prover, share prover installation state, or
+consume prover CRS.
 
 ### `src/converter`
 
@@ -160,4 +172,4 @@ contain:
 - the development-only root aggregate.
 
 Every publication candidate must run a dry-run packlist inspection and verify
-the three public subpath imports.
+the four public subpath imports.

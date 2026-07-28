@@ -1,11 +1,15 @@
+import {
+  install as installPreprocess,
+  preprocess,
+} from "../../src/preprocess/index.js";
 import { loadPreprocessInputFromBinaryInput } from "../../src/preprocess/api/binary-input.js";
-import { preprocessSnark } from "../../src/preprocess/protocol/preprocess-snark.js";
 import { createCurveRuntime } from "../../src/runtime/curve/curve.js";
 import {
   install as installVerifier,
   verify,
 } from "../../src/verifier/index.js";
 import { preprocessSpeedCandidate } from "../benchmarks/preprocess/pipeline-candidate.js";
+import { preprocessLegacyBaseline } from "../benchmarks/preprocess/pipeline-baseline.js";
 
 declare global {
   interface Window {
@@ -22,7 +26,10 @@ interface BrowserPreprocessResult {
   readonly error?: string;
 }
 
-type BrowserPreprocessMode = "current" | "speed-candidate";
+type BrowserPreprocessMode =
+  | "production"
+  | "legacy-baseline"
+  | "selected-candidate";
 
 window.__tokamakPreprocessResult = { status: "pending" };
 
@@ -42,22 +49,38 @@ async function main(): Promise<void> {
     fetchBinary("/fixtures/small/runtime/verifier-preprocess.bin"),
     fetchBinary("/fixtures/small/runtime/proof.bin"),
   ]);
-  const runtime = await createCurveRuntime();
   let actual: Uint8Array;
   let preprocessMs: number;
-  try {
-    const input = await loadPreprocessInputFromBinaryInput(runtime, {
+  if (mode === "production") {
+    const installation = await installPreprocess();
+    if (installation.chunkSizeExponent !== 17) {
+      throw new Error(
+        `Browser preprocess default chunk exponent must be 17; received ${installation.chunkSizeExponent}.`,
+      );
+    }
+    const started = performance.now();
+    actual = await preprocess({
       permutation,
       instance,
       preprocessCrs,
     });
-    const started = performance.now();
-    actual = mode === "current"
-      ? await preprocessSnark(runtime, input)
-      : await preprocessSpeedCandidate(runtime, input);
     preprocessMs = performance.now() - started;
-  } finally {
-    await runtime.terminate();
+  } else {
+    const runtime = await createCurveRuntime();
+    try {
+      const input = await loadPreprocessInputFromBinaryInput(runtime, {
+        permutation,
+        instance,
+        preprocessCrs,
+      });
+      const started = performance.now();
+      actual = mode === "legacy-baseline"
+        ? await preprocessLegacyBaseline(runtime, input)
+        : await preprocessSpeedCandidate(runtime, input);
+      preprocessMs = performance.now() - started;
+    } finally {
+      await runtime.terminate();
+    }
   }
 
   assertBytesEqual(actual, expected);
@@ -81,10 +104,10 @@ async function main(): Promise<void> {
 }
 
 function parseMode(value: string | null): BrowserPreprocessMode {
-  if (value === null || value === "current") {
-    return "current";
+  if (value === null || value === "production") {
+    return "production";
   }
-  if (value === "speed-candidate") {
+  if (value === "legacy-baseline" || value === "selected-candidate") {
     return value;
   }
   throw new Error(`Unsupported browser preprocess mode: ${value}`);

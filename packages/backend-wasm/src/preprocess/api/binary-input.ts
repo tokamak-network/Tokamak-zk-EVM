@@ -47,13 +47,21 @@ export async function loadPreprocessInputFromBinaryInput(
 
   return {
     setup,
-    permutation: parsePermutation(permutation),
+    permutation: parsePermutation(
+      permutation,
+      setup.l_D - setup.l,
+      setup.s_max,
+    ),
     functionInstance: parseFunctionInstance(runtime, instance, setup),
     crs: parsePreprocessCrs(crs, setup),
   };
 }
 
-function parsePermutation(file: BinaryArtifactFileView): readonly PermutationEntry[] {
+function parsePermutation(
+  file: BinaryArtifactFileView,
+  mI: number,
+  sMax: number,
+): readonly PermutationEntry[] {
   const section = requireBinaryArtifactSection(file, {
     type: BinarySectionType.Permutation,
     encoding: BinarySectionEncoding.Bytes,
@@ -70,14 +78,25 @@ function parsePermutation(file: BinaryArtifactFileView): readonly PermutationEnt
   );
   const entries: PermutationEntry[] = [];
   for (let offset = 0; offset < section.data.byteLength; offset += PERMUTATION_ENTRY_BYTES) {
-    entries.push({
+    const entry = {
       row: view.getUint32(offset, true),
       col: view.getUint32(offset + 4, true),
       X: view.getUint32(offset + 8, true),
       Y: view.getUint32(offset + 12, true),
-    });
+    };
+    assertIndex(entry.row, mI, "row");
+    assertIndex(entry.X, mI, "X");
+    assertIndex(entry.col, sMax, "col");
+    assertIndex(entry.Y, sMax, "Y");
+    entries.push(entry);
   }
   return entries;
+}
+
+function assertIndex(value: number, upperBound: number, name: string): void {
+  if (value >= upperBound) {
+    throw new Error(`Permutation ${name} index ${value} is outside [0, ${upperBound}).`);
+  }
 }
 
 function parseFunctionInstance(

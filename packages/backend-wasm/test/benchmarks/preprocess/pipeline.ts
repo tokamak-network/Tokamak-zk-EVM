@@ -3,13 +3,13 @@ import path from "node:path";
 
 import { decodeBinaryArtifactFile } from "../../../src/artifacts/binary/binary-artifact-file.js";
 import { loadPreprocessInputFromBinaryInput } from "../../../src/preprocess/api/binary-input.js";
-import { preprocessSnark } from "../../../src/preprocess/protocol/preprocess-snark.js";
 import { createCurveRuntime } from "../../../src/runtime/curve/curve.js";
+import { preprocessLegacyBaseline } from "./pipeline-baseline.js";
 import { preprocessSpeedCandidate } from "./pipeline-candidate.js";
 
 const fixtureRoot = path.resolve("fixtures/small/runtime");
 
-type Mode = "current" | "speed-candidate";
+type Mode = "legacy-baseline" | "selected-candidate";
 
 async function main(): Promise<void> {
   const processStarted = performance.now();
@@ -28,8 +28,8 @@ async function main(): Promise<void> {
       instance,
       preprocessCrs,
     });
-    const output = mode === "current"
-      ? await preprocessSnark(runtime, input)
+    const output = mode === "legacy-baseline"
+      ? await preprocessLegacyBaseline(runtime, input)
       : await preprocessSpeedCandidate(runtime, input);
     const preprocessMs = performance.now() - preprocessStarted;
     await assertPreprocessParity(output, expected);
@@ -76,10 +76,10 @@ async function readBinary(fileName: string): Promise<Uint8Array> {
 
 function parseMode(argv: readonly string[]): Mode {
   if (argv.length !== 2 || argv[0] !== "--mode") {
-    throw new Error("Usage: pipeline --mode <current|speed-candidate>");
+    throw new Error("Usage: pipeline --mode <legacy-baseline|selected-candidate>");
   }
   const mode = argv[1];
-  if (mode === "current" || mode === "speed-candidate") {
+  if (mode === "legacy-baseline" || mode === "selected-candidate") {
     return mode;
   }
   throw new Error(`Unsupported preprocess pipeline benchmark mode: ${mode}`);

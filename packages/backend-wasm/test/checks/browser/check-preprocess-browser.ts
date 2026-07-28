@@ -86,19 +86,28 @@ interface BrowserPreprocessResult {
   readonly error?: string;
 }
 
-type BrowserPreprocessMode = "current" | "speed-candidate";
+type BrowserPreprocessMode =
+  | "production"
+  | "legacy-baseline"
+  | "selected-candidate";
 
 function parseMode(argv: readonly string[]): BrowserPreprocessMode {
   if (argv.length === 0) {
-    return "current";
+    return "production";
   }
   if (argv.length === 2 && argv[0] === "--mode") {
     const mode = argv[1];
-    if (mode === "current" || mode === "speed-candidate") {
+    if (
+      mode === "production"
+      || mode === "legacy-baseline"
+      || mode === "selected-candidate"
+    ) {
       return mode;
     }
   }
-  throw new Error("Usage: check-preprocess-browser [--mode <current|speed-candidate>]");
+  throw new Error(
+    "Usage: check-preprocess-browser [--mode <production|legacy-baseline|selected-candidate>]",
+  );
 }
 
 async function handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
