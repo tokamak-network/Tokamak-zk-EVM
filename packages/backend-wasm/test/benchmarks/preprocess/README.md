@@ -166,3 +166,23 @@ npm run preprocess:bench:sigma1-encoding -- --mode adaptive
 
 The measured mean-time difference is 0.017%. No candidate is promoted or
 rejected by this report.
+
+## Candidate: MSM Scheduling
+
+Run each mode in an independent process:
+
+```sh
+npm run preprocess:bench:msm-scheduling -- --mode sequential
+npm run preprocess:bench:msm-scheduling -- --mode concurrent
+```
+
+Each measurement commits both actual permutation polynomials and checks both
+points against the native preprocess output.
+
+| Mode | Samples | Mean | Population standard deviation | Mean peak RSS |
+| --- | --- | ---: | ---: | ---: |
+| Sequential | 10,004.830, 9,979.773, 10,038.567 ms | 10,007.723 ms | 24.090 ms | 3.107 GiB |
+| Concurrent | 7,780.866, 7,777.495, 7,770.412 ms | 7,776.258 ms | 4.357 ms | 3.111 GiB |
+
+Concurrent scheduling reduced mean time by 22.30%. Mean peak RSS differed by
+0.004 GiB. No candidate is promoted or rejected by this report.

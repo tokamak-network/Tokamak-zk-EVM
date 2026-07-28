@@ -75,6 +75,7 @@
     "preprocess:bench:permutation-grid": "tsx test/benchmarks/preprocess/permutation-grid.ts",
     "preprocess:bench:inverse-ntt": "tsx test/benchmarks/preprocess/inverse-ntt.ts",
     "preprocess:bench:sigma1-encoding": "tsx test/benchmarks/preprocess/sigma1-encoding.ts",
+    "preprocess:bench:msm-scheduling": "tsx test/benchmarks/preprocess/msm-scheduling.ts",
     "prover:ops:check": "npm run prover:ops:field && npm run polynomial:buffer:check && npm run prover:ops:polynomial && npm run prover:ops:commitment",
     "prover:ops:commitment": "tsx test/checks/prover/check-prover-commitment-ops.ts",
     "prover:ops:field": "tsx test/checks/prover/check-field-buffer-ops.ts",
