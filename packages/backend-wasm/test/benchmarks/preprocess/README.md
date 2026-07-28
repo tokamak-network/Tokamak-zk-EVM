@@ -62,6 +62,34 @@ Every new benchmark mode must run exactly three times. Reports use the
 arithmetic mean and population standard deviation of those observations. No
 noise threshold, outlier rejection, or additional measurement is applied.
 
+## Current Baseline
+
+Measured with chunk size `2^18 = 262,144` on Apple M4 Pro, macOS 26.5.2,
+Node.js 26.0.0 arm64. Each run used an independent process and passed native
+output parity.
+
+| Run | Preprocess | Process wall | Peak RSS |
+| ---: | ---: | ---: | ---: |
+| 1 | 10,696.768 ms | 10,957.388 ms | 3.094 GiB |
+| 2 | 10,795.257 ms | 11,039.767 ms | 3.104 GiB |
+| 3 | 10,748.076 ms | 10,987.703 ms | 3.093 GiB |
+| Mean | 10,746.700 ms | 10,994.952 ms | 3.0968 GiB |
+| Population standard deviation | 40.220 ms | 34.019 ms | 0.0053 GiB |
+
+Exclusive stage results:
+
+| Stage | Mean | Population standard deviation |
+| --- | ---: | ---: |
+| Fixture read | 23.980 ms | 9.240 ms |
+| Runtime install | 224.089 ms | 1.967 ms |
+| Input decode | 0.636 ms | 0.018 ms |
+| Permutation polynomials | 747.959 ms | 6.999 ms |
+| `s0` commitment | 4,992.454 ms | 21.073 ms |
+| `s1` commitment | 5,002.982 ms | 13.505 ms |
+| `O_pub_fix` | 1.241 ms | 0.013 ms |
+| Output | 1.427 ms | 0.065 ms |
+| Parity check | 0.151 ms | 0.012 ms |
+
 ## Chromium Baseline
 
 The test-only browser harness loads the three binary preprocess inputs, runs
