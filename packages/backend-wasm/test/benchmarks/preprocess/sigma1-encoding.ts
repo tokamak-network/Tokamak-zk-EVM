@@ -17,11 +17,7 @@ const fixtureRoot = path.resolve("fixtures/small/runtime");
 const chunkPoints = 1 << 18;
 const g1AffineBytes = 96;
 
-type EncodingMode = "adaptive" | "known-dense";
-type Mode =
-  | EncodingMode
-  | "paired-adaptive-first"
-  | "paired-known-dense-first";
+type Mode = "adaptive" | "known-dense";
 
 async function main(): Promise<void> {
   const mode = parseMode(process.argv.slice(2));
@@ -61,32 +57,6 @@ async function main(): Promise<void> {
         polynomial,
         chunkPoints,
       );
-
-    if (mode === "paired-adaptive-first" || mode === "paired-known-dense-first") {
-      const firstMode: EncodingMode =
-        mode === "paired-adaptive-first" ? "adaptive" : "known-dense";
-      const secondMode: EncodingMode =
-        firstMode === "adaptive" ? "known-dense" : "adaptive";
-      const first = await measureCommitment(
-        firstMode === "adaptive" ? executeAdaptive : executeKnownDense,
-      );
-      assertPointParity(runtime.G1.toAffine(first.point), expected);
-      const second = await measureCommitment(
-        secondMode === "adaptive" ? executeAdaptive : executeKnownDense,
-      );
-      assertPointParity(runtime.G1.toAffine(second.point), expected);
-      console.log(JSON.stringify({
-        mode,
-        parity: true,
-        coefficientDensity: density,
-        timingMs: {
-          [firstMode]: first.elapsedMs,
-          [secondMode]: second.elapsedMs,
-        },
-        peakRssBytes: process.resourceUsage().maxRSS * 1024,
-      }));
-      return;
-    }
 
     const measured = await measureCommitment(
       mode === "adaptive" ? executeAdaptive : executeKnownDense,
@@ -215,18 +185,10 @@ async function readExpectedS0(fileBytes: Uint8Array): Promise<Uint8Array> {
 
 function parseMode(argv: readonly string[]): Mode {
   if (argv.length !== 2 || argv[0] !== "--mode") {
-    throw new Error(
-      "Usage: sigma1-encoding --mode "
-        + "<adaptive|known-dense|paired-adaptive-first|paired-known-dense-first>",
-    );
+    throw new Error("Usage: sigma1-encoding --mode <adaptive|known-dense>");
   }
   const mode = argv[1];
-  if (
-    mode === "adaptive"
-    || mode === "known-dense"
-    || mode === "paired-adaptive-first"
-    || mode === "paired-known-dense-first"
-  ) {
+  if (mode === "adaptive" || mode === "known-dense") {
     return mode;
   }
   throw new Error(`Unsupported Sigma1 encoding benchmark mode: ${mode}`);

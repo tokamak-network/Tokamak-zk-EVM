@@ -151,14 +151,18 @@ three measurements. No candidate is promoted or rejected by this report.
 ## Candidate: Sigma1 Encoding Dispatch
 
 The adaptive and known-dense paths passed commitment parity. All prior
-performance measurements are invalid.
-
-The benchmark now supports paired runs in both orders:
+performance measurements were replaced by the following independent-process
+measurements:
 
 ```sh
-npm run preprocess:bench:sigma1-encoding -- --mode paired-adaptive-first
-npm run preprocess:bench:sigma1-encoding -- --mode paired-known-dense-first
+npm run preprocess:bench:sigma1-encoding -- --mode known-dense
+npm run preprocess:bench:sigma1-encoding -- --mode adaptive
 ```
 
-Use alternating paired modes in a future controlled benchmark. Neither path
-has an accepted performance result or production decision.
+| Mode | Samples | Mean | Population standard deviation | Mean peak RSS |
+| --- | --- | ---: | ---: | ---: |
+| Known dense | 5,010.365, 5,005.995, 5,003.554 ms | 5,006.638 ms | 2.817 ms | 2.978 GiB |
+| Adaptive | 5,027.766, 4,986.509, 5,008.183 ms | 5,007.486 ms | 16.850 ms | 2.943 GiB |
+
+The measured mean-time difference is 0.017%. No candidate is promoted or
+rejected by this report.
