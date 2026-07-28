@@ -27,7 +27,7 @@ const mI = 4096;
 const sMax = 256;
 const fieldBytes = 32;
 const permutationEntryBytes = 16;
-const measuredRuns = 5;
+const measuredRuns = 3;
 const kernelName = "tokamak_bench_permutationGrid";
 
 type Mode = "baseline" | "row-template" | "wasm-kernel";
@@ -67,7 +67,8 @@ async function main(): Promise<void> {
       measuredRuns,
       timingMs: {
         samples,
-        median: median(samples),
+        mean: mean(samples),
+        populationStandardDeviation: populationStandardDeviation(samples),
       },
       peakRssBytes: process.resourceUsage().maxRSS * 1024,
     }));
@@ -383,9 +384,16 @@ function assertBytesEqual(actual: Uint8Array, expected: Uint8Array, label: strin
   }
 }
 
-function median(values: readonly number[]): number {
-  const sorted = [...values].sort((left, right) => left - right);
-  return sorted[Math.floor(sorted.length / 2)];
+function mean(values: readonly number[]): number {
+  return values.reduce((total, value) => total + value, 0) / values.length;
+}
+
+function populationStandardDeviation(values: readonly number[]): number {
+  const average = mean(values);
+  return Math.sqrt(
+    values.reduce((total, value) => total + (value - average) ** 2, 0)
+      / values.length,
+  );
 }
 
 function parseMode(argv: readonly string[]): Mode {

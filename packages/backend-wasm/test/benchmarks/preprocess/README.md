@@ -115,8 +115,17 @@ npm run preprocess:bench:permutation-grid -- --mode wasm-kernel
 ```
 
 Each mode checks parity and measures evaluation-grid construction without
-inverse NTT. Previous performance results and ranking are invalid. All three
-modes remain unmeasured candidates.
+inverse NTT.
+
+| Mode | Samples | Mean | Population standard deviation | Peak RSS |
+| --- | --- | ---: | ---: | ---: |
+| Current element copy | 13.014, 13.594, 10.894 ms | 12.501 ms | 1.161 ms | 569.95 MiB |
+| Row-template doubling copy | 5.957, 6.562, 4.729 ms | 5.749 ms | 0.763 ms | 550.92 MiB |
+| Test-only WASM kernel | 9.238, 7.988, 5.683 ms | 7.636 ms | 1.473 ms | 752.39 MiB |
+
+All modes matched byte-for-byte. Row-template reduced mean grid-construction
+time by 54.0% and the WASM kernel reduced it by 38.9% relative to the current
+implementation. No candidate is promoted by this report.
 
 ## Candidate: Combined Inverse NTT
 
