@@ -218,3 +218,29 @@ All 30 measurements passed commitment parity. Exponent 17 had the lowest
 operation mean. It was 16.674 ms faster than the current exponent-18 default
 and used 0.808 GiB less mean peak RSS. No chunk size is promoted by this
 report.
+
+## Candidate: `O_pub_fix` Input Preparation
+
+Run each mode in an independent process:
+
+```sh
+npm run preprocess:bench:o-pub-fix -- --mode copied-elementwise
+npm run preprocess:bench:o-pub-fix -- --mode zero-copy-batch
+```
+
+Both modes use the same 600 points, scalars, and `msmAffineRaw` operation. The
+copied-elementwise mode copies each base into a new contiguous buffer and
+converts each scalar separately. The zero-copy-batch mode passes the compact
+CRS base section directly and converts the complete Montgomery scalar buffer
+once.
+
+| Mode | Samples | Operation mean | Population standard deviation | Process-wall mean | Population standard deviation | Controlled temporary | Mean peak RSS |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Copied, elementwise conversion | 3.037, 3.138, 3.301 ms | 3.159 ms | 0.109 ms | 252.180 ms | 1.788 ms | 75.00 KiB | 571.93 MiB |
+| Zero-copy, batch conversion | 3.490, 3.388, 3.518 ms | 3.465 ms | 0.056 ms | 253.730 ms | 3.420 ms | 18.75 KiB | 577.37 MiB |
+
+Zero-copy batch preparation was 0.306 ms slower by operation mean for this
+600-point input and reduced directly controlled temporary storage by
+56.25 KiB. Process peak RSS is dominated by runtime installation and does not
+resolve that small allocation difference. No candidate is promoted or rejected
+by this report.
