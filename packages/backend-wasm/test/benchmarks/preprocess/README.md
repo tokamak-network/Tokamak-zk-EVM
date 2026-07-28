@@ -53,10 +53,10 @@ All previously recorded preprocess timing and memory measurements are invalid.
 The benchmark environment contained substantial uncontrolled noise. Do not use
 the removed values to compare implementations or select production behavior.
 
-The benchmark programs and fixture identities remain available for a future
-rerun. No preprocess performance baseline is currently accepted.
-This invalidation applies to the preprocess measurements only; it does not
-alter separately recorded converter benchmarks.
+The benchmark programs and fixture identities were retained and rerun under
+the three-measurement policy below. This invalidation applies only to the
+removed measurements; it does not invalidate the current results or alter
+separately recorded converter benchmarks.
 
 Every new benchmark mode must run exactly three times. Reports use the
 arithmetic mean and population standard deviation of those observations. No
@@ -186,3 +186,35 @@ points against the native preprocess output.
 
 Concurrent scheduling reduced mean time by 22.30%. Mean peak RSS differed by
 0.004 GiB. No candidate is promoted or rejected by this report.
+
+## Candidate: Dense MSM Chunk Size
+
+Run each exponent in an independent process:
+
+```sh
+npm run preprocess:bench:chunk-size -- --chunk-size-exponent <10..19>
+```
+
+Each measurement sequentially commits both actual permutation polynomials,
+matching current production scheduling, and checks both points against the
+native preprocess output. `Temporary` is the largest raw-scalar conversion
+buffer directly controlled by the chunk loop; it excludes allocations internal
+to ffjavascript.
+
+| Exponent | Points | Operation mean | Population standard deviation | Process-wall mean | Population standard deviation | Temporary | Mean peak RSS | Population standard deviation |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 10 | 1,024 | 19,423.611 ms | 74.437 ms | 20,426.799 ms | 76.541 ms | 0.031 MiB | 1.729 GiB | 0.046 GiB |
+| 11 | 2,048 | 16,056.511 ms | 33.339 ms | 17,061.812 ms | 24.150 ms | 0.063 MiB | 1.715 GiB | 0.038 GiB |
+| 12 | 4,096 | 14,623.046 ms | 58.824 ms | 15,635.364 ms | 70.087 ms | 0.125 MiB | 1.657 GiB | 0.095 GiB |
+| 13 | 8,192 | 13,017.604 ms | 37.498 ms | 14,024.786 ms | 33.194 ms | 0.250 MiB | 1.820 GiB | 0.017 GiB |
+| 14 | 16,384 | 11,624.481 ms | 9.512 ms | 12,627.164 ms | 13.284 ms | 0.500 MiB | 1.860 GiB | 0.035 GiB |
+| 15 | 32,768 | 11,092.939 ms | 31.153 ms | 12,104.170 ms | 25.349 ms | 1.000 MiB | 1.890 GiB | 0.086 GiB |
+| 16 | 65,536 | 10,823.879 ms | 22.226 ms | 11,832.770 ms | 5.585 ms | 2.000 MiB | 1.978 GiB | 0.033 GiB |
+| 17 | 131,072 | 10,100.591 ms | 43.636 ms | 11,113.605 ms | 29.999 ms | 4.000 MiB | 2.269 GiB | 0.052 GiB |
+| 18 | 262,144 | 10,117.265 ms | 19.183 ms | 11,121.117 ms | 19.036 ms | 8.000 MiB | 3.077 GiB | 0.040 GiB |
+| 19 | 524,288 | 10,152.030 ms | 43.690 ms | 11,168.164 ms | 45.439 ms | 16.000 MiB | 4.678 GiB | 0.053 GiB |
+
+All 30 measurements passed commitment parity. Exponent 17 had the lowest
+operation mean. It was 16.674 ms faster than the current exponent-18 default
+and used 0.808 GiB less mean peak RSS. No chunk size is promoted by this
+report.
