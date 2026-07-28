@@ -54,9 +54,13 @@ The benchmark environment contained substantial uncontrolled noise. Do not use
 the removed values to compare implementations or select production behavior.
 
 The benchmark programs and fixture identities remain available for a future
-controlled rerun. No preprocess performance baseline is currently accepted.
+rerun. No preprocess performance baseline is currently accepted.
 This invalidation applies to the preprocess measurements only; it does not
 alter separately recorded converter benchmarks.
+
+Every new benchmark mode must run exactly three times. Reports use the
+arithmetic mean and population standard deviation of those observations. No
+noise threshold, outlier rejection, or additional measurement is applied.
 
 ## Chromium Baseline
 
