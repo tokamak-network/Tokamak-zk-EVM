@@ -9,7 +9,11 @@ import { marked } from "marked";
 import { chromium } from "playwright";
 
 const execFileAsync = promisify(execFile);
-const DOCUMENTS = ["README.md", "CONTRIBUTING.md"] as const;
+const DOCUMENTS = [
+  "README.md",
+  "CONTRIBUTING.md",
+  "examples/browser/README.md",
+] as const;
 const EXPECTED_UNPUBLISHED_NPM_URL =
   "https://www.npmjs.com/package/@tokamak-zk-evm/snark-browser-compat";
 
@@ -357,7 +361,20 @@ async function checkPackedPackage(): Promise<void> {
       "dist/converter/worker/crs-converter-worker.js",
       "dist/converter/worker/backend_wasm_rkyv_decoder_bg.wasm",
       "dist/verifier/generated/sigma-verify.generated.js",
+      "examples/browser/README.md",
+      "examples/browser/index.html",
+      "examples/browser/package.json",
+      "examples/browser/tsconfig.json",
+      "examples/browser/src/generate-proof.ts",
+      "examples/browser/src/global.d.ts",
+      "examples/browser/src/inspect-and-validate.ts",
+      "examples/browser/src/load-binary.ts",
       "examples/browser/src/main.ts",
+      "examples/browser/src/prepare-artifacts.ts",
+      "examples/browser/src/run-preprocess.ts",
+      "examples/browser/src/staged-proof.ts",
+      "examples/browser/src/styles.css",
+      "examples/browser/src/verify-proof.ts",
     ] as const;
     for (const file of required) {
       if (!files.has(file)) {
