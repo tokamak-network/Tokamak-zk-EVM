@@ -12,6 +12,12 @@ even when the benchmark implementation that produced it is removed.
   supporting the fixed dense MSM chunk size.
 - [Priority 32 promotion review](./priority-32-promotion-review.md): independent
   and combined candidate promotion decisions.
+- [Prover initialization buffer benchmark](./prover-initialization-buffer-benchmark.md):
+  accepted initialization-buffer changes and rejected low-impact candidates.
+- [Prover timing checker audit](./prover-timing-checker-audit.md): ownership,
+  drift rules, and distribution boundaries for the retained timing checker.
+- [Staged prover API benchmark](./staged-prover-api-benchmark.md): execution-time
+  and memory evidence for the one-call and explicit staged APIs.
 - [Worker parallelization report](./rejected/outer-worker-msm.md): the
   rejected outer-worker MSM design, measurements, and rejection rationale.
 - [Rejected candidate summary](./rejected/rejected-candidate-summary.md):

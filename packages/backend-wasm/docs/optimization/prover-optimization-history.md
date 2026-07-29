@@ -267,7 +267,6 @@ npm run typecheck
 npm run typecheck:scripts
 npm run polynomial:buffer:check
 npm run prover:ops:check
-npm run prover:testing-mode:check
 npm run prover:stage-timing:check
 npm run build
 npm run prover:browser:check
@@ -287,9 +286,18 @@ retain larger benchmark tables or deprecated implementation details:
   selection, Chromium timing/RSS results, and the unbounded-call timeout.
 - [`priority-32-promotion-review.md`](./priority-32-promotion-review.md):
   independent Priority 32 candidate and combination evidence.
+- [`prover-initialization-buffer-benchmark.md`](./prover-initialization-buffer-benchmark.md):
+  initialization-buffer candidates, isolated measurements, and promotion
+  decisions.
+- [`prover-timing-checker-audit.md`](./prover-timing-checker-audit.md):
+  timing-checker ownership, drift rules, and package-exclusion requirements.
+- [`staged-prover-api-benchmark.md`](./staged-prover-api-benchmark.md):
+  one-call and staged API timing and memory comparisons.
 - [`rejected/outer-worker-msm.md`](./rejected/outer-worker-msm.md):
   the complete history and rejection rationale for the outer worker-wrapper
   MSM design.
+- [`rejected/rejected-candidate-summary.md`](./rejected/rejected-candidate-summary.md):
+  consolidated evidence for other removed or rejected candidates.
 
 ## Reporting Rules
 
@@ -2579,9 +2587,12 @@ evidence. Type checks, operation and polynomial parity, native testing-mode
 invariants, Node verifier acceptance, and Chromium proof generation
 (`120.18 s`) and verification (`20 ms`) passed.
 
-## Final Publication Gate
+## Historical 2.1.1 Publication Snapshot
 
-The final gate passed:
+The following results describe the `2.1.1` publication gate. They are retained
+as historical evidence and do not describe the current package candidate.
+
+That gate passed:
 
 - generated-source freshness, production and development type checks, artifact
   specs, binary formats, RKYV payload handling, and build-tool availability;
