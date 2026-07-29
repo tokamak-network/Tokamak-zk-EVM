@@ -286,12 +286,12 @@ The browser-compatible SNARK release build must:
 - resolve the exact synchronized `@tokamak-zk-evm/subcircuit-library` version from npm;
 - build and validate the converter Worker without bundling `ffjavascript`, `wasmbuilder`, or `wasmcurves`;
 - pack and validate one `@tokamak-zk-evm/snark-browser-compat` tarball; and
-- skip automated publication while the package does not yet exist on npm, requiring the first publication to be
-  performed manually from the verified release tarball.
+- compare the synchronized tarball version with npm, publishing it through the
+  configured npm Trusted Publisher only when it is strictly newer.
 
-After the first manual publication, maintainers must configure npm Trusted Publisher for
-`.github/workflows/publish-tokamak-zk-evm.yml`. Later synchronized releases may then publish the verified tarball through
-the same workflow.
+The workflow must skip publication when npm already contains the synchronized
+version and fail when the repository version is older than npm. npm versions
+are immutable and must never be reused for changed package contents.
 
 The check must not download every candidate archive in the Drive folder. It must first narrow candidates by strict file
 name and then download only the latest matching archive.

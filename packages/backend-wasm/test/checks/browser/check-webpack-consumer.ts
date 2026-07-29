@@ -17,6 +17,8 @@ import webpack, { type Configuration } from "webpack";
 
 const execFileAsync = promisify(execFile);
 const PACKAGE_NAME = "@tokamak-zk-evm/snark-browser-compat";
+const SUBCIRCUIT_LIBRARY_TARBALL =
+  process.env.BACKEND_WASM_SUBCIRCUIT_LIBRARY_TARBALL;
 const APPLICATION_SOURCE = `
 import { convertCrs } from "@tokamak-zk-evm/snark-browser-compat/converter";
 
@@ -95,6 +97,9 @@ async function main(): Promise<void> {
         "--no-audit",
         "--no-fund",
         "--no-package-lock",
+        ...(SUBCIRCUIT_LIBRARY_TARBALL === undefined
+          ? []
+          : [path.resolve(SUBCIRCUIT_LIBRARY_TARBALL)]),
         packageArchivePath,
       ],
       { cwd: applicationRoot },

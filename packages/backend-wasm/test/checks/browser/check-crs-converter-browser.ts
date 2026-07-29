@@ -22,9 +22,12 @@ import {
   BINARY_DIGEST_BYTES,
   BINARY_HEADER_BYTES,
 } from "../../../src/artifacts/binary/binary-format.js";
+import { BACKEND_WASM_PACKAGE_VERSION } from "../../../src/version.js";
 
 const execFileAsync = promisify(execFile);
 const PACKAGE_NAME = "@tokamak-zk-evm/snark-browser-compat";
+const SUBCIRCUIT_LIBRARY_TARBALL =
+  process.env.BACKEND_WASM_SUBCIRCUIT_LIBRARY_TARBALL;
 const CRS_SOURCE_PATH = path.resolve(
   "tmp/fixtures/small/source/setup/combined_sigma.rkyv",
 );
@@ -180,6 +183,9 @@ async function main(): Promise<void> {
         "--no-audit",
         "--no-fund",
         "--no-package-lock",
+        ...(SUBCIRCUIT_LIBRARY_TARBALL === undefined
+          ? []
+          : [path.resolve(SUBCIRCUIT_LIBRARY_TARBALL)]),
         packageArchivePath,
       ],
       { cwd: applicationRoot },
@@ -415,7 +421,7 @@ async function checkBuiltApplication(
         }
         if (
           artifact.inspection.formatVersion !== 1
-          || artifact.inspection.sourcePackageVersion !== "2.1.3"
+          || artifact.inspection.sourcePackageVersion !== BACKEND_WASM_PACKAGE_VERSION
         ) {
           throw new Error(`${name}Crs has unexpected version metadata.`);
         }

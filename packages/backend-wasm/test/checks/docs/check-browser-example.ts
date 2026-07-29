@@ -11,6 +11,10 @@ import { build } from "vite";
 
 const execFileAsync = promisify(execFile);
 const PACKAGE_NAME = "@tokamak-zk-evm/snark-browser-compat";
+const SUBCIRCUIT_LIBRARY_PACKAGE_NAME =
+  "@tokamak-zk-evm/subcircuit-library";
+const SUBCIRCUIT_LIBRARY_TARBALL =
+  process.env.BACKEND_WASM_SUBCIRCUIT_LIBRARY_TARBALL;
 const EXAMPLE_ROOT = "examples/browser";
 const FIXTURE_ROOT = "fixtures/small/runtime";
 
@@ -80,6 +84,10 @@ async function installPackedPackage(
     devDependencies?: Record<string, string>;
   };
   manifest.dependencies[PACKAGE_NAME] = `file:${archivePath}`;
+  if (SUBCIRCUIT_LIBRARY_TARBALL !== undefined) {
+    manifest.dependencies[SUBCIRCUIT_LIBRARY_PACKAGE_NAME] =
+      `file:${path.resolve(SUBCIRCUIT_LIBRARY_TARBALL)}`;
+  }
   delete manifest.devDependencies;
   await writeFile(packagePath, `${JSON.stringify(manifest, null, 2)}\n`);
   await execFileAsync(

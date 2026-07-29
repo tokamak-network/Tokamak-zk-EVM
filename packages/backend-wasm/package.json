@@ -1,14 +1,17 @@
 {
   "name": "@tokamak-zk-evm/snark-browser-compat",
-  "version": "2.1.3",
+  "version": "2.1.4",
   "description": "@tokamak-zk-evm/snark-browser-compat provides browser-compatible Tokamak zk-EVM preprocessing, proof generation, verification, and artifact conversion.",
   "license": "MIT OR Apache-2.0",
   "author": "Tokamak Network",
   "keywords": [
     "tokamak-zk-evm",
     "zero-knowledge-proofs",
+    "zk-snark",
+    "browser-preprocessing",
     "browser-prover",
     "proof-verification",
+    "artifact-conversion",
     "webassembly",
     "wasm",
     "bls12-381"
@@ -110,7 +113,7 @@
   },
   "dependencies": {
     "@noble/hashes": "^1.8.0",
-    "@tokamak-zk-evm/subcircuit-library": "2.1.3",
+    "@tokamak-zk-evm/subcircuit-library": "2.1.4",
     "ffjavascript": "^0.3.1"
   },
   "devDependencies": {

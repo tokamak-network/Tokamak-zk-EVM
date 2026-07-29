@@ -187,33 +187,25 @@ version from npm after the release workflow publishes that package.
 
 The repository release workflow validates the latest compatible public CRS,
 exports its verified `sigma_verify.json`, rebuilds the embedded verifier CRS,
-and uploads `snark-browser-compat-release-tarball`. The workflow does not
-automatically publish while the package is absent from npm.
+and uploads `snark-browser-compat-release-tarball`. It compares the synchronized
+tarball version with npm and uses the configured npm Trusted Publisher to
+publish only a strictly newer version. An equal version is validated but not
+republished; an older repository version fails. npm versions are immutable and
+must never be reused for changed package contents.
 
-For the first publication:
+For a synchronized release:
 
-1. Merge the release PR into `main`.
-2. Wait for the `Build browser-compatible SNARK package` job to succeed.
-3. Download and extract the `snark-browser-compat-release-tarball` workflow
-   artifact.
-4. Run `sha256sum --check SHA256SUMS` in the extracted artifact directory.
-5. Publish the extracted tarball:
+1. Run the root version synchronization and validation commands.
+2. Review and merge the release PR into `main`.
+3. Require the browser-compatible SNARK build and pre-publish checks to pass.
+4. Confirm the publish job selects the exact verified tarball and reports the
+   expected local and previously published versions.
+5. Download `snark-browser-compat-release-tarball` when an independent archive
+   review is required and run `sha256sum --check SHA256SUMS`.
 
-   ```sh
-   npm publish --access public --ignore-scripts \
-     ./tokamak-zk-evm-snark-browser-compat-X.Y.Z.tgz
-   ```
-
-6. Configure npm Trusted Publisher for
-   `.github/workflows/publish-tokamak-zk-evm.yml`.
-
-After bootstrap, the same workflow compares the synchronized version with npm
-and publishes only a strictly newer package version. npm versions are
-immutable; never reuse a published version.
-
-License and redistribution findings for release 2.1.3 are recorded in the
+License and redistribution findings for release 2.1.4 are recorded in the
 repository's
-[`snark-browser-compat-2.1.3-license-audit.md`](https://github.com/tokamak-network/Tokamak-zk-EVM/blob/main/packages/backend-wasm/docs/release/snark-browser-compat-2.1.3-license-audit.md).
+[`snark-browser-compat-2.1.4-license-audit.md`](https://github.com/tokamak-network/Tokamak-zk-EVM/blob/main/packages/backend-wasm/docs/release/snark-browser-compat-2.1.4-license-audit.md).
 
 Use `npm run clean:temp` to remove package-local temporary output while
 preserving `tmp/planning.md`.

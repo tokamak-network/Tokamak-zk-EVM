@@ -128,7 +128,7 @@ function checkRootReadme() {
     'https://eprint.iacr.org/2024/507',
     'bridge/src/verifiers/TokamakVerifier.sol',
     'https://etherscan.io/address/0x0C467a5082323Cc6F4b7077A9dFb0bbdaf6eC626',
-    'Use `@tokamak-zk-evm/snark-browser-compat` for supported bundler-based browser proof generation and verification.',
+    'Use `@tokamak-zk-evm/snark-browser-compat` for supported bundler-based browser preprocessing, proof generation, and verification.',
     'CHANGELOG.md',
   ]) {
     requireIncludes(relativePath, required);
@@ -136,7 +136,7 @@ function checkRootReadme() {
 
   requirePattern(
     relativePath,
-    /Is browser proof generation and verification officially supported\?[\s\S]*?Legacy WASM verifier packages remain deprecated/u,
+    /Are browser preprocessing, proof generation, and verification officially supported\?[\s\S]*?Legacy WASM verifier packages remain deprecated/u,
     'the supported browser SNARK and legacy WASM distinction',
   );
 
