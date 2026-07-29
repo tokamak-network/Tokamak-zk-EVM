@@ -11,12 +11,12 @@ Audit date: 2026-07-29
 | Package | `@tokamak-zk-evm/snark-browser-compat@2.1.3` |
 | Package license | `MIT OR Apache-2.0` |
 | Tarball | `tokamak-zk-evm-snark-browser-compat-2.1.3.tgz` |
-| Compressed size | 883,771 bytes |
-| Unpacked size | 10,273,491 bytes |
-| Entry count | 433 |
-| SHA-1 reported by npm | `db84a708cf6f350cf27091fb509e71bc115fd2df` |
-| SHA-256 | `3f276ac6b9aaf7f4f5529f8de7581f61ee8152abb12737e6621db99928720c7e` |
-| npm integrity | `sha512-ZlVzN77so041XqnPflVc5uAr7UvbGruOvdCrB3GFGbMggTDvAxhSctpCQ5DoY7MH/Hiihfq9TLYAF+vWzLP+rg==` |
+| Compressed size | 870,308 bytes |
+| Unpacked size | 10,203,085 bytes |
+| Entry count | 417 |
+| SHA-1 reported by npm | `1b1b1f473f472221ee579915c1c808ffdb20cb49` |
+| SHA-256 | `6fb1459a4dab71931fa630c9c3aa8b1e6cec387bd68e181a80cfa909628c2cda` |
+| npm integrity | `sha512-/SEFuts6jZDOLSNlH61JZy2rpfPYWqeQPJxRuUKEBZwvCbxneUcbLr57o1K4+K81M597VZ2UVc115hCGnlTkTQ==` |
 
 The candidate was built and packed on Apple Silicon with Rust 1.95.0,
 `wasm-bindgen-cli` 0.2.126, Node.js 26.0.0, npm 11.12.1, Vite 8.1.5,
@@ -90,7 +90,9 @@ The following checks passed:
 - exact tarball `npm pack --json` metadata and independent SHA-256 inspection
 - all four packed public subpath imports through the Vite browser example
 - packed Vite and Webpack production consumer execution
-- required-file and prohibited-prefix inspection across all 433 packed entries
+- required-file and prohibited-prefix inspection across all 417 packed entries
+- exact correspondence between packed compiled files and tracked production
+  source, with no stale build output
 - packed package-license, export, dependency, and embedded-license inspection
 - converter Worker external-import inspection
 

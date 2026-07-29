@@ -381,6 +381,7 @@ async function checkPackedPackage(): Promise<void> {
         throw new Error(`Packed package is missing ${file}.`);
       }
     }
+    await checkPackedDistMatchesTrackedSource(files);
     const packedThirdPartyLicenses = [...files]
       .filter((file) => file.startsWith("third-party-licenses/"))
       .sort();
@@ -433,6 +434,53 @@ async function checkPackedPackage(): Promise<void> {
     }
   } finally {
     await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+}
+
+async function checkPackedDistMatchesTrackedSource(
+  packedFiles: ReadonlySet<string>,
+): Promise<void> {
+  const { stdout } = await execFileAsync(
+    "git",
+    ["ls-files", "src"],
+    { cwd: process.cwd(), maxBuffer: 1024 * 1024 },
+  );
+  const expected = new Set<string>([
+    "dist/converter/worker/backend_wasm_rkyv_decoder_bg.wasm",
+  ]);
+
+  const sources = stdout
+    .trim()
+    .split("\n")
+    .filter((file) => file.endsWith(".ts"));
+  for (const source of sources) {
+    if (source.endsWith(".d.ts")) {
+      continue;
+    }
+    const relative = source.slice("src/".length, -".ts".length);
+    expected.add(`dist/${relative}.js`);
+    expected.add(`dist/${relative}.d.ts`);
+    if (relative.includes("/")) {
+      expected.add(`dist/${relative}.js.map`);
+      expected.add(`dist/${relative}.d.ts.map`);
+    }
+  }
+
+  const actual = new Set(
+    [...packedFiles].filter((file) => file.startsWith("dist/")),
+  );
+  const missing = [...expected].filter((file) => !actual.has(file)).sort();
+  const stale = [...actual].filter((file) => !expected.has(file)).sort();
+  if (missing.length > 0 || stale.length > 0) {
+    throw new Error(
+      [
+        "Packed dist does not match tracked production source.",
+        missing.length > 0 ? `Missing: ${missing.join(", ")}` : undefined,
+        stale.length > 0 ? `Stale: ${stale.join(", ")}` : undefined,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    );
   }
 }
 
