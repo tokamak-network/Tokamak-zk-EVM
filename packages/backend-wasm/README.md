@@ -73,8 +73,8 @@ import("@tokamak-zk-evm/snark-browser-compat/converter");
 Do not import the package root, `dist/` files, runtime primitives, generated
 constants, or protocol internals. Vite and Webpack production consumers are
 verified. Bundler-free direct serving of the package's compiled files is
-unsupported. Complete verifier, prover, staged-progress, converter, inspection,
-and validation source is available in
+unsupported. Complete preprocess, prover, staged-progress, verifier, converter,
+inspection, and validation source is available in
 [`examples/browser`](./examples/browser).
 
 ## Choose an API

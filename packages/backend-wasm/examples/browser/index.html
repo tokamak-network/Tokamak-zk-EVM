@@ -3,13 +3,129 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tokamak snark-browser-compat verifier example</title>
+    <meta
+      name="description"
+      content="Run Tokamak zk-EVM preprocessing, proof generation, and verification in a browser."
+    />
+    <title>Tokamak browser SNARK example</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/src/styles.css" />
   </head>
   <body>
+    <header>
+      <div>
+        <p class="eyebrow">snark-browser-compat</p>
+        <h1>Browser SNARK workflow</h1>
+      </div>
+      <output id="workflow-status" data-state="idle">Idle</output>
+    </header>
+
     <main>
-      <h1>Tokamak snark-browser-compat verifier</h1>
-      <output id="result">Verifying...</output>
+      <section aria-labelledby="artifact-heading">
+        <div class="section-heading">
+          <h2 id="artifact-heading">Artifact URLs</h2>
+          <p>Application-owned binary inputs</p>
+        </div>
+        <div class="artifact-grid">
+          <label>
+            <span>Permutation</span>
+            <input id="permutation-url" value="/artifacts/permutation.bin" />
+          </label>
+          <label>
+            <span>Instance</span>
+            <input id="instance-url" value="/artifacts/instance.bin" />
+          </label>
+          <label>
+            <span>Preprocess CRS</span>
+            <input id="preprocess-crs-url" value="/artifacts/preprocess-crs.bin" />
+          </label>
+          <label>
+            <span>Witness</span>
+            <input id="witness-url" value="/artifacts/witness.bin" />
+          </label>
+          <label>
+            <span>Prover CRS</span>
+            <input id="prover-crs-url" value="/artifacts/prover-crs.bin" />
+          </label>
+          <label>
+            <span>Verifier preprocess fallback</span>
+            <input
+              id="verifier-preprocess-url"
+              value="/artifacts/verifier-preprocess.bin"
+            />
+          </label>
+          <label>
+            <span>Proof fallback</span>
+            <input id="proof-url" value="/artifacts/proof.bin" />
+          </label>
+        </div>
+      </section>
+
+      <section aria-labelledby="workflow-heading">
+        <div class="section-heading">
+          <h2 id="workflow-heading">Operations</h2>
+          <p>Install each independent runtime before use</p>
+        </div>
+
+        <div class="operation-table">
+          <article>
+            <div>
+              <p class="step">01</p>
+              <h3>Preprocess</h3>
+              <p id="preprocess-status">Not installed</p>
+            </div>
+            <label class="exponent">
+              <span>Chunk exponent</span>
+              <input id="preprocess-exponent" type="number" min="10" max="19" value="17" />
+            </label>
+            <div class="actions">
+              <button id="install-preprocess" type="button">Install</button>
+              <button id="run-preprocess" type="button" disabled>Preprocess</button>
+              <a id="download-preprocess" hidden>Download</a>
+            </div>
+          </article>
+
+          <article>
+            <div>
+              <p class="step">02</p>
+              <h3>Prove</h3>
+              <p id="prover-status">Not installed</p>
+            </div>
+            <label class="exponent">
+              <span>Chunk exponent</span>
+              <input id="prover-exponent" type="number" min="10" max="19" value="18" />
+            </label>
+            <div class="actions">
+              <button id="install-prover" type="button">Install</button>
+              <button id="run-prover" type="button" disabled>Generate proof</button>
+              <a id="download-proof" hidden>Download</a>
+            </div>
+          </article>
+
+          <article>
+            <div>
+              <p class="step">03</p>
+              <h3>Verify</h3>
+              <p id="verifier-status">Not installed</p>
+            </div>
+            <p class="input-policy">Generated outputs take precedence over fallback URLs.</p>
+            <div class="actions">
+              <button id="install-verifier" type="button">Install</button>
+              <button id="run-verifier" type="button" disabled>Verify</button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="result-band" aria-labelledby="result-heading">
+        <div class="section-heading">
+          <h2 id="result-heading">Latest result</h2>
+          <p id="result-source">No operation completed</p>
+        </div>
+        <output id="result">Ready</output>
+      </section>
     </main>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

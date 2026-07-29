@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
-import { chromium } from "playwright";
+import { chromium, type Page } from "playwright";
 import { build } from "vite";
 
 const execFileAsync = promisify(execFile);
@@ -122,9 +122,14 @@ async function copyVerifierFixtures(applicationRoot: string): Promise<void> {
 
 async function typecheckExample(applicationRoot: string): Promise<void> {
   const tsc = path.resolve("node_modules", ".bin", "tsc");
-  await execFileAsync(tsc, ["--project", "tsconfig.json", "--noEmit"], {
-    cwd: applicationRoot,
-  });
+  try {
+    await execFileAsync(tsc, ["--project", "tsconfig.json", "--noEmit"], {
+      cwd: applicationRoot,
+    });
+  } catch (error) {
+    const output = commandErrorOutput(error);
+    throw new Error(`Packed browser example typecheck failed:\n${output}`);
+  }
 }
 
 async function checkBuiltExample(outputRoot: string): Promise<void> {
@@ -152,12 +157,20 @@ async function checkBuiltExample(outputRoot: string): Promise<void> {
     });
 
     await page.goto(`http://127.0.0.1:${address.port}/`, { waitUntil: "networkidle" });
+    await assertWorkflowControls(page);
+    await page.locator("#install-verifier").click();
+    await page.getByRole("button", { name: "Verify", exact: true }).waitFor({
+      state: "visible",
+    });
+    await page.getByRole("button", { name: "Verify", exact: true }).click();
     const handle = await page.waitForFunction(
       () => {
         const result = (window as unknown as {
           __tokamakExampleResult?: ExampleResult;
         }).__tokamakExampleResult;
-        return result?.status !== "pending" ? result : undefined;
+        return result?.status !== "pending" && result?.valid !== undefined
+          ? result
+          : undefined;
       },
       undefined,
       { timeout: 120_000 },
@@ -172,6 +185,15 @@ async function checkBuiltExample(outputRoot: string): Promise<void> {
   } finally {
     await browser?.close();
     server.close();
+  }
+}
+
+async function assertWorkflowControls(page: Page): Promise<void> {
+  for (const name of ["Preprocess", "Generate proof", "Verify"]) {
+    const control = page.getByRole("button", { name, exact: true });
+    if (await control.count() !== 1) {
+      throw new Error(`Packed browser example is missing the '${name}' operation.`);
+    }
   }
 }
 
@@ -209,6 +231,21 @@ function contentTypeFor(filePath: string): string {
     return "text/html; charset=utf-8";
   }
   return "application/octet-stream";
+}
+
+function commandErrorOutput(error: unknown): string {
+  if (typeof error !== "object" || error === null) {
+    return String(error);
+  }
+  const commandError = error as {
+    readonly message?: unknown;
+    readonly stdout?: unknown;
+    readonly stderr?: unknown;
+  };
+  return [commandError.stdout, commandError.stderr, commandError.message]
+    .filter((value): value is string => typeof value === "string" && value.length > 0)
+    .join("\n")
+    .trim();
 }
 
 const entrypoint = fileURLToPath(import.meta.url);

@@ -1,6 +1,7 @@
 import {
   install as installProver,
   prove,
+  type ProverInstallationInfo,
 } from "@tokamak-zk-evm/snark-browser-compat/prover";
 
 import { loadBinary } from "./load-binary.js";
@@ -12,11 +13,15 @@ export interface ProverArtifactUrls {
   readonly proverCrs: string | URL;
 }
 
+export function installProverRuntime(
+  chunkSizeExponent = 18,
+): Promise<ProverInstallationInfo> {
+  return installProver({ chunkSizeExponent });
+}
+
 export async function generateProof(
   urls: ProverArtifactUrls,
-  chunkSizeExponent = 18,
 ): Promise<Uint8Array> {
-  await installProver({ chunkSizeExponent });
   const [witness, permutation, instance, proverCrs] = await Promise.all([
     loadBinary(urls.witness),
     loadBinary(urls.permutation),
