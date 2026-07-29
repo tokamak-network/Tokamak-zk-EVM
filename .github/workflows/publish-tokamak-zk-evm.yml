@@ -686,6 +686,8 @@ jobs:
     runs-on: ubuntu-22.04
     needs: check-main-crs
     timeout-minutes: 45
+    env:
+      BACKEND_WASM_VERIFIER_CRS_SOURCE: ../backend/setup/output/sigma_verify.json
 
     steps:
       - name: Checkout code

@@ -87,14 +87,17 @@ Do not edit generated production files manually. Maintain them through:
 ```sh
 npm run specs:generate
 npm run subcircuit-library:generate
+export BACKEND_WASM_VERIFIER_CRS_SOURCE=/absolute/path/to/sigma_verify.json
 npm run verifier-crs:generate
 ```
 
 The subcircuit generator reads the pinned
 `@tokamak-zk-evm/subcircuit-library` dependency. The verifier CRS generator
-requires the explicit native owner path
-`../backend/setup/output/sigma_verify.json`. Every production build regenerates
-these inputs instead of reusing a stale verifier CRS.
+requires `BACKEND_WASM_VERIFIER_CRS_SOURCE` to identify the explicit native
+owner `sigma_verify.json` path. `build`, `typecheck`, and `prepack` use the same
+required variable. They fail when it is missing, empty, or does not identify a
+file. Every production build regenerates these inputs instead of reusing a
+stale verifier CRS.
 
 ## Test fixture policy
 
@@ -155,6 +158,7 @@ the repository's
 5. Inspect the actual packlist and packed metadata:
 
    ```sh
+   export BACKEND_WASM_VERIFIER_CRS_SOURCE=/absolute/path/to/sigma_verify.json
    npm pack --dry-run
    ```
 

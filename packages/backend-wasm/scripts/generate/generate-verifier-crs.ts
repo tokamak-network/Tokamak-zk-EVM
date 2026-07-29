@@ -11,7 +11,7 @@ import type { VerifierInput } from "../../src/verifier/protocol/verify-snark.js"
 const backendWasmRoot = path.resolve(import.meta.dirname, "../..");
 const generatedPath = path.join(backendWasmRoot, "src", "verifier", "generated", "sigma-verify.generated.ts");
 const checkMode = process.argv.includes("--check");
-const inputPath = resolveInputPath(process.argv);
+const inputPath = resolveInputPath(process.env.BACKEND_WASM_VERIFIER_CRS_SOURCE);
 
 interface SigmaVerifyJson {
   readonly G: AffinePointJson;
@@ -58,15 +58,12 @@ async function main(): Promise<void> {
   }
 }
 
-function resolveInputPath(argv: readonly string[]): string {
-  const inputIndex = argv.indexOf("--input");
-  if (inputIndex === -1) {
-    throw new Error("Verifier CRS generation requires --input <path-to-sigma_verify.json>.");
-  }
-
-  const value = argv[inputIndex + 1];
-  if (value === undefined || value.trim() === "" || value.startsWith("--")) {
-    throw new Error("--input requires a non-empty path to sigma_verify.json.");
+function resolveInputPath(value: string | undefined): string {
+  if (value === undefined || value.trim() === "") {
+    throw new Error(
+      "Verifier CRS generation requires BACKEND_WASM_VERIFIER_CRS_SOURCE "
+      + "to name the sigma_verify.json source file.",
+    );
   }
 
   return path.resolve(value);
