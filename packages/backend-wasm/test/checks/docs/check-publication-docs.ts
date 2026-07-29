@@ -317,6 +317,24 @@ async function checkPackedPackage(): Promise<void> {
     }
     const result = results[0];
     const files = new Set(result.files.map((file) => file.path));
+    const requiredThirdPartyLicenses = [
+      "third-party-licenses/rkyv-decoder-wasm/ahash-0.7.8/LICENSE-MIT",
+      "third-party-licenses/rkyv-decoder-wasm/bytecheck-0.6.12/LICENSE",
+      "third-party-licenses/rkyv-decoder-wasm/cfg-if-1.0.4/LICENSE-MIT",
+      "third-party-licenses/rkyv-decoder-wasm/hashbrown-0.12.3/LICENSE-MIT",
+      "third-party-licenses/rkyv-decoder-wasm/once_cell-1.21.4/LICENSE-MIT",
+      "third-party-licenses/rkyv-decoder-wasm/ptr_meta-0.1.4/LICENSE",
+      "third-party-licenses/rkyv-decoder-wasm/rend-0.4.2/LICENSE",
+      "third-party-licenses/rkyv-decoder-wasm/rkyv-0.7.46/LICENSE",
+      "third-party-licenses/rkyv-decoder-wasm/rust-1.95.0/COPYRIGHT",
+      "third-party-licenses/rkyv-decoder-wasm/rust-1.95.0/LICENSE-MIT",
+      "third-party-licenses/rkyv-decoder-wasm/seahash-4.1.0/LICENSE-MIT",
+      "third-party-licenses/rkyv-decoder-wasm/simdutf8-0.1.5/LICENSE-MIT",
+      "third-party-licenses/rkyv-decoder-wasm/unicode-ident-1.0.24/LICENSE-MIT",
+      "third-party-licenses/rkyv-decoder-wasm/unicode-ident-1.0.24/LICENSE-UNICODE",
+      "third-party-licenses/rkyv-decoder-wasm/wasm-bindgen-0.2.126/LICENSE-MIT",
+      "third-party-licenses/rkyv-decoder-wasm/wasm-bindgen-shared-0.2.126/LICENSE-MIT",
+    ] as const;
     const required = [
       "package.json",
       "README.md",
@@ -324,6 +342,7 @@ async function checkPackedPackage(): Promise<void> {
       "LICENSE-MIT",
       "LICENSE-APACHE",
       "THIRD_PARTY_NOTICES.md",
+      ...requiredThirdPartyLicenses,
       "dist/prover/index.js",
       "dist/prover/index.d.ts",
       "dist/preprocess/index.js",
@@ -341,6 +360,20 @@ async function checkPackedPackage(): Promise<void> {
       if (!files.has(file)) {
         throw new Error(`Packed package is missing ${file}.`);
       }
+    }
+    const packedThirdPartyLicenses = [...files]
+      .filter((file) => file.startsWith("third-party-licenses/"))
+      .sort();
+    const expectedThirdPartyLicenses = [...requiredThirdPartyLicenses].sort();
+    if (
+      packedThirdPartyLicenses.length !== expectedThirdPartyLicenses.length
+      || packedThirdPartyLicenses.some(
+        (file, index) => file !== expectedThirdPartyLicenses[index],
+      )
+    ) {
+      throw new Error(
+        `Packed third-party license set differs from the selected runtime license set: ${JSON.stringify(packedThirdPartyLicenses)}.`,
+      );
     }
 
     const excludedPrefixes = [
