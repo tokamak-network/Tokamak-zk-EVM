@@ -167,7 +167,18 @@ the repository's
 7. Confirm that `test`, `scripts`, `fixtures`, `tools`, `tmp`, diagnostics, and
    copied artifacts are excluded.
 8. Exercise the packed package through the browser consumer checks before
-   publication.
+   publication:
+
+   ```sh
+   npm run converter:browser:check
+   npm run converter:crs:browser:check
+   npm run converter:webpack:check
+   ```
+
+   `converter:crs:browser:check` requires the copied and prepared owner
+   fixtures described above. The release CI runs the converter error and
+   Worker-boundary check because it does not acquire or generate test CRS
+   fixtures.
 
 The package intentionally remains outside the root npm workspace. Its release
 build resolves the exact synchronized `@tokamak-zk-evm/subcircuit-library`

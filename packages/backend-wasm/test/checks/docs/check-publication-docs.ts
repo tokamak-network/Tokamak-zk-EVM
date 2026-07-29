@@ -249,7 +249,7 @@ function checkQualifiedClaims(readme: string): void {
   const normalized = readme.replace(/\s+/g, " ");
   const requiredStatements = [
     "Firefox or Safari | Not yet verified",
-    "Webpack consumer build | Requires compatible ESM/Worker asset handling; not yet verified",
+    "Chromium with a Webpack production build | Verified",
     "not minimum requirements",
     "does not authenticate the producer",
     "does not silently fall back",

@@ -71,10 +71,10 @@ import("@tokamak-zk-evm/snark-browser-compat/converter");
 ```
 
 Do not import the package root, `dist/` files, runtime primitives, generated
-constants, or protocol internals. A Vite production consumer is verified.
-Bundler-free direct serving of the package's compiled files is unsupported.
-Complete verifier, prover, staged-progress, converter, inspection, and
-validation source is available in
+constants, or protocol internals. Vite and Webpack production consumers are
+verified. Bundler-free direct serving of the package's compiled files is
+unsupported. Complete verifier, prover, staged-progress, converter, inspection,
+and validation source is available in
 [`examples/browser`](./examples/browser).
 
 ## Choose an API
@@ -429,14 +429,14 @@ application's trust boundary requires it.
 
 ## Browser deployment and lifecycle
 
-A Vite production build running in Chromium is the currently verified
-browser-and-bundler combination.
+Vite and Webpack production builds running in Chromium are the currently
+verified browser-and-bundler combinations.
 
 | Capability | Status |
 | --- | --- |
 | Chromium with a Vite production build | Verified |
+| Chromium with a Webpack production build | Verified |
 | Firefox or Safari | Not yet verified |
-| Webpack consumer build | Requires compatible ESM/Worker asset handling; not yet verified |
 | Bundler-free static ESM | Unsupported |
 | Cross-origin isolation and `SharedArrayBuffer` | Not required by the verified path |
 

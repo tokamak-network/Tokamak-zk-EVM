@@ -2,7 +2,7 @@
 
 Audience: maintainers preparing the `@tokamak-zk-evm/snark-browser-compat` npm release.
 
-Audit date: 2026-07-27
+Audit date: 2026-07-29
 
 ## Publication candidate
 
@@ -11,16 +11,17 @@ Audit date: 2026-07-27
 | Package | `@tokamak-zk-evm/snark-browser-compat@2.1.3` |
 | Package license | `MIT OR Apache-2.0` |
 | Tarball | `tokamak-zk-evm-snark-browser-compat-2.1.3.tgz` |
-| Compressed size | 861,685 bytes |
-| Unpacked size | 10,347,304 bytes |
-| Entry count | 396 |
-| SHA-1 reported by npm | `b7bc6bc9b7430656d1a8dae34b5d19e553cbea8f` |
-| SHA-256 | `ac346a5037f1f21753bd36dee2d80d44298fc6e55aa5f52834439663bc433a61` |
-| npm integrity | `sha512-sMIdaQBMg2ylpFIF1svahhS46a4uayE7mkyAjQsPVi17A5Wxu5E4yiUn5+/j4mkFSQ1aW9mzgLRTakRiFW7Dqg==` |
+| Compressed size | 1,935,231 bytes |
+| Unpacked size | 22,141,317 bytes |
+| Entry count | 432 |
+| SHA-1 reported by npm | `ac0f99a7e4400f56a588780ea0699fd875609ec2` |
+| SHA-256 | `2d11bbc2f3a6ec951eddab8690eba536355f08117c6419c78aca9c048c24f634` |
+| npm integrity | `sha512-iHFzmb3kPZEFpDfQ/EflbFIBXrRVFRwA2RwpDKLw8eJ6FJIuBcCd0zyUqJVME+fJKif7Y+S6z/FuxQIktFKf1Q==` |
 
 The candidate was built and packed on Apple Silicon with Rust 1.95.0,
 `wasm-bindgen-cli` 0.2.126, Node.js 26.0.0, npm 11.12.1, Vite 8.1.5,
-Playwright 1.61.1, and the package lockfile in this repository.
+Webpack 5.109.2, Playwright 1.61.1, and the package lockfile in this
+repository.
 
 ## Package boundary
 
@@ -32,8 +33,9 @@ benchmarks, diagnostics, scripts, tools, `docs`, `tmp`, and `node_modules`.
 
 The converter Worker retains a bare `ffjavascript` import. Its build metadata
 and packed output contain no bundled `ffjavascript`, `wasmbuilder`, or
-`wasmcurves` source. A packed-package Vite production build and Chromium
-execution passed with those packages resolved as consumer dependencies.
+`wasmcurves` source. Packed-package Vite and Webpack production builds and
+Chromium execution passed with those packages resolved as consumer
+dependencies.
 
 ## Production dependency inventory
 
@@ -76,6 +78,8 @@ The following checks passed:
 - `npm run typecheck`
 - `npm run typecheck:scripts`
 - `npm run converter:browser:check`
+- `npm run converter:crs:browser:check`
+- `npm run converter:webpack:check`
 - `npm run docs:publication:check`
 - exact tarball metadata inspection
 - packed-file exclusion check
