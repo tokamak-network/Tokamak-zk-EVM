@@ -11,12 +11,12 @@ Audit date: 2026-07-29
 | Package | `@tokamak-zk-evm/snark-browser-compat@2.1.3` |
 | Package license | `MIT OR Apache-2.0` |
 | Tarball | `tokamak-zk-evm-snark-browser-compat-2.1.3.tgz` |
-| Compressed size | 1,935,231 bytes |
-| Unpacked size | 22,141,317 bytes |
-| Entry count | 432 |
-| SHA-1 reported by npm | `ac0f99a7e4400f56a588780ea0699fd875609ec2` |
-| SHA-256 | `2d11bbc2f3a6ec951eddab8690eba536355f08117c6419c78aca9c048c24f634` |
-| npm integrity | `sha512-iHFzmb3kPZEFpDfQ/EflbFIBXrRVFRwA2RwpDKLw8eJ6FJIuBcCd0zyUqJVME+fJKif7Y+S6z/FuxQIktFKf1Q==` |
+| Compressed size | 883,771 bytes |
+| Unpacked size | 10,273,491 bytes |
+| Entry count | 433 |
+| SHA-1 reported by npm | `db84a708cf6f350cf27091fb509e71bc115fd2df` |
+| SHA-256 | `3f276ac6b9aaf7f4f5529f8de7581f61ee8152abb12737e6621db99928720c7e` |
+| npm integrity | `sha512-ZlVzN77so041XqnPflVc5uAr7UvbGruOvdCrB3GFGbMggTDvAxhSctpCQ5DoY7MH/Hiihfq9TLYAF+vWzLP+rg==` |
 
 The candidate was built and packed on Apple Silicon with Rust 1.95.0,
 `wasm-bindgen-cli` 0.2.126, Node.js 26.0.0, npm 11.12.1, Vite 8.1.5,
@@ -75,15 +75,23 @@ The exact Rust dependency inventory for the embedded decoder is recorded in
 
 The following checks passed:
 
+- generated subcircuit-library, verifier-CRS, and binary-format consistency
 - `npm run typecheck`
 - `npm run typecheck:scripts`
+- `npm run binary:check`
+- all preprocess Node, public-API, native-proof, and Chromium checks
+- all prover primitive, Node proof, timing-table, and Chromium checks
+- all verifier Node and Chromium checks
+- `npm run rkyv:payload:check`
 - `npm run converter:browser:check`
 - `npm run converter:crs:browser:check`
 - `npm run converter:webpack:check`
 - `npm run docs:publication:check`
-- exact tarball metadata inspection
-- packed-file exclusion check
-- packed package-license and dependency metadata check
+- exact tarball `npm pack --json` metadata and independent SHA-256 inspection
+- all four packed public subpath imports through the Vite browser example
+- packed Vite and Webpack production consumer execution
+- required-file and prohibited-prefix inspection across all 433 packed entries
+- packed package-license, export, dependency, and embedded-license inspection
 - converter Worker external-import inspection
 
 No unresolved missing-license or redistribution-notice issue was identified in
