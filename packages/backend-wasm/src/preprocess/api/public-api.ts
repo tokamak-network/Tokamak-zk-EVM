@@ -11,7 +11,7 @@ import {
 } from "./binary-input.js";
 import { preprocessSnark } from "../protocol/preprocess-snark.js";
 
-const DEFAULT_CHUNK_SIZE_EXPONENT = 18;
+const DEFAULT_CHUNK_SIZE_EXPONENT = 17;
 const MIN_CHUNK_SIZE_EXPONENT = 10;
 const MAX_CHUNK_SIZE_EXPONENT = 19;
 

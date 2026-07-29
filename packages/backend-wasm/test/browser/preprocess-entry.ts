@@ -62,10 +62,10 @@ async function main(): Promise<void> {
     );
     if (
       chunkSizeExponent === undefined
-      && installation.chunkSizeExponent !== 18
+      && installation.chunkSizeExponent !== 17
     ) {
       throw new Error(
-        `Browser preprocess default chunk exponent must be 18; received ${installation.chunkSizeExponent}.`,
+        `Browser preprocess default chunk exponent must be 17; received ${installation.chunkSizeExponent}.`,
       );
     }
     if (

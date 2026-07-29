@@ -361,8 +361,9 @@ using 0.859 GiB less mean Node peak RSS. Relative to exponent 19, it was
 speed-versus-memory tradeoff among exponents 17, 18, and 19: exponent 17 has
 both the lowest mean time and the lowest peak RSS of those candidates.
 
-The owner must select the final default. This report records evidence and does
-not promote an exponent automatically.
+The owner selected exponent 17 as the final preprocess default on 2026-07-29.
+Production, tests, and application documentation use `2 ** 17 = 131,072`
+points. This selection does not change the independent prover default.
 
 ## Candidate: `O_pub_fix` Input Preparation
 
@@ -439,8 +440,7 @@ The former complete speed-candidate selection was revoked. It independently
 changed settled prover behavior and is not the current production policy.
 Production preprocess now uses the shared prover permutation-polynomial,
 batched two-dimensional inverse-NTT, batch Montgomery conversion, affine MSM,
-and sequential commitment-call paths. Exponent 18 is provisional until the
-owner selects the final default from the benchmark above.
+and sequential commitment-call paths. Its final default chunk exponent is 17.
 
 The superseded evaluation recorded the following decisions. They are retained
 only as historical context and do not govern current production behavior:
@@ -452,7 +452,7 @@ only as historical context and do not govern current production behavior:
 | Combined inverse NTT | It was 0.44% slower by mean and had higher peak RSS. |
 | Adaptive Sigma1 dispatch | The dense input is known by protocol construction and adaptive dispatch was 0.017% slower by mean. |
 | Sequential `s0`/`s1` commitments | Retained because preprocess must follow the settled prover call path. |
-| Default chunk exponent 18 | Provisional pending the final production benchmark decision. |
+| Default chunk exponent 18 | Replaced by the owner-selected exponent 17 after the post-reboot final benchmark. |
 | Zero-copy batch `O_pub_fix` preparation | Retained because preprocess must follow the settled prover batch-conversion path. |
 
 The retained comparison modes are named `legacy-baseline` and

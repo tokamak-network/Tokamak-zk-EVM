@@ -106,7 +106,9 @@ The verifier returns boolean validity and does not produce an output artifact.
 
 Preprocess produces one verifier-preprocess binary containing `s0`, `s1`, and
 `O_pub_fix`. It does not call the prover, share prover installation state, or
-consume prover CRS.
+consume prover CRS. Its multithreaded dense-MSM outer chunk default is
+`2 ** 17` points; applications may select a supported exponent during
+preprocess installation without changing the prover's independent default.
 
 ### `src/converter`
 

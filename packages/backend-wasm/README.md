@@ -202,7 +202,7 @@ const verifierPreprocess = await preprocess({
 console.log(installation.chunkSize, verifierPreprocess.byteLength);
 ```
 
-The current default chunk exponent is `18`. An application may explicitly select an
+The current default chunk exponent is `17`. An application may explicitly select an
 integer from `10` through `19`. A later explicit option takes precedence while
 preprocess is idle; omitting the option preserves the installed value.
 
@@ -517,8 +517,8 @@ and verified the proof in Chromium 149.0.7827.55:
 
 | Measurement | Observed value |
 | --- | ---: |
-| Preprocess, three-run mean | 8.973 s |
-| Preprocess population standard deviation | 70 ms |
+| Preprocess, three-run mean | 10.942 s |
+| Preprocess population standard deviation | 8 ms |
 | Proof generation | 118.82 s |
 | Proof verification | 19 ms |
 | Peak total Chromium-process RSS | 10.03 GiB |
@@ -528,8 +528,9 @@ Environment: MacBook Pro with Apple M4 Pro, 14 CPU cores, 48 GB memory, macOS
 26.5.2, multithreaded ffjavascript, preprocess chunk exponent `17`, prover
 chunk exponent `18`, and the 4,096 by 256 domain with 234 placements and
 658,454 placement variables. Proof measurements were recorded on 2026-07-27
-by package commit `4cb2ad9b`; preprocess measurements were recorded on
-2026-07-28 before promoting the byte-identical measured candidate.
+by package commit `4cb2ad9b`; preprocess measurements were recorded after
+reboot on 2026-07-29 from benchmark source identity
+`802c5ef0e35b1d6226392179c8d97176deb06e5ca943b13840225ca32dd22ea8`.
 
 These are observations from one machine and fixture, not minimum requirements,
 portable guarantees, or predictions for another browser, input, thermal state,
