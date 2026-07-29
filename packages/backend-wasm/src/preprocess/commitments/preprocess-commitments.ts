@@ -3,9 +3,8 @@ import {
   msmAffineMontgomeryChunks,
   type AffineMontgomeryMsmChunk,
 } from "../../runtime/group/affine-msm.js";
+import { G1_AFFINE_BYTES } from "../../runtime/group/group.js";
 import type { BivariatePolynomialBuffer } from "../../runtime/polynomial/bivariate-polynomial-buffer.js";
-
-const G1_AFFINE_BYTES = 96;
 
 export async function commitDensePreprocessPolynomial(
   runtime: CurveRuntime,

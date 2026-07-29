@@ -30,9 +30,7 @@ import {
 } from "./opening-commitments.js";
 
 export interface IntegratedProverOptions {
-  readonly commitmentEncoder?: ProverCommitmentEncoder;
   readonly denseSigma1MsmChunkPoints?: number;
-  readonly sourcePackageVersion?: string;
 }
 
 export interface ProverProtocolSession {
@@ -62,7 +60,6 @@ export function createProverProtocolSession(
 
 class StatefulProverProtocolSession implements ProverProtocolSession {
   private readonly runtime: CurveRuntime;
-  private readonly options: IntegratedProverOptions;
   private input: ProverRuntimeInput | undefined;
   private commitmentEncoder: ProverCommitmentEncoder | undefined;
   private transcript: RollingKeccakTranscript | undefined;
@@ -84,8 +81,7 @@ class StatefulProverProtocolSession implements ProverProtocolSession {
   constructor(runtime: CurveRuntime, input: ProverRuntimeInput, options: IntegratedProverOptions) {
     this.runtime = runtime;
     this.input = input;
-    this.options = options;
-    this.commitmentEncoder = options.commitmentEncoder ?? createSigma1CommitmentEncoder(
+    this.commitmentEncoder = createSigma1CommitmentEncoder(
       runtime,
       input.crs,
       input.witness.setup,
@@ -108,9 +104,8 @@ class StatefulProverProtocolSession implements ProverProtocolSession {
     });
     const arithmetic = await computeArithmeticArgumentCommitments(
       this.runtime,
-      input.crs,
       state,
-      this.operationOptions(),
+      this.requireCommitmentEncoder(),
     );
 
     this.state = state;
@@ -121,34 +116,30 @@ class StatefulProverProtocolSession implements ProverProtocolSession {
   async proveCopy(): Promise<void> {
     this.assertStage("arithmetic", "proveCopy");
     this.stage = "running";
-    const input = this.requireInput();
     const state = requireValue(this.state, "prover state");
     const arithmetic = requireValue(this.arithmetic, "arithmetic argument");
     const transcript = requireValue(this.transcript, "prover transcript");
     const copyWitness = await computeCopyWitnessCommitment(
       this.runtime,
-      input.crs,
       state,
-      this.operationOptions(),
+      this.requireCommitmentEncoder(),
     );
     const initialRelation = combineInitialRelation(arithmetic, copyWitness);
     const thetas = collectThetaChallenges(this.runtime, transcript, initialRelation.commitments);
     const recursion = await computeRecursionCommitment(
       this.runtime,
-      input.crs,
       state,
       thetas,
-      this.operationOptions(),
+      this.requireCommitmentEncoder(),
     );
     const kappa0 = collectKappa0Challenge(this.runtime, transcript, recursion.commitment);
     const copyQuotient = await computeCopyQuotientCommitments({
       runtime: this.runtime,
-      crs: input.crs,
       state,
       rXY: recursion.rXY,
       thetas,
       kappa0,
-      options: this.operationOptions(),
+      commitmentEncoder: this.requireCommitmentEncoder(),
     });
     const { chi, zeta } = collectEvaluationChallenges(this.runtime, transcript, copyQuotient.commitments);
     const evaluations = await evaluateChallengePoints({
@@ -161,12 +152,11 @@ class StatefulProverProtocolSession implements ProverProtocolSession {
     const kappa1 = collectKappa1Challenge(transcript, evaluations);
     const copyOpenings = await computeCopyOpeningCommitments({
       runtime: this.runtime,
-      crs: input.crs,
       state,
       rXY: recursion.rXY,
       chi,
       zeta,
-      options: this.operationOptions(),
+      commitmentEncoder: this.requireCommitmentEncoder(),
     });
 
     this.initialRelation = initialRelation;
@@ -203,7 +193,6 @@ class StatefulProverProtocolSession implements ProverProtocolSession {
   async finalize(): Promise<ProverVerifierProofOutputInput> {
     this.assertStage("binding", "finalize");
     this.stage = "running";
-    const input = this.requireInput();
     const state = requireValue(this.state, "prover state");
     const initialRelation = requireValue(this.initialRelation, "initial relation");
     const recursion = requireValue(this.recursion, "recursion argument");
@@ -212,7 +201,6 @@ class StatefulProverProtocolSession implements ProverProtocolSession {
     const copyOpenings = requireValue(this.copyOpenings, "copy openings");
     const integratedOpenings = await computeIntegratedOpeningCommitments({
       runtime: this.runtime,
-      crs: input.crs,
       state,
       rXY: recursion.rXY,
       initialRelation,
@@ -223,7 +211,7 @@ class StatefulProverProtocolSession implements ProverProtocolSession {
       zeta: requireValue(this.zeta, "zeta challenge"),
       kappa1: requireValue(this.kappa1, "kappa1 challenge"),
       copyOpenings,
-      options: this.operationOptions(),
+      commitmentEncoder: this.requireCommitmentEncoder(),
     });
     this.stage = "finalized";
 
@@ -235,7 +223,6 @@ class StatefulProverProtocolSession implements ProverProtocolSession {
       copyQuotient,
       evaluations,
       openings: combineOpeningCommitments(copyOpenings, integratedOpenings),
-      sourcePackageVersion: this.options.sourcePackageVersion,
     };
   }
 
@@ -259,10 +246,8 @@ class StatefulProverProtocolSession implements ProverProtocolSession {
     this.kappa1 = undefined;
   }
 
-  private operationOptions(): { readonly commitmentEncoder: ProverCommitmentEncoder } {
-    return {
-      commitmentEncoder: requireValue(this.commitmentEncoder, "commitment encoder"),
-    };
+  private requireCommitmentEncoder(): ProverCommitmentEncoder {
+    return requireValue(this.commitmentEncoder, "commitment encoder");
   }
 
   private requireInput(): ProverRuntimeInput {

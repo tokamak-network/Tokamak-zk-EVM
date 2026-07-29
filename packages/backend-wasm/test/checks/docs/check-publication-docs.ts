@@ -347,6 +347,8 @@ async function checkPackedPackage(): Promise<void> {
       "dist/prover/index.d.ts",
       "dist/preprocess/index.js",
       "dist/preprocess/index.d.ts",
+      "dist/generated/setup.generated.js",
+      "dist/generated/setup.generated.d.ts",
       "dist/verifier/index.js",
       "dist/verifier/index.d.ts",
       "dist/converter/index.js",

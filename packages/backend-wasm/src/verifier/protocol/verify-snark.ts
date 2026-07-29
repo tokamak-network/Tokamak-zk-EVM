@@ -1,7 +1,6 @@
-import type { CurveRuntime } from "../../runtime/curve/curve.js";
+import type { CurveRuntime, RandomScalarSource } from "../../runtime/curve/curve.js";
 import type { FieldElement } from "../../runtime/field/field-runtime.js";
 import type { G1Point, G2Point } from "../../runtime/group/group.js";
-import type { RandomScalarSource } from "../../runtime/random/random.js";
 import { collectChallenges } from "./challenges.js";
 import { buildDomainContext, type VerifierSetupParams } from "./domain-context.js";
 import type { VerifierPublicPolynomial } from "./public-instance-polynomial.js";
@@ -10,7 +9,7 @@ import {
   evalLagrangeK0,
   lhsArith,
   lhsBinding,
-  lhsCopyMsm,
+  lhsCopy,
   snarkAux,
 } from "./equations.js";
 
@@ -107,7 +106,7 @@ export async function verifySnark(
   const lagrangeK0Eval = evalLagrangeK0(runtime.Fr, domain, challenges);
   const aEval = evalAPub(input.aPubX, challenges);
   const lhsA = lhsArith(runtime.G1, input, domain, challenges);
-  const lhsC = await lhsCopyMsm(runtime.Fr, runtime.G1, input, domain, challenges, lagrangeK0Eval);
+  const lhsC = await lhsCopy(runtime.Fr, runtime.G1, input, domain, challenges, lagrangeK0Eval);
   const lhsB = lhsBinding(runtime.Fr, runtime.G1, input.proof, input.sigma.G, challenges, aEval);
   const lhs = runtime.G1.add(lhsB, runtime.G1.mulScalar(runtime.G1.add(lhsA, lhsC), challenges.kappa2));
   const { aux, auxX, auxY } = snarkAux(runtime.Fr, runtime.G1, input.proof, domain, challenges);

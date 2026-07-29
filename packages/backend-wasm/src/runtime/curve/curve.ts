@@ -4,7 +4,9 @@ import { createFieldRuntime, type FieldRuntime } from "../field/field-runtime.js
 import { installLinearBatchPlugin } from "../field/linear-batch-plugin.js";
 import { createG1Runtime, createG2Runtime, type G1Runtime, type G2Runtime } from "../group/group.js";
 import { createPairingRuntime, type PairingRuntime } from "../pairing/pairing.js";
-import { createRandomScalarSource, type RandomScalarSource } from "../random/random.js";
+import type { FieldElement } from "../field/field-runtime.js";
+
+export type RandomScalarSource = () => FieldElement | Promise<FieldElement>;
 
 export interface FfField {
   readonly n8: number;
@@ -107,13 +109,8 @@ export interface FfCurve {
   terminate?(): Promise<void>;
 }
 
-export interface CurveRuntimeOptions {
-  readonly singleThread?: boolean;
-}
-
 export interface CurveRuntime {
   readonly name: "bls12-381";
-  readonly singleThread: boolean;
   readonly Fr: FieldRuntime;
   readonly G1: G1Runtime;
   readonly G2: G2Runtime;
@@ -122,21 +119,19 @@ export interface CurveRuntime {
   terminate(): Promise<void>;
 }
 
-export async function createCurveRuntime(options: CurveRuntimeOptions = {}): Promise<CurveRuntime> {
-  const singleThread = options.singleThread ?? false;
-  const raw = (await getCurveFromName("bls12381", singleThread, installLinearBatchPlugin)) as FfCurve;
+export async function createCurveRuntime(): Promise<CurveRuntime> {
+  const raw = (await getCurveFromName("bls12381", false, installLinearBatchPlugin)) as FfCurve;
   const Fr = createFieldRuntime(raw.Fr);
   const G1 = createG1Runtime(raw.G1, Fr);
   const G2 = createG2Runtime(raw.G2);
 
   return {
     name: "bls12-381",
-    singleThread,
     Fr,
     G1,
     G2,
     pairing: createPairingRuntime(raw, G1),
-    randomScalar: createRandomScalarSource(Fr),
+    randomScalar: () => Fr.random(),
     async terminate() {
       await raw.terminate?.();
     },

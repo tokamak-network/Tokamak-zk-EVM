@@ -5,9 +5,11 @@ import {
   BinarySectionType,
 } from "../../artifacts/binary/binary-format.js";
 import { BACKEND_WASM_PACKAGE_VERSION } from "../../version.js";
-import { GENERATED_PROVER_SETUP_PARAMS } from "../../prover/generated/subcircuit-library.generated.js";
-import { createCurveRuntime, type CurveRuntime } from "../../runtime/curve/curve.js";
-import { concatBytes, isRecord, parseHexStringArray } from "./conversion-utils.js";
+import { GENERATED_SETUP_PARAMS } from "../../generated/setup.generated.js";
+import { concatBytes } from "../../runtime/bytes.js";
+import type { CurveRuntime } from "../../runtime/curve/curve.js";
+import { isRecord, parseHexStringArray } from "./conversion-utils.js";
+import { withCurveRuntime } from "./conversion-runtime.js";
 
 interface VerifierSetupParamsJson {
   readonly l_free: number;
@@ -22,12 +24,8 @@ interface InstanceJson {
 }
 
 export async function convertInstance(instance: unknown): Promise<Uint8Array> {
-  const runtime = await createCurveRuntime();
-  try {
-    return await createInstanceArtifact(runtime, instance, BACKEND_WASM_PACKAGE_VERSION);
-  } finally {
-    await runtime.terminate();
-  }
+  return withCurveRuntime((runtime) =>
+    createInstanceArtifact(runtime, instance, BACKEND_WASM_PACKAGE_VERSION));
 }
 
 async function createInstanceArtifact(
@@ -36,11 +34,11 @@ async function createInstanceArtifact(
   sourcePackageVersion: string,
 ): Promise<Uint8Array> {
   const instance = parseInstanceJson(raw);
-  const publicInstance = readPublicInstance(runtime, instance, GENERATED_PROVER_SETUP_PARAMS);
+  const publicInstance = readPublicInstance(runtime, instance, GENERATED_SETUP_PARAMS);
   const functionInstance = readFunctionInstance(
     runtime,
     instance,
-    GENERATED_PROVER_SETUP_PARAMS,
+    GENERATED_SETUP_PARAMS,
   );
 
   return createBinaryArtifactFile({

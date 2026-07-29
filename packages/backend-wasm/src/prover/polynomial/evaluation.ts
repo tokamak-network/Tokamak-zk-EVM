@@ -2,38 +2,6 @@ import { BivariatePolynomialBuffer } from "../../runtime/polynomial/bivariate-po
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import type { FieldElement } from "../../runtime/field/field-runtime.js";
 
-export function evaluateAtScaledChallengeSet(
-  field: CurveRuntime["Fr"],
-  polynomial: BivariatePolynomialBuffer,
-  xPoint: FieldElement,
-  scaledXPoint: FieldElement,
-  yPoint: FieldElement,
-  scaledYPoint: FieldElement,
-): readonly [FieldElement, FieldElement, FieldElement] {
-  let baseResult = field.zero;
-  let scaledXResult = field.zero;
-  let scaledXYResult = field.zero;
-  const elementBytes = field.byteLength;
-  const rowBytes = polynomial.ySize * elementBytes;
-
-  for (let x = polynomial.xSize - 1; x >= 0; x -= 1) {
-    let baseRowValue = field.zero;
-    let scaledYRowValue = field.zero;
-    const rowOffset = x * rowBytes;
-    for (let y = polynomial.ySize - 1; y >= 0; y -= 1) {
-      const offset = rowOffset + y * elementBytes;
-      const coefficient = polynomial.coefficients.subarray(offset, offset + elementBytes);
-      baseRowValue = field.add(coefficient, field.mul(baseRowValue, yPoint));
-      scaledYRowValue = field.add(coefficient, field.mul(scaledYRowValue, scaledYPoint));
-    }
-    baseResult = field.add(baseRowValue, field.mul(baseResult, xPoint));
-    scaledXResult = field.add(baseRowValue, field.mul(scaledXResult, scaledXPoint));
-    scaledXYResult = field.add(scaledYRowValue, field.mul(scaledXYResult, scaledXPoint));
-  }
-
-  return [baseResult, scaledXResult, scaledXYResult];
-}
-
 export async function evaluateAtScaledChallengeSetBatch(
   field: CurveRuntime["Fr"],
   polynomial: BivariatePolynomialBuffer,

@@ -1,10 +1,10 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { readFile, rm } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { build } from "esbuild";
 import { chromium } from "playwright";
+import { startIsolatedFileServer } from "../../support/browser/static-file-server.js";
 
 const OUTPUT_DIR = "tmp/browser/verifier";
 const BUNDLE_PATH = path.join(OUTPUT_DIR, "verifier-entry.js");
@@ -21,15 +21,14 @@ async function main(): Promise<void> {
     sourcemap: false,
   });
 
-  const server = createServer(handleRequest);
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const address = server.address();
-  if (address === null || typeof address === "string") {
-    throw new Error("Browser verifier check failed to bind a local HTTP port.");
-  }
+  const server = await startIsolatedFileServer(resolveFile);
 
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
   try {
+    const unsupportedResponse = await fetch(`${server.origin}/unsupported`);
+    if (unsupportedResponse.status !== 404) {
+      throw new Error(`Static server returned ${unsupportedResponse.status} for an unsupported path.`);
+    }
     browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
     const errors: string[] = [];
@@ -40,7 +39,7 @@ async function main(): Promise<void> {
       }
     });
 
-    await page.goto(`http://127.0.0.1:${address.port}/browser/verifier.html`, {
+    await page.goto(`${server.origin}/browser/verifier.html`, {
       waitUntil: "networkidle",
     });
     const result = await page.waitForFunction(() => {
@@ -57,7 +56,7 @@ async function main(): Promise<void> {
     }
   } finally {
     await browser?.close();
-    server.close();
+    await server.close();
   }
 
   console.log("Checked verifier named binary input path in Chromium");
@@ -69,54 +68,14 @@ interface BrowserVerifierResult {
   readonly error?: string;
 }
 
-async function handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
-  try {
-    const url = new URL(request.url ?? "/", "http://127.0.0.1");
-    const pathname = decodeURIComponent(url.pathname);
-
-    if (pathname === "/browser/verifier.html") {
-      await serveFile(response, "test/browser/verifier.html", "text/html; charset=utf-8");
-      return;
-    }
-
-    if (pathname === "/browser/verifier-entry.js") {
-      await serveFile(response, BUNDLE_PATH, "text/javascript; charset=utf-8");
-      return;
-    }
-
-    if (pathname.startsWith("/fixtures/")) {
-      await serveFile(response, pathname.slice(1), contentTypeFor(pathname));
-      return;
-    }
-
-    response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
-    response.end("not found");
-  } catch (error) {
-    response.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
-    response.end(error instanceof Error ? error.stack ?? error.message : String(error));
+function resolveFile(pathname: string): string | undefined {
+  if (pathname === "/browser/verifier.html") {
+    return "test/browser/verifier.html";
   }
-}
-
-async function serveFile(response: ServerResponse, filePath: string, contentType: string): Promise<void> {
-  const bytes = await readFile(filePath);
-  response.writeHead(200, {
-    "content-type": contentType,
-    "cross-origin-opener-policy": "same-origin",
-    "cross-origin-embedder-policy": "require-corp",
-  });
-  response.end(bytes);
-}
-
-function contentTypeFor(pathname: string): string {
-  if (pathname.endsWith(".json")) {
-    return "application/json; charset=utf-8";
+  if (pathname === "/browser/verifier-entry.js") {
+    return BUNDLE_PATH;
   }
-
-  if (pathname.endsWith(".js")) {
-    return "text/javascript; charset=utf-8";
-  }
-
-  return "application/octet-stream";
+  return pathname.startsWith("/fixtures/") ? pathname.slice(1) : undefined;
 }
 
 const entrypoint = fileURLToPath(import.meta.url);

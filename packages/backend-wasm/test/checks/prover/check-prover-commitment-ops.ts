@@ -10,8 +10,9 @@ import {
   proverCrsG1PointAt,
   type ProverCrsRuntime,
 } from "../../../src/prover/api/binary-input.js";
-import type { ProverSetupParams } from "../../../src/prover/protocol/witness.js";
+import type { SetupParams } from "../../../src/artifacts/setup/setup-params.js";
 import { encodePolynomialBufferWithSigma1 } from "../../../src/prover/commitments/sigma1-encoder.js";
+import { concatBytes } from "../../support/bytes.js";
 
 async function main(): Promise<void> {
   const runtime = await createCurveRuntime();
@@ -30,7 +31,7 @@ async function checkCommitmentOps(runtime: CurveRuntime): Promise<void> {
     s_max: 2,
     l: 0,
     l_D: 2,
-  } as ProverSetupParams;
+  } as SetupParams;
   const referenceStringYSize = setup.s_max * 2;
   const referenceStringXSize = Math.max(setup.n * 2, (setup.l_D - setup.l) * 2);
   const crs = buildSyntheticCrs(runtime, referenceStringXSize * referenceStringYSize);
@@ -138,7 +139,7 @@ async function checkLargeDenseChunkedCommitment(runtime: CurveRuntime): Promise<
     s_max: 64,
     l: 0,
     l_D: 128,
-  } as ProverSetupParams;
+  } as SetupParams;
   const referenceStringYSize = setup.s_max * 2;
   const referenceStringXSize = Math.max(setup.n * 2, (setup.l_D - setup.l) * 2);
   const xSize = 256;
@@ -157,7 +158,7 @@ async function checkLargeDenseChunkedCommitment(runtime: CurveRuntime): Promise<
 async function encodeCompactRectangleWithSigma1(
   runtime: CurveRuntime,
   crs: ProverCrsRuntime,
-  setup: ProverSetupParams,
+  setup: SetupParams,
   polynomial: BivariatePolynomialBuffer,
 ): Promise<Uint8Array> {
   const { xDegree, yDegree } = polynomial.findDegree();
@@ -201,17 +202,6 @@ function buildSyntheticCrs(runtime: CurveRuntime, count: number): ProverCrsRunti
       },
     },
   } as unknown as ProverCrsRuntime;
-}
-
-function concatBytes(chunks: readonly Uint8Array[]): Uint8Array {
-  const size = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
-  const output = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    output.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return output;
 }
 
 function expectedSyntheticScalar(

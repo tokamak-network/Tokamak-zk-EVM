@@ -30,8 +30,8 @@ const textDecoder = new TextDecoder();
 
 export interface BinaryArtifactSectionQuery {
   readonly type: BinarySectionView["type"];
-  readonly encoding?: BinarySectionView["encoding"];
-  readonly label?: string;
+  readonly encoding: BinarySectionView["encoding"];
+  readonly label: string;
 }
 
 export async function createBinaryArtifactFile(input: BinaryArtifactFileInput): Promise<Uint8Array> {
@@ -106,8 +106,8 @@ export async function createBinaryArtifactFile(input: BinaryArtifactFileInput): 
   return output;
 }
 
-export async function decodeBinaryArtifactFile(bytes: Uint8Array): Promise<BinaryArtifactFileView> {
-  const input = normalizeBytes(bytes);
+export function decodeBinaryArtifactFile(bytes: Uint8Array): BinaryArtifactFileView {
+  const input = bytes;
   const view = new DataView(input.buffer, input.byteOffset, input.byteLength);
 
   if (input.byteLength < BINARY_HEADER_BYTES) {
@@ -166,24 +166,14 @@ export async function decodeBinaryArtifactFile(bytes: Uint8Array): Promise<Binar
   };
 }
 
-export function findBinaryArtifactSection(
-  artifactFile: BinaryArtifactFileView,
-  query: BinaryArtifactSectionQuery,
-): BinarySectionView | undefined {
-  return artifactFile.sections.find((section) => {
-    return (
-      section.type === query.type
-      && (query.encoding === undefined || section.encoding === query.encoding)
-      && (query.label === undefined || section.label === query.label)
-    );
-  });
-}
-
 export function requireBinaryArtifactSection(
   artifactFile: BinaryArtifactFileView,
   query: BinaryArtifactSectionQuery,
 ): BinarySectionView {
-  const section = findBinaryArtifactSection(artifactFile, query);
+  const section = artifactFile.sections.find((candidate) =>
+    candidate.type === query.type
+    && candidate.encoding === query.encoding
+    && candidate.label === query.label);
 
   if (section === undefined) {
     throw new Error(`Missing binary artifact section: ${JSON.stringify(query)}.`);
@@ -285,14 +275,6 @@ function writeFixedAscii(output: Uint8Array, offset: number, value: string, byte
   }
 
   output.set(encoded, offset);
-}
-
-function normalizeBytes(bytes: Uint8Array): Uint8Array {
-  if (bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength) {
-    return bytes;
-  }
-
-  return bytes.slice();
 }
 
 function readUint16(input: Uint8Array, offset: number, label: string): number {

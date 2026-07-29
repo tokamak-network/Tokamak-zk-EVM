@@ -6,8 +6,12 @@ import { fileURLToPath } from "node:url";
 import {
   NATIVE_BACKEND_VERSION,
   SUBCIRCUIT_LIBRARY_PACKAGE_VERSION,
-} from "../../src/prover/generated/subcircuit-library.generated.js";
+} from "../../src/generated/setup.generated.js";
 import { BACKEND_WASM_PACKAGE_VERSION } from "../../src/version.js";
+import {
+  isPathInside,
+  resolveFixtureWorkDirectory,
+} from "./fixture-paths.js";
 
 interface CopyManifest {
   readonly schemaVersion: 2;
@@ -36,7 +40,7 @@ async function main(argv: readonly string[]): Promise<void> {
     ? destinationRepositoryRoot
     : path.resolve(args.sourceRepositoryRoot);
   const manifest = parseManifest(JSON.parse(await readFile(manifestPath, "utf8")) as unknown);
-  const workDirectory = resolveWorkDirectory(
+  const workDirectory = resolveFixtureWorkDirectory(
     destinationRepositoryRoot,
     backendWasmRoot,
     manifest.workDirectory,
@@ -163,17 +167,6 @@ function resolveSourcePath(sourceRepositoryRoot: string, source: string): string
   return sourcePath;
 }
 
-function resolveWorkDirectory(repositoryRoot: string, backendWasmRoot: string, workDirectory: string): string {
-  const workDirectoryPath = path.resolve(repositoryRoot, workDirectory);
-  const allowedRoot = path.resolve(backendWasmRoot, "tmp", "fixtures");
-
-  if (!isPathInside(workDirectoryPath, allowedRoot)) {
-    throw new Error(`Copy manifest workDirectory must stay under packages/backend-wasm/tmp/fixtures: ${workDirectory}`);
-  }
-
-  return workDirectoryPath;
-}
-
 function resolveDestinationPath(workDirectory: string, destination: string): string {
   const destinationPath = path.resolve(workDirectory, destination);
 
@@ -212,11 +205,6 @@ function assertSafeRelativePath(value: unknown, label: string): string {
   }
 
   return normalized;
-}
-
-function isPathInside(candidate: string, parent: string): boolean {
-  const relative = path.relative(parent, candidate);
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

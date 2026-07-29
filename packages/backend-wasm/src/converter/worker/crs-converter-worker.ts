@@ -6,7 +6,7 @@ import {
   convertCombinedSigmaRkyvToCrsBinaries,
   createCombinedSigmaRkyvPayloadDecoder,
 } from "../conversion/rkyv-to-binary.js";
-import { GENERATED_PROVER_SETUP_PARAMS } from "../../prover/generated/subcircuit-library.generated.js";
+import { GENERATED_SETUP_PARAMS } from "../../generated/setup.generated.js";
 
 interface CrsWorkerRequest {
   readonly inputBuffer: ArrayBuffer;
@@ -33,7 +33,7 @@ worker.onmessage = async (event: MessageEvent<CrsWorkerRequest>): Promise<void> 
     const artifacts = await convertCombinedSigmaRkyvToCrsBinaries(input, {
       sourcePackageVersion: BACKEND_WASM_PACKAGE_VERSION,
       decoder: createCombinedSigmaRkyvPayloadDecoder(decodeCombinedSigma),
-      setup: GENERATED_PROVER_SETUP_PARAMS,
+      setup: GENERATED_SETUP_PARAMS,
     });
     const proverCrs = transferableArtifact(artifacts.proverCrs);
     const preprocessCrs = transferableArtifact(artifacts.preprocessCrs);

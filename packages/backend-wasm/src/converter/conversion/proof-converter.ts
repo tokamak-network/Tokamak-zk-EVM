@@ -10,8 +10,10 @@ import {
   type BinarySectionView,
 } from "../../artifacts/binary/binary-format.js";
 import { BACKEND_WASM_PACKAGE_VERSION } from "../../version.js";
-import { createCurveRuntime, type CurveRuntime } from "../../runtime/curve/curve.js";
-import { concatBytes, isRecord, parseHexStringArray } from "./conversion-utils.js";
+import { concatBytes } from "../../runtime/bytes.js";
+import type { CurveRuntime } from "../../runtime/curve/curve.js";
+import { isRecord, parseHexStringArray } from "./conversion-utils.js";
+import { withCurveRuntime } from "./conversion-runtime.js";
 import { appendSplitG1Coordinate, recoverG1Points } from "./g1-coordinate-format.js";
 import type {
   ConverterArtifactJson,
@@ -28,12 +30,8 @@ export async function convertProof(input: ConvertProofInput): Promise<Uint8Array
     return convertProofBinaryToNativeJson(input.proof);
   }
 
-  const runtime = await createCurveRuntime();
-  try {
-    return createVerifierProofArtifact(runtime, input.proof, BACKEND_WASM_PACKAGE_VERSION);
-  } finally {
-    await runtime.terminate();
-  }
+  return withCurveRuntime((runtime) =>
+    createVerifierProofArtifact(runtime, input.proof, BACKEND_WASM_PACKAGE_VERSION));
 }
 
 async function convertProofBinaryToNativeJson(proof: Uint8Array): Promise<ConverterArtifactJson> {
@@ -54,9 +52,7 @@ async function convertProofBinaryToNativeJson(proof: Uint8Array): Promise<Conver
     elementCount: 4,
     elementByteLength: 32,
   });
-  const runtime = await createCurveRuntime();
-
-  try {
+  return withCurveRuntime(async (runtime) => {
     const proofEntriesPart1: string[] = [];
     const proofEntriesPart2: string[] = [];
     for (let index = 0; index < proofG1.elementCount; index += 1) {
@@ -74,9 +70,7 @@ async function convertProofBinaryToNativeJson(proof: Uint8Array): Promise<Conver
       proof_entries_part1: proofEntriesPart1,
       proof_entries_part2: proofEntriesPart2,
     };
-  } finally {
-    await runtime.terminate();
-  }
+  });
 }
 
 async function createVerifierProofArtifact(

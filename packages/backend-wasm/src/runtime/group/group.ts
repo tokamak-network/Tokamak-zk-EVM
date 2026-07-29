@@ -1,10 +1,13 @@
 import type { FfGroup } from "../curve/curve.js";
+import { concatBytes } from "../bytes.js";
 import { formatHex, parseCanonicalHex } from "../field/field-encoding.js";
 import type { FieldElement, FieldRuntime } from "../field/field-runtime.js";
 
 export type G1Point = Uint8Array;
 
 export type G2Point = Uint8Array;
+
+export const G1_AFFINE_BYTES = 96;
 
 export interface AffinePointJson {
   readonly x: string;
@@ -181,8 +184,7 @@ export function createG2Runtime(group: FfGroup): G2Runtime {
   };
 }
 
-const G1_COORDINATE_BYTES = 48;
-const G1_AFFINE_BYTES = G1_COORDINATE_BYTES * 2;
+const G1_COORDINATE_BYTES = G1_AFFINE_BYTES / 2;
 const FQ_COORDINATE_BYTES = 48;
 const G2_COORDINATE_BYTES = FQ_COORDINATE_BYTES * 2;
 const SCALAR_RAW_BYTES = 32;
@@ -232,17 +234,4 @@ function parseG2Coordinate(value: string): [bigint, bigint] {
 function formatG2Coordinate(value: [bigint, bigint]): string {
   const [c0, c1] = value;
   return `0x${formatHex(c1, FQ_COORDINATE_BYTES).slice(2)}${formatHex(c0, FQ_COORDINATE_BYTES).slice(2)}`;
-}
-
-function concatBytes(chunks: readonly Uint8Array[]): Uint8Array {
-  const size = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
-  const output = new Uint8Array(size);
-  let offset = 0;
-
-  for (const chunk of chunks) {
-    output.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-
-  return output;
 }

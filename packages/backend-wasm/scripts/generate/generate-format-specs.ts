@@ -110,8 +110,7 @@ function parseRawSpec(raw: unknown, sourcePath: string): RawSpec {
     raw.name !== "preprocess_crs" &&
     raw.name !== "prover_crs" &&
     raw.name !== "prover_placement_variables" &&
-    raw.name !== "prover_permutation" &&
-    raw.name !== "prover_setup_params"
+    raw.name !== "prover_permutation"
   ) {
     throw new Error(`${sourcePath} has unsupported spec name: ${String(raw.name)}.`);
   }
@@ -284,8 +283,6 @@ function parseSectionEncoding(value: unknown, sourcePath: string): string {
       return "FfjsG1Affine96";
     case "ffjs-g2-affine-192":
       return "FfjsG2Affine192";
-    case "scalar-raw-le-32":
-      return "ScalarRawLe32";
     case "bytes":
       return "Bytes";
     default:

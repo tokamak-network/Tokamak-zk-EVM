@@ -8,31 +8,40 @@ import {
   createBinaryArtifactFile,
   decodeBinaryArtifactFile,
 } from "../../../src/artifacts/binary/binary-artifact-file.js";
-import { loadRuntimeArtifactBySpec } from "../../../src/artifacts/specs/format-spec-loader.js";
+import { loadNamedArtifactPoints } from "../../../src/artifacts/specs/format-spec-loader.js";
 import { VERIFIER_PROOF_V1_SPEC } from "../../../src/artifacts/specs/verifier-proof.v1.generated.js";
 import { createCurveRuntime } from "../../../src/runtime/curve/curve.js";
 import { BACKEND_WASM_PACKAGE_VERSION } from "../../../src/version.js";
 import type { FieldElement, FieldRuntime } from "../../../src/runtime/field/field-runtime.js";
+import type { SetupParams } from "../../../src/artifacts/setup/setup-params.js";
 import { BivariatePolynomialBuffer } from "../../../src/runtime/polynomial/bivariate-polynomial-buffer.js";
 import {
-  buildProverWitnessInputFromBinaryArtifacts,
   loadProverInputFromBinaryInput,
   loadProverRuntimeWitnessInputParts,
   proverCrsG1PointAt,
   proverCrsG1PointRange,
 } from "../../../src/prover/api/binary-input.js";
 import {
-  computeInitialRelationCommitments,
+  combineInitialRelation,
+  computeArithmeticArgumentCommitments,
+  computeCopyWitnessCommitment,
 } from "../../../src/prover/protocol/initial-relation.js";
 import { buildProverBinding } from "../../../src/prover/commitments/binding-commitments.js";
-import { encodePolynomialBufferWithSigma1 } from "../../../src/prover/commitments/sigma1-encoder.js";
+import {
+  createSigma1CommitmentEncoder,
+  encodePolynomialBufferWithSigma1,
+} from "../../../src/prover/commitments/sigma1-encoder.js";
 import { computeRecursionCommitment } from "../../../src/prover/protocol/recursion-commitment.js";
 import { computeCopyQuotientCommitments } from "../../../src/prover/protocol/copy-quotient.js";
 import { evaluateChallengePoints } from "../../../src/prover/protocol/challenge-evaluations.js";
-import { computeOpeningCommitments } from "../../../src/prover/protocol/opening-commitments.js";
+import {
+  combineOpeningCommitments,
+  computeCopyOpeningCommitments,
+  computeIntegratedOpeningCommitments,
+} from "../../../src/prover/protocol/opening-commitments.js";
 import { createVerifierProofArtifactFromProverOutput } from "../../../src/prover/api/proof-output.js";
 import { buildProverInstancePolynomials, createProverMixer, createProverState } from "../../../src/prover/protocol/state.js";
-import { GENERATED_PROVER_SETUP_PARAMS } from "../../../src/prover/generated/subcircuit-library.generated.js";
+import { GENERATED_SETUP_PARAMS } from "../../../src/generated/setup.generated.js";
 import {
   buildWitnessPolynomials,
   placementCount,
@@ -41,9 +50,10 @@ import {
   type ProverPackedSparseSubcircuitR1cs,
   type ProverPlacementVariables,
   type ProverPermutationEntry,
-  type ProverSetupParams,
   type ProverSubcircuitInfo,
 } from "../../../src/prover/protocol/witness.js";
+import { assertEqual } from "../../support/assertions.js";
+import { assertBytesEqual, concatBytes } from "../../support/bytes.js";
 
 interface ProverSparseMatrix {
   readonly activeWires: readonly number[];
@@ -64,7 +74,7 @@ async function main(): Promise<void> {
   const runtime = await createCurveRuntime();
 
   try {
-    const setup: ProverSetupParams = {
+    const setup: SetupParams = {
       l_free: 2,
       l: 2,
       l_user_out: 0,
@@ -183,7 +193,7 @@ async function main(): Promise<void> {
     assertEqual(mixer.rW_Y.length, 4, "mixer rW_Y length");
     assertEqual(mixer.rB_X.length, 2, "mixer rB_X length");
     assertEqual(mixer.rB_Y.length, 2, "mixer rB_Y length");
-    const prove0Setup: ProverSetupParams = {
+    const prove0Setup: SetupParams = {
       l_free: 2,
       l: 2,
       l_user_out: 0,
@@ -209,14 +219,21 @@ async function main(): Promise<void> {
       witness: prove0Witness,
     });
     const smallCrs = createSyntheticProverCrs(prove0Setup, 64);
-    const smallProve0 = await computeInitialRelationCommitments(runtime, smallCrs, smallProverState);
+    const smallEncoder = createSigma1CommitmentEncoder(runtime, smallCrs, prove0Setup);
+    const smallArithmetic = await computeArithmeticArgumentCommitments(
+      runtime,
+      smallProverState,
+      smallEncoder,
+    );
+    const smallCopyWitness = await computeCopyWitnessCommitment(runtime, smallProverState, smallEncoder);
+    const smallProve0 = combineInitialRelation(smallArithmetic, smallCopyWitness);
     assertEqual(smallProve0.commitments.U.byteLength, 144, "prove0 U byte length");
     assertEqual(smallProve0.commitments.B.byteLength, 144, "prove0 B byte length");
     const smallProve1 = await computeRecursionCommitment(
       runtime,
-      smallCrs,
       smallProverState,
       [runtime.Fr.zero, runtime.Fr.zero, runtime.Fr.one],
+      smallEncoder,
     );
     assertEqual(smallProve1.commitment.R.byteLength, 144, "prove1 R byte length");
     await assertRouEvals(
@@ -226,11 +243,11 @@ async function main(): Promise<void> {
     );
     const smallProve2 = await computeCopyQuotientCommitments({
       runtime,
-      crs: smallCrs,
       state: smallProverState,
       rXY: smallProve1.rXY,
       thetas: [runtime.Fr.zero, runtime.Fr.zero, runtime.Fr.one],
       kappa0: fr(9n),
+      commitmentEncoder: smallEncoder,
     });
     assertEqual(smallProve2.commitments.Q_CX.byteLength, 144, "prove2 Q_CX byte length");
     assertEqual(smallProve2.commitments.Q_CY.byteLength, 144, "prove2 Q_CY byte length");
@@ -249,20 +266,29 @@ async function main(): Promise<void> {
       runtime.Fr.byteLength,
       "prove3 R_omegaX_omegaY_eval byte length",
     );
-    const smallProve4 = await computeOpeningCommitments({
+    const smallCopyOpenings = await computeCopyOpeningCommitments({
       runtime,
-      crs: smallCrs,
+      state: smallProverState,
+      rXY: smallProve1.rXY,
+      chi: fr(11n),
+      zeta: fr(13n),
+      commitmentEncoder: smallEncoder,
+    });
+    const smallIntegratedOpenings = await computeIntegratedOpeningCommitments({
+      runtime,
       state: smallProverState,
       rXY: smallProve1.rXY,
       initialRelation: smallProve0,
       copyQuotient: smallProve2,
-      evaluations: smallProve3,
       thetas: [runtime.Fr.zero, runtime.Fr.zero, runtime.Fr.one],
       kappa0: fr(9n),
       chi: fr(11n),
       zeta: fr(13n),
       kappa1: fr(15n),
+      copyOpenings: smallCopyOpenings,
+      commitmentEncoder: smallEncoder,
     });
+    const smallProve4 = combineOpeningCommitments(smallCopyOpenings, smallIntegratedOpenings);
     assertEqual(smallProve4.commitments.Pi_X.byteLength, 144, "prove4 Pi_X byte length");
     assertEqual(smallProve4.commitments.Pi_Y.byteLength, 144, "prove4 Pi_Y byte length");
     assertEqual(smallProve4.commitments.M_X.byteLength, 144, "prove4 M_X byte length");
@@ -277,6 +303,7 @@ async function main(): Promise<void> {
       [],
       smallProverState.instance.aFreeX,
       smallProverState.mixer,
+      smallEncoder,
     );
     const verifierProofArtifact = await decodeBinaryArtifactFile(
       await createVerifierProofArtifactFromProverOutput({
@@ -295,13 +322,13 @@ async function main(): Promise<void> {
       BACKEND_WASM_PACKAGE_VERSION,
       "prover output source package version",
     );
-    const verifierProof = loadRuntimeArtifactBySpec(verifierProofArtifact, VERIFIER_PROOF_V1_SPEC);
-    assertEqual(verifierProof.sections[0]?.section.data.byteLength, 19 * 96, "prover output proof.g1 byte length");
-    assertEqual(verifierProof.sections[1]?.section.data.byteLength, 4 * 32, "prover output proof.evals byte length");
-    assertBytesEqual(verifierProof.pointsByName["proof0.U"], runtime.G1.toAffine(smallProve0.commitments.U), "proof0.U affine output");
-    assertBytesEqual(verifierProof.pointsByName["proof1.R"], runtime.G1.toAffine(smallProve1.commitment.R), "proof1.R affine output");
-    assertBytesEqual(verifierProof.pointsByName["proof4.N_X"], runtime.G1.toAffine(smallProve4.commitments.N_X), "proof4.N_X affine output");
-    assertBytesEqual(verifierProof.pointsByName["proof3.V_eval"], smallProve3.V_eval, "proof3.V_eval output");
+    const verifierProof = loadNamedArtifactPoints(verifierProofArtifact, VERIFIER_PROOF_V1_SPEC);
+    assertEqual(verifierProofArtifact.sections[0]?.data.byteLength, 19 * 96, "prover output proof.g1 byte length");
+    assertEqual(verifierProofArtifact.sections[1]?.data.byteLength, 4 * 32, "prover output proof.evals byte length");
+    assertBytesEqual(verifierProof["proof0.U"], runtime.G1.toAffine(smallProve0.commitments.U), "proof0.U affine output");
+    assertBytesEqual(verifierProof["proof1.R"], runtime.G1.toAffine(smallProve1.commitment.R), "proof1.R affine output");
+    assertBytesEqual(verifierProof["proof4.N_X"], runtime.G1.toAffine(smallProve4.commitments.N_X), "proof4.N_X affine output");
+    assertBytesEqual(verifierProof["proof3.V_eval"], smallProve3.V_eval, "proof3.V_eval output");
     const binaryArtifacts = {
       placementVariables: await decodeBinaryArtifactFile(
         await createBinaryArtifactFile({
@@ -369,7 +396,7 @@ async function main(): Promise<void> {
       ),
     };
     const binaryParts = loadProverRuntimeWitnessInputParts(runtime, binaryArtifacts);
-    assertEqual(binaryParts.setup.l_free, GENERATED_PROVER_SETUP_PARAMS.l_free, "binary setup l_free");
+    assertEqual(binaryParts.setup.l_free, GENERATED_SETUP_PARAMS.l_free, "binary setup l_free");
     assertEqual(
       placementCount(binaryParts.placementVariables),
       placementCount(placementVariables),
@@ -384,75 +411,6 @@ async function main(): Promise<void> {
     );
     assertEqual(binaryParts.publicInstance.length, 2, "binary public instance length");
     assertFieldEqual(binaryParts.publicInstance[1], fr(17n), "binary public instance value");
-
-    const bakedInput = buildProverWitnessInputFromBinaryArtifacts(runtime, {
-      placementVariables: await decodeBinaryArtifactFile(
-        await createBinaryArtifactFile({
-          kind: BinaryArtifactFileKind.ProverPlacementVariables,
-          sourcePackageVersion: "0.0.0",
-          sections: [
-            {
-              type: BinarySectionType.Placement,
-              encoding: BinarySectionEncoding.Bytes,
-              label: "placement.subcircuit_ids",
-              elementCount: 0,
-              elementByteLength: 4,
-              data: new Uint8Array(),
-            },
-            {
-              type: BinarySectionType.Placement,
-              encoding: BinarySectionEncoding.Bytes,
-              label: "placement.variable_offsets",
-              elementCount: 1,
-              elementByteLength: 4,
-              data: encodeU32List([0]),
-            },
-            {
-              type: BinarySectionType.Placement,
-              encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
-              label: "placement.variables",
-              elementCount: 0,
-              elementByteLength: runtime.Fr.byteLength,
-              data: new Uint8Array(),
-            },
-          ],
-        }),
-      ),
-      permutation: await decodeBinaryArtifactFile(
-        await createBinaryArtifactFile({
-          kind: BinaryArtifactFileKind.ProverPermutation,
-          sourcePackageVersion: "0.0.0",
-          sections: [
-            {
-              type: BinarySectionType.Permutation,
-              encoding: BinarySectionEncoding.Bytes,
-              label: "permutation.entries",
-              elementCount: 0,
-              elementByteLength: 16,
-              data: new Uint8Array(),
-            },
-          ],
-        }),
-      ),
-      instance: await decodeBinaryArtifactFile(
-        await createBinaryArtifactFile({
-          kind: BinaryArtifactFileKind.Instance,
-          sourcePackageVersion: "0.0.0",
-          sections: [
-            {
-              type: BinarySectionType.Instance,
-              encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
-              label: "instance.public",
-              elementCount: 0,
-              elementByteLength: runtime.Fr.byteLength,
-              data: new Uint8Array(),
-            },
-          ],
-        }),
-      ),
-    });
-    assertEqual(bakedInput.subcircuitInfos.length, 14, "baked subcircuit info count");
-    assertEqual(bakedInput.r1csBySubcircuit.length, 14, "baked sparse R1CS count");
 
     const placementVariablesBytes = await createBinaryArtifactFile({
       kind: BinaryArtifactFileKind.ProverPlacementVariables,
@@ -565,7 +523,7 @@ async function main(): Promise<void> {
     const encodedPolynomial = await encodePolynomialBufferWithSigma1(
       runtime,
       proverInput.crs,
-      GENERATED_PROVER_SETUP_PARAMS,
+      GENERATED_SETUP_PARAMS,
       BivariatePolynomialBuffer.fromCoeffs(runtime.Fr, [fr(3n), fr(5n)], 1, 2),
     );
     const expectedEncoding = runtime.G1.mulAffineScalar(runtime.G1.generator, fr(8n));
@@ -574,19 +532,20 @@ async function main(): Promise<void> {
     }
     const generatedInstancePolynomials = await buildProverInstancePolynomials(
       runtime.Fr,
-      GENERATED_PROVER_SETUP_PARAMS,
-      Array.from({ length: GENERATED_PROVER_SETUP_PARAMS.l_free }, () => runtime.Fr.zero),
+      GENERATED_SETUP_PARAMS,
+      Array.from({ length: GENERATED_SETUP_PARAMS.l_free }, () => runtime.Fr.zero),
       [],
     );
     const generatedMixer = await createProverMixer(runtime);
     const binding = await buildProverBinding(
       runtime,
       proverInput.crs,
-      GENERATED_PROVER_SETUP_PARAMS,
+      GENERATED_SETUP_PARAMS,
       emptyPlacementVariables(runtime.Fr.byteLength),
       proverInput.witness.subcircuitInfos,
       generatedInstancePolynomials.aFreeX,
       generatedMixer,
+      createSigma1CommitmentEncoder(runtime, proverInput.crs, GENERATED_SETUP_PARAMS),
     );
     assertEqual(binding.A_free.byteLength, 96, "binding A_free byte length");
     assertEqual(binding.O_pub_free.byteLength, 96, "binding O_pub_free byte length");
@@ -622,12 +581,6 @@ async function main(): Promise<void> {
     }
   }
 
-  function assertBytesEqual(actual: Uint8Array, expected: Uint8Array, label: string): void {
-    if (Buffer.compare(Buffer.from(actual), Buffer.from(expected)) !== 0) {
-      throw new Error(`${label} byte mismatch`);
-    }
-  }
-
   function createRepeatedG1Section(label: string, elementCount: number): BinarySectionInput {
     return {
       type: BinarySectionType.CrsG1,
@@ -639,7 +592,7 @@ async function main(): Promise<void> {
     };
   }
 
-  function createSyntheticProverCrs(setup: ProverSetupParams, xyPowersLength: number) {
+  function createSyntheticProverCrs(setup: SetupParams, xyPowersLength: number) {
     const xyPowers = Array.from({ length: xyPowersLength }, () => runtime.G1.generator);
     return {
       G: runtime.G1.generator,
@@ -742,12 +695,6 @@ function packSparseMatrix(
   };
 }
 
-function assertEqual(actual: unknown, expected: unknown, label: string): void {
-  if (actual !== expected) {
-    throw new Error(`${label} mismatch: expected ${String(expected)}, got ${String(actual)}`);
-  }
-}
-
 function packPlacementVariables(
   fieldByteLength: number,
   placements: readonly {
@@ -801,17 +748,6 @@ function encodePermutationEntries(entries: readonly ProverPermutationEntry[]): U
     view.setUint32(offset + 4, entry.col, true);
     view.setUint32(offset + 8, entry.X, true);
     view.setUint32(offset + 12, entry.Y, true);
-  }
-
-  return output;
-}
-
-function concatBytes(chunks: readonly Uint8Array[]): Uint8Array {
-  const output = new Uint8Array(chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0));
-  let offset = 0;
-  for (const chunk of chunks) {
-    output.set(chunk, offset);
-    offset += chunk.byteLength;
   }
 
   return output;

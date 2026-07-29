@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveFixtureWorkDirectory } from "../../../scripts/fixtures/fixture-paths.js";
 
 interface CopyManifest {
   readonly schemaVersion: 2;
@@ -30,7 +31,11 @@ async function main(argv: readonly string[]): Promise<void> {
   const repositoryRoot = path.resolve(backendWasmRoot, "../..");
   const backendRoot = path.join(repositoryRoot, "packages", "backend");
   const manifest = parseCopyManifest(JSON.parse(await readFile(manifestPath, "utf8")) as unknown);
-  const sourceRoot = resolveWorkDirectory(repositoryRoot, backendWasmRoot, manifest.workDirectory);
+  const sourceRoot = resolveFixtureWorkDirectory(
+    repositoryRoot,
+    backendWasmRoot,
+    manifest.workDirectory,
+  );
   const subcircuitLibrary = path.join(
     backendWasmRoot,
     "node_modules",
@@ -103,17 +108,6 @@ function parseCopyManifest(raw: unknown): CopyManifest {
   };
 }
 
-function resolveWorkDirectory(repositoryRoot: string, backendWasmRoot: string, workDirectory: string): string {
-  const workDirectoryPath = path.resolve(repositoryRoot, workDirectory);
-  const allowedRoot = path.resolve(backendWasmRoot, "tmp", "fixtures");
-
-  if (!isPathInside(workDirectoryPath, allowedRoot)) {
-    throw new Error(`Copy manifest workDirectory must stay under packages/backend-wasm/tmp/fixtures: ${workDirectory}`);
-  }
-
-  return workDirectoryPath;
-}
-
 function parseVerifierResult(stdout: string): boolean | null {
   const lines = stdout
     .split(/\r?\n/)
@@ -172,11 +166,6 @@ async function runCommand(
       resolve({ stdout, stderr });
     });
   });
-}
-
-function isPathInside(candidate: string, parent: string): boolean {
-  const relative = path.relative(parent, candidate);
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

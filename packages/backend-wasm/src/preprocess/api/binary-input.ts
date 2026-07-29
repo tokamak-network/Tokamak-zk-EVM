@@ -8,13 +8,13 @@ import {
   type BinaryArtifactFileView,
   type BinarySectionView,
 } from "../../artifacts/binary/binary-format.js";
-import { GENERATED_PROVER_SETUP_PARAMS } from "../../prover/generated/subcircuit-library.generated.js";
-import type { ProverSetupParams } from "../../prover/protocol/witness.js";
+import type { SetupParams } from "../../artifacts/setup/setup-params.js";
+import { GENERATED_SETUP_PARAMS } from "../../generated/setup.generated.js";
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
+import { G1_AFFINE_BYTES } from "../../runtime/group/group.js";
 import type { PermutationEntry } from "../../runtime/polynomial/permutation-polynomials.js";
 
 const PERMUTATION_ENTRY_BYTES = 16;
-const G1_AFFINE_BYTES = 96;
 
 export interface PreprocessBinaryInput {
   readonly permutation: Uint8Array;
@@ -23,7 +23,7 @@ export interface PreprocessBinaryInput {
 }
 
 export interface PreprocessRuntimeInput {
-  readonly setup: ProverSetupParams;
+  readonly setup: SetupParams;
   readonly permutation: readonly PermutationEntry[];
   readonly functionInstance: Uint8Array;
   readonly crs: PreprocessCrsRuntime;
@@ -43,7 +43,7 @@ export async function loadPreprocessInputFromBinaryInput(
     decodeBinaryArtifactFile(input.instance),
     decodeBinaryArtifactFile(input.preprocessCrs),
   ]);
-  const setup = GENERATED_PROVER_SETUP_PARAMS;
+  const setup = GENERATED_SETUP_PARAMS;
 
   return {
     setup,
@@ -102,7 +102,7 @@ function assertIndex(value: number, upperBound: number, name: string): void {
 function parseFunctionInstance(
   runtime: CurveRuntime,
   file: BinaryArtifactFileView,
-  setup: ProverSetupParams,
+  setup: SetupParams,
 ): Uint8Array {
   const section = requireBinaryArtifactSection(file, {
     type: BinarySectionType.Instance,
@@ -116,7 +116,7 @@ function parseFunctionInstance(
 
 function parsePreprocessCrs(
   file: BinaryArtifactFileView,
-  setup: ProverSetupParams,
+  setup: SetupParams,
 ): PreprocessCrsRuntime {
   const xyPowers = requireBinaryArtifactSection(file, {
     type: BinarySectionType.CrsG1,

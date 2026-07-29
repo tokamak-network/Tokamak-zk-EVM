@@ -1,18 +1,7 @@
 import { BivariatePolynomialBuffer } from "../../runtime/polynomial/bivariate-polynomial-buffer.js";
 import type { FieldElement, FieldRuntime } from "../../runtime/field/field-runtime.js";
 import type { PermutationEntry } from "../../runtime/polynomial/permutation-polynomials.js";
-
-export interface ProverSetupParams {
-  readonly l_free: number;
-  readonly l: number;
-  readonly l_user_out: number;
-  readonly l_user: number;
-  readonly l_D: number;
-  readonly m_D: number;
-  readonly n: number;
-  readonly s_D: number;
-  readonly s_max: number;
-}
+import type { SetupParams } from "../../artifacts/setup/setup-params.js";
 
 export interface ProverSubcircuitInfo {
   readonly id: number;
@@ -49,7 +38,7 @@ export interface ProverPackedSparseSubcircuitR1cs {
 }
 
 export interface ProverWitnessInput {
-  readonly setup: ProverSetupParams;
+  readonly setup: SetupParams;
   readonly subcircuitInfos: readonly ProverSubcircuitInfo[];
   readonly placementVariables: ProverPlacementVariables;
   readonly r1csBySubcircuit: readonly ProverPackedSparseSubcircuitR1cs[];
@@ -97,7 +86,7 @@ export async function genBXY(
   field: FieldRuntime,
   placementVariables: ProverPlacementVariables,
   subcircuitInfos: readonly ProverSubcircuitInfo[],
-  setup: ProverSetupParams,
+  setup: SetupParams,
 ): Promise<BivariatePolynomialBuffer> {
   validateSetupParams(setup);
   validateSubcircuitInfos(subcircuitInfos);
@@ -127,7 +116,7 @@ export async function genUvwXY(
   field: FieldRuntime,
   placementVariables: ProverPlacementVariables,
   r1csBySubcircuit: readonly (ProverPackedSparseSubcircuitR1cs | undefined)[],
-  setup: ProverSetupParams,
+  setup: SetupParams,
 ): Promise<{
   readonly uXY: BivariatePolynomialBuffer;
   readonly vXY: BivariatePolynomialBuffer;
@@ -228,7 +217,7 @@ function writePlacementColumn(
 function indexPackedSparseR1cs(
   r1csEntries: readonly ProverPackedSparseSubcircuitR1cs[],
   subcircuitInfos: readonly ProverSubcircuitInfo[],
-  setup: ProverSetupParams,
+  setup: SetupParams,
 ): (ProverPackedSparseSubcircuitR1cs | undefined)[] {
   const indexed: (ProverPackedSparseSubcircuitR1cs | undefined)[] = Array.from({
     length: subcircuitInfos.length,
@@ -246,8 +235,8 @@ function indexPackedSparseR1cs(
   return indexed;
 }
 
-function validateSetupParams(setup: ProverSetupParams): void {
-  const numericFields: readonly (keyof ProverSetupParams)[] = [
+function validateSetupParams(setup: SetupParams): void {
+  const numericFields: readonly (keyof SetupParams)[] = [
     "l_free",
     "l",
     "l_user_out",
@@ -298,7 +287,7 @@ function validateSubcircuitInfos(subcircuitInfos: readonly ProverSubcircuitInfo[
 function validatePlacements(
   placementVariables: ProverPlacementVariables,
   subcircuitInfos: readonly ProverSubcircuitInfo[],
-  setup: ProverSetupParams,
+  setup: SetupParams,
 ): void {
   if (placementVariables.fieldByteLength <= 0) {
     throw new Error("placementVariables fieldByteLength must be positive.");
@@ -390,7 +379,7 @@ export function placementVariableAt(
 function validatePackedSparseR1cs(
   r1cs: ProverPackedSparseSubcircuitR1cs,
   subcircuitInfos: readonly ProverSubcircuitInfo[],
-  setup: ProverSetupParams,
+  setup: SetupParams,
 ): void {
   if (!Number.isSafeInteger(r1cs.subcircuitId) || r1cs.subcircuitId < 0 || r1cs.subcircuitId >= subcircuitInfos.length) {
     throw new Error(`Invalid sparse R1CS subcircuit id ${r1cs.subcircuitId}.`);

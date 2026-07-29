@@ -2,7 +2,8 @@ import { BivariatePolynomialBuffer } from "../../runtime/polynomial/bivariate-po
 import { buildPermutationPolynomials } from "../../runtime/polynomial/permutation-polynomials.js";
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import type { FieldElement, FieldRuntime } from "../../runtime/field/field-runtime.js";
-import type { ProverPermutationEntry, ProverSetupParams, WitnessPolynomials } from "./witness.js";
+import type { SetupParams } from "../../artifacts/setup/setup-params.js";
+import type { ProverPermutationEntry, WitnessPolynomials } from "./witness.js";
 
 export interface ProverInstancePolynomials {
   readonly aFreeX: BivariatePolynomialBuffer;
@@ -28,7 +29,7 @@ export interface ProverMixer {
 }
 
 export interface ProverState {
-  readonly setup: ProverSetupParams;
+  readonly setup: SetupParams;
   readonly instance: ProverInstancePolynomials;
   readonly witness: WitnessPolynomials;
   readonly mixer: ProverMixer;
@@ -36,7 +37,7 @@ export interface ProverState {
 
 export async function buildProverInstancePolynomials(
   field: FieldRuntime,
-  setup: ProverSetupParams,
+  setup: SetupParams,
   publicInstance: readonly FieldElement[],
   permutation: readonly ProverPermutationEntry[],
 ): Promise<ProverInstancePolynomials> {
@@ -81,7 +82,7 @@ export async function createProverMixer(runtime: CurveRuntime): Promise<ProverMi
 
 export async function createProverState(input: {
   readonly runtime: CurveRuntime;
-  readonly setup: ProverSetupParams;
+  readonly setup: SetupParams;
   readonly publicInstance: readonly FieldElement[];
   readonly permutation: readonly ProverPermutationEntry[];
   readonly witness: WitnessPolynomials;

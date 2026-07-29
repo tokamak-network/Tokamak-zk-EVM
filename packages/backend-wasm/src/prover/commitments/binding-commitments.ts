@@ -1,6 +1,9 @@
 import { BivariatePolynomialBuffer } from "../../runtime/polynomial/bivariate-polynomial-buffer.js";
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
+import { concatBytes } from "../../runtime/bytes.js";
 import type { FieldElement } from "../../runtime/field/field-runtime.js";
+import { G1_AFFINE_BYTES } from "../../runtime/group/group.js";
+import type { SetupParams } from "../../artifacts/setup/setup-params.js";
 import {
   proverCrsG1PointAt,
   type ProverCrsG1Section,
@@ -12,14 +15,11 @@ import {
   placementSubcircuitId,
   placementVariableAt,
   type ProverPlacementVariables,
-  type ProverSetupParams,
   type ProverSubcircuitInfo,
 } from "../protocol/witness.js";
-import { G1_AFFINE_BYTES } from "./commitment-layout.js";
 import {
   type ProverCommitmentEncoder,
 } from "./commitment-encoder.js";
-import { createSigma1CommitmentEncoder } from "./sigma1-encoder.js";
 
 export interface ProverBinding {
   readonly A_free: Uint8Array;
@@ -31,12 +31,12 @@ export interface ProverBinding {
 export async function buildProverBinding(
   runtime: CurveRuntime,
   crs: ProverCrsRuntime,
-  setup: ProverSetupParams,
+  setup: SetupParams,
   placementVariables: ProverPlacementVariables,
   subcircuitInfos: readonly ProverSubcircuitInfo[],
   aFreeX: BivariatePolynomialBuffer,
   mixer: ProverMixer,
-  commitmentEncoder: ProverCommitmentEncoder = createSigma1CommitmentEncoder(runtime, crs, setup),
+  commitmentEncoder: ProverCommitmentEncoder,
 ): Promise<ProverBinding> {
   const A_free = await commitmentEncoder(aFreeX);
   const O_pub_free = await encodeOPubFree(runtime, crs, placementVariables, subcircuitInfos);
@@ -140,7 +140,7 @@ export function countOPrvVariables(
 export async function encodeOMidNoZk(
   runtime: CurveRuntime,
   crs: ProverCrsRuntime,
-  setup: ProverSetupParams,
+  setup: SetupParams,
   placementVariables: ProverPlacementVariables,
   subcircuitInfos: readonly ProverSubcircuitInfo[],
 ): Promise<Uint8Array> {
@@ -159,7 +159,7 @@ export async function encodeOMidNoZk(
 export async function encodeOPrvNoZk(
   runtime: CurveRuntime,
   crs: ProverCrsRuntime,
-  setup: ProverSetupParams,
+  setup: SetupParams,
   placementVariables: ProverPlacementVariables,
   subcircuitInfos: readonly ProverSubcircuitInfo[],
 ): Promise<Uint8Array> {
@@ -266,15 +266,4 @@ function addG1Terms(runtime: CurveRuntime, terms: readonly Uint8Array[]): Uint8A
   }
 
   return accumulator;
-}
-
-function concatBytes(chunks: readonly Uint8Array[]): Uint8Array {
-  const output = new Uint8Array(chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0));
-  let offset = 0;
-  for (const chunk of chunks) {
-    output.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-
-  return output;
 }

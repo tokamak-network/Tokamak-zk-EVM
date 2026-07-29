@@ -1,17 +1,17 @@
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
+import type { SetupParams } from "../../artifacts/setup/setup-params.js";
 import {
   msmAffineMontgomeryChunks,
   type AffineMontgomeryMsmChunk,
 } from "../../runtime/group/affine-msm.js";
+import { G1_AFFINE_BYTES } from "../../runtime/group/group.js";
 import { BivariatePolynomialBuffer } from "../../runtime/polynomial/bivariate-polynomial-buffer.js";
 import {
   proverCrsG1PointAt,
   proverCrsG1PointRange,
   type ProverCrsRuntime,
 } from "../api/binary-input.js";
-import type { ProverSetupParams } from "../protocol/witness.js";
 import type { ProverCommitmentEncoder } from "./commitment-encoder.js";
-import { G1_AFFINE_BYTES } from "./commitment-layout.js";
 
 const SIGMA1_DENSE_MSM_CHUNK_POINTS = 1 << 18;
 const SIGMA1_DENSE_MSM_MIN_DENSITY = 0.75;
@@ -19,7 +19,7 @@ const SIGMA1_DENSE_MSM_MIN_DENSITY = 0.75;
 export async function encodePolynomialBufferWithSigma1(
   runtime: CurveRuntime,
   crs: ProverCrsRuntime,
-  setup: ProverSetupParams,
+  setup: SetupParams,
   polynomial: BivariatePolynomialBuffer,
   denseMsmChunkPoints = SIGMA1_DENSE_MSM_CHUNK_POINTS,
 ): Promise<Uint8Array> {
@@ -233,7 +233,7 @@ function* prepareSigma1DenseChunks(
 export function createSigma1CommitmentEncoder(
   runtime: CurveRuntime,
   crs: ProverCrsRuntime,
-  setup: ProverSetupParams,
+  setup: SetupParams,
   denseMsmChunkPoints = SIGMA1_DENSE_MSM_CHUNK_POINTS,
 ): ProverCommitmentEncoder {
   return (polynomial) => encodePolynomialBufferWithSigma1(

@@ -14,20 +14,18 @@ import {
   denseFromBivariateBuffer,
 } from "../../support/polynomial/dense-buffer-adapter.js";
 import type { ProverCrsRuntime } from "../../../src/prover/api/binary-input.js";
-import type { ProverSetupParams } from "../../../src/prover/protocol/witness.js";
+import type { SetupParams } from "../../../src/artifacts/setup/setup-params.js";
 import {
   intt2dReference,
   ntt2dReference,
 } from "../../support/polynomial/ntt-reference.js";
 import { encodePolynomialBufferWithSigma1 } from "../../../src/prover/commitments/sigma1-encoder.js";
+import { assertJsonEqual as assertEqual } from "../../support/assertions.js";
+import { concatBytes } from "../../support/bytes.js";
 import {
   lowDegreeXTimesVanishingBuffer,
   lowDegreeYTimesVanishingBuffer,
 } from "../../../src/prover/polynomial/shifted-products.js";
-import {
-  mulByLinearX,
-  mulByLinearY,
-} from "../../../src/prover/polynomial/special-products.js";
 
 async function main(): Promise<void> {
   const runtime = await createCurveRuntime();
@@ -56,7 +54,7 @@ async function checkBufferCommitmentEncoding(runtime: CurveRuntime): Promise<voi
     s_max: 2,
     l: 0,
     l_D: 2,
-  } as ProverSetupParams;
+  } as SetupParams;
   const crs = {
     sigma1: {
       xyPowers: {
@@ -73,17 +71,6 @@ async function checkBufferCommitmentEncoding(runtime: CurveRuntime): Promise<voi
   if (!runtime.G1.eq(actual, expected)) {
     throw new Error("buffer commitment encoding mismatch against repeated-generator synthetic CRS");
   }
-}
-
-function concatBytes(chunks: readonly Uint8Array[]): Uint8Array {
-  const size = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
-  const output = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    output.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return output;
 }
 
 async function checkBivariatePolynomialBuffer(field: FieldRuntime): Promise<void> {
@@ -200,8 +187,6 @@ async function checkOperationParityMatrix(field: FieldRuntime): Promise<readonly
     const xPoint = field.fromBigInt(41n);
     const yPoint = field.fromBigInt(43n);
     const replacement = field.fromBigInt(47n);
-    const linearX = [field.fromBigInt(53n), field.fromBigInt(59n)];
-    const linearY = [field.fromBigInt(61n), field.fromBigInt(67n)];
     const targetXSize = testCase.xSize * 2;
     const targetYSize = testCase.ySize * 2;
 
@@ -240,20 +225,6 @@ async function checkOperationParityMatrix(field: FieldRuntime): Promise<readonly
       testCase.label,
       () => dense.resize(targetXSize, targetYSize).add(dense.scale(scale)).toHexCoeffs(),
       () => bivariateBufferToHexCoeffs(buffer.resize(targetXSize, targetYSize).addScaledPrefixAssign(buffer, scale)),
-    );
-    await recordOperation(
-      records,
-      "mulByLinearX",
-      testCase.label,
-      () => dense.scale(linearX[0]).add(dense.mulMonomial(1, 0).scale(linearX[1])).toHexCoeffs(),
-      async () => bivariateBufferToHexCoeffs(await mulByLinearX(buffer, linearX)),
-    );
-    await recordOperation(
-      records,
-      "mulByLinearY",
-      testCase.label,
-      () => dense.scale(linearY[0]).add(dense.mulMonomial(0, 1).scale(linearY[1])).toHexCoeffs(),
-      async () => bivariateBufferToHexCoeffs(await mulByLinearY(buffer, linearY)),
     );
     await recordOperation(records, "mul", testCase.label, () => dense.mul(otherDense).toHexCoeffs(), async () => bivariateBufferToHexCoeffs(await buffer.mul(otherBuffer)));
     await recordOperation(
@@ -625,12 +596,6 @@ function nextPowerOfTwo(value: number): number {
 
 function formatFields(field: FieldRuntime, values: readonly FieldElement[]): string[] {
   return values.map((value) => field.toHex(value));
-}
-
-function assertEqual(actual: unknown, expected: unknown, label: string): void {
-  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-    throw new Error(`${label} mismatch: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
-  }
 }
 
 function assertThrows(fn: () => unknown, label: string): void {

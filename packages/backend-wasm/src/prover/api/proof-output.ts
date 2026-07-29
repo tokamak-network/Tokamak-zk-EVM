@@ -5,6 +5,7 @@ import {
   BinarySectionType,
 } from "../../artifacts/binary/binary-format.js";
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
+import { concatBytes } from "../../runtime/bytes.js";
 import type { ProverBinding } from "../commitments/binding-commitments.js";
 import type { InitialRelationComputation } from "../protocol/initial-relation.js";
 import type { RecursionComputation } from "../protocol/recursion-commitment.js";
@@ -21,7 +22,6 @@ export interface ProverVerifierProofOutputInput {
   readonly copyQuotient: CopyQuotientComputation;
   readonly evaluations: ChallengeEvaluations;
   readonly openings: OpeningCommitmentsComputation;
-  readonly sourcePackageVersion?: string;
 }
 
 export async function createVerifierProofArtifactFromProverOutput(
@@ -35,7 +35,7 @@ export async function createVerifierProofArtifactFromProverOutput(
 
   return createBinaryArtifactFile({
     kind: BinaryArtifactFileKind.VerifierProof,
-    sourcePackageVersion: input.sourcePackageVersion ?? BACKEND_WASM_PACKAGE_VERSION,
+    sourcePackageVersion: BACKEND_WASM_PACKAGE_VERSION,
     sections: [
       {
         type: BinarySectionType.Proof,
@@ -82,15 +82,4 @@ export async function createVerifierProofArtifactFromProverOutput(
       },
     ],
   });
-}
-
-function concatBytes(chunks: readonly Uint8Array[]): Uint8Array {
-  const output = new Uint8Array(chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0));
-  let offset = 0;
-  for (const chunk of chunks) {
-    output.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-
-  return output;
 }

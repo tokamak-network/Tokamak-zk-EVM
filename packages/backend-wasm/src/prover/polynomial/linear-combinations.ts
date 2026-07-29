@@ -6,38 +6,6 @@ export function constantPolynomialBuffer(field: CurveRuntime["Fr"], value: Field
   return BivariatePolynomialBuffer.fromCoeffs(field, [value], 1, 1);
 }
 
-export function linearCombinationBuffer(
-  field: CurveRuntime["Fr"],
-  terms: readonly (readonly [FieldElement, BivariatePolynomialBuffer])[],
-): BivariatePolynomialBuffer {
-  let xSize = 1;
-  let ySize = 1;
-  let firstNonZeroTerm: number | undefined;
-  for (let index = 0; index < terms.length; index += 1) {
-    const [scalar, polynomial] = terms[index];
-    if (polynomial.field !== field) {
-      throw new Error("Linear combination terms must use the requested field.");
-    }
-    xSize = Math.max(xSize, polynomial.xSize);
-    ySize = Math.max(ySize, polynomial.ySize);
-    if (firstNonZeroTerm === undefined && !field.isZero(scalar)) {
-      firstNonZeroTerm = index;
-    }
-  }
-
-  if (firstNonZeroTerm === undefined) {
-    return BivariatePolynomialBuffer.zero(field).resize(xSize, ySize);
-  }
-
-  const [firstScalar, firstPolynomial] = terms[firstNonZeroTerm];
-  const accumulator = scaleTermIntoShape(field, firstPolynomial, firstScalar, xSize, ySize);
-  for (let index = firstNonZeroTerm + 1; index < terms.length; index += 1) {
-    const [scalar, polynomial] = terms[index];
-    accumulator.addScaledPrefixAssign(polynomial, scalar);
-  }
-  return accumulator;
-}
-
 export async function linearCombinationBufferBatch(
   field: CurveRuntime["Fr"],
   terms: readonly (readonly [FieldElement, BivariatePolynomialBuffer])[],
@@ -87,39 +55,6 @@ export async function linearCombinationBufferBatch(
   }
 
   return accumulator;
-}
-
-function scaleTermIntoShape(
-  field: CurveRuntime["Fr"],
-  polynomial: BivariatePolynomialBuffer,
-  scalar: FieldElement,
-  xSize: number,
-  ySize: number,
-): BivariatePolynomialBuffer {
-  const output = field.createZeroBuffer(xSize * ySize);
-  const elementBytes = field.byteLength;
-  const targetRowBytes = ySize * elementBytes;
-  const sourceRowBytes = polynomial.ySize * elementBytes;
-  const isOne = field.eq(scalar, field.one);
-  const isMinusOne = field.eq(scalar, field.neg(field.one));
-
-  for (let x = 0; x < polynomial.xSize; x += 1) {
-    const targetRowOffset = x * targetRowBytes;
-    const sourceRowOffset = x * sourceRowBytes;
-    for (let yOffset = 0; yOffset < sourceRowBytes; yOffset += elementBytes) {
-      const targetOffset = targetRowOffset + yOffset;
-      const source = polynomial.coefficients.subarray(sourceRowOffset + yOffset, sourceRowOffset + yOffset + elementBytes);
-      if (isOne) {
-        output.set(source, targetOffset);
-      } else if (isMinusOne) {
-        output.set(field.neg(source), targetOffset);
-      } else {
-        output.set(field.mul(source, scalar), targetOffset);
-      }
-    }
-  }
-
-  return BivariatePolynomialBuffer.fromOwnedBuffer(field, output, xSize, ySize);
 }
 
 async function scaleTermIntoShapeBatch(

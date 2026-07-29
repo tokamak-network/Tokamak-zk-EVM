@@ -5,7 +5,6 @@ import type { ProverRuntimeInput } from "./binary-input.js";
 
 export interface ProveSnarkOptions {
   readonly denseSigma1MsmChunkPoints?: number;
-  readonly sourcePackageVersion?: string;
 }
 
 export async function proveSnark(

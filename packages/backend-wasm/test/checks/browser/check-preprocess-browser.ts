@@ -1,10 +1,10 @@
-import { readFile, rm } from "node:fs/promises";
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { build } from "esbuild";
 import { chromium } from "playwright";
+import { startIsolatedFileServer } from "../../support/browser/static-file-server.js";
 
 const OUTPUT_DIR = "tmp/browser/preprocess";
 const BUNDLE_PATH = path.join(OUTPUT_DIR, "preprocess-entry.js");
@@ -12,7 +12,7 @@ const TIMEOUT_MS = 300_000;
 
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2));
-  const { mode, chunkSizeExponent } = options;
+  const { chunkSizeExponent } = options;
   await rm(OUTPUT_DIR, { recursive: true, force: true });
   await build({
     entryPoints: ["test/browser/preprocess-entry.ts"],
@@ -24,12 +24,7 @@ async function main(): Promise<void> {
     sourcemap: false,
   });
 
-  const server = createServer(handleRequest);
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const address = server.address();
-  if (address === null || typeof address === "string") {
-    throw new Error("Browser preprocess check failed to bind a local HTTP port.");
-  }
+  const server = await startIsolatedFileServer(resolveFile);
 
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
   try {
@@ -43,11 +38,11 @@ async function main(): Promise<void> {
       }
     });
 
-    const searchParams = new URLSearchParams({ mode });
+    const searchParams = new URLSearchParams();
     if (chunkSizeExponent !== undefined) {
       searchParams.set("chunkSizeExponent", String(chunkSizeExponent));
     }
-    await page.goto(`http://127.0.0.1:${address.port}/browser/preprocess.html?${searchParams}`, {
+    await page.goto(`${server.origin}/browser/preprocess.html?${searchParams}`, {
       waitUntil: "networkidle",
     });
     const result = await page.waitForFunction(() => {
@@ -58,7 +53,6 @@ async function main(): Promise<void> {
 
     if (
       value.status !== "ok"
-      || value.mode !== mode
       || value.nativeParity !== true
       || value.verifierAccepted !== true
       || value.chunkSizeExponent !== chunkSizeExponent
@@ -70,7 +64,6 @@ async function main(): Promise<void> {
     }
 
     console.log(JSON.stringify({
-      mode,
       nativeParity: value.nativeParity,
       verifierAccepted: value.verifierAccepted,
       preprocessMs: value.preprocessMs,
@@ -78,7 +71,7 @@ async function main(): Promise<void> {
     }));
   } finally {
     await browser?.close();
-    server.close();
+    await server.close();
   }
 
   console.log("Checked preprocess native parity and verifier acceptance in Chromium");
@@ -86,7 +79,6 @@ async function main(): Promise<void> {
 
 interface BrowserPreprocessResult {
   readonly status: "pending" | "ok" | "error";
-  readonly mode?: BrowserPreprocessMode;
   readonly nativeParity?: boolean;
   readonly verifierAccepted?: boolean;
   readonly preprocessMs?: number;
@@ -94,29 +86,13 @@ interface BrowserPreprocessResult {
   readonly error?: string;
 }
 
-type BrowserPreprocessMode =
-  | "production"
-  | "legacy-baseline"
-  | "selected-candidate";
-
 interface BrowserPreprocessOptions {
-  readonly mode: BrowserPreprocessMode;
   readonly chunkSizeExponent?: number;
 }
 
 function parseOptions(argv: readonly string[]): BrowserPreprocessOptions {
   if (argv.length === 0) {
-    return { mode: "production" };
-  }
-  if (argv.length === 2 && argv[0] === "--mode") {
-    const mode = argv[1];
-    if (
-      mode === "production"
-      || mode === "legacy-baseline"
-      || mode === "selected-candidate"
-    ) {
-      return { mode };
-    }
+    return {};
   }
   if (
     argv.length === 2
@@ -128,53 +104,22 @@ function parseOptions(argv: readonly string[]): BrowserPreprocessOptions {
       && chunkSizeExponent >= 10
       && chunkSizeExponent <= 19
     ) {
-      return { mode: "production", chunkSizeExponent };
+      return { chunkSizeExponent };
     }
   }
   throw new Error(
-    "Usage: check-preprocess-browser [--mode <production|legacy-baseline|selected-candidate>]"
-      + " [--chunk-size-exponent <10..19>]",
+    "Usage: check-preprocess-browser [--chunk-size-exponent <10..19>]",
   );
 }
 
-async function handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
-  try {
-    const url = new URL(request.url ?? "/", "http://127.0.0.1");
-    const pathname = decodeURIComponent(url.pathname);
-
-    if (pathname === "/browser/preprocess.html") {
-      await serveFile(response, "test/browser/preprocess.html", "text/html; charset=utf-8");
-      return;
-    }
-    if (pathname === "/browser/preprocess-entry.js") {
-      await serveFile(response, BUNDLE_PATH, "text/javascript; charset=utf-8");
-      return;
-    }
-    if (pathname.startsWith("/fixtures/")) {
-      await serveFile(response, pathname.slice(1), "application/octet-stream");
-      return;
-    }
-
-    response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
-    response.end("not found");
-  } catch (error) {
-    response.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
-    response.end(error instanceof Error ? error.stack ?? error.message : String(error));
+function resolveFile(pathname: string): string | undefined {
+  if (pathname === "/browser/preprocess.html") {
+    return "test/browser/preprocess.html";
   }
-}
-
-async function serveFile(
-  response: ServerResponse,
-  filePath: string,
-  contentType: string,
-): Promise<void> {
-  const bytes = await readFile(filePath);
-  response.writeHead(200, {
-    "content-type": contentType,
-    "cross-origin-opener-policy": "same-origin",
-    "cross-origin-embedder-policy": "require-corp",
-  });
-  response.end(bytes);
+  if (pathname === "/browser/preprocess-entry.js") {
+    return BUNDLE_PATH;
+  }
+  return pathname.startsWith("/fixtures/") ? pathname.slice(1) : undefined;
 }
 
 const entrypoint = fileURLToPath(import.meta.url);

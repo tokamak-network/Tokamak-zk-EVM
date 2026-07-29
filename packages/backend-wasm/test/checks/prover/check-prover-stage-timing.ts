@@ -489,7 +489,7 @@ async function main(): Promise<void> {
     );
     const generatedProof = await provePreparedInputWithStrictTimings(runtime, proverInput);
 
-    await timing.span("load generated proof artifact", "io", () => decodeBinaryArtifactFile(generatedProof)).then(
+    await timing.span("load generated proof artifact", "io", async () => decodeBinaryArtifactFile(generatedProof)).then(
       (artifact) => {
         if (artifact.kind !== BinaryArtifactFileKind.VerifierProof) {
           throw new Error(`Prover output artifact kind mismatch: ${artifact.kind}.`);
@@ -546,6 +546,8 @@ async function provePreparedInputWithStrictTimings(runtime: CurveRuntime, input:
       input.witness.subcircuitInfos,
       state.instance.aFreeX,
       state.mixer,
+      (polynomial) =>
+        encodePolynomialBufferWithSigma1(runtime, input.crs, input.witness.setup, polynomial),
     ),
   );
 

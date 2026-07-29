@@ -1,10 +1,14 @@
 import { BackendWasmError } from "../../backend-wasm-error.js";
-import { createCurveRuntime, type CurveRuntime } from "../../runtime/curve/curve.js";
+import {
+  assertNamedBinaryInput,
+  installCurveRuntime,
+} from "../../api/public-api-utils.js";
+import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import { BACKEND_WASM_PACKAGE_VERSION } from "../../version.js";
 import {
   NATIVE_BACKEND_VERSION,
   SUBCIRCUIT_LIBRARY_PACKAGE_VERSION,
-} from "../../prover/generated/subcircuit-library.generated.js";
+} from "../../generated/setup.generated.js";
 import {
   loadVerifierInputFromBinaryInput,
   type VerifierBinaryInput,
@@ -44,7 +48,7 @@ export async function verify(input: VerifierInput): Promise<boolean> {
     throw new BackendWasmError("BUSY", "The verifier is already running.");
   }
 
-  assertVerifierInput(input);
+  assertNamedBinaryInput(input, "Verifier", ["proof", "instance", "verifierPreprocess"]);
   busy = true;
 
   try {
@@ -79,11 +83,7 @@ async function requireInstalledRuntime(): Promise<CurveRuntime> {
     return installationPromise;
   }
 
-  const pending = createCurveRuntime().catch((cause: unknown) => {
-    throw new BackendWasmError("INSTALL_FAILED", "The verifier runtime could not be installed.", {
-      cause,
-    });
-  });
+  const pending = installCurveRuntime("The verifier runtime could not be installed.");
   installationPromise = pending;
 
   try {
@@ -93,24 +93,5 @@ async function requireInstalledRuntime(): Promise<CurveRuntime> {
       installationPromise = undefined;
     }
     throw error;
-  }
-}
-
-function assertVerifierInput(input: VerifierInput): void {
-  if (typeof input !== "object" || input === null || Array.isArray(input)) {
-    throw new BackendWasmError("INVALID_INPUT", "Verifier input must be an object.");
-  }
-
-  assertBinary(input.proof, "proof");
-  assertBinary(input.instance, "instance");
-  assertBinary(input.verifierPreprocess, "verifierPreprocess");
-}
-
-function assertBinary(value: Uint8Array, name: keyof VerifierInput): void {
-  if (!(value instanceof Uint8Array) || value.byteLength === 0) {
-    throw new BackendWasmError(
-      "INVALID_INPUT",
-      `Verifier input '${name}' must be a non-empty Uint8Array.`,
-    );
   }
 }

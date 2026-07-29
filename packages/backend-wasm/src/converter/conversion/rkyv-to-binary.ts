@@ -7,8 +7,8 @@ import {
   BinarySectionType,
   type BinarySectionInput,
 } from "../../artifacts/binary/binary-format.js";
+import { G1_AFFINE_BYTES } from "../../runtime/group/group.js";
 
-const G1_AFFINE_BYTES = 96;
 const G2_AFFINE_BYTES = 192;
 const FQ_BYTES = 48;
 const FQ_BATCH_CONVERSION_CHUNK_ELEMENTS = 1 << 18;

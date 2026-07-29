@@ -8,12 +8,12 @@ import {
   bivariateBufferFromDense,
   denseFromBivariateBuffer,
 } from "../../support/polynomial/dense-buffer-adapter.js";
+import { assertJsonEqual as assertEqual } from "../../support/assertions.js";
 import {
   constantPolynomialBuffer,
-  linearCombinationBuffer,
+  linearCombinationBufferBatch,
 } from "../../../src/prover/polynomial/linear-combinations.js";
 import {
-  evaluateAtScaledChallengeSet,
   evaluateAtScaledChallengeSetBatch,
   evaluateLagrangeK0At,
 } from "../../../src/prover/polynomial/evaluation.js";
@@ -23,19 +23,15 @@ import {
   multiplyOmegaShiftedProducts,
 } from "../../../src/prover/polynomial/shifted-products.js";
 import {
-  mulByLinearX,
-  mulByLinearY,
   mulByOneMinusX,
   mulByTerm9,
   mulByXMinusOne,
 } from "../../../src/prover/polynomial/special-products.js";
 import {
-  buildLagrangeK0,
   buildLagrangeKl,
   computeRecursionEvalsBuffer,
   multiplyByLagrangeK0,
   multiplyByLagrangeKl,
-  transposeRowMajorBuffer,
 } from "../../../src/prover/polynomial/recursion.js";
 
 async function main(): Promise<void> {
@@ -50,9 +46,8 @@ async function main(): Promise<void> {
 }
 
 async function checkProverPolynomialOps(field: FieldRuntime): Promise<void> {
-  checkLinearCombination(field);
+  await checkLinearCombination(field);
   checkLowDegreeVanishingProducts(field);
-  checkTranspose(field);
   await checkRecursionEvals(field);
   await checkLagrangeBuilders(field);
   await checkEvaluationHelpers(field);
@@ -60,7 +55,7 @@ async function checkProverPolynomialOps(field: FieldRuntime): Promise<void> {
   await checkOmegaShiftedMultiplication(field);
 }
 
-function checkLinearCombination(field: FieldRuntime): void {
+async function checkLinearCombination(field: FieldRuntime): Promise<void> {
   const left = DensePolynomialExt.fromCoeffs(
     field,
     [3n, 5n, 7n, 11n].map((value) => field.fromBigInt(value)),
@@ -72,7 +67,7 @@ function checkLinearCombination(field: FieldRuntime): void {
   const rightScale = field.fromBigInt(23n);
   const constant = field.fromBigInt(29n);
 
-  const actual = linearCombinationBuffer(field, [
+  const actual = await linearCombinationBufferBatch(field, [
     [leftScale, bivariateBufferFromDense(left)],
     [rightScale, bivariateBufferFromDense(right)],
     [field.one, constantPolynomialBuffer(field, constant)],
@@ -81,7 +76,7 @@ function checkLinearCombination(field: FieldRuntime): void {
     .add(right.scale(rightScale))
     .add(DensePolynomialExt.fromCoeffs(field, [constant], 1, 1));
 
-  assertBufferDenseEqual(actual, expected, "linearCombinationBuffer");
+  assertBufferDenseEqual(actual, expected, "linearCombinationBufferBatch");
 }
 
 function checkLowDegreeVanishingProducts(field: FieldRuntime): void {
@@ -100,14 +95,6 @@ function checkLowDegreeVanishingProducts(field: FieldRuntime): void {
   );
   assertThrows(() => lowDegreeXTimesVanishingBuffer(field, coefficients, 0), "lowDegreeX invalid exponent");
   assertThrows(() => lowDegreeYTimesVanishingBuffer(field, coefficients, 0), "lowDegreeY invalid exponent");
-}
-
-function checkTranspose(field: FieldRuntime): void {
-  const values = [3n, 5n, 7n, 11n, 13n, 17n].map((value) => field.fromBigInt(value));
-  const actual = transposeRowMajorBuffer(field, field.concat(values), 2, 3);
-  const expected = [values[0], values[3], values[1], values[4], values[2], values[5]];
-  assertFields(field, field.split(actual), expected, "transposeRowMajorBuffer");
-  assertThrows(() => transposeRowMajorBuffer(field, field.concat(values), 4, 2), "transpose shape mismatch");
 }
 
 async function checkRecursionEvals(field: FieldRuntime): Promise<void> {
@@ -130,8 +117,6 @@ async function checkLagrangeBuilders(field: FieldRuntime): Promise<void> {
   const k0Evals = field.createZeroBuffer(mI);
   field.writeBufferElement(k0Evals, 0, field.one);
   const expectedK0 = await DensePolynomialExt.fromRouEvals(field, field.split(k0Evals), mI, 1);
-  const lagrangeK0 = await buildLagrangeK0(field, mI);
-  assertBufferDenseEqual(lagrangeK0, expectedK0, "buildLagrangeK0");
   const k0Input = BivariatePolynomialBuffer.fromCoeffs(
     field,
     [3n, 5n, 7n, 11n, 13n, 17n, 19n, 23n].map((value) => field.fromBigInt(value)),
@@ -178,31 +163,12 @@ async function checkEvaluationHelpers(field: FieldRuntime): Promise<void> {
   const scaledXPoint = field.fromBigInt(23n);
   const yPoint = field.fromBigInt(29n);
   const scaledYPoint = field.fromBigInt(31n);
-  const [baseEval, scaledXEval, scaledXYEval] = evaluateAtScaledChallengeSet(
-    field,
-    polynomial,
-    xPoint,
-    scaledXPoint,
-    yPoint,
-    scaledYPoint,
-  );
+  const expectedEvals = [
+    polynomial.eval(xPoint, yPoint),
+    polynomial.eval(scaledXPoint, yPoint),
+    polynomial.eval(scaledXPoint, scaledYPoint),
+  ];
 
-  assertFields(
-    field,
-    [baseEval, scaledXEval, scaledXYEval],
-    [
-      polynomial.eval(xPoint, yPoint),
-      polynomial.eval(scaledXPoint, yPoint),
-      polynomial.eval(scaledXPoint, scaledYPoint),
-    ],
-    "evaluateAtScaledChallengeSet",
-  );
-  assertFields(
-    field,
-    [await polynomial.evalBatch(xPoint, yPoint)],
-    [polynomial.eval(xPoint, yPoint)],
-    "BivariatePolynomialBuffer.evalBatch",
-  );
   assertFields(
     field,
     await evaluateAtScaledChallengeSetBatch(
@@ -213,12 +179,19 @@ async function checkEvaluationHelpers(field: FieldRuntime): Promise<void> {
       yPoint,
       scaledYPoint,
     ),
-    [baseEval, scaledXEval, scaledXYEval],
+    expectedEvals,
     "evaluateAtScaledChallengeSetBatch",
   );
-
+  assertFields(
+    field,
+    [await polynomial.evalBatch(xPoint, yPoint)],
+    [polynomial.eval(xPoint, yPoint)],
+    "BivariatePolynomialBuffer.evalBatch",
+  );
   const mI = 8;
-  const lagrangeK0 = await buildLagrangeK0(field, mI);
+  const k0Evals = field.createZeroBuffer(mI);
+  field.writeBufferElement(k0Evals, 0, field.one);
+  const lagrangeK0 = await DensePolynomialExt.fromRouEvals(field, field.split(k0Evals), mI, 1);
   const genericPoint = field.fromBigInt(37n);
   const genericVanishingEval = field.sub(field.pow(genericPoint, mI), field.one);
   assertFields(
@@ -254,17 +227,6 @@ async function checkSpecialProducts(field: FieldRuntime): Promise<void> {
 
   assertBufferDenseEqual(await mulByXMinusOne(buffer), polynomial.mulMonomial(1, 0).sub(polynomial), "mulByXMinusOne");
   assertBufferDenseEqual(await mulByOneMinusX(buffer), polynomial.sub(polynomial.mulMonomial(1, 0)), "mulByOneMinusX");
-  assertBufferDenseEqual(
-    await mulByLinearX(buffer, xCoefficients),
-    polynomial.scale(xCoefficients[0]).add(polynomial.mulMonomial(1, 0).scale(xCoefficients[1])),
-    "mulByLinearX",
-  );
-  assertBufferDenseEqual(
-    await mulByLinearY(buffer, yCoefficients),
-    polynomial.scale(yCoefficients[0]).add(polynomial.mulMonomial(0, 1).scale(yCoefficients[1])),
-    "mulByLinearY",
-  );
-
   const term9Constant = field.add(field.mul(tMiEval, xCoefficients[0]), field.mul(tSMaxEval, yCoefficients[0]));
   const term9X = field.mul(tMiEval, xCoefficients[1]);
   const term9Y = field.mul(tSMaxEval, yCoefficients[1]);
@@ -278,8 +240,6 @@ async function checkSpecialProducts(field: FieldRuntime): Promise<void> {
     "mulByTerm9",
   );
 
-  await assertRejects(() => mulByLinearX(buffer, [field.one]), "mulByLinearX invalid coefficient count");
-  await assertRejects(() => mulByLinearY(buffer, [field.one]), "mulByLinearY invalid coefficient count");
   await assertRejects(
     () => mulByTerm9(buffer, [field.one], yCoefficients, tMiEval, tSMaxEval),
     "mulByTerm9 invalid rB_X count",
@@ -431,12 +391,6 @@ async function assertRejects(fn: () => Promise<unknown>, label: string): Promise
     return;
   }
   throw new Error(`${label} did not reject`);
-}
-
-function assertEqual(actual: unknown, expected: unknown, label: string): void {
-  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-    throw new Error(`${label} mismatch: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
-  }
 }
 
 function nextPowerOfTwo(value: number): number {

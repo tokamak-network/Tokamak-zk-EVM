@@ -1,5 +1,10 @@
 import { BackendWasmError } from "../../backend-wasm-error.js";
-import { createCurveRuntime, type CurveRuntime } from "../../runtime/curve/curve.js";
+import {
+  assertNamedBinaryInput,
+  installCurveRuntime,
+  parseChunkSizeExponent,
+} from "../../api/public-api-utils.js";
+import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import {
   loadProverInputFromBinaryInput,
   type ProverBinaryInput,
@@ -13,11 +18,9 @@ import { BACKEND_WASM_PACKAGE_VERSION } from "../../version.js";
 import {
   NATIVE_BACKEND_VERSION,
   SUBCIRCUIT_LIBRARY_PACKAGE_VERSION,
-} from "../generated/subcircuit-library.generated.js";
+} from "../../generated/setup.generated.js";
 
 const DEFAULT_CHUNK_SIZE_EXPONENT = 18;
-const MIN_CHUNK_SIZE_EXPONENT = 10;
-const MAX_CHUNK_SIZE_EXPONENT = 19;
 
 export interface ProverInstallOptions {
   readonly chunkSizeExponent?: number;
@@ -47,7 +50,7 @@ let busy = false;
 let chunkSizeExponent = DEFAULT_CHUNK_SIZE_EXPONENT;
 
 export async function install(options: ProverInstallOptions = {}): Promise<ProverInstallationInfo> {
-  const requestedExponent = parseInstallOptions(options);
+  const requestedExponent = parseChunkSizeExponent(options, "Prover");
   const installedRuntime = await requireInstalledRuntime();
   runtime = installedRuntime;
 
@@ -89,7 +92,7 @@ export async function begin(input: ProverInput): Promise<ProverSession> {
     throw new BackendWasmError("BUSY", "The prover is already running.");
   }
 
-  assertProverInput(input);
+  assertNamedBinaryInput(input, "Prover", ["witness", "permutation", "instance", "proverCrs"]);
   busy = true;
   const proofChunkSize = 2 ** chunkSizeExponent;
 
@@ -207,11 +210,7 @@ async function requireInstalledRuntime(): Promise<CurveRuntime> {
     return installationPromise;
   }
 
-  const pending = createCurveRuntime().catch((cause: unknown) => {
-    throw new BackendWasmError("INSTALL_FAILED", "The prover runtime could not be installed.", {
-      cause,
-    });
-  });
+  const pending = installCurveRuntime("The prover runtime could not be installed.");
   installationPromise = pending;
 
   try {
@@ -221,56 +220,6 @@ async function requireInstalledRuntime(): Promise<CurveRuntime> {
       installationPromise = undefined;
     }
     throw error;
-  }
-}
-
-function parseInstallOptions(options: ProverInstallOptions): number | undefined {
-  if (typeof options !== "object" || options === null || Array.isArray(options)) {
-    throw new BackendWasmError("INVALID_OPTION", "Prover install options must be an object.");
-  }
-
-  const unsupported = Object.keys(options).filter((key) => key !== "chunkSizeExponent");
-  if (unsupported.length > 0) {
-    throw new BackendWasmError(
-      "INVALID_OPTION",
-      `Unsupported prover install option: ${unsupported.join(", ")}.`,
-    );
-  }
-
-  const exponent = options.chunkSizeExponent;
-  if (exponent === undefined) {
-    return undefined;
-  }
-  if (
-    !Number.isInteger(exponent)
-    || exponent < MIN_CHUNK_SIZE_EXPONENT
-    || exponent > MAX_CHUNK_SIZE_EXPONENT
-  ) {
-    throw new BackendWasmError(
-      "INVALID_OPTION",
-      `chunkSizeExponent must be an integer from ${MIN_CHUNK_SIZE_EXPONENT} through ${MAX_CHUNK_SIZE_EXPONENT}.`,
-    );
-  }
-  return exponent;
-}
-
-function assertProverInput(input: ProverInput): void {
-  if (typeof input !== "object" || input === null || Array.isArray(input)) {
-    throw new BackendWasmError("INVALID_INPUT", "Prover input must be an object.");
-  }
-
-  assertBinary(input.witness, "witness");
-  assertBinary(input.permutation, "permutation");
-  assertBinary(input.instance, "instance");
-  assertBinary(input.proverCrs, "proverCrs");
-}
-
-function assertBinary(value: Uint8Array, name: keyof ProverInput): void {
-  if (!(value instanceof Uint8Array) || value.byteLength === 0) {
-    throw new BackendWasmError(
-      "INVALID_INPUT",
-      `Prover input '${name}' must be a non-empty Uint8Array.`,
-    );
   }
 }
 

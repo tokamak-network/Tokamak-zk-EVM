@@ -13,9 +13,10 @@ import {
   convertCombinedSigmaRkyvToCrsBinaries,
   createCombinedSigmaRkyvPayloadDecoder,
 } from "../../src/converter/conversion/rkyv-to-binary.js";
-import { GENERATED_PROVER_SETUP_PARAMS } from "../../src/prover/generated/subcircuit-library.generated.js";
+import { GENERATED_SETUP_PARAMS } from "../../src/generated/setup.generated.js";
 import { BACKEND_WASM_PACKAGE_VERSION } from "../../src/version.js";
 import { loadCombinedSigmaPayloadDecoder } from "../../tools/rkyv-decoder-wasm/src/node.js";
+import { resolveFixtureWorkDirectory } from "./fixture-paths.js";
 
 interface CopyManifest {
   readonly schemaVersion: 2;
@@ -33,7 +34,11 @@ async function main(argv: readonly string[]): Promise<void> {
   const backendWasmRoot = path.resolve(manifestDirectory, "../..");
   const repositoryRoot = path.resolve(backendWasmRoot, "../..");
   const manifest = parseCopyManifest(JSON.parse(await readFile(manifestPath, "utf8")) as unknown);
-  const sourceRoot = resolveWorkDirectory(repositoryRoot, backendWasmRoot, manifest.workDirectory);
+  const sourceRoot = resolveFixtureWorkDirectory(
+    repositoryRoot,
+    backendWasmRoot,
+    manifest.workDirectory,
+  );
   const runtimeRoot = path.join(backendWasmRoot, "fixtures", manifest.suite, "runtime");
   const payloadDecoder = await loadCombinedSigmaPayloadDecoder();
   const instance = await readJson(path.join(sourceRoot, "synthesizer", "instance.json"));
@@ -42,7 +47,7 @@ async function main(argv: readonly string[]): Promise<void> {
     {
       sourcePackageVersion: BACKEND_WASM_PACKAGE_VERSION,
       decoder: createCombinedSigmaRkyvPayloadDecoder(payloadDecoder.decodeCombinedSigmaPayload),
-      setup: GENERATED_PROVER_SETUP_PARAMS,
+      setup: GENERATED_SETUP_PARAMS,
     },
   );
   const outputs: Readonly<Record<string, Uint8Array>> = {
@@ -96,17 +101,6 @@ function parseCopyManifest(raw: unknown): CopyManifest {
   };
 }
 
-function resolveWorkDirectory(repositoryRoot: string, backendWasmRoot: string, workDirectory: string): string {
-  const workDirectoryPath = path.resolve(repositoryRoot, workDirectory);
-  const allowedRoot = path.resolve(backendWasmRoot, "tmp", "fixtures");
-
-  if (!isPathInside(workDirectoryPath, allowedRoot)) {
-    throw new Error(`Copy manifest workDirectory must stay under packages/backend-wasm/tmp/fixtures: ${workDirectory}`);
-  }
-
-  return workDirectoryPath;
-}
-
 async function readJson(filePath: string): Promise<unknown> {
   try {
     return JSON.parse(await readFile(filePath, "utf8")) as unknown;
@@ -123,11 +117,6 @@ async function readBinary(filePath: string): Promise<Uint8Array> {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`Failed to read copied fixture source ${filePath}: ${message}`);
   }
-}
-
-function isPathInside(candidate: string, parent: string): boolean {
-  const relative = path.relative(parent, candidate);
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

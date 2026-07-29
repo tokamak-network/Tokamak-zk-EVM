@@ -1,9 +1,7 @@
 import { BivariatePolynomialBuffer } from "../../runtime/polynomial/bivariate-polynomial-buffer.js";
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import type { FieldElement } from "../../runtime/field/field-runtime.js";
-import type { ProverCrsRuntime } from "../api/binary-input.js";
-import type { ProverOperationOptions } from "./initial-relation.js";
-import { encodePolynomialBufferWithSigma1 } from "../commitments/sigma1-encoder.js";
+import type { ProverCommitmentEncoder } from "../commitments/commitment-encoder.js";
 import {
   constantPolynomialBuffer,
   linearCombinationBufferBatch,
@@ -37,14 +35,13 @@ export interface CopyQuotientComputation {
 
 export async function computeCopyQuotientCommitments(input: {
   readonly runtime: CurveRuntime;
-  readonly crs: ProverCrsRuntime;
   readonly state: ProverState;
   readonly rXY: BivariatePolynomialBuffer;
   readonly thetas: readonly FieldElement[];
   readonly kappa0: FieldElement;
-  readonly options?: ProverOperationOptions;
+  readonly commitmentEncoder: ProverCommitmentEncoder;
 }): Promise<CopyQuotientComputation> {
-  const { runtime, crs, state, rXY, thetas, kappa0, options = {} } = input;
+  const { runtime, state, rXY, thetas, kappa0, commitmentEncoder } = input;
   if (thetas.length < 3) {
     throw new Error("computeCopyQuotientCommitments requires at least three theta challenges.");
   }
@@ -129,11 +126,8 @@ export async function computeCopyQuotientCommitments(input: {
     [kappa0Sq, qCyTerm3],
   ]);
 
-  const encode = options.commitmentEncoder
-    ?? ((polynomial: BivariatePolynomialBuffer) =>
-      encodePolynomialBufferWithSigma1(runtime, crs, state.setup, polynomial));
-  const Q_CX = await encode(qCxXY);
-  const Q_CY = await encode(qCyXY);
+  const Q_CX = await commitmentEncoder(qCxXY);
+  const Q_CY = await commitmentEncoder(qCyXY);
 
   return {
     commitments: { Q_CX, Q_CY },

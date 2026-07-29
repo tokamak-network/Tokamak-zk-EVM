@@ -6,6 +6,7 @@ import {
   convertCombinedSigmaRkyvToCrsBinaries,
   createCombinedSigmaRkyvPayloadDecoder,
 } from "../../../src/converter/conversion/rkyv-to-binary.js";
+import { assertEqual } from "../../support/assertions.js";
 
 const magic = new TextEncoder().encode("TKCRS001");
 const sectionLengths = [
@@ -75,12 +76,6 @@ function createSyntheticCombinedSigmaPayload(): Uint8Array {
   }
 
   return output;
-}
-
-function assertEqual<T>(actual: T, expected: T, label: string): void {
-  if (actual !== expected) {
-    throw new Error(`${label} mismatch: expected ${String(expected)}, got ${String(actual)}.`);
-  }
 }
 
 main().catch((error: unknown) => {

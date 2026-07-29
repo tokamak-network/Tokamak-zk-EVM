@@ -1,9 +1,7 @@
 import { BivariatePolynomialBuffer } from "../../runtime/polynomial/bivariate-polynomial-buffer.js";
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import type { FieldElement } from "../../runtime/field/field-runtime.js";
-import type { ProverCrsRuntime } from "../api/binary-input.js";
-import type { ProverOperationOptions } from "./initial-relation.js";
-import { encodePolynomialBufferWithSigma1 } from "../commitments/sigma1-encoder.js";
+import type { ProverCommitmentEncoder } from "../commitments/commitment-encoder.js";
 import {
   constantPolynomialBuffer,
   linearCombinationBufferBatch,
@@ -24,10 +22,9 @@ export interface RecursionComputation {
 
 export async function computeRecursionCommitment(
   runtime: CurveRuntime,
-  crs: ProverCrsRuntime,
   state: ProverState,
   thetas: readonly FieldElement[],
-  options: ProverOperationOptions = {},
+  commitmentEncoder: ProverCommitmentEncoder,
 ): Promise<RecursionComputation> {
   if (thetas.length < 3) {
     throw new Error("computeRecursionCommitment requires at least three theta challenges.");
@@ -65,10 +62,7 @@ export async function computeRecursionCommitment(
 
   return {
     commitment: {
-      R: await (
-        options.commitmentEncoder?.(RXY)
-        ?? encodePolynomialBufferWithSigma1(runtime, crs, state.setup, RXY)
-      ),
+      R: await commitmentEncoder(RXY),
     },
     rXY,
   };

@@ -1,24 +1,3 @@
-export function concatBytes(chunks: readonly Uint8Array[]): Uint8Array {
-  const output = new Uint8Array(chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0));
-  let offset = 0;
-  for (const chunk of chunks) {
-    output.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-
-  return output;
-}
-
-export function encodeU32List(values: readonly number[]): Uint8Array {
-  const output = new Uint8Array(values.length * 4);
-  const view = new DataView(output.buffer, output.byteOffset, output.byteLength);
-  for (let index = 0; index < values.length; index += 1) {
-    view.setUint32(index * 4, values[index], true);
-  }
-
-  return output;
-}
-
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }

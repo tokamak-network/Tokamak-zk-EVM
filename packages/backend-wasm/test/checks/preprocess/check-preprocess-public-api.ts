@@ -15,6 +15,7 @@ import {
   BinarySectionEncoding,
   BinarySectionType,
 } from "../../../src/artifacts/binary/binary-format.js";
+import { assertBytesEqual } from "../../support/bytes.js";
 
 const fixtureRoot = path.resolve("fixtures/small/runtime");
 
@@ -137,19 +138,6 @@ function assertInstallation(
     throw new Error(
       `Expected chunk exponent ${expectedExponent}; received ${info.chunkSizeExponent}.`,
     );
-  }
-}
-
-function assertBytesEqual(
-  actual: Uint8Array,
-  expected: Uint8Array,
-  label: string,
-): void {
-  if (
-    actual.byteLength !== expected.byteLength
-    || actual.some((value, index) => value !== expected[index])
-  ) {
-    throw new Error(`Preprocess public API ${label} output mismatch.`);
   }
 }
 

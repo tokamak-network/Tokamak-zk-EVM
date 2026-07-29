@@ -24,10 +24,8 @@ export const BINARY_SELF_DIGEST_ENTRY_TYPE = 1;
 
 export enum BinarySectionEncoding {
   FfjsFrMontgomeryLe32 = 1,
-  FfjsFqMontgomeryLe48 = 2,
   FfjsG1Affine96 = 3,
   FfjsG2Affine192 = 4,
-  ScalarRawLe32 = 5,
   Bytes = 255,
 }
 
@@ -35,16 +33,10 @@ export enum BinarySectionType {
   Proof = 1,
   Preprocess = 2,
   Instance = 3,
-  InstanceDescription = 4,
-  SigmaVerify = 5,
-  SubcircuitMetadata = 7,
   Placement = 8,
   Permutation = 9,
-  WitnessInputs = 10,
   CrsG1 = 11,
   CrsG2 = 12,
-  ProofOutput = 17,
-  VerifierResult = 18,
 }
 
 export interface BinarySectionInput {
@@ -87,10 +79,7 @@ export interface BinaryArtifactFileView {
 export function expectedElementByteLength(encoding: BinarySectionEncoding): number | undefined {
   switch (encoding) {
     case BinarySectionEncoding.FfjsFrMontgomeryLe32:
-    case BinarySectionEncoding.ScalarRawLe32:
       return 32;
-    case BinarySectionEncoding.FfjsFqMontgomeryLe48:
-      return 48;
     case BinarySectionEncoding.FfjsG1Affine96:
       return 96;
     case BinarySectionEncoding.FfjsG2Affine192:
@@ -103,9 +92,7 @@ export function expectedElementByteLength(encoding: BinarySectionEncoding): numb
 export function isRuntimeReadyEncoding(encoding: BinarySectionEncoding): boolean {
   return (
     encoding === BinarySectionEncoding.FfjsFrMontgomeryLe32 ||
-    encoding === BinarySectionEncoding.FfjsFqMontgomeryLe48 ||
     encoding === BinarySectionEncoding.FfjsG1Affine96 ||
-    encoding === BinarySectionEncoding.FfjsG2Affine192 ||
-    encoding === BinarySectionEncoding.ScalarRawLe32
+    encoding === BinarySectionEncoding.FfjsG2Affine192
   );
 }

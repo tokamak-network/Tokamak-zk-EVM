@@ -1,7 +1,7 @@
 import { BivariatePolynomialBuffer } from "../../runtime/polynomial/bivariate-polynomial-buffer.js";
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import type { FieldElement } from "../../runtime/field/field-runtime.js";
-import type { ProverCrsRuntime } from "../api/binary-input.js";
+import type { ProverCommitmentEncoder } from "../commitments/commitment-encoder.js";
 import {
   constantPolynomialBuffer,
   linearCombinationBufferBatch,
@@ -17,10 +17,8 @@ import {
 import {
   multiplyByLagrangeK0,
 } from "../polynomial/recursion.js";
-import type { InitialRelationComputation, ProverOperationOptions } from "./initial-relation.js";
-import { encodePolynomialBufferWithSigma1 } from "../commitments/sigma1-encoder.js";
+import type { InitialRelationComputation } from "./initial-relation.js";
 import type { CopyQuotientComputation } from "./copy-quotient.js";
-import type { ChallengeEvaluations } from "./challenge-evaluations.js";
 import type { ProverState } from "./state.js";
 
 export interface OpeningProofCommitments {
@@ -57,55 +55,21 @@ export interface IntegratedOpeningComputation {
   readonly commitments: IntegratedOpeningCommitments;
 }
 
-export async function computeOpeningCommitments(input: {
-  readonly runtime: CurveRuntime;
-  readonly crs: ProverCrsRuntime;
-  readonly state: ProverState;
-  readonly rXY: BivariatePolynomialBuffer;
-  readonly initialRelation: InitialRelationComputation;
-  readonly copyQuotient: CopyQuotientComputation;
-  readonly evaluations: ChallengeEvaluations;
-  readonly thetas: readonly FieldElement[];
-  readonly kappa0: FieldElement;
-  readonly chi: FieldElement;
-  readonly zeta: FieldElement;
-  readonly kappa1: FieldElement;
-  readonly options?: ProverOperationOptions;
-}): Promise<OpeningCommitmentsComputation> {
-  const copyOpenings = await computeCopyOpeningCommitments({
-    runtime: input.runtime,
-    crs: input.crs,
-    state: input.state,
-    rXY: input.rXY,
-    chi: input.chi,
-    zeta: input.zeta,
-    options: input.options,
-  });
-  const integratedOpenings = await computeIntegratedOpeningCommitments({
-    ...input,
-    copyOpenings,
-  });
-
-  return combineOpeningCommitments(copyOpenings, integratedOpenings);
-}
-
 export async function computeCopyOpeningCommitments(input: {
   readonly runtime: CurveRuntime;
-  readonly crs: ProverCrsRuntime;
   readonly state: ProverState;
   readonly rXY: BivariatePolynomialBuffer;
   readonly chi: FieldElement;
   readonly zeta: FieldElement;
-  readonly options?: ProverOperationOptions;
+  readonly commitmentEncoder: ProverCommitmentEncoder;
 }): Promise<CopyOpeningComputation> {
   const {
     runtime,
-    crs,
     state,
     rXY,
     chi,
     zeta,
-    options = {},
+    commitmentEncoder,
   } = input;
 
   const field = runtime.Fr;
@@ -152,13 +116,10 @@ export async function computeCopyOpeningCommitments(input: {
     1,
     RXY.ySize,
   );
-  const encode = options.commitmentEncoder
-    ?? ((polynomial: BivariatePolynomialBuffer) =>
-      encodePolynomialBufferWithSigma1(runtime, crs, state.setup, polynomial));
-  const M_X = await encode(sharedXQuotient);
-  const M_Y = await encode(mYQuotient);
+  const M_X = await commitmentEncoder(sharedXQuotient);
+  const M_Y = await commitmentEncoder(mYQuotient);
   const N_X = M_X;
-  const N_Y = await encode(nYQuotient);
+  const N_Y = await commitmentEncoder(nYQuotient);
 
   return {
     commitments: { M_X, M_Y, N_X, N_Y },
@@ -168,7 +129,6 @@ export async function computeCopyOpeningCommitments(input: {
 
 export async function computeIntegratedOpeningCommitments(input: {
   readonly runtime: CurveRuntime;
-  readonly crs: ProverCrsRuntime;
   readonly state: ProverState;
   readonly rXY: BivariatePolynomialBuffer;
   readonly initialRelation: InitialRelationComputation;
@@ -179,11 +139,10 @@ export async function computeIntegratedOpeningCommitments(input: {
   readonly zeta: FieldElement;
   readonly kappa1: FieldElement;
   readonly copyOpenings: CopyOpeningComputation;
-  readonly options?: ProverOperationOptions;
+  readonly commitmentEncoder: ProverCommitmentEncoder;
 }): Promise<IntegratedOpeningComputation> {
   const {
     runtime,
-    crs,
     state,
     rXY,
     initialRelation,
@@ -194,7 +153,7 @@ export async function computeIntegratedOpeningCommitments(input: {
     zeta,
     kappa1,
     copyOpenings,
-    options = {},
+    commitmentEncoder,
   } = input;
   if (thetas.length < 3) {
     throw new Error("computeIntegratedOpeningCommitments requires at least three theta challenges.");
@@ -258,14 +217,10 @@ export async function computeIntegratedOpeningCommitments(input: {
     [kappa1Fourth, state.instance.aFreeX],
   ]);
   const combinedPiDivision = await combinedPiNumerator.divByRuffiniBatch(chi, zeta);
-  const encode = options.commitmentEncoder
-    ?? ((polynomial: BivariatePolynomialBuffer) =>
-      encodePolynomialBufferWithSigma1(runtime, crs, state.setup, polynomial));
-
   return {
     commitments: {
-      Pi_X: await encode(combinedPiDivision.quotientX),
-      Pi_Y: await encode(combinedPiDivision.quotientY),
+      Pi_X: await commitmentEncoder(combinedPiDivision.quotientX),
+      Pi_Y: await commitmentEncoder(combinedPiDivision.quotientY),
     },
   };
 }

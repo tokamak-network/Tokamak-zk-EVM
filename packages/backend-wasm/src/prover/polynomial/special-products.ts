@@ -26,40 +26,6 @@ export async function mulByOneMinusX(
   );
 }
 
-export async function mulByLinearX(
-  polynomial: BivariatePolynomialBuffer,
-  coefficients: readonly FieldElement[],
-): Promise<BivariatePolynomialBuffer> {
-  if (coefficients.length !== 2) {
-    throw new Error("X-linear multiplier requires exactly two coefficients.");
-  }
-
-  return await multiplyBySpecialForm(
-    polynomial,
-    "linear-x",
-    coefficients[0],
-    coefficients[1],
-    polynomial.field.zero,
-  );
-}
-
-export async function mulByLinearY(
-  polynomial: BivariatePolynomialBuffer,
-  coefficients: readonly FieldElement[],
-): Promise<BivariatePolynomialBuffer> {
-  if (coefficients.length !== 2) {
-    throw new Error("Y-linear multiplier requires exactly two coefficients.");
-  }
-
-  return await multiplyBySpecialForm(
-    polynomial,
-    "linear-y",
-    coefficients[0],
-    polynomial.field.zero,
-    coefficients[1],
-  );
-}
-
 export async function combineLinearXWithScaled(
   polynomial: BivariatePolynomialBuffer,
   coefficients: readonly FieldElement[],
@@ -98,7 +64,7 @@ export async function mulByTerm9(
 
 async function multiplyBySpecialForm(
   polynomial: BivariatePolynomialBuffer,
-  operation: "x-minus-one" | "one-minus-x" | "linear-x" | "linear-y" | "term9",
+  operation: "x-minus-one" | "one-minus-x" | "term9",
   constant: FieldElement,
   xCoefficient: FieldElement,
   yCoefficient: FieldElement,
@@ -109,12 +75,8 @@ async function multiplyBySpecialForm(
   }
 
   const field = polynomial.field;
-  const extendsX = operation !== "linear-y";
-  const extendsY = operation === "linear-y" || operation === "term9";
-  const xSize = extendsX
-    ? Math.max(polynomial.xSize, nextPowerOfTwo(degree.xDegree + 2))
-    : polynomial.xSize;
-  const ySize = extendsY
+  const xSize = Math.max(polynomial.xSize, nextPowerOfTwo(degree.xDegree + 2));
+  const ySize = operation === "term9"
     ? Math.max(polynomial.ySize, nextPowerOfTwo(degree.yDegree + 2))
     : polynomial.ySize;
   const output = await field.specialPolynomialBuffer(

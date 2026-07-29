@@ -14,13 +14,15 @@ import {
   createBinaryArtifactFile,
   decodeBinaryArtifactFile,
 } from "../../../src/artifacts/binary/binary-artifact-file.js";
-import { loadRuntimeArtifactBySpec } from "../../../src/artifacts/specs/format-spec-loader.js";
+import { loadNamedArtifactPoints } from "../../../src/artifacts/specs/format-spec-loader.js";
 import {
   createCurveRuntime,
   type CurveRuntime,
 } from "../../../src/runtime/curve/curve.js";
 import { inspectBinary } from "../../../src/converter/conversion/binary-inspection.js";
-import { validateRuntimeArtifactFile } from "../../../src/converter/validation/validators.js";
+import { validateBinary } from "../../../src/converter/index.js";
+import { assertJsonEqual as assertEqual } from "../../support/assertions.js";
+import { concatBytes } from "../../support/bytes.js";
 
 async function main(): Promise<void> {
   await checkSelfDigestPolicy();
@@ -47,9 +49,17 @@ async function checkSelfDigestPolicy(): Promise<void> {
         type: BinarySectionType.Instance,
         encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
         label: "instance.public",
-        elementCount: 1,
+        elementCount: 128,
         elementByteLength: 32,
-        data: new Uint8Array(32),
+        data: new Uint8Array(128 * 32),
+      },
+      {
+        type: BinarySectionType.Instance,
+        encoding: BinarySectionEncoding.FfjsFrMontgomeryLe32,
+        label: "instance.function",
+        elementCount: 600,
+        elementByteLength: 32,
+        data: new Uint8Array(600 * 32),
       },
     ],
   });
@@ -62,16 +72,13 @@ async function checkSelfDigestPolicy(): Promise<void> {
   assertEqual(inspection.selfDigestHex.length, 64, "inspected self digest hex length");
   assertEqual("digests" in inspection, false, "obsolete digest collection");
   assertEqual("digestHex" in inspection.sections[0], false, "obsolete section digest");
-  await validateRuntimeArtifactFile(binary, undefined, {
-    expectedKind: BinaryArtifactFileKind.Instance,
-  });
+  await validateBinary(binary);
 
   const corrupted = binary.slice();
   corrupted[artifactFile.sections[0].byteOffset] ^= 1;
   await assertRejects(
-    () => validateRuntimeArtifactFile(corrupted, undefined, {
-      expectedKind: BinaryArtifactFileKind.Instance,
-    }),
+    () => validateBinary(corrupted),
+    "validateBinary could not process its input.",
     "Binary artifact self digest mismatch.",
   );
 }
@@ -102,14 +109,12 @@ async function checkSigmaVerifyArtifact(runtime: CurveRuntime): Promise<void> {
     ],
   });
   const artifactFile = await decodeBinaryArtifactFile(binary);
-  await validateRuntimeArtifactFile(binary, SIGMA_VERIFY_V1_SPEC, {
-    expectedKind: BinaryArtifactFileKind.VerifierCrs,
-  });
-  const sigma = loadRuntimeArtifactBySpec(artifactFile, SIGMA_VERIFY_V1_SPEC);
+  await validateBinary(binary);
+  const sigma = loadNamedArtifactPoints(artifactFile, SIGMA_VERIFY_V1_SPEC);
 
-  assertEqual(sigma.sections.length, 2, "sigma_verify section count");
-  assertEqual(sigma.pointsByName.G.byteLength, 96, "sigma_verify G byte length");
-  assertEqual(sigma.pointsByName["sigma2.y"].byteLength, 192, "sigma_verify sigma2.y byte length");
+  assertEqual(artifactFile.sections.length, 2, "sigma_verify section count");
+  assertEqual(sigma.G.byteLength, 96, "sigma_verify G byte length");
+  assertEqual(sigma["sigma2.y"].byteLength, 192, "sigma_verify sigma2.y byte length");
 }
 
 async function checkVerifierPreprocessArtifact(runtime: CurveRuntime): Promise<void> {
@@ -128,14 +133,12 @@ async function checkVerifierPreprocessArtifact(runtime: CurveRuntime): Promise<v
     ],
   });
   const artifactFile = await decodeBinaryArtifactFile(binary);
-  await validateRuntimeArtifactFile(binary, VERIFIER_PREPROCESS_V1_SPEC, {
-    expectedKind: BinaryArtifactFileKind.VerifierPreprocess,
-  });
-  const preprocess = loadRuntimeArtifactBySpec(artifactFile, VERIFIER_PREPROCESS_V1_SPEC);
+  await validateBinary(binary);
+  const preprocess = loadNamedArtifactPoints(artifactFile, VERIFIER_PREPROCESS_V1_SPEC);
 
-  assertEqual(preprocess.sections.length, 1, "verifier_preprocess section count");
-  assertEqual(preprocess.pointsByName.s0.byteLength, 96, "verifier_preprocess s0 byte length");
-  assertEqual(preprocess.pointsByName.O_pub_fix.byteLength, 96, "verifier_preprocess O_pub_fix byte length");
+  assertEqual(artifactFile.sections.length, 1, "verifier_preprocess section count");
+  assertEqual(preprocess.s0.byteLength, 96, "verifier_preprocess s0 byte length");
+  assertEqual(preprocess.O_pub_fix.byteLength, 96, "verifier_preprocess O_pub_fix byte length");
 }
 
 async function checkProverCrsArtifact(runtime: CurveRuntime): Promise<void> {
@@ -162,15 +165,13 @@ async function checkProverCrsArtifact(runtime: CurveRuntime): Promise<void> {
     ],
   });
   const artifactFile = await decodeBinaryArtifactFile(binary);
-  await validateRuntimeArtifactFile(binary, PROVER_CRS_V1_SPEC, {
-    expectedKind: BinaryArtifactFileKind.ProverCrs,
-  });
-  const proverCrs = loadRuntimeArtifactBySpec(artifactFile, PROVER_CRS_V1_SPEC);
+  await validateBinary(binary);
+  const proverCrs = loadNamedArtifactPoints(artifactFile, PROVER_CRS_V1_SPEC);
 
-  assertEqual(proverCrs.sections.length, 9, "prover_crs section count");
-  assertEqual(proverCrs.pointsByName.G.byteLength, 96, "prover_crs G byte length");
-  assertEqual(proverCrs.pointsByName["sigma1.delta"].byteLength, 96, "prover_crs sigma1.delta byte length");
-  assertEqual(proverCrs.pointsByName["sigma2.y"].byteLength, 192, "prover_crs sigma2.y byte length");
+  assertEqual(artifactFile.sections.length, 9, "prover_crs section count");
+  assertEqual(proverCrs.G.byteLength, 96, "prover_crs G byte length");
+  assertEqual(proverCrs["sigma1.delta"].byteLength, 96, "prover_crs sigma1.delta byte length");
+  assertEqual(proverCrs["sigma2.y"].byteLength, 192, "prover_crs sigma2.y byte length");
 }
 
 async function checkPreprocessCrsArtifact(): Promise<void> {
@@ -197,12 +198,10 @@ async function checkPreprocessCrsArtifact(): Promise<void> {
     ],
   });
   const artifactFile = await decodeBinaryArtifactFile(binary);
-  await validateRuntimeArtifactFile(binary, PREPROCESS_CRS_V1_SPEC, {
-    expectedKind: BinaryArtifactFileKind.PreprocessCrs,
-  });
-  const preprocessCrs = loadRuntimeArtifactBySpec(artifactFile, PREPROCESS_CRS_V1_SPEC);
+  await validateBinary(binary);
+  loadNamedArtifactPoints(artifactFile, PREPROCESS_CRS_V1_SPEC);
 
-  assertEqual(preprocessCrs.sections.length, 2, "preprocess_crs section count");
+  assertEqual(artifactFile.sections.length, 2, "preprocess_crs section count");
   assertEqual(
     artifactFile.sections[0].elementCount,
     1_048_576,
@@ -231,34 +230,23 @@ function createRepeatedG1Section(
   };
 }
 
-function concatBytes(chunks: readonly Uint8Array[]): Uint8Array {
-  const size = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
-  const output = new Uint8Array(size);
-  let offset = 0;
-
-  for (const chunk of chunks) {
-    output.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-
-  return output;
-}
-
-function assertEqual(actual: unknown, expected: unknown, label: string): void {
-  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-    throw new Error(`${label} mismatch: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
-  }
-}
-
 async function assertRejects(
   operation: () => Promise<unknown>,
   expectedMessage: string,
+  expectedCauseMessage?: string,
 ): Promise<void> {
   try {
     await operation();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (message === expectedMessage) {
+      if (expectedCauseMessage !== undefined) {
+        const cause = error instanceof Error && "cause" in error ? error.cause : undefined;
+        const causeMessage = cause instanceof Error ? cause.message : String(cause);
+        if (causeMessage !== expectedCauseMessage) {
+          throw new Error(`Expected cause '${expectedCauseMessage}', got '${causeMessage}'.`);
+        }
+      }
       return;
     }
     throw new Error(

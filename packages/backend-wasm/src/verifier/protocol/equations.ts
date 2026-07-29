@@ -33,79 +33,20 @@ export function lhsArith(
 
   return g1.sub(
     g1.sub(
-      g1.sub(
-        g1.add(
-          g1.sub(g1.mulAffineScalar(proof0.U, proof3.V_eval), proof0.W),
-          g1.mulScalar(
-            g1.sub(proof0.V, g1.mulAffineScalar(input.sigma.G, proof3.V_eval)),
-            challenges.kappa1,
-          ),
+      g1.add(
+        g1.sub(g1.mulAffineScalar(proof0.U, proof3.V_eval), proof0.W),
+        g1.mulScalar(
+          g1.sub(proof0.V, g1.mulAffineScalar(input.sigma.G, proof3.V_eval)),
+          challenges.kappa1,
         ),
-        g1.mulAffineScalar(proof0.Q_AX, domain.tNEval),
       ),
-      g1.mulAffineScalar(proof0.Q_AY, domain.tSMaxEval),
+      g1.mulAffineScalar(proof0.Q_AX, domain.tNEval),
     ),
-    g1.zero,
+    g1.mulAffineScalar(proof0.Q_AY, domain.tSMaxEval),
   );
 }
 
-export function lhsCopy(
-  field: FieldRuntime,
-  g1: G1Runtime,
-  input: VerifierInput,
-  domain: VerifierDomainContext,
-  challenges: VerifierChallenges,
-  lagrangeK0Eval: FieldElement,
-): G1Point {
-  const proof0 = input.proof.proof0;
-  const proof1 = input.proof.proof1;
-  const proof2 = input.proof.proof2;
-  const proof3 = input.proof.proof3;
-  const kappa0Squared = field.square(challenges.kappa0);
-  const kappa1Squared = field.square(challenges.kappa1);
-  const kappa1Cubed = field.mul(kappa1Squared, challenges.kappa1);
-  const kappa2Squared = field.square(challenges.kappa2);
-
-  const F = g1AddMany(g1, [
-    proof0.B,
-    g1.mulScalar(input.preprocess.s0, challenges.thetas[0]),
-    g1.mulScalar(input.preprocess.s1, challenges.thetas[1]),
-    g1.mulScalar(input.sigma.G, challenges.thetas[2]),
-  ]);
-  const G = g1AddMany(g1, [
-    proof0.B,
-    g1.mulScalar(input.sigma.sigma1.x, challenges.thetas[0]),
-    g1.mulScalar(input.sigma.sigma1.y, challenges.thetas[1]),
-    g1.mulScalar(input.sigma.G, challenges.thetas[2]),
-  ]);
-  const gTimesREval = g1.mulScalar(G, proof3.R_eval);
-
-  const lhsCTerm1 = g1AddMany(g1, [
-    g1.mulScalar(input.sigma.lagrangeKL, field.sub(proof3.R_eval, field.one)),
-    g1.mulScalar(
-      g1.sub(gTimesREval, g1.mulScalar(F, proof3.R_omegaX_eval)),
-      field.mul(challenges.kappa0, field.sub(challenges.chi, field.one)),
-    ),
-    g1.mulScalar(
-      g1.sub(gTimesREval, g1.mulScalar(F, proof3.R_omegaX_omegaY_eval)),
-      field.mul(kappa0Squared, lagrangeK0Eval),
-    ),
-    g1.neg(g1.mulScalar(proof2.Q_CX, domain.tMIEval)),
-    g1.neg(g1.mulScalar(proof2.Q_CY, domain.tSMaxEval)),
-  ]);
-
-  return g1AddMany(g1, [
-    g1.mulScalar(lhsCTerm1, kappa1Squared),
-    g1.mulScalar(g1.sub(proof1.R, g1.mulScalar(input.sigma.G, proof3.R_eval)), kappa1Cubed),
-    g1.mulScalar(g1.sub(proof1.R, g1.mulScalar(input.sigma.G, proof3.R_omegaX_eval)), challenges.kappa2),
-    g1.mulScalar(
-      g1.sub(proof1.R, g1.mulScalar(input.sigma.G, proof3.R_omegaX_omegaY_eval)),
-      kappa2Squared,
-    ),
-  ]);
-}
-
-export async function lhsCopyMsm(
+export async function lhsCopy(
   field: FieldRuntime,
   g1: G1Runtime,
   input: VerifierInput,

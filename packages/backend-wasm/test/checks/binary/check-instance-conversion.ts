@@ -4,13 +4,14 @@ import {
   BinarySectionEncoding,
   BinarySectionType,
 } from "../../../src/artifacts/binary/binary-format.js";
-import { INSTANCE_V1_SPEC } from "../../../src/artifacts/specs/instance.v1.generated.js";
 import { convertInstance } from "../../../src/converter/conversion/instance-converter.js";
-import { validateRuntimeArtifactFile } from "../../../src/converter/validation/validators.js";
-import { GENERATED_PROVER_SETUP_PARAMS } from "../../../src/prover/generated/subcircuit-library.generated.js";
+import { validateBinary } from "../../../src/converter/index.js";
+import { GENERATED_SETUP_PARAMS } from "../../../src/generated/setup.generated.js";
 import { createCurveRuntime } from "../../../src/runtime/curve/curve.js";
+import { assertEqual } from "../../support/assertions.js";
+import { assertBytesEqual, concatBytes } from "../../support/bytes.js";
 
-const setup = GENERATED_PROVER_SETUP_PARAMS;
+const setup = GENERATED_SETUP_PARAMS;
 
 async function main(): Promise<void> {
   const source = {
@@ -20,9 +21,8 @@ async function main(): Promise<void> {
   };
   const binary = await convertInstance(source);
   const artifact = await decodeBinaryArtifactFile(binary);
-  await validateRuntimeArtifactFile(binary, INSTANCE_V1_SPEC, {
-    expectedKind: BinaryArtifactFileKind.Instance,
-  });
+  await validateBinary(binary);
+  await assertSlicedInputAccepted(binary);
 
   assertEqual(artifact.sections.length, 2, "instance section count");
   assertSection(artifact.sections[0], "instance.public", setup.l_free);
@@ -89,47 +89,30 @@ async function assertOldInstanceRejected(): Promise<void> {
   });
 
   await assertRejects(
-    () => validateRuntimeArtifactFile(oldBinary, INSTANCE_V1_SPEC, {
-      expectedKind: BinaryArtifactFileKind.Instance,
-    }),
+    () => validateBinary(oldBinary),
+    "validateBinary could not process its input.",
     "instance is missing required section 'instance.function'.",
   );
+}
+
+async function assertSlicedInputAccepted(binary: Uint8Array): Promise<void> {
+  const padded = new Uint8Array(binary.byteLength + 9);
+  padded.set(binary, 5);
+  const sliced = padded.subarray(5, 5 + binary.byteLength);
+  const artifact = decodeBinaryArtifactFile(sliced);
+  assertEqual(artifact.byteLength, binary.byteLength, "sliced instance byte length");
+  assertEqual(artifact.sections[0].data.byteLength, setup.l_free * 32, "sliced public section length");
+  await validateBinary(sliced);
 }
 
 function hexValues(length: number, start: number): readonly string[] {
   return Array.from({ length }, (_, index) => `0x${(start + index).toString(16)}`);
 }
 
-function concatBytes(parts: readonly Uint8Array[]): Uint8Array {
-  const output = new Uint8Array(parts.reduce((total, part) => total + part.byteLength, 0));
-  let offset = 0;
-  for (const part of parts) {
-    output.set(part, offset);
-    offset += part.byteLength;
-  }
-  return output;
-}
-
-function assertBytesEqual(actual: Uint8Array, expected: Uint8Array, label: string): void {
-  if (actual.byteLength !== expected.byteLength) {
-    throw new Error(`${label} byte length mismatch.`);
-  }
-  for (let index = 0; index < actual.byteLength; index += 1) {
-    if (actual[index] !== expected[index]) {
-      throw new Error(`${label} byte mismatch at offset ${index}.`);
-    }
-  }
-}
-
-function assertEqual(actual: unknown, expected: unknown, label: string): void {
-  if (actual !== expected) {
-    throw new Error(`${label}: expected ${String(expected)}, got ${String(actual)}.`);
-  }
-}
-
 async function assertRejects(
   action: () => Promise<unknown>,
   expectedMessage: string,
+  expectedCauseMessage?: string,
 ): Promise<void> {
   try {
     await action();
@@ -137,6 +120,13 @@ async function assertRejects(
     const message = error instanceof Error ? error.message : String(error);
     if (message !== expectedMessage) {
       throw new Error(`Expected '${expectedMessage}', got '${message}'.`);
+    }
+    if (expectedCauseMessage !== undefined) {
+      const cause = error instanceof Error && "cause" in error ? error.cause : undefined;
+      const causeMessage = cause instanceof Error ? cause.message : String(cause);
+      if (causeMessage !== expectedCauseMessage) {
+        throw new Error(`Expected cause '${expectedCauseMessage}', got '${causeMessage}'.`);
+      }
     }
     return;
   }

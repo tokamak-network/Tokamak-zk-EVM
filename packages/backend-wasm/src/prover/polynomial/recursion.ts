@@ -22,39 +22,6 @@ export async function computeRecursionEvalsBuffer(
   return await field.computeRecursionRecurrenceBuffer(gXYEvals, inverseF, mI, sMax);
 }
 
-export function transposeRowMajorBuffer(
-  field: CurveRuntime["Fr"],
-  values: Uint8Array,
-  rowCount: number,
-  columnCount: number,
-): Uint8Array {
-  if (field.bufferElementCount(values) !== rowCount * columnCount) {
-    throw new Error("Cannot transpose a buffer whose length does not match its shape.");
-  }
-
-  const output = field.createZeroBuffer(rowCount * columnCount);
-  for (let row = 0; row < rowCount; row += 1) {
-    for (let column = 0; column < columnCount; column += 1) {
-      field.writeBufferElement(
-        output,
-        column * rowCount + row,
-        field.readBufferElement(values, row * columnCount + column),
-      );
-    }
-  }
-
-  return output;
-}
-
-export async function buildLagrangeK0(
-  field: CurveRuntime["Fr"],
-  mI: number,
-): Promise<BivariatePolynomialBuffer> {
-  const k0Evals = field.createZeroBuffer(mI);
-  field.writeBufferElement(k0Evals, 0, field.one);
-  return BivariatePolynomialBuffer.fromRouEvals(field, k0Evals, mI, 1);
-}
-
 export async function multiplyByLagrangeK0(
   polynomial: BivariatePolynomialBuffer,
   mI: number,

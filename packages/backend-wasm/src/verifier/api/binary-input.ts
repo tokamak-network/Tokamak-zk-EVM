@@ -3,13 +3,13 @@ import {
   requireBinaryArtifactSection,
 } from "../../artifacts/binary/binary-artifact-file.js";
 import type { BinaryArtifactFileView } from "../../artifacts/binary/binary-format.js";
-import { loadRuntimeArtifactBySpec } from "../../artifacts/specs/format-spec-loader.js";
+import { loadNamedArtifactPoints } from "../../artifacts/specs/format-spec-loader.js";
 import { VERIFIER_PREPROCESS_V1_SPEC } from "../../artifacts/specs/verifier-preprocess.v1.generated.js";
 import { VERIFIER_PROOF_V1_SPEC } from "../../artifacts/specs/verifier-proof.v1.generated.js";
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import type { FieldElement } from "../../runtime/field/field-runtime.js";
 import { BinarySectionEncoding, BinarySectionType } from "../../artifacts/binary/binary-format.js";
-import { GENERATED_PROVER_SETUP_PARAMS } from "../../prover/generated/subcircuit-library.generated.js";
+import { GENERATED_SETUP_PARAMS } from "../../generated/setup.generated.js";
 import type { VerifierSetupParams } from "../protocol/domain-context.js";
 import { GENERATED_VERIFIER_SIGMA } from "../generated/sigma-verify.generated.js";
 import type { VerifierInput, VerifierProof } from "../protocol/verify-snark.js";
@@ -49,7 +49,7 @@ export async function buildVerifierInputFromBinaryArtifacts(
   runtime: CurveRuntime,
   artifacts: VerifierBinaryArtifactFiles,
 ): Promise<VerifierInput> {
-  const setup = GENERATED_PROVER_SETUP_PARAMS satisfies VerifierSetupParams;
+  const setup = GENERATED_SETUP_PARAMS satisfies VerifierSetupParams;
   const publicInstance = parsePublicInstance(runtime, artifacts.instance);
 
   return {
@@ -75,7 +75,7 @@ function parsePublicInstance(
 }
 
 function parseVerifierPreprocess(preprocessFile: BinaryArtifactFileView): VerifierInput["preprocess"] {
-  const preprocess = loadRuntimeArtifactBySpec(preprocessFile, VERIFIER_PREPROCESS_V1_SPEC).pointsByName;
+  const preprocess = loadNamedArtifactPoints(preprocessFile, VERIFIER_PREPROCESS_V1_SPEC);
 
   return {
     s0: requireEntry(preprocess, "s0"),
@@ -85,7 +85,7 @@ function parseVerifierPreprocess(preprocessFile: BinaryArtifactFileView): Verifi
 }
 
 function parseVerifierProof(proofFile: BinaryArtifactFileView): VerifierProof {
-  const proof = loadRuntimeArtifactBySpec(proofFile, VERIFIER_PROOF_V1_SPEC).pointsByName;
+  const proof = loadNamedArtifactPoints(proofFile, VERIFIER_PROOF_V1_SPEC);
 
   return {
     binding: {

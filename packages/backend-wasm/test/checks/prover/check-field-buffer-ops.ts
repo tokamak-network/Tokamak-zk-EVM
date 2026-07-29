@@ -2,6 +2,8 @@ import { fileURLToPath } from "node:url";
 
 import { createCurveRuntime } from "../../../src/runtime/curve/curve.js";
 import type { FieldElement, FieldRuntime } from "../../../src/runtime/field/field-runtime.js";
+import { assertJsonEqual as assertEqual } from "../../support/assertions.js";
+import { assertBytesEqual, concatBytes } from "../../support/bytes.js";
 
 async function main(): Promise<void> {
   const runtime = await createCurveRuntime();
@@ -148,26 +150,6 @@ function assertFields(
   label: string,
 ): void {
   assertEqual(actual.map((value) => field.toHex(value)), expected.map((value) => field.toHex(value)), label);
-}
-
-function assertBytesEqual(actual: Uint8Array, expected: Uint8Array, label: string): void {
-  assertEqual(Array.from(actual), Array.from(expected), label);
-}
-
-function assertEqual(actual: unknown, expected: unknown, label: string): void {
-  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-    throw new Error(`${label} mismatch: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
-  }
-}
-
-function concatBytes(chunks: readonly Uint8Array[]): Uint8Array {
-  const output = new Uint8Array(chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0));
-  let offset = 0;
-  for (const chunk of chunks) {
-    output.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return output;
 }
 
 const entrypoint = fileURLToPath(import.meta.url);

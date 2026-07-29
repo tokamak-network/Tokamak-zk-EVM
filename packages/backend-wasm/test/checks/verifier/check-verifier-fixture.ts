@@ -12,11 +12,7 @@ import {
 } from "../../../src/verifier/api/binary-input.js";
 import { collectChallenges } from "../../../src/verifier/protocol/challenges.js";
 import { buildDomainContext } from "../../../src/verifier/protocol/domain-context.js";
-import {
-  evalLagrangeK0,
-  lhsCopy,
-  lhsCopyMsm,
-} from "../../../src/verifier/protocol/equations.js";
+import { evalLagrangeK0 } from "../../../src/verifier/protocol/equations.js";
 import { createVerifierPublicPolynomial } from "../../../src/verifier/protocol/public-instance-polynomial.js";
 import { verifySnark, type VerifierInput } from "../../../src/verifier/protocol/verify-snark.js";
 import { readVerifierBinaryInput } from "../../support/runtime-inputs.js";
@@ -35,8 +31,6 @@ async function main(): Promise<void> {
     const binaryFixture = await loadPreparedBinaryVerifierFixture(runtime, fixturesDir);
 
     await checkLagrangeK0Formula(runtime, binaryFixture.verifierInput);
-    await checkG1CombinationCandidates(runtime, binaryFixture.verifierInput);
-
     const binaryResult = await verifyBinaryForTest(
       runtime,
       binaryFixture.binaryInput,
@@ -117,16 +111,6 @@ async function checkLagrangeK0Formula(runtime: CurveRuntime, input: VerifierInpu
   }
 }
 
-async function checkG1CombinationCandidates(runtime: CurveRuntime, input: VerifierInput): Promise<void> {
-  const challenges = await collectChallenges(runtime.Fr, runtime.G1, () => runtime.Fr.one, input.proof);
-  const domain = buildDomainContext(runtime.Fr, input.setup, challenges);
-  const lagrangeK0Eval = evalLagrangeK0(runtime.Fr, domain, challenges);
-  const lhsCopyBaseline = lhsCopy(runtime.Fr, runtime.G1, input, domain, challenges, lagrangeK0Eval);
-  const lhsCopyCandidate = await lhsCopyMsm(runtime.Fr, runtime.G1, input, domain, challenges, lagrangeK0Eval);
-
-  assertG1Equal(runtime, lhsCopyCandidate, lhsCopyBaseline, "lhsCopy MSM candidate");
-}
-
 async function evalLagrangeK0ByReconstruction(
   runtime: CurveRuntime,
   size: number,
@@ -147,12 +131,6 @@ function assertFieldEqual(
 ): void {
   if (!runtime.Fr.eq(actual, expected)) {
     throw new Error(`${label} mismatch: expected ${runtime.Fr.toHex(expected)}, got ${runtime.Fr.toHex(actual)}.`);
-  }
-}
-
-function assertG1Equal(runtime: CurveRuntime, actual: Uint8Array, expected: Uint8Array, label: string): void {
-  if (!runtime.G1.eq(actual, expected)) {
-    throw new Error(`${label} mismatch.`);
   }
 }
 

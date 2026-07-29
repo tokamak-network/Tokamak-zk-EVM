@@ -3,22 +3,24 @@ import {
   requireBinaryArtifactSection,
 } from "../../artifacts/binary/binary-artifact-file.js";
 import type { BinaryArtifactFileView } from "../../artifacts/binary/binary-format.js";
-import { loadRuntimeArtifactBySpec } from "../../artifacts/specs/format-spec-loader.js";
+import { loadNamedArtifactPoints } from "../../artifacts/specs/format-spec-loader.js";
 import { PROVER_CRS_V1_SPEC } from "../../artifacts/specs/prover-crs.v1.generated.js";
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import type { FieldElement } from "../../runtime/field/field-runtime.js";
 import { BinarySectionEncoding, BinarySectionType } from "../../artifacts/binary/binary-format.js";
+import type { SetupParams } from "../../artifacts/setup/setup-params.js";
 import {
-  GENERATED_PROVER_SETUP_PARAMS,
   GENERATED_PROVER_PACKED_R1CS,
   GENERATED_PROVER_SUBCIRCUIT_INFOS,
+} from "../generated/subcircuit-library.generated.js";
+import {
+  GENERATED_SETUP_PARAMS,
   NATIVE_BACKEND_VERSION,
   SUBCIRCUIT_LIBRARY_PACKAGE_VERSION,
-} from "../generated/subcircuit-library.generated.js";
+} from "../../generated/setup.generated.js";
 import type {
   ProverPermutationEntry,
   ProverPlacementVariables,
-  ProverSetupParams,
   ProverWitnessInput,
 } from "../protocol/witness.js";
 
@@ -43,7 +45,7 @@ export interface ProverWitnessBinaryArtifactFiles {
 }
 
 export interface ProverRuntimeWitnessInputParts {
-  readonly setup: ProverSetupParams;
+  readonly setup: SetupParams;
   readonly placementVariables: ProverPlacementVariables;
   readonly permutation: readonly ProverPermutationEntry[];
   readonly publicInstance: readonly FieldElement[];
@@ -142,24 +144,10 @@ export function loadProverRuntimeWitnessInputParts(
   artifacts: ProverWitnessBinaryArtifactFiles,
 ): ProverRuntimeWitnessInputParts {
   return {
-    setup: GENERATED_PROVER_SETUP_PARAMS,
+    setup: GENERATED_SETUP_PARAMS,
     placementVariables: parseProverPlacementVariables(runtime, artifacts.placementVariables),
     permutation: parseProverPermutation(artifacts.permutation),
     publicInstance: parseProverPublicInstance(runtime, artifacts.instance),
-  };
-}
-
-export function buildProverWitnessInputFromBinaryArtifacts(
-  runtime: CurveRuntime,
-  artifacts: ProverWitnessBinaryArtifactFiles,
-): ProverWitnessInput {
-  const parts = loadProverRuntimeWitnessInputParts(runtime, artifacts);
-
-  return {
-    setup: parts.setup,
-    placementVariables: parts.placementVariables,
-    subcircuitInfos: GENERATED_PROVER_SUBCIRCUIT_INFOS,
-    r1csBySubcircuit: GENERATED_PROVER_PACKED_R1CS,
   };
 }
 
@@ -255,7 +243,7 @@ export function parseProverPermutation(permutationFile: BinaryArtifactFileView):
 }
 
 export function parseProverCrs(crsFile: BinaryArtifactFileView): ProverCrsRuntime {
-  const fixedPoints = loadRuntimeArtifactBySpec(crsFile, PROVER_CRS_V1_SPEC).pointsByName;
+  const fixedPoints = loadNamedArtifactPoints(crsFile, PROVER_CRS_V1_SPEC);
 
   return {
     G: requireEntry(fixedPoints, "G"),

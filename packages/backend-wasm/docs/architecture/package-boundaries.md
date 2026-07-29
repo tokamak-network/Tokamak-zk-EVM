@@ -59,8 +59,14 @@ preprocess, prove, or verify operations.
 ### `src/artifacts`
 
 - `binary`: binary header, table, digest, encoding, and decoding primitives.
+- `setup`: shared setup parameter types.
 - `specs`: one versioned JSON format specification per binary artifact kind and
   generated TypeScript spec constants.
+
+### `src/generated`
+
+- shared setup parameters and native/backend dependency versions generated from
+  the pinned subcircuit-library package and native backend manifest.
 
 ### `src/runtime`
 
@@ -80,8 +86,7 @@ formats.
 - `protocol`: one stateful prover flow and protocol-specific state/formulas.
 - `commitments`: Sigma1 encoding and statement/binding commitments.
 - `polynomial`: prover-owned polynomial formulas built on runtime buffers.
-- `generated`: build-generated setup parameters, packed R1CS data, and
-  subcircuit metadata.
+- `generated`: prover-only packed R1CS data and subcircuit metadata.
 
 File boundaries must not recreate numbered `prove0` through `prove4` modules or
 independent scheduling barriers. The four public session operations preserve
@@ -135,12 +140,14 @@ The application completes transport and storage I/O before invoking the runtime
 API. Runtime code performs no network or filesystem I/O and does not fetch
 Google Drive assets.
 
-Setup parameters and packed subcircuit material are generated at build time from
-the pinned `@tokamak-zk-evm/subcircuit-library` package. Verifier CRS is
-regenerated during every build from the explicit native owner artifact path.
-Verifier does not consume the standalone verifier CRS emitted by `convertCrs`.
-Prover and preprocess CRS remain runtime binary inputs prepared through
-`convertCrs`.
+Shared setup parameters and dependency versions are generated under
+`src/generated` at build time from the pinned
+`@tokamak-zk-evm/subcircuit-library` package and native backend manifest.
+Prover-only packed R1CS data and subcircuit metadata are generated separately
+under `src/prover/generated`. Verifier CRS is regenerated during every build
+from the explicit native owner artifact path. Verifier does not consume the
+standalone verifier CRS emitted by `convertCrs`. Prover and preprocess CRS
+remain runtime binary inputs prepared through `convertCrs`.
 
 ## Generated And Development Assets
 

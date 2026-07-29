@@ -5,6 +5,7 @@ import { decodeBinaryArtifactFile } from "../../../src/artifacts/binary/binary-a
 import { loadPreprocessInputFromBinaryInput } from "../../../src/preprocess/api/binary-input.js";
 import { preprocessSnark } from "../../../src/preprocess/protocol/preprocess-snark.js";
 import { createCurveRuntime } from "../../../src/runtime/curve/curve.js";
+import { assertBytesEqual } from "../../support/bytes.js";
 
 const fixtureRoot = path.resolve("fixtures/small/runtime");
 
@@ -34,7 +35,7 @@ async function main(): Promise<void> {
     if (actualPoints === undefined || expectedPoints === undefined) {
       throw new Error("Preprocess fixture output is missing preprocess.g1.");
     }
-    assertBytesEqual(actualPoints, expectedPoints);
+    assertBytesEqual(actualPoints, expectedPoints, "preprocess fixture parity");
     console.log(JSON.stringify({
       parity: true,
       elapsedMs,
@@ -47,19 +48,6 @@ async function main(): Promise<void> {
 
 async function readBinary(fileName: string): Promise<Uint8Array> {
   return new Uint8Array(await readFile(path.join(fixtureRoot, fileName)));
-}
-
-function assertBytesEqual(actual: Uint8Array, expected: Uint8Array): void {
-  if (actual.byteLength !== expected.byteLength) {
-    throw new Error(
-      `Preprocess point byte length mismatch: expected ${expected.byteLength}, got ${actual.byteLength}.`,
-    );
-  }
-  for (let index = 0; index < actual.byteLength; index += 1) {
-    if (actual[index] !== expected[index]) {
-      throw new Error(`Preprocess point mismatch at byte ${index}.`);
-    }
-  }
 }
 
 await main();

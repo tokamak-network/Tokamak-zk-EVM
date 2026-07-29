@@ -1,9 +1,14 @@
 import { BackendWasmError } from "../../backend-wasm-error.js";
 import {
+  assertNamedBinaryInput,
+  installCurveRuntime,
+  parseChunkSizeExponent,
+} from "../../api/public-api-utils.js";
+import {
   NATIVE_BACKEND_VERSION,
   SUBCIRCUIT_LIBRARY_PACKAGE_VERSION,
-} from "../../prover/generated/subcircuit-library.generated.js";
-import { createCurveRuntime, type CurveRuntime } from "../../runtime/curve/curve.js";
+} from "../../generated/setup.generated.js";
+import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import { BACKEND_WASM_PACKAGE_VERSION } from "../../version.js";
 import {
   loadPreprocessInputFromBinaryInput,
@@ -12,8 +17,6 @@ import {
 import { preprocessSnark } from "../protocol/preprocess-snark.js";
 
 const DEFAULT_CHUNK_SIZE_EXPONENT = 17;
-const MIN_CHUNK_SIZE_EXPONENT = 10;
-const MAX_CHUNK_SIZE_EXPONENT = 19;
 
 export interface PreprocessInstallOptions {
   readonly chunkSizeExponent?: number;
@@ -37,7 +40,7 @@ let chunkSizeExponent = DEFAULT_CHUNK_SIZE_EXPONENT;
 export async function install(
   options: PreprocessInstallOptions = {},
 ): Promise<PreprocessInstallationInfo> {
-  const requestedExponent = parseInstallOptions(options);
+  const requestedExponent = parseChunkSizeExponent(options, "Preprocess");
   const installedRuntime = await requireInstalledRuntime();
   runtime = installedRuntime;
 
@@ -66,7 +69,7 @@ export async function preprocess(input: PreprocessInput): Promise<Uint8Array> {
     throw new BackendWasmError("BUSY", "Preprocess is already running.");
   }
 
-  assertPreprocessInput(input);
+  assertNamedBinaryInput(input, "Preprocess", ["permutation", "instance", "preprocessCrs"]);
   busy = true;
 
   try {
@@ -103,13 +106,7 @@ async function requireInstalledRuntime(): Promise<CurveRuntime> {
     return installationPromise;
   }
 
-  const pending = createCurveRuntime().catch((cause: unknown) => {
-    throw new BackendWasmError(
-      "INSTALL_FAILED",
-      "The preprocess runtime could not be installed.",
-      { cause },
-    );
-  });
+  const pending = installCurveRuntime("The preprocess runtime could not be installed.");
   installationPromise = pending;
 
   try {
@@ -119,58 +116,6 @@ async function requireInstalledRuntime(): Promise<CurveRuntime> {
       installationPromise = undefined;
     }
     throw error;
-  }
-}
-
-function parseInstallOptions(options: PreprocessInstallOptions): number | undefined {
-  if (typeof options !== "object" || options === null || Array.isArray(options)) {
-    throw new BackendWasmError(
-      "INVALID_OPTION",
-      "Preprocess install options must be an object.",
-    );
-  }
-
-  const unsupported = Object.keys(options).filter((key) => key !== "chunkSizeExponent");
-  if (unsupported.length > 0) {
-    throw new BackendWasmError(
-      "INVALID_OPTION",
-      `Unsupported preprocess install option: ${unsupported.join(", ")}.`,
-    );
-  }
-
-  const exponent = options.chunkSizeExponent;
-  if (exponent === undefined) {
-    return undefined;
-  }
-  if (
-    !Number.isInteger(exponent)
-    || exponent < MIN_CHUNK_SIZE_EXPONENT
-    || exponent > MAX_CHUNK_SIZE_EXPONENT
-  ) {
-    throw new BackendWasmError(
-      "INVALID_OPTION",
-      `chunkSizeExponent must be an integer from ${MIN_CHUNK_SIZE_EXPONENT} through ${MAX_CHUNK_SIZE_EXPONENT}.`,
-    );
-  }
-  return exponent;
-}
-
-function assertPreprocessInput(input: PreprocessInput): void {
-  if (typeof input !== "object" || input === null || Array.isArray(input)) {
-    throw new BackendWasmError("INVALID_INPUT", "Preprocess input must be an object.");
-  }
-
-  assertBinary(input.permutation, "permutation");
-  assertBinary(input.instance, "instance");
-  assertBinary(input.preprocessCrs, "preprocessCrs");
-}
-
-function assertBinary(value: Uint8Array, name: keyof PreprocessInput): void {
-  if (!(value instanceof Uint8Array) || value.byteLength === 0) {
-    throw new BackendWasmError(
-      "INVALID_INPUT",
-      `Preprocess input '${name}' must be a non-empty Uint8Array.`,
-    );
   }
 }
 

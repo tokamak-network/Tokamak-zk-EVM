@@ -8,6 +8,7 @@ import {
   type DecodedCombinedSigmaRkyv,
 } from "../../../src/converter/conversion/rkyv-to-binary.js";
 import { BACKEND_WASM_PACKAGE_VERSION } from "../../../src/version.js";
+import { assertBytesEqual, concatBytes } from "../../support/bytes.js";
 
 interface RawField {
   batchFromMontgomery(input: Uint8Array): Promise<Uint8Array>;
@@ -218,31 +219,6 @@ function splitPoints(input: Uint8Array, pointBytes: number): readonly Uint8Array
     points.push(input.slice(offset, offset + pointBytes));
   }
   return points;
-}
-
-function concatBytes(inputs: readonly Uint8Array[]): Uint8Array {
-  const output = new Uint8Array(
-    inputs.reduce((byteLength, input) => byteLength + input.byteLength, 0),
-  );
-  let offset = 0;
-  for (const input of inputs) {
-    output.set(input, offset);
-    offset += input.byteLength;
-  }
-  return output;
-}
-
-function assertBytesEqual(
-  actual: Uint8Array,
-  expected: Uint8Array,
-  label: string,
-): void {
-  if (
-    actual.byteLength !== expected.byteLength
-    || actual.some((value, index) => value !== expected[index])
-  ) {
-    throw new Error(`${label} does not match the expected affine buffer.`);
-  }
 }
 
 main().catch((error: unknown) => {

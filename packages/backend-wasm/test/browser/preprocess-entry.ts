@@ -2,14 +2,11 @@ import {
   install as installPreprocess,
   preprocess,
 } from "../../src/preprocess/index.js";
-import { loadPreprocessInputFromBinaryInput } from "../../src/preprocess/api/binary-input.js";
-import { createCurveRuntime } from "../../src/runtime/curve/curve.js";
 import {
   install as installVerifier,
   verify,
 } from "../../src/verifier/index.js";
-import { preprocessSpeedCandidate } from "../benchmarks/preprocess/pipeline-candidate.js";
-import { preprocessLegacyBaseline } from "../benchmarks/preprocess/pipeline-baseline.js";
+import { assertBytesEqual } from "../support/bytes.js";
 
 declare global {
   interface Window {
@@ -17,20 +14,14 @@ declare global {
   }
 }
 
-interface BrowserPreprocessResult {
-  readonly status: "pending" | "ok" | "error";
-  readonly mode?: BrowserPreprocessMode;
-  readonly nativeParity?: boolean;
+  interface BrowserPreprocessResult {
+    readonly status: "pending" | "ok" | "error";
+    readonly nativeParity?: boolean;
   readonly verifierAccepted?: boolean;
   readonly preprocessMs?: number;
   readonly chunkSizeExponent?: number;
   readonly error?: string;
 }
-
-type BrowserPreprocessMode =
-  | "production"
-  | "legacy-baseline"
-  | "selected-candidate";
 
 window.__tokamakPreprocessResult = { status: "pending" };
 
@@ -43,7 +34,6 @@ main().catch((error: unknown) => {
 
 async function main(): Promise<void> {
   const searchParams = new URL(window.location.href).searchParams;
-  const mode = parseMode(searchParams.get("mode"));
   const chunkSizeExponent = parseChunkSizeExponent(
     searchParams.get("chunkSizeExponent"),
   );
@@ -54,54 +44,34 @@ async function main(): Promise<void> {
     fetchBinary("/fixtures/small/runtime/verifier-preprocess.bin"),
     fetchBinary("/fixtures/small/runtime/proof.bin"),
   ]);
-  let actual: Uint8Array;
-  let preprocessMs: number;
-  if (mode === "production") {
-    const installation = await installPreprocess(
-      chunkSizeExponent === undefined ? {} : { chunkSizeExponent },
+  const installation = await installPreprocess(
+    chunkSizeExponent === undefined ? {} : { chunkSizeExponent },
+  );
+  if (
+    chunkSizeExponent === undefined
+    && installation.chunkSizeExponent !== 17
+  ) {
+    throw new Error(
+      `Browser preprocess default chunk exponent must be 17; received ${installation.chunkSizeExponent}.`,
     );
-    if (
-      chunkSizeExponent === undefined
-      && installation.chunkSizeExponent !== 17
-    ) {
-      throw new Error(
-        `Browser preprocess default chunk exponent must be 17; received ${installation.chunkSizeExponent}.`,
-      );
-    }
-    if (
-      chunkSizeExponent !== undefined
-      && installation.chunkSizeExponent !== chunkSizeExponent
-    ) {
-      throw new Error(
-        `Browser preprocess chunk exponent must be ${chunkSizeExponent}; received ${installation.chunkSizeExponent}.`,
-      );
-    }
-    const started = performance.now();
-    actual = await preprocess({
-      permutation,
-      instance,
-      preprocessCrs,
-    });
-    preprocessMs = performance.now() - started;
-  } else {
-    const runtime = await createCurveRuntime();
-    try {
-      const input = await loadPreprocessInputFromBinaryInput(runtime, {
-        permutation,
-        instance,
-        preprocessCrs,
-      });
-      const started = performance.now();
-      actual = mode === "legacy-baseline"
-        ? await preprocessLegacyBaseline(runtime, input)
-        : await preprocessSpeedCandidate(runtime, input);
-      preprocessMs = performance.now() - started;
-    } finally {
-      await runtime.terminate();
-    }
   }
+  if (
+    chunkSizeExponent !== undefined
+    && installation.chunkSizeExponent !== chunkSizeExponent
+  ) {
+    throw new Error(
+      `Browser preprocess chunk exponent must be ${chunkSizeExponent}; received ${installation.chunkSizeExponent}.`,
+    );
+  }
+  const started = performance.now();
+  const actual = await preprocess({
+    permutation,
+    instance,
+    preprocessCrs,
+  });
+  const preprocessMs = performance.now() - started;
 
-  assertBytesEqual(actual, expected);
+  assertBytesEqual(actual, expected, "browser preprocess parity");
   await installVerifier();
   const verifierAccepted = await verify({
     proof,
@@ -114,22 +84,11 @@ async function main(): Promise<void> {
 
   window.__tokamakPreprocessResult = {
     status: "ok",
-    mode,
     nativeParity: true,
     verifierAccepted,
     preprocessMs,
     chunkSizeExponent,
   };
-}
-
-function parseMode(value: string | null): BrowserPreprocessMode {
-  if (value === null || value === "production") {
-    return "production";
-  }
-  if (value === "legacy-baseline" || value === "selected-candidate") {
-    return value;
-  }
-  throw new Error(`Unsupported browser preprocess mode: ${value}`);
 }
 
 function parseChunkSizeExponent(value: string | null): number | undefined {
@@ -151,18 +110,4 @@ async function fetchBinary(path: string): Promise<Uint8Array> {
     );
   }
   return new Uint8Array(await response.arrayBuffer());
-}
-
-function assertBytesEqual(actual: Uint8Array, expected: Uint8Array): void {
-  if (actual.byteLength !== expected.byteLength) {
-    throw new Error(
-      `Browser preprocess byte length mismatch: expected ${expected.byteLength}, `
-        + `received ${actual.byteLength}.`,
-    );
-  }
-  for (let index = 0; index < actual.byteLength; index += 1) {
-    if (actual[index] !== expected[index]) {
-      throw new Error(`Browser preprocess parity mismatch at byte ${index}.`);
-    }
-  }
 }

@@ -5,11 +5,12 @@ import {
   BinarySectionType,
 } from "../../artifacts/binary/binary-format.js";
 import { BACKEND_WASM_PACKAGE_VERSION } from "../../version.js";
-import { createCurveRuntime, type CurveRuntime } from "../../runtime/curve/curve.js";
+import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import {
   isRecord,
   parseU32,
 } from "./conversion-utils.js";
+import { withCurveRuntime } from "./conversion-runtime.js";
 
 interface NativePlacementVariablesSource {
   readonly subcircuitId: number;
@@ -17,12 +18,8 @@ interface NativePlacementVariablesSource {
 }
 
 export async function convertWitness(witness: unknown): Promise<Uint8Array> {
-  const runtime = await createCurveRuntime();
-  try {
-    return createProverPlacementVariablesArtifact(runtime, witness, BACKEND_WASM_PACKAGE_VERSION);
-  } finally {
-    await runtime.terminate();
-  }
+  return withCurveRuntime((runtime) =>
+    createProverPlacementVariablesArtifact(runtime, witness, BACKEND_WASM_PACKAGE_VERSION));
 }
 
 async function createProverPlacementVariablesArtifact(

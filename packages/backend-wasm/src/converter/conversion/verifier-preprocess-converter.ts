@@ -5,8 +5,10 @@ import {
   BinarySectionType,
 } from "../../artifacts/binary/binary-format.js";
 import { BACKEND_WASM_PACKAGE_VERSION } from "../../version.js";
-import { createCurveRuntime, type CurveRuntime } from "../../runtime/curve/curve.js";
-import { concatBytes, isRecord, parseHexStringArray } from "./conversion-utils.js";
+import { concatBytes } from "../../runtime/bytes.js";
+import type { CurveRuntime } from "../../runtime/curve/curve.js";
+import { isRecord, parseHexStringArray } from "./conversion-utils.js";
+import { withCurveRuntime } from "./conversion-runtime.js";
 import { recoverG1Points } from "./g1-coordinate-format.js";
 
 interface FormattedPreprocessJson {
@@ -15,12 +17,8 @@ interface FormattedPreprocessJson {
 }
 
 export async function convertVerifierPreprocess(preprocess: unknown): Promise<Uint8Array> {
-  const runtime = await createCurveRuntime();
-  try {
-    return createVerifierPreprocessArtifact(runtime, preprocess, BACKEND_WASM_PACKAGE_VERSION);
-  } finally {
-    await runtime.terminate();
-  }
+  return withCurveRuntime((runtime) =>
+    createVerifierPreprocessArtifact(runtime, preprocess, BACKEND_WASM_PACKAGE_VERSION));
 }
 
 async function createVerifierPreprocessArtifact(

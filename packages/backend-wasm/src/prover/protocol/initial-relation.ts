@@ -1,12 +1,6 @@
 import { BivariatePolynomialBuffer } from "../../runtime/polynomial/bivariate-polynomial-buffer.js";
 import type { CurveRuntime } from "../../runtime/curve/curve.js";
 import {
-  type ProverCrsRuntime,
-} from "../api/binary-input.js";
-import type {
-  ProverSetupParams,
-} from "./witness.js";
-import {
   linearCombinationBufferBatch,
 } from "../polynomial/linear-combinations.js";
 import {
@@ -14,7 +8,6 @@ import {
   lowDegreeYTimesVanishingBuffer,
 } from "../polynomial/shifted-products.js";
 import type { ProverCommitmentEncoder } from "../commitments/commitment-encoder.js";
-import { encodePolynomialBufferWithSigma1 } from "../commitments/sigma1-encoder.js";
 import type { ProverState } from "./state.js";
 
 export interface InitialRelationCommitments {
@@ -54,27 +47,10 @@ export interface InitialRelationComputation {
   readonly termBZk: BivariatePolynomialBuffer;
 }
 
-export interface ProverOperationOptions {
-  readonly commitmentEncoder?: ProverCommitmentEncoder;
-}
-
-export async function computeInitialRelationCommitments(
-  runtime: CurveRuntime,
-  crs: ProverCrsRuntime,
-  state: ProverState,
-  options: ProverOperationOptions = {},
-): Promise<InitialRelationComputation> {
-  const arithmetic = await computeArithmeticArgumentCommitments(runtime, crs, state, options);
-  const copyWitness = await computeCopyWitnessCommitment(runtime, crs, state, options);
-
-  return combineInitialRelation(arithmetic, copyWitness);
-}
-
 export async function computeArithmeticArgumentCommitments(
   runtime: CurveRuntime,
-  crs: ProverCrsRuntime,
   state: ProverState,
-  options: ProverOperationOptions = {},
+  commitmentEncoder: ProverCommitmentEncoder,
 ): Promise<ArithmeticArgumentComputation> {
   const field = runtime.Fr;
   const p0Product = await state.witness.uXY.mul(
@@ -122,12 +98,11 @@ export async function computeArithmeticArgumentCommitments(
     [field.mul(state.mixer.rU_X, state.mixer.rV_Y), state.instance.tN],
     [field.mul(state.mixer.rU_Y, state.mixer.rV_Y), state.instance.tSMax],
   ]);
-  const encode = options.commitmentEncoder ?? createDefaultCommitmentEncoder(runtime, crs, state.setup);
-  const U = await encode(UXY);
-  const V = await encode(VXY);
-  const W = await encode(WXY);
-  const Q_AX = await encode(Q_AX_XY);
-  const Q_AY = await encode(Q_AY_XY);
+  const U = await commitmentEncoder(UXY);
+  const V = await commitmentEncoder(VXY);
+  const W = await commitmentEncoder(WXY);
+  const Q_AX = await commitmentEncoder(Q_AX_XY);
+  const Q_AY = await commitmentEncoder(Q_AY_XY);
 
   return {
     commitments: { U, V, W, Q_AX, Q_AY },
@@ -139,9 +114,8 @@ export async function computeArithmeticArgumentCommitments(
 
 export async function computeCopyWitnessCommitment(
   runtime: CurveRuntime,
-  crs: ProverCrsRuntime,
   state: ProverState,
-  options: ProverOperationOptions = {},
+  commitmentEncoder: ProverCommitmentEncoder,
 ): Promise<CopyWitnessComputation> {
   const field = runtime.Fr;
   const termBZk = await linearCombinationBufferBatch(field, [
@@ -152,10 +126,8 @@ export async function computeCopyWitnessCommitment(
     [field.one, state.witness.bXY],
     [field.one, termBZk],
   ]);
-  const encode = options.commitmentEncoder ?? createDefaultCommitmentEncoder(runtime, crs, state.setup);
-
   return {
-    commitment: await encode(BXY),
+    commitment: await commitmentEncoder(BXY),
     termBZk,
   };
 }
@@ -174,12 +146,4 @@ export function combineInitialRelation(
     wZk: arithmetic.wZk,
     termBZk: copyWitness.termBZk,
   };
-}
-
-function createDefaultCommitmentEncoder(
-  runtime: CurveRuntime,
-  crs: ProverCrsRuntime,
-  setup: ProverSetupParams,
-): ProverCommitmentEncoder {
-  return (polynomial) => encodePolynomialBufferWithSigma1(runtime, crs, setup, polynomial);
 }

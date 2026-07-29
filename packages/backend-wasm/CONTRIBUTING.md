@@ -49,6 +49,7 @@ packages/backend-wasm/
 - `src/artifacts`: binary containers, decoded views, and versioned specs.
 - `src/converter`: public converter API, material conversion, optional
   inspection and validation, and the prover CRS Worker.
+- `src/generated`: shared generated setup and dependency-version constants.
 - `src/preprocess`: independent preprocess lifecycle, permutation-polynomial
   construction, and verifier-preprocess commitment output.
 - `src/prover`: public prover lifecycle and integrated protocol operations.
