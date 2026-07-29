@@ -47,17 +47,6 @@
             <span>Prover CRS</span>
             <input id="prover-crs-url" value="/artifacts/prover-crs.bin" />
           </label>
-          <label>
-            <span>Verifier preprocess fallback</span>
-            <input
-              id="verifier-preprocess-url"
-              value="/artifacts/verifier-preprocess.bin"
-            />
-          </label>
-          <label>
-            <span>Proof fallback</span>
-            <input id="proof-url" value="/artifacts/proof.bin" />
-          </label>
         </div>
       </section>
 
@@ -108,7 +97,7 @@
               <h3>Verify</h3>
               <p id="verifier-status">Not installed</p>
             </div>
-            <p class="input-policy">Generated outputs take precedence over fallback URLs.</p>
+            <p class="input-policy">Requires the preprocess and proof generated above.</p>
             <div class="actions">
               <button id="install-verifier" type="button">Install</button>
               <button id="run-verifier" type="button" disabled>Verify</button>

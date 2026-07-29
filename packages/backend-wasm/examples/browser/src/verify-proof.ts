@@ -6,27 +6,21 @@ import {
 
 import { loadBinary } from "./load-binary.js";
 
-export interface VerifierArtifactUrls {
-  readonly proof: string | URL;
+export interface VerifierExampleInput {
+  readonly proof: Uint8Array;
   readonly instance: string | URL;
-  readonly verifierPreprocess: string | URL;
+  readonly verifierPreprocess: Uint8Array;
 }
 
 export function installVerifierRuntime(): Promise<VerifierInstallationInfo> {
   return installVerifier();
 }
 
-export async function verifyProof(
-  urls: VerifierArtifactUrls,
-  generated: {
-    readonly proof?: Uint8Array;
-    readonly verifierPreprocess?: Uint8Array;
-  } = {},
-): Promise<boolean> {
-  const [proof, instance, verifierPreprocess] = await Promise.all([
-    generated.proof ?? loadBinary(urls.proof),
-    loadBinary(urls.instance),
-    generated.verifierPreprocess ?? loadBinary(urls.verifierPreprocess),
-  ]);
-  return verify({ proof, instance, verifierPreprocess });
+export async function verifyProof(input: VerifierExampleInput): Promise<boolean> {
+  const instance = await loadBinary(input.instance);
+  return verify({
+    proof: input.proof,
+    instance,
+    verifierPreprocess: input.verifierPreprocess,
+  });
 }

@@ -37,7 +37,6 @@ async function main(): Promise<void> {
     const archivePath = await packCurrentPackage(archiveRoot);
     await installPackedPackage(applicationRoot, archivePath);
     await writeReadmeSnippets(applicationRoot);
-    await copyVerifierFixtures(applicationRoot);
     await typecheckExample(applicationRoot);
 
     const outputRoot = path.join(applicationRoot, "dist");
@@ -55,7 +54,7 @@ async function main(): Promise<void> {
     await rm(temporaryRoot, { recursive: true, force: true });
   }
 
-  console.log("Checked README TypeScript and packed browser example in Chromium");
+  console.log("Checked README TypeScript and complete packed browser workflow in Chromium");
 }
 
 async function packCurrentPackage(archiveRoot: string): Promise<string> {
@@ -110,16 +109,6 @@ async function writeReadmeSnippets(applicationRoot: string): Promise<void> {
   );
 }
 
-async function copyVerifierFixtures(applicationRoot: string): Promise<void> {
-  const outputRoot = path.join(applicationRoot, "public", "artifacts");
-  await mkdir(outputRoot, { recursive: true });
-  await Promise.all(
-    ["proof.bin", "instance.bin", "verifier-preprocess.bin"].map((name) =>
-      cp(path.join(FIXTURE_ROOT, name), path.join(outputRoot, name)),
-    ),
-  );
-}
-
 async function typecheckExample(applicationRoot: string): Promise<void> {
   const tsc = path.resolve("node_modules", ".bin", "tsc");
   try {
@@ -158,11 +147,19 @@ async function checkBuiltExample(outputRoot: string): Promise<void> {
 
     await page.goto(`http://127.0.0.1:${address.port}/`, { waitUntil: "networkidle" });
     await assertWorkflowControls(page);
+    await page.locator("#install-preprocess").click();
+    await waitUntilEnabled(page, "#run-preprocess", 120_000);
+    await page.locator("#run-preprocess").click();
+    await waitUntilComplete(page, "#preprocess-status", 120_000);
+
+    await page.locator("#install-prover").click();
+    await waitUntilEnabled(page, "#run-prover", 120_000);
+    await page.locator("#run-prover").click();
+    await waitUntilComplete(page, "#prover-status", 300_000);
+
     await page.locator("#install-verifier").click();
-    await page.getByRole("button", { name: "Verify", exact: true }).waitFor({
-      state: "visible",
-    });
-    await page.getByRole("button", { name: "Verify", exact: true }).click();
+    await waitUntilEnabled(page, "#run-verifier", 120_000);
+    await page.locator("#run-verifier").click();
     const handle = await page.waitForFunction(
       () => {
         const result = (window as unknown as {
@@ -188,6 +185,49 @@ async function checkBuiltExample(outputRoot: string): Promise<void> {
   }
 }
 
+async function waitUntilEnabled(
+  page: Page,
+  selector: string,
+  timeout: number,
+): Promise<void> {
+  await page.waitForFunction(
+    (target) => {
+      const button = document.querySelector<HTMLButtonElement>(target);
+      const workflow = document.querySelector<HTMLOutputElement>("#workflow-status");
+      return workflow?.dataset.state === "error" || button?.disabled === false;
+    },
+    selector,
+    { timeout },
+  );
+  await assertWorkflowSucceeded(page);
+}
+
+async function waitUntilComplete(
+  page: Page,
+  selector: string,
+  timeout: number,
+): Promise<void> {
+  await page.waitForFunction(
+    (target) => {
+      const status = document.querySelector<HTMLElement>(target);
+      const workflow = document.querySelector<HTMLOutputElement>("#workflow-status");
+      return workflow?.dataset.state === "error"
+        || status?.textContent?.startsWith("Complete") === true;
+    },
+    selector,
+    { timeout },
+  );
+  await assertWorkflowSucceeded(page);
+}
+
+async function assertWorkflowSucceeded(page: Page): Promise<void> {
+  const state = await page.locator("#workflow-status").getAttribute("data-state");
+  if (state === "error") {
+    const result = await page.locator("#result").textContent();
+    throw new Error(`Packed browser workflow failed: ${result ?? "unknown error"}.`);
+  }
+}
+
 async function assertWorkflowControls(page: Page): Promise<void> {
   for (const name of ["Preprocess", "Generate proof", "Verify"]) {
     const control = page.getByRole("button", { name, exact: true });
@@ -202,6 +242,17 @@ async function serveBuiltFile(
   outputRoot: string,
   relativePath: string,
 ): Promise<void> {
+  if (relativePath.startsWith("artifacts/")) {
+    const artifactName = relativePath.slice("artifacts/".length);
+    if (artifactName.length === 0 || path.basename(artifactName) !== artifactName) {
+      response.writeHead(404);
+      response.end();
+      return;
+    }
+    await serveFile(response, path.join(FIXTURE_ROOT, artifactName));
+    return;
+  }
+
   const filePath = path.resolve(outputRoot, relativePath);
   const relative = path.relative(outputRoot, filePath);
   if (relative.startsWith("..") || path.isAbsolute(relative)) {
@@ -210,6 +261,10 @@ async function serveBuiltFile(
     return;
   }
 
+  await serveFile(response, filePath);
+}
+
+async function serveFile(response: ServerResponse, filePath: string): Promise<void> {
   try {
     const bytes = await readFile(filePath);
     response.writeHead(200, { "content-type": contentTypeFor(filePath) });

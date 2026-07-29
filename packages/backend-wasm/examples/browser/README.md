@@ -11,10 +11,10 @@ npm install
 npm run dev
 ```
 
-Open the Vite URL, install the runtime needed by an operation, and then run the
-operation. Preprocess and proof outputs remain in memory for the page lifetime
-and take precedence when verification runs. Each generated output also has a
-download link.
+Open the Vite URL and run preprocess, prove, and verify in order. Each runtime
+must be installed explicitly. Preprocess and proof outputs remain in memory for
+the page lifetime, and verification requires those exact generated outputs.
+Each generated output also has a download link.
 
 ## Prepare Artifacts
 
@@ -28,8 +28,6 @@ you intend to run:
 | `preprocess-crs.bin` | Preprocess |
 | `witness.bin` | Prover |
 | `prover-crs.bin` | Prover |
-| `verifier-preprocess.bin` | Verifier fallback when preprocess was not run |
-| `proof.bin` | Verifier fallback when prover was not run |
 
 The default URLs in the page point to these names. They can be replaced with
 same-origin or CORS-enabled application URLs. The verifier CRS is compiled into

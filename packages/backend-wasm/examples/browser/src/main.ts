@@ -89,21 +89,18 @@ controls.installVerifier.addEventListener("click", () => {
 
 controls.runVerifier.addEventListener("click", () => {
   void runAction("Verifying proof", async () => {
-    const valid = await verifyProof(
-      {
-        proof: urlInput("proof-url"),
-        instance: urlInput("instance-url"),
-        verifierPreprocess: urlInput("verifier-preprocess-url"),
-      },
-      generated,
-    );
-    const proofSource = generated.proof === undefined ? "URL proof" : "generated proof";
-    const preprocessSource =
-      generated.verifierPreprocess === undefined
-        ? "URL preprocess"
-        : "generated preprocess";
+    const proof = generated.proof;
+    const verifierPreprocess = generated.verifierPreprocess;
+    if (proof === undefined || verifierPreprocess === undefined) {
+      throw new Error("Run preprocess and prove successfully before verification.");
+    }
+    const valid = await verifyProof({
+      proof,
+      instance: urlInput("instance-url"),
+      verifierPreprocess,
+    });
     text("verifier-status", valid ? "Valid proof" : "Invalid proof");
-    text("result-source", `${proofSource} · ${preprocessSource}`);
+    text("result-source", "Generated proof · generated preprocess");
     window.__tokamakExampleResult = { status: "ok", valid };
     return valid ? "Proof is valid" : "Proof is invalid";
   });
@@ -144,7 +141,11 @@ function refreshControls(): void {
   controls.installVerifier.disabled = actionRunning;
   controls.runPreprocess.disabled = actionRunning || !installed.preprocess;
   controls.runProver.disabled = actionRunning || !installed.prover;
-  controls.runVerifier.disabled = actionRunning || !installed.verifier;
+  controls.runVerifier.disabled =
+    actionRunning
+    || !installed.verifier
+    || generated.proof === undefined
+    || generated.verifierPreprocess === undefined;
 }
 
 function setWorkflowStatus(
