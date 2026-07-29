@@ -187,12 +187,14 @@ points against the native preprocess output.
 Concurrent scheduling reduced mean time by 22.30%. Mean peak RSS differed by
 0.004 GiB. No candidate is promoted or rejected by this report.
 
-## Final Production Chunk-Size Benchmark
+## Pre-Reboot Final Chunk-Size Benchmark
 
-This benchmark was run only after preprocess had been restored to the settled
-prover polynomial and MSM methods. It changes only
+This historical series was run only after preprocess had been restored to the
+settled prover polynomial and MSM methods. It changes only
 `preprocess.install({ chunkSizeExponent })`; it does not compare alternate
-algorithms or scheduling.
+algorithms or scheduling. The post-reboot investigation below proved that the
+system was in a degraded execution state. These observations are retained for
+audit history but are invalid for selecting the default exponent.
 
 Run the complete resumable suite with:
 
@@ -239,10 +241,8 @@ accept the native proof, and completed without OOM.
 | 18 | 14,412.570, 14,392.345, 14,427.720 ms | 14,410.878 ms | 14.491 ms | 3/3 | 3/3 | 0/3 |
 | 19 | 14,613.800, 15,264.110, 14,815.490 ms | 14,897.800 ms | 271.793 ms | 3/3 | 3/3 | 0/3 |
 
-Exponent 19 had the lowest Node.js mean but used 1.444 GiB more mean peak RSS
-than exponent 18. Exponent 18 had the lowest Chromium mean and substantially
-lower variation than exponent 19. The owner must select the final default;
-this report does not promote one automatically.
+Within this invalid series, exponent 19 had the lowest Node.js mean and
+exponent 18 had the lowest Chromium mean. Neither result is selection evidence.
 
 ## Post-Reboot Baseline Regression Investigation
 
@@ -311,6 +311,58 @@ Chromium observations therefore reflect degraded system execution state, not
 a reproducible preprocess implementation regression. The exact external
 system condition was not identified and must not be attributed to a specific
 cause without separate evidence.
+
+## Post-Reboot Final Chunk-Size Benchmark
+
+The complete supported range was measured again after reboot on source identity
+`802c5ef0e35b1d6226392179c8d97176deb06e5ca943b13840225ca32dd22ea8`.
+The environment was Apple M4 Pro, 14 logical CPUs, 48 GiB RAM, Darwin 25.5.0
+arm64, Node.js 26.0.0, and Chrome for Testing 149.0.7827.55. Every
+environment/exponent pair used exactly three fresh processes.
+
+Node.js results:
+
+| Exponent | Points | Preprocess samples | Mean | Population SD | Mean peak RSS | Population SD |
+| ---: | ---: | --- | ---: | ---: | ---: | ---: |
+| 10 | 1,024 | 19,915.078, 20,414.537, 20,321.005 ms | 20,216.873 ms | 216.791 ms | 1.687 GiB | 0.022 GiB |
+| 11 | 2,048 | 16,972.291, 17,452.252, 16,952.061 ms | 17,125.534 ms | 231.172 ms | 1.680 GiB | 0.051 GiB |
+| 12 | 4,096 | 15,724.405, 15,549.530, 15,543.113 ms | 15,605.683 ms | 83.990 ms | 1.725 GiB | 0.068 GiB |
+| 13 | 8,192 | 13,881.641, 13,757.420, 13,786.071 ms | 13,808.378 ms | 53.109 ms | 1.787 GiB | 0.071 GiB |
+| 14 | 16,384 | 12,474.747, 12,377.736, 12,369.387 ms | 12,407.290 ms | 47.821 ms | 1.756 GiB | 0.084 GiB |
+| 15 | 32,768 | 11,879.061, 11,943.908, 11,930.815 ms | 11,917.928 ms | 27.998 ms | 1.884 GiB | 0.020 GiB |
+| 16 | 65,536 | 11,648.883, 11,676.822, 11,638.647 ms | 11,654.784 ms | 16.134 ms | 1.961 GiB | 0.025 GiB |
+| 17 | 131,072 | 10,803.429, 10,869.349, 10,901.471 ms | 10,858.083 ms | 40.811 ms | 2.270 GiB | 0.071 GiB |
+| 18 | 262,144 | 10,926.777, 10,951.599, 10,907.475 ms | 10,928.617 ms | 18.061 ms | 3.129 GiB | 0.049 GiB |
+| 19 | 524,288 | 10,929.729, 10,851.030, 10,988.074 ms | 10,922.944 ms | 56.153 ms | 4.813 GiB | 0.107 GiB |
+
+Chromium results:
+
+| Exponent | Preprocess samples | Mean | Population SD | Native parity | Verifier accepted | OOM |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| 10 | 20,381.605, 20,293.650, 20,308.110 ms | 20,327.788 ms | 38.509 ms | 3/3 | 3/3 | 0/3 |
+| 11 | 17,136.875, 17,133.050, 17,275.525 ms | 17,181.817 ms | 66.280 ms | 3/3 | 3/3 | 0/3 |
+| 12 | 15,512.380, 15,561.665, 15,578.690 ms | 15,550.912 ms | 28.119 ms | 3/3 | 3/3 | 0/3 |
+| 13 | 13,774.115, 13,917.765, 13,810.690 ms | 13,834.190 ms | 60.954 ms | 3/3 | 3/3 | 0/3 |
+| 14 | 12,574.725, 12,575.430, 12,551.620 ms | 12,567.258 ms | 11.062 ms | 3/3 | 3/3 | 0/3 |
+| 15 | 11,940.375, 11,954.330, 12,004.775 ms | 11,966.493 ms | 27.662 ms | 3/3 | 3/3 | 0/3 |
+| 16 | 11,720.440, 11,742.895, 11,692.710 ms | 11,718.682 ms | 20.526 ms | 3/3 | 3/3 | 0/3 |
+| 17 | 10,940.095, 10,933.850, 10,953.025 ms | 10,942.323 ms | 7.985 ms | 3/3 | 3/3 | 0/3 |
+| 18 | 11,068.150, 11,003.740, 10,977.945 ms | 11,016.612 ms | 37.934 ms | 3/3 | 3/3 | 0/3 |
+| 19 | 11,034.160, 11,029.655, 10,991.915 ms | 11,018.577 ms | 18.942 ms | 3/3 | 3/3 | 0/3 |
+
+All 60 observations passed native parity. All 30 Chromium observations passed
+verifier acceptance and none produced an OOM.
+
+Exponent 17 had the lowest mean in both environments. Relative to exponent 18,
+it was 70.534 ms faster in Node.js and 74.288 ms faster in Chromium, while
+using 0.859 GiB less mean Node peak RSS. Relative to exponent 19, it was
+64.861 ms faster in Node.js and 76.253 ms faster in Chromium, while using
+2.543 GiB less mean Node peak RSS. The benchmark therefore presents no measured
+speed-versus-memory tradeoff among exponents 17, 18, and 19: exponent 17 has
+both the lowest mean time and the lowest peak RSS of those candidates.
+
+The owner must select the final default. This report records evidence and does
+not promote an exponent automatically.
 
 ## Candidate: `O_pub_fix` Input Preparation
 
