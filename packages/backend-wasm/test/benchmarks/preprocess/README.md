@@ -244,6 +244,74 @@ than exponent 18. Exponent 18 had the lowest Chromium mean and substantially
 lower variation than exponent 19. The owner must select the final default;
 this report does not promote one automatically.
 
+## Post-Reboot Baseline Regression Investigation
+
+The final chunk-size run above reported `15,192.948 ms` for the current
+exponent-18 Node.js path, while the earlier exclusive baseline reported
+`10,746.700 ms`. The historical baseline commit and the current implementation
+were therefore compared again after a system reboot.
+
+The comparison fixed the following variables:
+
+- historical implementation: commit `1a4817a87`;
+- current implementation: commit `e50356505`;
+- the same current runtime fixture files and dependency installation;
+- Apple M4 Pro, 14 logical CPUs, 48 GiB RAM, Darwin 25.5.0 arm64, and
+  Node.js 26.0.0;
+- chunk exponent 18; and
+- exactly three independent processes per implementation, interleaved in the
+  order historical, current, current, historical, historical, current.
+
+The source comparison found no changes to the curve runtime, field runtime,
+two-dimensional inverse NTT, or ffjavascript primitive configuration. The
+current commitment helper extracts the former loop without changing its
+`batchFromMontgomeryBuffer`, `msmAffineRaw`, and partial-point-add sequence.
+The other relevant changes are input index validation and the public API
+lifecycle wrapper.
+
+Exclusive Node.js results:
+
+| Stage | Historical mean | Population SD | Current mean | Population SD | Current - historical |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Input decode | 0.694 ms | 0.037 ms | 0.792 ms | 0.011 ms | +0.097 ms |
+| Permutation polynomials | 760.180 ms | 16.881 ms | 769.072 ms | 8.164 ms | +8.892 ms |
+| `s0` commitment | 5,286.584 ms | 43.339 ms | 5,284.667 ms | 52.762 ms | -1.918 ms |
+| `s1` commitment | 5,241.251 ms | 17.023 ms | 5,281.925 ms | 66.932 ms | +40.675 ms |
+| `O_pub_fix` | 1.619 ms | 0.541 ms | 1.414 ms | 0.111 ms | -0.206 ms |
+| Output | 1.493 ms | 0.086 ms | 1.647 ms | 0.116 ms | +0.154 ms |
+| Preprocess | 11,291.821 ms | 56.820 ms | 11,339.517 ms | 92.484 ms | +47.695 ms |
+| Process wall | 11,543.917 ms | 57.103 ms | 11,603.018 ms | 88.152 ms | +59.101 ms |
+| Peak RSS | 3.143 GiB | 0.078 GiB | 3.223 GiB | 0.089 GiB | +0.080 GiB |
+
+The current implementation was 0.42% slower at the preprocess boundary. That
+difference is smaller than the observed current-run standard deviation and
+does not reproduce the earlier multi-second gap. Commitment means remained
+equivalent across the implementations.
+
+Fresh Chromium processes produced the same result:
+
+| Implementation | Samples | Mean | Population SD | Native parity | Verifier accepted |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Historical `1a4817a87` | 10,799.370, 10,749.930, 10,756.235 ms | 10,768.512 ms | 21.971 ms | 3/3 | 3/3 |
+| Current `e50356505` | 10,795.505, 10,786.040, 10,798.065 ms | 10,793.203 ms | 5.172 ms | 3/3 | 3/3 |
+
+The current browser path differed by 24.692 ms, or 0.23%.
+
+Finally, the exact current Node.js public-API chunk-size path that had produced
+the `15,192.948 ms` result was repeated three times after reboot:
+
+| Samples | Mean | Population SD | Process-wall mean | Population SD | Mean peak RSS |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 10,768.517, 10,803.796, 10,795.299 ms | 10,789.204 ms | 15.034 ms | 11,036.553 ms | 17.396 ms | 3.160 GiB |
+
+No source, fixture, dependency, or hardware change separates the pre-reboot
+and post-reboot current-path measurements. The post-reboot mean is
+`4,403.744 ms` (28.99%) lower. The earlier 15-second Node.js and 14.4-second
+Chromium observations therefore reflect degraded system execution state, not
+a reproducible preprocess implementation regression. The exact external
+system condition was not identified and must not be attributed to a specific
+cause without separate evidence.
+
 ## Candidate: `O_pub_fix` Input Preparation
 
 Run each mode in an independent process:
