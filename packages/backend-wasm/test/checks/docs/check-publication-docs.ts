@@ -199,7 +199,7 @@ function checkPublicApiReference(readme: string): void {
     "convertVerifierPreprocess(value)",
     "convertProof(input)",
     "convertCrs(bytes)",
-    "inspectBinary(bytes, options?)",
+    "inspectBinary(bytes)",
     "validateBinary(bytes)",
   ] as const;
   for (const entry of exactEntries) {
@@ -220,7 +220,6 @@ function checkPublicApiReference(readme: string): void {
     "PreprocessInstallOptions",
     "PreprocessInstallationInfo",
     "BinaryArtifactInspection",
-    "BinaryInspectionOptions",
     "BinarySectionInspection",
     "ConvertedCrs",
     "ConverterArtifactJson",
@@ -347,6 +346,8 @@ async function checkPackedPackage(): Promise<void> {
       "dist/prover/index.d.ts",
       "dist/preprocess/index.js",
       "dist/preprocess/index.d.ts",
+      "dist/api/public-api-utils.js",
+      "dist/api/public-api-utils.d.ts",
       "dist/generated/setup.generated.js",
       "dist/generated/setup.generated.d.ts",
       "dist/verifier/index.js",

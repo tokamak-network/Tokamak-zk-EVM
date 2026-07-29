@@ -144,13 +144,13 @@ Public preprocess types are `PreprocessInput`, `PreprocessInstallOptions`, and
 | `convertVerifierPreprocess(value)` | Parsed preprocess JSON to verifier-preprocess binary |
 | `convertProof(input)` | Convert native proof JSON to binary, or proof binary to a native proof JSON object, according to `sourceFormat` |
 | `convertCrs(bytes)` | `combined_sigma.rkyv` bytes to named prover, preprocess, and verifier CRS binaries |
-| `inspectBinary(bytes, options?)` | Binary header and section information without a validity claim |
+| `inspectBinary(bytes)` | Binary header and section information without a validity claim |
 | `validateBinary(bytes)` | Validated decoded artifact after layout, digest, and spec checks |
 
 Public converter types are `BinaryArtifactInspection`,
-`BinaryInspectionOptions`, `BinarySectionInspection`, `ConvertedCrs`,
-`ConverterArtifactJson`, `ConvertProofBinaryInput`, `ConvertProofInput`,
-`ConvertProofJsonInput`, and `RuntimeArtifactFileValidationResult`.
+`BinarySectionInspection`, `ConvertedCrs`, `ConverterArtifactJson`,
+`ConvertProofBinaryInput`, `ConvertProofInput`, `ConvertProofJsonInput`, and
+`RuntimeArtifactFileValidationResult`.
 
 Every subpath exports `BackendWasmError` and `BackendWasmErrorCode`.
 

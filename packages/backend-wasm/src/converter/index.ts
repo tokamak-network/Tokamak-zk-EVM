@@ -10,7 +10,6 @@ import { validateBinary as validateBinaryInternal } from "./validation/validator
 import type { RuntimeArtifactFileValidationResult } from "./validation/validators.js";
 import type {
   BinaryArtifactInspection,
-  BinaryInspectionOptions,
   ConvertedCrs,
   ConverterArtifactJson,
   ConvertProofBinaryInput,
@@ -66,9 +65,8 @@ export function convertPermutation(permutation: unknown): Promise<Uint8Array> {
 
 export function inspectBinary(
   artifact: Uint8Array,
-  options: BinaryInspectionOptions = {},
 ): Promise<BinaryArtifactInspection> {
-  return runConverter("inspectBinary", () => inspectBinaryInternal(artifact, options));
+  return runConverter("inspectBinary", () => inspectBinaryInternal(artifact));
 }
 
 export function validateBinary(
@@ -99,7 +97,6 @@ export type { RuntimeArtifactFileValidationResult };
 
 export type {
   BinaryArtifactInspection,
-  BinaryInspectionOptions,
   BinarySectionInspection,
   ConvertedCrs,
   ConverterArtifactJson,

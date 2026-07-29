@@ -49,6 +49,7 @@
     "dist/backend-wasm-error.d.ts",
     "dist/version.js",
     "dist/version.d.ts",
+    "dist/api",
     "dist/artifacts",
     "dist/generated",
     "dist/runtime",

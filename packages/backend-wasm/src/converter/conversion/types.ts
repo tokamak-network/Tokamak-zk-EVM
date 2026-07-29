@@ -18,10 +18,6 @@ export interface ConvertProofBinaryInput {
 
 export type ConvertProofInput = ConvertProofJsonInput | ConvertProofBinaryInput;
 
-export interface BinaryInspectionOptions {
-  readonly includeSectionData?: boolean;
-}
-
 export interface BinaryArtifactInspection {
   readonly kind: number;
   readonly formatVersion: number;
@@ -40,5 +36,4 @@ export interface BinarySectionInspection {
   readonly byteOffset: number;
   readonly byteLength: number;
   readonly flags: number;
-  readonly dataHex?: string;
 }

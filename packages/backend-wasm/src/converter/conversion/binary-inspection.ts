@@ -1,12 +1,8 @@
 import { decodeBinaryArtifactFile } from "../../artifacts/binary/binary-artifact-file.js";
-import type {
-  BinaryArtifactInspection,
-  BinaryInspectionOptions,
-} from "./types.js";
+import type { BinaryArtifactInspection } from "./types.js";
 
 export async function inspectBinary(
   artifact: Uint8Array,
-  options: BinaryInspectionOptions = {},
 ): Promise<BinaryArtifactInspection> {
   const artifactFile = await decodeBinaryArtifactFile(artifact);
 
@@ -25,7 +21,6 @@ export async function inspectBinary(
       byteOffset: section.byteOffset,
       byteLength: section.byteLength,
       flags: section.flags,
-      dataHex: options.includeSectionData === true ? bytesToHex(section.data) : undefined,
     })),
   };
 }
