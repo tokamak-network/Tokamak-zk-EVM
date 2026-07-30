@@ -1,1 +1,1 @@
-export const BACKEND_WASM_PACKAGE_VERSION = "2.1.4";
+export const BACKEND_WASM_PACKAGE_VERSION = "2.1.3";

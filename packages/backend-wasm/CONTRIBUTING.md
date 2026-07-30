@@ -203,9 +203,9 @@ For a synchronized release:
 5. Download `snark-browser-compat-release-tarball` when an independent archive
    review is required and run `sha256sum --check SHA256SUMS`.
 
-License and redistribution findings for release 2.1.4 are recorded in the
+License and redistribution findings for release 2.1.3 are recorded in the
 repository's
-[`snark-browser-compat-2.1.4-license-audit.md`](https://github.com/tokamak-network/Tokamak-zk-EVM/blob/main/packages/backend-wasm/docs/release/snark-browser-compat-2.1.4-license-audit.md).
+[`snark-browser-compat-2.1.3-license-audit.md`](https://github.com/tokamak-network/Tokamak-zk-EVM/blob/main/packages/backend-wasm/docs/release/snark-browser-compat-2.1.3-license-audit.md).
 
 Use `npm run clean:temp` to remove package-local temporary output while
 preserving `tmp/planning.md`.

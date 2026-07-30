@@ -1,4 +1,4 @@
-# Snark-browser-compat 2.1.4 License Audit
+# Snark-browser-compat 2.1.3 License Audit
 
 Audience: maintainers preparing the `@tokamak-zk-evm/snark-browser-compat` npm release.
 
@@ -8,15 +8,15 @@ Audit date: 2026-07-29
 
 | Property | Value |
 | --- | --- |
-| Package | `@tokamak-zk-evm/snark-browser-compat@2.1.4` |
+| Package | `@tokamak-zk-evm/snark-browser-compat@2.1.3` |
 | Package license | `MIT OR Apache-2.0` |
-| Tarball | `tokamak-zk-evm-snark-browser-compat-2.1.4.tgz` |
-| Compressed size | 870,338 bytes |
-| Unpacked size | 10,203,206 bytes |
+| Tarball | `tokamak-zk-evm-snark-browser-compat-2.1.3.tgz` |
+| Compressed size | 870,308 bytes |
+| Unpacked size | 10,203,085 bytes |
 | Entry count | 417 |
-| SHA-1 reported by npm | `2afb1003342b1d5b085bd2d660614f8d872548e3` |
-| SHA-256 | `0a2abec7b14d2357a95561f68f1b8d1381f3d022e8406e80587a5e376dd4f712` |
-| npm integrity | `sha512-JI0IyO/7iNbDMQcsffcpSc2DMUkvtaGwanQS2EWNGnzMQvu1psWAv850s5RVOT/vjYgies2f19ziWzmdhDQP5g==` |
+| SHA-1 reported by npm | `1b1b1f473f472221ee579915c1c808ffdb20cb49` |
+| SHA-256 | `6fb1459a4dab71931fa630c9c3aa8b1e6cec387bd68e181a80cfa909628c2cda` |
+| npm integrity | `sha512-/SEFuts6jZDOLSNlH61JZy2rpfPYWqeQPJxRuUKEBZwvCbxneUcbLr57o1K4+K81M597VZ2UVc115hCGnlTkTQ==` |
 
 The candidate was built and packed on Apple Silicon with Rust 1.95.0,
 `wasm-bindgen-cli` 0.2.126, Node.js 26.0.0, npm 11.12.1, Vite 8.1.5,
@@ -42,7 +42,7 @@ dependencies.
 | Package | Resolved version | Declared license | Distribution boundary |
 | --- | --- | --- | --- |
 | `@noble/hashes` | 1.8.0 | MIT | External npm import |
-| `@tokamak-zk-evm/subcircuit-library` | 2.1.4 | MIT OR Apache-2.0 | External dependency; selected data is generated into package output |
+| `@tokamak-zk-evm/subcircuit-library` | 2.1.3 | MIT OR Apache-2.0 | External dependency; selected data is generated into package output |
 | `ffjavascript` | 0.3.1 | GPL-3.0 | External npm import |
 | `wasmbuilder` | 0.0.16 | GPL-3.0 | External transitive dependency |
 | `wasmcurves` | 0.2.2 | GPL-3.0 | External transitive dependency |

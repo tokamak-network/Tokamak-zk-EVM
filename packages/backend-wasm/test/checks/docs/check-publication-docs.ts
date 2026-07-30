@@ -8,8 +8,6 @@ import { promisify } from "node:util";
 import { marked } from "marked";
 import { chromium } from "playwright";
 
-import { BACKEND_WASM_PACKAGE_VERSION } from "../../../src/version.js";
-
 const execFileAsync = promisify(execFile);
 const DOCUMENTS = [
   "README.md",
@@ -424,7 +422,7 @@ async function checkPackedPackage(): Promise<void> {
     const manifest = JSON.parse(manifestSource) as PackageManifest;
     if (
       manifest.name !== "@tokamak-zk-evm/snark-browser-compat" ||
-      manifest.version !== BACKEND_WASM_PACKAGE_VERSION ||
+      manifest.version !== "2.1.3" ||
       manifest.license !== "MIT OR Apache-2.0"
     ) {
       throw new Error(`Packed package metadata is inconsistent: ${manifestSource}`);

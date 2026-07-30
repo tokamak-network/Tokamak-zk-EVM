@@ -14,11 +14,11 @@ graphs.
 
 ## When to use this package
 
-Use this package when a bundler-based browser application must calculate
-verifier preprocessing commitments, generate or verify Tokamak zk-SNARK
-proofs, or convert application artifacts into the binary formats consumed by
-those operations. Use `@tokamak-zk-evm/cli` instead for the complete local
-Node.js and native-backend workflow. This package is not a generic
+Use this package when a bundler-based browser application must generate or
+verify Tokamak zk-SNARK proofs, compute the verifier preprocessing commitments
+for those proofs, or convert application artifacts into the binary formats
+consumed by those operations. Use `@tokamak-zk-evm/cli` instead for the complete
+local Node.js and native-backend workflow. This package is not a generic
 proving-system API and does not synthesize Tokamak L2 transactions.
 
 ## Contents
@@ -468,14 +468,14 @@ duplicate WASM memories and temporary buffers.
 
 ## Compatibility and versioning
 
-Snark-browser-compat 2.1.4 is aligned with the Tokamak zk-EVM native backend and
-subcircuit-library 2.1.4 release line.
+Snark-browser-compat 2.1.3 is aligned with the Tokamak zk-EVM native backend and
+subcircuit-library 2.1.3 release line.
 
 | Boundary | Current value |
 | --- | --- |
-| Snark-browser-compat package | 2.1.4 |
-| Native backend release line | 2.1.4 |
-| `@tokamak-zk-evm/subcircuit-library` | 2.1.4 |
+| Snark-browser-compat package | 2.1.3 |
+| Native backend release line | 2.1.3 |
+| `@tokamak-zk-evm/subcircuit-library` | 2.1.3 |
 | Binary `formatVersion` | 1 |
 | Package module format | ESM |
 | Curve runtime | ffjavascript BLS12-381 |

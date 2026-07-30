@@ -13,7 +13,7 @@ application's bundler may include it in the application's distribution.
 | Package | Version | Declared license |
 | --- | --- | --- |
 | `@noble/hashes` | 1.8.0 | MIT |
-| `@tokamak-zk-evm/subcircuit-library` | 2.1.4 | MIT OR Apache-2.0 |
+| `@tokamak-zk-evm/subcircuit-library` | 2.1.3 | MIT OR Apache-2.0 |
 | `ffjavascript` | 0.3.1 | GPL-3.0 |
 | `wasmbuilder` | 0.0.16 | GPL-3.0 |
 | `wasmcurves` | 0.2.2 | GPL-3.0 |
@@ -32,9 +32,9 @@ obligations.
 ## Generated Tokamak material
 
 The published prover includes setup parameters, packed R1CS data, and subcircuit
-metadata generated from `@tokamak-zk-evm/subcircuit-library@2.1.4`. The
+metadata generated from `@tokamak-zk-evm/subcircuit-library@2.1.3`. The
 published verifier includes CRS data generated from the Tokamak zk-EVM native
-backend setup output for version 2.1.4. These sources follow the Tokamak zk-EVM
+backend setup output for version 2.1.3. These sources follow the Tokamak zk-EVM
 repository's `MIT OR Apache-2.0` policy. The complete license texts are in
 `LICENSE-MIT` and `LICENSE-APACHE`.
 
@@ -73,6 +73,6 @@ The `seahash@4.1.0` crate archive declares MIT in `Cargo.toml` but does not ship
 a separate license file. Its author attribution and the MIT text are preserved
 in `third-party-licenses/rkyv-decoder-wasm/seahash-4.1.0/LICENSE-MIT`.
 
-This inventory describes the snark-browser-compat 2.1.4 publication candidate and is
+This inventory describes the snark-browser-compat 2.1.3 publication candidate and is
 not legal advice. Application distributors remain responsible for reviewing
 the licenses and source-distribution obligations of their complete build.

@@ -354,30 +354,30 @@ folder. Use `<CLI> --install --trusted-setup` to generate CRS locally, or
 
 | Package                                                        | Description                                                                               | Language   | Repo Version | Published Package                                                                                        |
 | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ---------- | ------------ | -------------------------------------------------------------------------------------------------------- |
-| [`qap-compiler`](./packages/frontend/qap-compiler)             | Maintainer-side generator for the published subcircuit library package                    | Circom     | `2.1.4`      | [`@tokamak-zk-evm/subcircuit-library`](https://www.npmjs.com/package/@tokamak-zk-evm/subcircuit-library) |
-| [`synthesizer-node`](./packages/frontend/synthesizer/node-cli) | Node CLI package that converts Tokamak L2 transaction snapshots into circuit inputs       | TypeScript | `2.1.4`      | [`@tokamak-zk-evm/synthesizer-node`](https://www.npmjs.com/package/@tokamak-zk-evm/synthesizer-node)     |
-| [`synthesizer-web`](./packages/frontend/synthesizer/web-app)   | Browser-facing package that converts Tokamak L2 transaction snapshots into circuit inputs | TypeScript | `2.1.4`      | [`@tokamak-zk-evm/synthesizer-web`](https://www.npmjs.com/package/@tokamak-zk-evm/synthesizer-web)       |
+| [`qap-compiler`](./packages/frontend/qap-compiler)             | Maintainer-side generator for the published subcircuit library package                    | Circom     | `2.1.3`      | [`@tokamak-zk-evm/subcircuit-library`](https://www.npmjs.com/package/@tokamak-zk-evm/subcircuit-library) |
+| [`synthesizer-node`](./packages/frontend/synthesizer/node-cli) | Node CLI package that converts Tokamak L2 transaction snapshots into circuit inputs       | TypeScript | `2.1.3`      | [`@tokamak-zk-evm/synthesizer-node`](https://www.npmjs.com/package/@tokamak-zk-evm/synthesizer-node)     |
+| [`synthesizer-web`](./packages/frontend/synthesizer/web-app)   | Browser-facing package that converts Tokamak L2 transaction snapshots into circuit inputs | TypeScript | `2.1.3`      | [`@tokamak-zk-evm/synthesizer-web`](https://www.npmjs.com/package/@tokamak-zk-evm/synthesizer-web)       |
 
 ### Browser-Compatible SNARK Package
 
 | Package                                   | Description                                                             | Language   | Repo Version | Published Package                                                                                              |
 | ----------------------------------------- | ----------------------------------------------------------------------- | ---------- | ------------ | -------------------------------------------------------------------------------------------------------------- |
-| [`backend-wasm`](./packages/backend-wasm) | Browser preprocessing, proof generation, verification, and artifact conversion package | TypeScript | `2.1.4`      | [`@tokamak-zk-evm/snark-browser-compat`](https://www.npmjs.com/package/@tokamak-zk-evm/snark-browser-compat) |
+| [`backend-wasm`](./packages/backend-wasm) | Browser preprocessing, proof generation, verification, and artifact conversion package | TypeScript | `2.1.3`      | [`@tokamak-zk-evm/snark-browser-compat`](https://www.npmjs.com/package/@tokamak-zk-evm/snark-browser-compat) |
 
 ### CLI Package
 
 | Package                         | Description                                                                                       | Language   | Repo Version | Published Package                                                          |
 | ------------------------------- | ------------------------------------------------------------------------------------------------- | ---------- | ------------ | -------------------------------------------------------------------------- |
-| [`tokamak-cli`](./packages/cli) | npm-distributed launcher package that builds the backend locally and exposes the Tokamak CLI flow | TypeScript | `2.1.4`      | [`@tokamak-zk-evm/cli`](https://www.npmjs.com/package/@tokamak-zk-evm/cli) |
+| [`tokamak-cli`](./packages/cli) | npm-distributed launcher package that builds the backend locally and exposes the Tokamak CLI flow | TypeScript | `2.1.3`      | [`@tokamak-zk-evm/cli`](https://www.npmjs.com/package/@tokamak-zk-evm/cli) |
 
 ### Backend Packages
 
 | Package                                                   | Description                                                          | Language       | Repo Version | Distribution                                                                                            |
 | --------------------------------------------------------- | -------------------------------------------------------------------- | -------------- | ------------ | ------------------------------------------------------------------------------------------------------- |
-| [`mpc-setup`](./packages/backend/setup/mpc-setup)         | Tokamak zk-SNARK's setup algorithm (multi-party computation version) | Rust           | `2.1.4`      | [Published CRS artifacts](https://drive.google.com/drive/u/0/folders/14xqCbLoyoVmUVTTlopiXtKnoHPBGL-Sv) |
-| [`trusted-setup`](./packages/backend/setup/trusted-setup) | Tokamak zk-SNARK's setup algorithm (trusted single entity version)   | Rust           | `2.1.4`      | Source-only in this repository                                                                          |
-| [`prover`](./packages/backend/prove)                      | Tokamak zk-SNARK's proving algorithm                                 | Rust           | `2.1.4`      | Source-only in this repository                                                                          |
-| [`verify`](./packages/backend/verify-rust)                | Tokamak zk-SNARK's verifying algorithm                               | Rust, Solidity | `2.1.4`      | Source-only in this repository                                                                          |
+| [`mpc-setup`](./packages/backend/setup/mpc-setup)         | Tokamak zk-SNARK's setup algorithm (multi-party computation version) | Rust           | `2.1.3`      | [Published CRS artifacts](https://drive.google.com/drive/u/0/folders/14xqCbLoyoVmUVTTlopiXtKnoHPBGL-Sv) |
+| [`trusted-setup`](./packages/backend/setup/trusted-setup) | Tokamak zk-SNARK's setup algorithm (trusted single entity version)   | Rust           | `2.1.3`      | Source-only in this repository                                                                          |
+| [`prover`](./packages/backend/prove)                      | Tokamak zk-SNARK's proving algorithm                                 | Rust           | `2.1.3`      | Source-only in this repository                                                                          |
+| [`verify`](./packages/backend/verify-rust)                | Tokamak zk-SNARK's verifying algorithm                               | Rust, Solidity | `2.1.3`      | Source-only in this repository                                                                          |
 
 Release versions are synchronized from the root repository version. The root [CHANGELOG.md](./CHANGELOG.md) is the canonical changelog for npm-published package consumers; record only changes that affect published package artifacts or their consumer-facing behavior. Package artifacts do not include changelog files; package READMEs link to the root changelog instead.
 

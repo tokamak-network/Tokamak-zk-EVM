@@ -8,7 +8,6 @@ import { convertInstance } from "../../../src/converter/conversion/instance-conv
 import { validateBinary } from "../../../src/converter/index.js";
 import { GENERATED_SETUP_PARAMS } from "../../../src/generated/setup.generated.js";
 import { createCurveRuntime } from "../../../src/runtime/curve/curve.js";
-import { BACKEND_WASM_PACKAGE_VERSION } from "../../../src/version.js";
 import { assertEqual } from "../../support/assertions.js";
 import { assertBytesEqual, concatBytes } from "../../support/bytes.js";
 
@@ -76,7 +75,7 @@ function assertSection(
 async function assertOldInstanceRejected(): Promise<void> {
   const oldBinary = await createBinaryArtifactFile({
     kind: BinaryArtifactFileKind.Instance,
-    sourcePackageVersion: BACKEND_WASM_PACKAGE_VERSION,
+    sourcePackageVersion: "2.1.3",
     sections: [
       {
         type: BinarySectionType.Instance,

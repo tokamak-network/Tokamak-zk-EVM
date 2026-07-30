@@ -1,6 +1,6 @@
 {
   "name": "@tokamak-zk-evm/backend-wasm-rkyv-decoder",
-  "version": "2.1.4",
+  "version": "2.1.3",
   "private": true,
   "type": "module",
   "exports": {

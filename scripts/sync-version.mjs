@@ -210,9 +210,6 @@ updatePackageVersion('packages/frontend/synthesizer/web-app/package.json', {
 updatePackageVersion('packages/backend-wasm/package.json', {
   '@tokamak-zk-evm/subcircuit-library': targetVersion,
 });
-updateJson('packages/backend-wasm/examples/browser/package.json', manifest => {
-  manifest.dependencies['@tokamak-zk-evm/snark-browser-compat'] = targetVersion;
-});
 updatePackageVersion('packages/backend-wasm/tools/rkyv-decoder-wasm/package.json');
 updateBackendWorkspaceVersion();
 updateBackendCargoLock();
