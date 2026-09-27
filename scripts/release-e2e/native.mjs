@@ -44,7 +44,7 @@ try {
     TOKAMAK_ZKEVM_CLI_CACHE_DIR: path.join(temporaryRoot, 'cache'),
     CARGO_TARGET_DIR: path.join(temporaryRoot, 'cargo-target'),
   };
-  const fixture = path.join(repository, 'packages/frontend/synthesizer/examples/L2StateChannel');
+  const fixture = path.join(repository, 'packages/frontend/synthesizer/examples/privateState/transferNotes/transferNotes1To2');
   for (const args of [
     ['--install'],
     ['--synthesize', fixture],

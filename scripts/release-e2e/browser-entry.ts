@@ -48,9 +48,9 @@ try {
   await installPreprocess({ chunkSizeExponent: 17 });
   await installProver({ chunkSizeExponent: 18 });
   await installVerifier();
-  const verifierPreprocess = await preprocess({ selector, permutation, preprocessCrs: crs });
+  const verifierPreprocess = await preprocess({ selector, permutation, instance, preprocessCrs: crs });
   const proof = await prove({ witness, selector, permutation, instance, proverCrs: crs });
-  const valid = await verify({ proof, instance, selector, permutation, verifierPreprocess, preprocessCrs: crs, verifierCrs: crs });
+  const valid = await verify({ proof, instance, verifierPreprocess });
   if (!valid) throw new Error('The browser verifier rejected the proof.');
   window.__tokamakReleaseE2eResult = { status: 'ok', valid };
 } catch (error) {

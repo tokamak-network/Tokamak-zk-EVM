@@ -22,7 +22,7 @@ if (!tarballDirectory || !crsDirectory) {
 
 const version = JSON.parse(await readFile(path.join(repository, 'package.json'), 'utf8')).version as string;
 const temporaryRoot = await realpath(await mkdtemp(path.join(tmpdir(), 'tokamak-browser-e2e-')));
-const fixture = path.join(repository, 'packages/frontend/synthesizer/examples/L2StateChannel');
+const fixture = path.join(repository, 'packages/frontend/synthesizer/examples/privateState/transferNotes/transferNotes1To2');
 const webName = '@tokamak-zk-evm/synthesizer-web';
 const backendName = '@tokamak-zk-evm/snark-browser-compat';
 
