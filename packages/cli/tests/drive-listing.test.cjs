@@ -17,6 +17,11 @@ test('selects exact version folders and digest-named tau files', () => {
   const name = 'a'.repeat(64) + '.rkyv';
   assert.equal(selectDriveEntry(html([entry('point', name)]), name, 'file').sizeBytes, 12);
 });
+test('decodes JavaScript hex escapes in the Drive listing', () => {
+  assert.equal(decodeDriveListingLiteral(String.raw`window['_DRIVE_ivd'] = '\x5b\x5d';`), '[]');
+  const escapedListing = String.raw`window['_DRIVE_ivd'] = '[["folder-id",null,"3\x2E0","application/vnd.google-apps.folder"]]';`;
+  assert.equal(selectDriveEntry(escapedListing, '3.0', 'folder').fileId, 'folder-id');
+});
 test('rejects missing, duplicate, wrong-kind, unsafe IDs and invalid sizes', () => {
   for (const entries of [
     [], [entry('one', '2.1')], [entry('a', '2.1', true), entry('b', '2.1', true)],
@@ -29,5 +34,7 @@ test('rejects missing, duplicate, wrong-kind, unsafe IDs and invalid sizes', () 
 test('fails closed on changed markup, malformed literals and unsupported escapes', () => {
   assert.throws(() => decodeDriveListingLiteral("<script>window['OTHER'] = '[]';</script>"));
   assert.throws(() => decodeDriveListingLiteral("<script>window['_DRIVE_ivd'] = '[ ]</script>"));
-  assert.throws(() => decodeDriveListingLiteral(String.raw`window['_DRIVE_ivd'] = '\x5b\x5d';`));
+  for (const escape of [String.raw`\x`, String.raw`\x5`, String.raw`\x5g`, String.raw`\xZZ`, String.raw`\v`]) {
+    assert.throws(() => decodeDriveListingLiteral(`window['_DRIVE_ivd'] = '${escape}';`));
+  }
 });

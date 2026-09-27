@@ -8,6 +8,14 @@ The format is based on Keep a Changelog.
 
 Release-entry dates are the dates on which version-bump pull requests are prepared offline and may differ from GitHub pull-request creation, merge, and npm publication dates.
 
+## [3.0.1] - 2026-09-27
+
+### Fixed
+
+- The CLI now recognizes the public Google Drive listing format during
+  `--install`. Previously, a valid hexadecimal escape in the listing could
+  prevent discovery of the CRS before installation began.
+
 ## [3.0.0] - 2026-09-23
 
 ### Protocol Changes
