@@ -231,6 +231,44 @@
       ]
     },
     {
+      "name": "MPC: verify Filecoin phase 2 transcript",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": [
+          "build",
+          "--locked",
+          "--release",
+          "-p",
+          "mpc-setup",
+          "--bin",
+          "mpc"
+        ],
+        "filter": {
+          "name": "mpc",
+          "kind": "bin"
+        }
+      },
+      "program": "${cargo:program}",
+      "args": [
+        "--step",
+        "verify",
+        "--filecoin-source",
+        "${workspaceFolder}/rust/setup/mpc-setup/filecoin-phase1/challenge_19",
+        "--input",
+        "${workspaceFolder}/rust/setup/mpc-setup/output/contribution-1.mpc"
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "ICICLE_BACKEND_INSTALL_DIR": "${workspaceFolder}/external-lib/mac/lib/backend",
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
+      },
+      "sourceLanguages": [
+        "rust"
+      ]
+    },
+    {
       "name": "Debug preprocess",
       "type": "lldb",
       "request": "launch",
