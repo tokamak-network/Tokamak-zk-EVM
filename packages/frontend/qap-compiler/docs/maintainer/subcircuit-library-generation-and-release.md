@@ -41,10 +41,10 @@ The maintainer-side flow is:
 
 After a library version has been published, release verification uses the exact
 tarball fetched from npm as that version's identity. It does not compare a
-later local rebuild of `dist` with the immutable published tarball. The source
-build still runs to validate circuit generation and provide artifacts for
-backend checks. A bootstrap release, whose library version is not yet
-published, uses the locally built `dist` tarball.
+later local rebuild of `dist` with the immutable published tarball. The PR
+source build separately validates circuit generation and provides artifacts
+for backend checks. Before the first publication of a version, the npm owner
+publishes the locally built `dist` package.
 
 The published `dist` package excludes the build-log-style `info` directory and keeps the consumer-facing artifact surface focused on the generated library outputs and synced constants.
 

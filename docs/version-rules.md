@@ -70,54 +70,36 @@ Changelog date is the local calendar date on which the release PR is drafted
 offline. That record may differ from both the npm publication date and the
 GitHub merge date.
 
-The normal rule is exact-tree admission: every package and CRS is built from
-the frozen final PR head, and `main` receives that same tree by fast-forward
-merge. The frozen PR head and `main` base must not change between admission and
-merge. A changed head, changed base, non-fast-forward result, identity mismatch,
-or source defect stops admission; immutable package versions are never
-republished from changed contents.
+When a new version needs a subcircuit library, the npm owner builds and
+publishes it locally before the release PR is merged. The Google Drive folder
+owner then uploads a compatible CRS locally. The browser production lock must
+record the exact npm tarball and integrity. The PR `Source build` check builds
+the candidate and confirms that the published library and public CRS are
+available and compatible. A later Circom rebuild is not used as a byte-for-byte
+identity test for the immutable npm tarball.
 
-The sole bootstrap exception is
-`@tokamak-zk-evm/subcircuit-library@3.0.0`. It may be published before the
-final tree because the npm metadata is required to create the browser
-production lock. The bootstrap candidate must be an ancestor of the final
-candidate. Re-packing the foundation from the final candidate must reproduce
-the published tarball identity. No CRS or other package uses this exception.
+## Publication from main
 
-## Fixed main release controller
+Each push to `main`, whether from a PR merge or a direct push, runs
+`.github/workflows/publish-tokamak-zk-evm.yml` from that commit. The workflow
+builds the four dependent packages from merged source, checks the published
+subcircuit library and compatible CRS, and publishes only missing exact
+versions in dependency order. The CRS is downloaded and hash-checked through
+read-only Drive access; Actions never uploads it or publishes the foundation
+package.
 
-The release controller is a stable workflow already present on `main`; a
-controller change is a separate control-plane maintenance pull request, never
-part of a candidate that it authorizes. The controller has a fixed inventory
-and fixed publication order, so no per-release manifest or mutable release
-state file is authoritative.
+The publishing job uses npm Trusted Publishing. For each dependent package,
+an absent exact version is published, an identical version is skipped, and a
+different or indeterminate registry result stops the run. It also stops before
+publishing if `main` has moved beyond the run's commit. Rerun a failed workflow
+only when previously published versions still match the package tarballs built
+from the current `main` source. There is no separate release dispatch, frozen
+PR identity, or mutable release-state file.
 
-An authorized repository maintainer dispatches the controller from the frozen
-`main` base. It validates the exact candidate and base, and executes candidate
-source only in jobs without npm OIDC or Drive mutation credentials.
-Fixed-controller jobs receive built tarballs and query npm by exact package
-version. They either confirm an existing byte-identical package or publish an
-absent one with npm Trusted Publishing and `--ignore-scripts`.
-
-The Google Drive folder owner performs CRS publication locally after ceremony
-qualification. The controller has only the existing read-only Drive credential:
-it resolves and hash-checks the public layout, then passes the public files to
-an uncredentialed candidate validation job. It never uploads, changes a branch,
-or creates a pull request.
-
-The bootstrap operation accepts only the current `dev` head. The final-release
-operation accepts only an open `dev` to `main` pull request with the supplied
-head, base, and approved bootstrap-candidate SHA. The controller requires that
-the bootstrap candidate is an ancestor of the final head and that the final
-candidate reproduces the published foundation tarball. A retry uses the
-same frozen identities, rechecks every published identity, and publishes only
-missing packages. It cannot repair a source change or replace an immutable
-version.
-
-A `main` push is verification-only. It must not publish npm packages, mutate
-Drive, create branches, or create pull requests. A release-relevant direct
-push is invalid unless the resulting tree has already completed the same
-package and CRS admission checks.
+`main` can temporarily lead npm publication while this workflow runs. A release
+is complete only when the main-push workflow succeeds and the expected npm
+versions are public. A failed run requires correction or a safe retry; it never
+authorizes republishing an immutable version with changed contents.
 
 ## Operational constraints
 

@@ -89,10 +89,10 @@ Build model:
 
 Release model:
 
-- The normal synchronized release uses the fixed main release controller
-  described in the repository [version and release rules](../../../../docs/version-rules.md).
-  It builds and publishes the exact tarballs admitted from the frozen release
-  tree.
+- On a `main` push, the publishing workflow builds the Synthesizer packages
+  from merged source and publishes absent exact versions after confirming the
+  published subcircuit library and CRS. See the repository
+  [version and release rules](../../../../docs/version-rules.md).
 
 Version-bump policy:
 

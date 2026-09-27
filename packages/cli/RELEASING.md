@@ -1,8 +1,8 @@
 # Releasing `@tokamak-zk-evm/cli`
 
-The fixed release controller on `main` is the only publication path. A push to
-`main` is verification-only; the bootstrap or final-release operation is
-explicitly dispatched with frozen commit identities.
+The subcircuit library and its compatible CRS are published locally before a
+release PR is merged. A push to `main` then builds the CLI from merged source
+and publishes its npm package when that exact version is not already public.
 
 ## Before You Merge
 
@@ -49,18 +49,11 @@ symbolic link is an installation error and must remain unchanged.
 ## What Happens On `main`
 
 When a commit reaches `main`,
-`.github/workflows/publish-tokamak-zk-evm.yml` verifies the resulting release
-tree only. The explicit controller dispatch then:
+`.github/workflows/publish-tokamak-zk-evm.yml` validates the published
+subcircuit library and CRS, builds the dependent packages, and publishes
+missing exact versions in dependency order. An already-published identical
+tarball is skipped; a different tarball or an uncertain registry response
+stops publication. The CLI is published after the Synthesizer packages.
 
-1. Validates the frozen candidate head, frozen `main` base, and any approved
-   foundation bootstrap identity.
-2. Builds the candidate without npm or Drive mutation credentials.
-3. Resolves and hash-checks the public CRS through read-only Drive access.
-4. Validates the production lock and source-built tarball identities.
-5. Publishes the foundation package during the bootstrap operation, then the
-   Synthesizer packages, CLI, and browser package during final release. An
-   already-published identical tarball is verified and skipped.
-
-Registry failures other than an exact `E404` stop the operation. The root
-[version and release rules](../../docs/version-rules.md) define the Changelog
-date and staged foundation exception.
+The root [version and release rules](../../docs/version-rules.md) define the
+Changelog date, local prerequisites, and retry behavior.
