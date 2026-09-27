@@ -10,6 +10,12 @@ Release-entry dates are the dates on which version-bump pull requests are prepar
 
 ## [3.0.1] - 2026-09-27
 
+### Added
+
+- MPC operators can verify a phase-2 contribution transcript independently
+  before finalizing CRS. The command reads the recorded library version and
+  does not create keys or publish artifacts.
+
 ### Fixed
 
 - The CLI now recognizes the public Google Drive listing format during
