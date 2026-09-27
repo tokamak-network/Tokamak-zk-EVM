@@ -36,8 +36,14 @@ The maintainer-side flow is:
    invokes it with explicit O2 optimization;
    compiler-default, O0, and O1 artifacts are not valid library outputs or
    constraint-measurement baselines.
-3. Assemble the publishable `dist` package from the generated library, synced constants, package metadata, and the consumer-facing README.
-4. Publish `dist` to npm.
+3. Assemble the publishable `dist` package from the generated library, synced
+   constants, package metadata, and the consumer-facing README. When a patch
+   release retains unchanged circuits, use
+   `scripts/dist-package.mjs --library-dir PATH --output-dir PATH` to assemble
+   it from a verified published library snapshot without replacing the local
+   build output. Confirm that its CRS source digest matches the existing CRS
+   before publication.
+4. Publish the assembled package to npm.
 
 After a library version has been published, release verification uses the exact
 tarball fetched from npm as that version's identity. It does not compare a

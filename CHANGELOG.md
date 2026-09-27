@@ -10,6 +10,11 @@ Release-entry dates are the dates on which version-bump pull requests are prepar
 
 ## [3.0.1] - 2026-09-27
 
+### Compatibility
+
+- The subcircuit library retains the 3.0.0 circuit artifacts. Their CRS source
+  digest is unchanged, so this patch continues to use the existing 3.0 CRS.
+
 ### Added
 
 - MPC operators can verify a phase-2 contribution transcript independently
