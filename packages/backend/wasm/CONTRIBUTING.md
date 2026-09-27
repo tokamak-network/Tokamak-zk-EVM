@@ -159,16 +159,15 @@ the repository's
 2. Before foundation publication, run
    `npm run version:prepublication:check` at the repository root. This check
    does not require an npm resolution for the unpublished foundation package.
-3. Complete the approved foundation bootstrap operation for the exact
-   synchronized `@tokamak-zk-evm/subcircuit-library` package. The fixed release
-   controller publishes or verifies only the frozen foundation tarball.
+3. Publish the exact synchronized `@tokamak-zk-evm/subcircuit-library` package
+   locally and upload its compatible CRS through the local MPC workflow.
 4. Run `npm run version:production-snapshot:refresh` at the repository root.
    Commit the resulting `packages/backend/wasm/package-lock.json` change to the
-   release branch, then run `npm run version:production-snapshot:check` and
-   `node scripts/check-version-sync.mjs`. The active generated setup module is
-   ignored and is not part of this commit.
-5. Regenerate production inputs with `npm run build:production` and run the
-   complete relevant production check set.
+   release branch, then run `node scripts/check-version-sync.mjs`. The active
+   generated setup module is ignored and is not part of this commit.
+5. Regenerate production inputs with `npm run build:production`, run
+   `npm run version:production-snapshot:check` at the repository root, and run
+   the relevant production package checks.
 6. Build the exact package candidate.
 7. Inspect the actual packlist and packed metadata:
 
@@ -190,39 +189,32 @@ the repository's
     ```
 
     `converter:crs:browser:check` requires the copied and prepared owner
-    fixtures described above. The release CI runs the converter error and
-    Worker-boundary check because it does not acquire or generate test CRS
-    fixtures.
+    fixtures described above. These consumer checks are separate from the
+    minimum checks in the publishing workflow.
 
 The package intentionally remains outside the root npm workspace. Its release
 build resolves the exact synchronized `@tokamak-zk-evm/subcircuit-library`
-version from npm after the release workflow publishes that package.
+version from npm after the npm owner publishes that package locally.
 
 `docs:development-package:check` validates documentation and a package built
 from local QAP and an explicit development four-file CRS. It is not a
-publication-candidate check. The release workflow runs `package:publication:check` only after
-`build:production`; that command requires packed active setup metadata to
-identify the npm snapshot.
+publication-candidate check. The publishing workflow runs
+`package:publication:check` after `build:production`; that command requires
+packed active setup metadata to identify the npm snapshot.
 
-The release controller resolves the exact compatible CRS directory from the
-read-only Drive view, verifies its provenance and payload hashes, builds the
-browser package from the frozen candidate, and uploads the resulting
-`tokamak-zk-evm-browser-tarball` for final identity checks. It publishes only
-the exact candidate tarball after the frozen release identities have been
-revalidated. It never converts or publishes the retired `sigma_*` artifacts.
-An already-published identical version is verified and skipped; a changed
-tarball or an older repository version fails because npm versions are
-immutable.
+On each `main` push, the workflow downloads and hash-checks the compatible CRS
+through read-only Drive access, checks its compatibility with the published
+library, builds the browser package from merged source, and publishes an absent
+exact version. An identical public version is skipped; a different tarball
+stops publication because npm versions are immutable.
 
 For a synchronized release:
 
 1. Run the root version synchronization and validation commands.
-2. Review and merge the release PR into `main`.
-3. Require the browser-compatible SNARK build and pre-publish checks to pass.
-4. Confirm the publish job selects the exact verified tarball and reports the
-   expected local and previously published versions.
-5. Download `tokamak-zk-evm-browser-tarball` when an independent archive review
-   is required and inspect its package identity before publication.
+2. Require the PR `Source build` and public CRS readiness checks to pass, then
+   review and merge the release PR into `main`.
+3. Confirm that the main-push workflow succeeds and the exact browser package
+   version is public on npm.
 
 License and redistribution findings for release 2.1.4 are recorded in the
 repository's

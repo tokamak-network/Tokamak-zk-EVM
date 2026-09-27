@@ -5,6 +5,7 @@ import importlib.util
 import json
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 MODULE_PATH = Path(__file__).with_name("download-release-crs.py")
 SPEC = importlib.util.spec_from_file_location("download_release_crs", MODULE_PATH)
@@ -21,6 +22,33 @@ def entry(name, folder=False):
 
 
 class ReleaseCrsTest(unittest.TestCase):
+    def test_main_reads_drive_configuration_without_network_access(self):
+        service = object()
+        with (
+            patch.dict(
+                "os.environ",
+                {
+                    "TOKAMAK_MPC_DRIVE_FOLDER_ID": "drive-folder",
+                    "TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON_PATH": "/tmp/service-account.json",
+                },
+            ),
+            patch(
+                "sys.argv",
+                [str(MODULE_PATH), "--version=3.0.0", "--output=/tmp/verified-crs"],
+            ),
+            patch.object(MODULE, "service_account_drive", return_value=service) as drive,
+            patch.object(MODULE, "resolve_drive_layout", return_value=True) as resolve,
+        ):
+            self.assertEqual(MODULE.main(), 0)
+
+        drive.assert_called_once_with("/tmp/service-account.json")
+        resolve.assert_called_once_with(
+            service,
+            "3.0.0",
+            "drive-folder",
+            Path("/tmp/verified-crs"),
+        )
+
     def test_uses_compatibility_class(self):
         self.assertEqual(MODULE.compatible_version("3.0.7"), "3.0")
         with self.assertRaisesRegex(ValueError, "canonical"):

@@ -127,8 +127,9 @@ These entrypoints are intentionally narrower than the underlying directory tree 
 
 - canonical changelog source: repository root `CHANGELOG.md`
 - publish inclusion: package artifacts do not include changelog files; package READMEs link to the root changelog
-- normal publication: the fixed main release controller builds, validates, and
-  publishes the exact Synthesizer tarballs admitted from the frozen release tree
+- normal publication: the `main`-push workflow builds the Synthesizer packages
+  from merged source and publishes missing exact versions after prerequisite
+  checks
 
 ## Stability rules
 

@@ -22,7 +22,7 @@ generated output, but that path is not the published consumer contract.
 ### Main-Branch Compatibility
 
 Supported on `main` through the synchronized package and backend identity
-checks described in the release controller.
+checks described in the repository [version and release rules](../../../../../docs/version-rules.md).
 
 ### Integration Notes
 

@@ -17,6 +17,27 @@ fn main() -> ExitCode {
     let output_directory = PathBuf::from(output_directory);
     match admit_final_crs_publication(&output_directory) {
         Ok(provenance) => {
+            #[cfg(feature = "production-npm-subcircuit-library")]
+            {
+                let Some(expected_digest) =
+                    option_env!("TOKAMAK_ZKEVM_SUBCIRCUIT_LIBRARY_SOURCE_DIGEST")
+                else {
+                    eprintln!("Final CRS publication admission failed: production subcircuit-library source digest is unavailable");
+                    return ExitCode::FAILURE;
+                };
+                let expected_compatibility =
+                    libs::compatibility::compatibility_from_package_version(env!(
+                        "CARGO_PKG_VERSION"
+                    ))
+                    .expect("Cargo package version must be canonical")
+                    .to_string();
+                if provenance.compatible_backend_version != expected_compatibility
+                    || provenance.subcircuit_library.source_digest != expected_digest
+                {
+                    eprintln!("Final CRS publication admission failed: CRS compatibility class or source digest does not match the production backend input");
+                    return ExitCode::FAILURE;
+                }
+            }
             println!(
                 "CRS publication metadata/payload checks passed (ceremony not verified; no upload authorized): compatibility={} subcircuit-library={}@{} source-digest={}",
                 provenance.compatible_backend_version,

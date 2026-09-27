@@ -20,7 +20,7 @@ if [[ "$local_version" != "$expected_version" ]]; then
     echo "[qap-compiler] tokamak-l2js is not installed locally; installing required ${expected_version}."
   fi
   rm -rf "${package_root}/node_modules/tokamak-l2js" "${package_root}/node_modules/.package-lock.json"
-  npm install --prefix "$package_root" --workspaces=false --ignore-scripts "tokamak-l2js@${expected_version}"
+  npm install --prefix "$package_root" --workspaces=false --ignore-scripts --no-save --no-package-lock "tokamak-l2js@${expected_version}"
 fi
 
 verified_version="$(node -e "console.log(require(process.argv[1]).version)" "$local_manifest")"
