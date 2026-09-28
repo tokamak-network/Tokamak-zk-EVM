@@ -1,0 +1,9 @@
+{
+  "inputs": [
+    { "name": "selector", "logicalType": { "kind": "uint", "bits": 32 } },
+    { "name": "value", "length": { "constant": "nPoseidonBatch", "offset": 1 }, "logicalType": { "kind": "uint", "bits": 256 } }
+  ],
+  "outputs": [
+    { "name": "result", "logicalType": { "kind": "uint", "bits": 256 } }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "algorithm": "sha256",
+  "pathEncoding": "utf8",
+  "lengthEncoding": "u64be",
+  "vectors": [
+    {
+      "name": "three-package-relative-inputs",
+      "entries": [
+        {
+          "path": "subcircuits/library/setupParams.json",
+          "contentHex": "7b226e223a317d"
+        },
+        {
+          "path": "subcircuits/circom/constants.circom",
+          "contentHex": "707261676d6120636972636f6d20322e302e303b"
+        },
+        {
+          "path": "subcircuits/library/wasm/example.wasm",
+          "contentHex": "000102ff"
+        }
+      ],
+      "expected": "sha256:6798b5500d4d640541b60ed89c329193a585f7cf40cdb82d9dca97203d9e5688"
+    }
+  ]
+}

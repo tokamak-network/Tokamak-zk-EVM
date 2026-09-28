@@ -1,0 +1,3076 @@
+{
+  "metadata": {
+    "startedAt": "2026-09-14T11:20:10.871Z",
+    "node": "v26.0.0",
+    "cpu": "Apple M4 Pro",
+    "logicalCpus": 14,
+    "uptime": "19:20  up 28 mins, 1 user, load averages: 2.19 2.47 5.53",
+    "method": "Two fresh-process invocations per unchanged unit test, sequential. Existing internal warmups, variants and repetitions preserved. No browser/E2E or production changes.",
+    "generatedSetup": "Existing local QAP generated setup.ts linked from the main worktree for the read-ahead test; no test source edits. Initial module-resolution failure occurred before test execution.",
+    "interpretation": "Reduction percentages are per-operation mean reductions, not whole-prover speedups. Two script invocations retain original internal repetitions. Signed MSM summary uses 262144 points and width 13; all variants are retained in raw records. Read-ahead uses synthetic 3 ms delays. Shared-base MSM direction changed; no new production adoption is supported by these unit-only results. No production code was changed."
+  },
+  "records": [
+    {
+      "id": "W10.1",
+      "ref": "19bba9790",
+      "file": "univariate/check-copy-boundary.ts",
+      "invocation": 1,
+      "exitCode": 0,
+      "wallMs": 2269,
+      "rows": [
+        {
+          "n": 262144,
+          "samples": [
+            {
+              "candidate": false,
+              "ms": 156.23408299999994
+            },
+            {
+              "candidate": true,
+              "ms": 32.796125000000075
+            },
+            {
+              "candidate": false,
+              "ms": 177.33504100000005
+            },
+            {
+              "candidate": true,
+              "ms": 31.386416999999938
+            },
+            {
+              "candidate": false,
+              "ms": 144.7338749999999
+            },
+            {
+              "candidate": true,
+              "ms": 32.509915999999976
+            },
+            {
+              "candidate": false,
+              "ms": 144.24658299999987
+            },
+            {
+              "candidate": true,
+              "ms": 30.488542000000052
+            },
+            {
+              "candidate": false,
+              "ms": 144.4404169999998
+            },
+            {
+              "candidate": true,
+              "ms": 31.47529200000008
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"n\":262144,\"samples\":[{\"candidate\":false,\"ms\":156.23408299999994},{\"candidate\":true,\"ms\":32.796125000000075},{\"candidate\":false,\"ms\":177.33504100000005},{\"candidate\":true,\"ms\":31.386416999999938},{\"candidate\":false,\"ms\":144.7338749999999},{\"candidate\":true,\"ms\":32.509915999999976},{\"candidate\":false,\"ms\":144.24658299999987},{\"candidate\":true,\"ms\":30.488542000000052},{\"candidate\":false,\"ms\":144.4404169999998},{\"candidate\":true,\"ms\":31.47529200000008}]}\n",
+      "stderr": "(node:36465) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.1",
+      "ref": "19bba9790",
+      "file": "univariate/check-copy-boundary.ts",
+      "invocation": 2,
+      "exitCode": 0,
+      "wallMs": 2137,
+      "rows": [
+        {
+          "n": 262144,
+          "samples": [
+            {
+              "candidate": false,
+              "ms": 154.9368330000001
+            },
+            {
+              "candidate": true,
+              "ms": 32.82083299999999
+            },
+            {
+              "candidate": false,
+              "ms": 173.90837499999998
+            },
+            {
+              "candidate": true,
+              "ms": 30.38045800000009
+            },
+            {
+              "candidate": false,
+              "ms": 144.32774999999992
+            },
+            {
+              "candidate": true,
+              "ms": 32.299875000000156
+            },
+            {
+              "candidate": false,
+              "ms": 146.16437500000006
+            },
+            {
+              "candidate": true,
+              "ms": 29.609042000000045
+            },
+            {
+              "candidate": false,
+              "ms": 143.1691249999999
+            },
+            {
+              "candidate": true,
+              "ms": 29.624209000000064
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"n\":262144,\"samples\":[{\"candidate\":false,\"ms\":154.9368330000001},{\"candidate\":true,\"ms\":32.82083299999999},{\"candidate\":false,\"ms\":173.90837499999998},{\"candidate\":true,\"ms\":30.38045800000009},{\"candidate\":false,\"ms\":144.32774999999992},{\"candidate\":true,\"ms\":32.299875000000156},{\"candidate\":false,\"ms\":146.16437500000006},{\"candidate\":true,\"ms\":29.609042000000045},{\"candidate\":false,\"ms\":143.1691249999999},{\"candidate\":true,\"ms\":29.624209000000064}]}\n",
+      "stderr": "(node:36515) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.2",
+      "ref": "19bba9790",
+      "file": "univariate/check-copy-recurrence.ts",
+      "invocation": 1,
+      "exitCode": 0,
+      "wallMs": 3797,
+      "rows": [
+        {
+          "n": 262144,
+          "samples": [
+            {
+              "candidate": false,
+              "ms": 414.451333
+            },
+            {
+              "candidate": true,
+              "ms": 88.77399999999989
+            },
+            {
+              "candidate": false,
+              "ms": 399.24862499999995
+            },
+            {
+              "candidate": true,
+              "ms": 78.68254199999978
+            },
+            {
+              "candidate": false,
+              "ms": 386.4637910000001
+            },
+            {
+              "candidate": true,
+              "ms": 79.34058400000004
+            },
+            {
+              "candidate": false,
+              "ms": 389.0471669999997
+            },
+            {
+              "candidate": true,
+              "ms": 77.75716700000021
+            },
+            {
+              "candidate": false,
+              "ms": 391.07691699999987
+            },
+            {
+              "candidate": true,
+              "ms": 78.20754199999965
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"n\":262144,\"samples\":[{\"candidate\":false,\"ms\":414.451333},{\"candidate\":true,\"ms\":88.77399999999989},{\"candidate\":false,\"ms\":399.24862499999995},{\"candidate\":true,\"ms\":78.68254199999978},{\"candidate\":false,\"ms\":386.4637910000001},{\"candidate\":true,\"ms\":79.34058400000004},{\"candidate\":false,\"ms\":389.0471669999997},{\"candidate\":true,\"ms\":77.75716700000021},{\"candidate\":false,\"ms\":391.07691699999987},{\"candidate\":true,\"ms\":78.20754199999965}]}\nChecked forward univariate recurrence, batch inversion, zero rejection and closure.\n",
+      "stderr": "(node:36569) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.2",
+      "ref": "19bba9790",
+      "file": "univariate/check-copy-recurrence.ts",
+      "invocation": 2,
+      "exitCode": 0,
+      "wallMs": 3862,
+      "rows": [
+        {
+          "n": 262144,
+          "samples": [
+            {
+              "candidate": false,
+              "ms": 427.6730419999999
+            },
+            {
+              "candidate": true,
+              "ms": 88.73845800000004
+            },
+            {
+              "candidate": false,
+              "ms": 410.24979099999996
+            },
+            {
+              "candidate": true,
+              "ms": 78.67341600000009
+            },
+            {
+              "candidate": false,
+              "ms": 398.9268750000001
+            },
+            {
+              "candidate": true,
+              "ms": 79.38000000000011
+            },
+            {
+              "candidate": false,
+              "ms": 397.897375
+            },
+            {
+              "candidate": true,
+              "ms": 78.2842910000004
+            },
+            {
+              "candidate": false,
+              "ms": 393.8040410000003
+            },
+            {
+              "candidate": true,
+              "ms": 78.33291599999984
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"n\":262144,\"samples\":[{\"candidate\":false,\"ms\":427.6730419999999},{\"candidate\":true,\"ms\":88.73845800000004},{\"candidate\":false,\"ms\":410.24979099999996},{\"candidate\":true,\"ms\":78.67341600000009},{\"candidate\":false,\"ms\":398.9268750000001},{\"candidate\":true,\"ms\":79.38000000000011},{\"candidate\":false,\"ms\":397.897375},{\"candidate\":true,\"ms\":78.2842910000004},{\"candidate\":false,\"ms\":393.8040410000003},{\"candidate\":true,\"ms\":78.33291599999984}]}\nChecked forward univariate recurrence, batch inversion, zero rejection and closure.\n",
+      "stderr": "(node:36664) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.3a",
+      "ref": "19bba9790",
+      "file": "univariate/check-grouped-msm.ts",
+      "invocation": 1,
+      "exitCode": 0,
+      "wallMs": 9683,
+      "rows": [
+        {
+          "count": 262144,
+          "workers": 14,
+          "samples": [
+            {
+              "mode": "control",
+              "ms": 693.1274159999998
+            },
+            {
+              "mode": "candidate",
+              "ms": 734.0270409999998
+            },
+            {
+              "mode": "control",
+              "ms": 669.7485829999996
+            },
+            {
+              "mode": "candidate",
+              "ms": 728.9416659999997
+            },
+            {
+              "mode": "control",
+              "ms": 681.1370829999996
+            },
+            {
+              "mode": "candidate",
+              "ms": 742.6111250000004
+            },
+            {
+              "mode": "control",
+              "ms": 687.2609160000002
+            },
+            {
+              "mode": "candidate",
+              "ms": 707.7880420000001
+            },
+            {
+              "mode": "control",
+              "ms": 692.2791249999991
+            },
+            {
+              "mode": "candidate",
+              "ms": 706.1032080000004
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"count\":262144,\"workers\":14,\"samples\":[{\"mode\":\"control\",\"ms\":693.1274159999998},{\"mode\":\"candidate\",\"ms\":734.0270409999998},{\"mode\":\"control\",\"ms\":669.7485829999996},{\"mode\":\"candidate\",\"ms\":728.9416659999997},{\"mode\":\"control\",\"ms\":681.1370829999996},{\"mode\":\"candidate\",\"ms\":742.6111250000004},{\"mode\":\"control\",\"ms\":687.2609160000002},{\"mode\":\"candidate\",\"ms\":707.7880420000001},{\"mode\":\"control\",\"ms\":692.2791249999991},{\"mode\":\"candidate\",\"ms\":706.1032080000004}]}\nChecked grouped MSM: full scalars, identities, signed points, uneven windows and point-count boundaries.\n",
+      "stderr": "(node:36764) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.3a",
+      "ref": "19bba9790",
+      "file": "univariate/check-grouped-msm.ts",
+      "invocation": 2,
+      "exitCode": 0,
+      "wallMs": 9776,
+      "rows": [
+        {
+          "count": 262144,
+          "workers": 14,
+          "samples": [
+            {
+              "mode": "control",
+              "ms": 683.0418750000003
+            },
+            {
+              "mode": "candidate",
+              "ms": 707.9827919999998
+            },
+            {
+              "mode": "control",
+              "ms": 707.7263750000002
+            },
+            {
+              "mode": "candidate",
+              "ms": 705.5649579999999
+            },
+            {
+              "mode": "control",
+              "ms": 697.2525829999995
+            },
+            {
+              "mode": "candidate",
+              "ms": 717.8605000000007
+            },
+            {
+              "mode": "control",
+              "ms": 696.3303749999995
+            },
+            {
+              "mode": "candidate",
+              "ms": 709.770708
+            },
+            {
+              "mode": "control",
+              "ms": 708.8764170000004
+            },
+            {
+              "mode": "candidate",
+              "ms": 707.5110829999994
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"count\":262144,\"workers\":14,\"samples\":[{\"mode\":\"control\",\"ms\":683.0418750000003},{\"mode\":\"candidate\",\"ms\":707.9827919999998},{\"mode\":\"control\",\"ms\":707.7263750000002},{\"mode\":\"candidate\",\"ms\":705.5649579999999},{\"mode\":\"control\",\"ms\":697.2525829999995},{\"mode\":\"candidate\",\"ms\":717.8605000000007},{\"mode\":\"control\",\"ms\":696.3303749999995},{\"mode\":\"candidate\",\"ms\":709.770708},{\"mode\":\"control\",\"ms\":708.8764170000004},{\"mode\":\"candidate\",\"ms\":707.5110829999994}]}\nChecked grouped MSM: full scalars, identities, signed points, uneven windows and point-count boundaries.\n",
+      "stderr": "(node:36974) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.3b",
+      "ref": "2335cd7c3",
+      "file": "univariate/check-shared-msm-scalars.ts",
+      "invocation": 1,
+      "exitCode": 0,
+      "wallMs": 2187,
+      "rows": [
+        {
+          "n": 262144,
+          "samples": [
+            {
+              "shared": false,
+              "ms": 5.4695829999998296
+            },
+            {
+              "shared": true,
+              "ms": 2.7050839999999425
+            },
+            {
+              "shared": false,
+              "ms": 4.645125000000007
+            },
+            {
+              "shared": true,
+              "ms": 2.13412500000004
+            },
+            {
+              "shared": false,
+              "ms": 4.578292000000147
+            },
+            {
+              "shared": true,
+              "ms": 2.269166999999925
+            },
+            {
+              "shared": false,
+              "ms": 5.103333999999904
+            },
+            {
+              "shared": true,
+              "ms": 2.371415999999954
+            },
+            {
+              "shared": false,
+              "ms": 4.653332999999975
+            },
+            {
+              "shared": true,
+              "ms": 2.516499999999951
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"n\":262144,\"samples\":[{\"shared\":false,\"ms\":5.4695829999998296},{\"shared\":true,\"ms\":2.7050839999999425},{\"shared\":false,\"ms\":4.645125000000007},{\"shared\":true,\"ms\":2.13412500000004},{\"shared\":false,\"ms\":4.578292000000147},{\"shared\":true,\"ms\":2.269166999999925},{\"shared\":false,\"ms\":5.103333999999904},{\"shared\":true,\"ms\":2.371415999999954},{\"shared\":false,\"ms\":4.653332999999975},{\"shared\":true,\"ms\":2.516499999999951}]}\nChecked independent shared-scalar commitments, zero vectors, chunk tails and admission.\n",
+      "stderr": "(node:37185) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.3b",
+      "ref": "2335cd7c3",
+      "file": "univariate/check-shared-msm-scalars.ts",
+      "invocation": 2,
+      "exitCode": 0,
+      "wallMs": 2181,
+      "rows": [
+        {
+          "n": 262144,
+          "samples": [
+            {
+              "shared": false,
+              "ms": 4.753792000000203
+            },
+            {
+              "shared": true,
+              "ms": 2.6830830000001242
+            },
+            {
+              "shared": false,
+              "ms": 4.8595000000000255
+            },
+            {
+              "shared": true,
+              "ms": 2.543916999999965
+            },
+            {
+              "shared": false,
+              "ms": 4.6216249999999945
+            },
+            {
+              "shared": true,
+              "ms": 2.008583000000044
+            },
+            {
+              "shared": false,
+              "ms": 5.2439999999999145
+            },
+            {
+              "shared": true,
+              "ms": 2.574833000000126
+            },
+            {
+              "shared": false,
+              "ms": 4.548334000000068
+            },
+            {
+              "shared": true,
+              "ms": 2.6153750000000855
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"n\":262144,\"samples\":[{\"shared\":false,\"ms\":4.753792000000203},{\"shared\":true,\"ms\":2.6830830000001242},{\"shared\":false,\"ms\":4.8595000000000255},{\"shared\":true,\"ms\":2.543916999999965},{\"shared\":false,\"ms\":4.6216249999999945},{\"shared\":true,\"ms\":2.008583000000044},{\"shared\":false,\"ms\":5.2439999999999145},{\"shared\":true,\"ms\":2.574833000000126},{\"shared\":false,\"ms\":4.548334000000068},{\"shared\":true,\"ms\":2.6153750000000855}]}\nChecked independent shared-scalar commitments, zero vectors, chunk tails and admission.\n",
+      "stderr": "(node:37235) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.3c",
+      "ref": "5365363b3",
+      "file": "univariate/check-shared-msm-bases.ts",
+      "invocation": 1,
+      "exitCode": 0,
+      "wallMs": 23795,
+      "rows": [
+        {
+          "count": 262144,
+          "samples": [
+            {
+              "mode": "control",
+              "ms": 1767.797125
+            },
+            {
+              "mode": "candidate",
+              "ms": 1709.7632500000009
+            },
+            {
+              "mode": "control",
+              "ms": 1749.488875000001
+            },
+            {
+              "mode": "candidate",
+              "ms": 1734.7200000000012
+            },
+            {
+              "mode": "control",
+              "ms": 1740.9120839999996
+            },
+            {
+              "mode": "candidate",
+              "ms": 1717.9501249999994
+            },
+            {
+              "mode": "control",
+              "ms": 1745.558208999999
+            },
+            {
+              "mode": "candidate",
+              "ms": 1735.5950420000008
+            },
+            {
+              "mode": "control",
+              "ms": 1739.682958999998
+            },
+            {
+              "mode": "candidate",
+              "ms": 1741.4773750000022
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"count\":262144,\"samples\":[{\"mode\":\"control\",\"ms\":1767.797125},{\"mode\":\"candidate\",\"ms\":1709.7632500000009},{\"mode\":\"control\",\"ms\":1749.488875000001},{\"mode\":\"candidate\",\"ms\":1734.7200000000012},{\"mode\":\"control\",\"ms\":1740.9120839999996},{\"mode\":\"candidate\",\"ms\":1717.9501249999994},{\"mode\":\"control\",\"ms\":1745.558208999999},{\"mode\":\"candidate\",\"ms\":1735.5950420000008},{\"mode\":\"control\",\"ms\":1739.682958999998},{\"mode\":\"candidate\",\"ms\":1741.4773750000022}]}\nChecked independent shared-base commitments, full scalars, unequal lengths, identities and chunk tails.\n",
+      "stderr": "(node:37288) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.3c",
+      "ref": "5365363b3",
+      "file": "univariate/check-shared-msm-bases.ts",
+      "invocation": 2,
+      "exitCode": 0,
+      "wallMs": 23869,
+      "rows": [
+        {
+          "count": 262144,
+          "samples": [
+            {
+              "mode": "control",
+              "ms": 1768.0883329999997
+            },
+            {
+              "mode": "candidate",
+              "ms": 1716.0316249999987
+            },
+            {
+              "mode": "control",
+              "ms": 1758.5966669999998
+            },
+            {
+              "mode": "candidate",
+              "ms": 1707.429333
+            },
+            {
+              "mode": "control",
+              "ms": 1756.7171249999992
+            },
+            {
+              "mode": "candidate",
+              "ms": 1723.2061250000006
+            },
+            {
+              "mode": "control",
+              "ms": 1733.4962500000001
+            },
+            {
+              "mode": "candidate",
+              "ms": 1752.1184160000012
+            },
+            {
+              "mode": "control",
+              "ms": 1740.4694999999992
+            },
+            {
+              "mode": "candidate",
+              "ms": 1726.9246669999993
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"count\":262144,\"samples\":[{\"mode\":\"control\",\"ms\":1768.0883329999997},{\"mode\":\"candidate\",\"ms\":1716.0316249999987},{\"mode\":\"control\",\"ms\":1758.5966669999998},{\"mode\":\"candidate\",\"ms\":1707.429333},{\"mode\":\"control\",\"ms\":1756.7171249999992},{\"mode\":\"candidate\",\"ms\":1723.2061250000006},{\"mode\":\"control\",\"ms\":1733.4962500000001},{\"mode\":\"candidate\",\"ms\":1752.1184160000012},{\"mode\":\"control\",\"ms\":1740.4694999999992},{\"mode\":\"candidate\",\"ms\":1726.9246669999993}]}\nChecked independent shared-base commitments, full scalars, unequal lengths, identities and chunk tails.\n",
+      "stderr": "(node:37817) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.4",
+      "ref": "19bba9790",
+      "file": "univariate/check-signed-msm.ts",
+      "invocation": 1,
+      "exitCode": 0,
+      "wallMs": 26661,
+      "rows": [
+        {
+          "count": 4097,
+          "workers": 14,
+          "samples": [
+            {
+              "width": 8,
+              "mode": "control",
+              "ms": 16.28245799999968
+            },
+            {
+              "width": 8,
+              "mode": "signed",
+              "ms": 14.747334000000137
+            },
+            {
+              "width": 8,
+              "mode": "control",
+              "ms": 16.9717499999997
+            },
+            {
+              "width": 8,
+              "mode": "signed",
+              "ms": 15.312625000000025
+            },
+            {
+              "width": 8,
+              "mode": "control",
+              "ms": 15.970499999999902
+            },
+            {
+              "width": 8,
+              "mode": "signed",
+              "ms": 14.811041999999816
+            },
+            {
+              "width": 8,
+              "mode": "control",
+              "ms": 17.13220799999999
+            },
+            {
+              "width": 8,
+              "mode": "signed",
+              "ms": 15.227624999999989
+            },
+            {
+              "width": 8,
+              "mode": "control",
+              "ms": 15.886375000000044
+            },
+            {
+              "width": 8,
+              "mode": "signed",
+              "ms": 15.123250000000098
+            },
+            {
+              "width": 9,
+              "mode": "control",
+              "ms": 16.115999999999985
+            },
+            {
+              "width": 9,
+              "mode": "signed",
+              "ms": 14.722208000000137
+            },
+            {
+              "width": 9,
+              "mode": "control",
+              "ms": 16.039458999999624
+            },
+            {
+              "width": 9,
+              "mode": "signed",
+              "ms": 14.59649999999965
+            },
+            {
+              "width": 9,
+              "mode": "control",
+              "ms": 16.12241700000004
+            },
+            {
+              "width": 9,
+              "mode": "signed",
+              "ms": 13.853624999999738
+            },
+            {
+              "width": 9,
+              "mode": "control",
+              "ms": 16.970374999999876
+            },
+            {
+              "width": 9,
+              "mode": "signed",
+              "ms": 13.535583000000315
+            },
+            {
+              "width": 9,
+              "mode": "control",
+              "ms": 16.26495900000009
+            },
+            {
+              "width": 9,
+              "mode": "signed",
+              "ms": 14.151417000000038
+            },
+            {
+              "width": 10,
+              "mode": "control",
+              "ms": 15.725124999999935
+            },
+            {
+              "width": 10,
+              "mode": "signed",
+              "ms": 14.305166999999983
+            },
+            {
+              "width": 10,
+              "mode": "control",
+              "ms": 15.890791999999692
+            },
+            {
+              "width": 10,
+              "mode": "signed",
+              "ms": 14.849333000000115
+            },
+            {
+              "width": 10,
+              "mode": "control",
+              "ms": 16.553875000000062
+            },
+            {
+              "width": 10,
+              "mode": "signed",
+              "ms": 14.919832999999926
+            },
+            {
+              "width": 10,
+              "mode": "control",
+              "ms": 16.418916999999965
+            },
+            {
+              "width": 10,
+              "mode": "signed",
+              "ms": 14.721833999999944
+            },
+            {
+              "width": 10,
+              "mode": "control",
+              "ms": 15.929749999999785
+            },
+            {
+              "width": 10,
+              "mode": "signed",
+              "ms": 15.530999999999949
+            }
+          ]
+        },
+        {
+          "count": 262144,
+          "workers": 14,
+          "samples": [
+            {
+              "width": 12,
+              "mode": "control",
+              "ms": 690.3274170000004
+            },
+            {
+              "width": 12,
+              "mode": "signed",
+              "ms": 660.0572499999998
+            },
+            {
+              "width": 12,
+              "mode": "control",
+              "ms": 700.439625
+            },
+            {
+              "width": 12,
+              "mode": "signed",
+              "ms": 655.5967919999994
+            },
+            {
+              "width": 12,
+              "mode": "control",
+              "ms": 713.4840000000004
+            },
+            {
+              "width": 12,
+              "mode": "signed",
+              "ms": 662.5582090000007
+            },
+            {
+              "width": 12,
+              "mode": "control",
+              "ms": 692.9259999999995
+            },
+            {
+              "width": 12,
+              "mode": "signed",
+              "ms": 672.924833000001
+            },
+            {
+              "width": 12,
+              "mode": "control",
+              "ms": 701.444875000001
+            },
+            {
+              "width": 12,
+              "mode": "signed",
+              "ms": 655.6060409999991
+            },
+            {
+              "width": 13,
+              "mode": "control",
+              "ms": 697.0347079999992
+            },
+            {
+              "width": 13,
+              "mode": "signed",
+              "ms": 645.7442080000001
+            },
+            {
+              "width": 13,
+              "mode": "control",
+              "ms": 732.779625000001
+            },
+            {
+              "width": 13,
+              "mode": "signed",
+              "ms": 663.2170839999999
+            },
+            {
+              "width": 13,
+              "mode": "control",
+              "ms": 700.9725420000013
+            },
+            {
+              "width": 13,
+              "mode": "signed",
+              "ms": 642.3153330000005
+            },
+            {
+              "width": 13,
+              "mode": "control",
+              "ms": 716.1435420000016
+            },
+            {
+              "width": 13,
+              "mode": "signed",
+              "ms": 661.4393750000017
+            },
+            {
+              "width": 13,
+              "mode": "control",
+              "ms": 703.1517500000009
+            },
+            {
+              "width": 13,
+              "mode": "signed",
+              "ms": 665.4200000000019
+            },
+            {
+              "width": 14,
+              "mode": "control",
+              "ms": 699.9212079999998
+            },
+            {
+              "width": 14,
+              "mode": "signed",
+              "ms": 650.4528329999994
+            },
+            {
+              "width": 14,
+              "mode": "control",
+              "ms": 703.2817920000016
+            },
+            {
+              "width": 14,
+              "mode": "signed",
+              "ms": 662.4573750000018
+            },
+            {
+              "width": 14,
+              "mode": "control",
+              "ms": 701.6932919999999
+            },
+            {
+              "width": 14,
+              "mode": "signed",
+              "ms": 663.5831670000007
+            },
+            {
+              "width": 14,
+              "mode": "control",
+              "ms": 707.7075829999994
+            },
+            {
+              "width": 14,
+              "mode": "signed",
+              "ms": 663.9834169999995
+            },
+            {
+              "width": 14,
+              "mode": "control",
+              "ms": 697.8627500000002
+            },
+            {
+              "width": 14,
+              "mode": "signed",
+              "ms": 648.6668750000026
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"count\":4097,\"workers\":14,\"samples\":[{\"width\":8,\"mode\":\"control\",\"ms\":16.28245799999968},{\"width\":8,\"mode\":\"signed\",\"ms\":14.747334000000137},{\"width\":8,\"mode\":\"control\",\"ms\":16.9717499999997},{\"width\":8,\"mode\":\"signed\",\"ms\":15.312625000000025},{\"width\":8,\"mode\":\"control\",\"ms\":15.970499999999902},{\"width\":8,\"mode\":\"signed\",\"ms\":14.811041999999816},{\"width\":8,\"mode\":\"control\",\"ms\":17.13220799999999},{\"width\":8,\"mode\":\"signed\",\"ms\":15.227624999999989},{\"width\":8,\"mode\":\"control\",\"ms\":15.886375000000044},{\"width\":8,\"mode\":\"signed\",\"ms\":15.123250000000098},{\"width\":9,\"mode\":\"control\",\"ms\":16.115999999999985},{\"width\":9,\"mode\":\"signed\",\"ms\":14.722208000000137},{\"width\":9,\"mode\":\"control\",\"ms\":16.039458999999624},{\"width\":9,\"mode\":\"signed\",\"ms\":14.59649999999965},{\"width\":9,\"mode\":\"control\",\"ms\":16.12241700000004},{\"width\":9,\"mode\":\"signed\",\"ms\":13.853624999999738},{\"width\":9,\"mode\":\"control\",\"ms\":16.970374999999876},{\"width\":9,\"mode\":\"signed\",\"ms\":13.535583000000315},{\"width\":9,\"mode\":\"control\",\"ms\":16.26495900000009},{\"width\":9,\"mode\":\"signed\",\"ms\":14.151417000000038},{\"width\":10,\"mode\":\"control\",\"ms\":15.725124999999935},{\"width\":10,\"mode\":\"signed\",\"ms\":14.305166999999983},{\"width\":10,\"mode\":\"control\",\"ms\":15.890791999999692},{\"width\":10,\"mode\":\"signed\",\"ms\":14.849333000000115},{\"width\":10,\"mode\":\"control\",\"ms\":16.553875000000062},{\"width\":10,\"mode\":\"signed\",\"ms\":14.919832999999926},{\"width\":10,\"mode\":\"control\",\"ms\":16.418916999999965},{\"width\":10,\"mode\":\"signed\",\"ms\":14.721833999999944},{\"width\":10,\"mode\":\"control\",\"ms\":15.929749999999785},{\"width\":10,\"mode\":\"signed\",\"ms\":15.530999999999949}]}\n{\"count\":262144,\"workers\":14,\"samples\":[{\"width\":12,\"mode\":\"control\",\"ms\":690.3274170000004},{\"width\":12,\"mode\":\"signed\",\"ms\":660.0572499999998},{\"width\":12,\"mode\":\"control\",\"ms\":700.439625},{\"width\":12,\"mode\":\"signed\",\"ms\":655.5967919999994},{\"width\":12,\"mode\":\"control\",\"ms\":713.4840000000004},{\"width\":12,\"mode\":\"signed\",\"ms\":662.5582090000007},{\"width\":12,\"mode\":\"control\",\"ms\":692.9259999999995},{\"width\":12,\"mode\":\"signed\",\"ms\":672.924833000001},{\"width\":12,\"mode\":\"control\",\"ms\":701.444875000001},{\"width\":12,\"mode\":\"signed\",\"ms\":655.6060409999991},{\"width\":13,\"mode\":\"control\",\"ms\":697.0347079999992},{\"width\":13,\"mode\":\"signed\",\"ms\":645.7442080000001},{\"width\":13,\"mode\":\"control\",\"ms\":732.779625000001},{\"width\":13,\"mode\":\"signed\",\"ms\":663.2170839999999},{\"width\":13,\"mode\":\"control\",\"ms\":700.9725420000013},{\"width\":13,\"mode\":\"signed\",\"ms\":642.3153330000005},{\"width\":13,\"mode\":\"control\",\"ms\":716.1435420000016},{\"width\":13,\"mode\":\"signed\",\"ms\":661.4393750000017},{\"width\":13,\"mode\":\"control\",\"ms\":703.1517500000009},{\"width\":13,\"mode\":\"signed\",\"ms\":665.4200000000019},{\"width\":14,\"mode\":\"control\",\"ms\":699.9212079999998},{\"width\":14,\"mode\":\"signed\",\"ms\":650.4528329999994},{\"width\":14,\"mode\":\"control\",\"ms\":703.2817920000016},{\"width\":14,\"mode\":\"signed\",\"ms\":662.4573750000018},{\"width\":14,\"mode\":\"control\",\"ms\":701.6932919999999},{\"width\":14,\"mode\":\"signed\",\"ms\":663.5831670000007},{\"width\":14,\"mode\":\"control\",\"ms\":707.7075829999994},{\"width\":14,\"mode\":\"signed\",\"ms\":663.9834169999995},{\"width\":14,\"mode\":\"control\",\"ms\":697.8627500000002},{\"width\":14,\"mode\":\"signed\",\"ms\":648.6668750000026}]}\nChecked signed-digit reconstruction, final carry, stock MSM/known-generator algebra, identities and cancellation.\n",
+      "stderr": "(node:38326) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.4",
+      "ref": "19bba9790",
+      "file": "univariate/check-signed-msm.ts",
+      "invocation": 2,
+      "exitCode": 0,
+      "wallMs": 26687,
+      "rows": [
+        {
+          "count": 4097,
+          "workers": 14,
+          "samples": [
+            {
+              "width": 8,
+              "mode": "control",
+              "ms": 17.198457999999846
+            },
+            {
+              "width": 8,
+              "mode": "signed",
+              "ms": 14.432999999999993
+            },
+            {
+              "width": 8,
+              "mode": "control",
+              "ms": 16.32437499999969
+            },
+            {
+              "width": 8,
+              "mode": "signed",
+              "ms": 14.874084000000039
+            },
+            {
+              "width": 8,
+              "mode": "control",
+              "ms": 15.81795800000009
+            },
+            {
+              "width": 8,
+              "mode": "signed",
+              "ms": 15.43191700000034
+            },
+            {
+              "width": 8,
+              "mode": "control",
+              "ms": 16.280291999999918
+            },
+            {
+              "width": 8,
+              "mode": "signed",
+              "ms": 15.554042000000209
+            },
+            {
+              "width": 8,
+              "mode": "control",
+              "ms": 16.784208000000035
+            },
+            {
+              "width": 8,
+              "mode": "signed",
+              "ms": 14.414458000000195
+            },
+            {
+              "width": 9,
+              "mode": "control",
+              "ms": 16.895833999999923
+            },
+            {
+              "width": 9,
+              "mode": "signed",
+              "ms": 13.58199999999988
+            },
+            {
+              "width": 9,
+              "mode": "control",
+              "ms": 16.974457999999686
+            },
+            {
+              "width": 9,
+              "mode": "signed",
+              "ms": 14.27325000000019
+            },
+            {
+              "width": 9,
+              "mode": "control",
+              "ms": 15.83054200000015
+            },
+            {
+              "width": 9,
+              "mode": "signed",
+              "ms": 13.696542000000136
+            },
+            {
+              "width": 9,
+              "mode": "control",
+              "ms": 17.07270900000003
+            },
+            {
+              "width": 9,
+              "mode": "signed",
+              "ms": 14.660417000000052
+            },
+            {
+              "width": 9,
+              "mode": "control",
+              "ms": 16.837582999999995
+            },
+            {
+              "width": 9,
+              "mode": "signed",
+              "ms": 14.031375000000025
+            },
+            {
+              "width": 10,
+              "mode": "control",
+              "ms": 16.092375000000175
+            },
+            {
+              "width": 10,
+              "mode": "signed",
+              "ms": 15.279417000000194
+            },
+            {
+              "width": 10,
+              "mode": "control",
+              "ms": 16.10366699999986
+            },
+            {
+              "width": 10,
+              "mode": "signed",
+              "ms": 14.260499999999865
+            },
+            {
+              "width": 10,
+              "mode": "control",
+              "ms": 16.69270800000004
+            },
+            {
+              "width": 10,
+              "mode": "signed",
+              "ms": 14.181500000000142
+            },
+            {
+              "width": 10,
+              "mode": "control",
+              "ms": 15.863333000000239
+            },
+            {
+              "width": 10,
+              "mode": "signed",
+              "ms": 16.055499999999938
+            },
+            {
+              "width": 10,
+              "mode": "control",
+              "ms": 15.710499999999683
+            },
+            {
+              "width": 10,
+              "mode": "signed",
+              "ms": 14.237125000000106
+            }
+          ]
+        },
+        {
+          "count": 262144,
+          "workers": 14,
+          "samples": [
+            {
+              "width": 12,
+              "mode": "control",
+              "ms": 692.1016249999993
+            },
+            {
+              "width": 12,
+              "mode": "signed",
+              "ms": 676.4209579999997
+            },
+            {
+              "width": 12,
+              "mode": "control",
+              "ms": 694.0515409999998
+            },
+            {
+              "width": 12,
+              "mode": "signed",
+              "ms": 658.6425000000008
+            },
+            {
+              "width": 12,
+              "mode": "control",
+              "ms": 705.8690839999999
+            },
+            {
+              "width": 12,
+              "mode": "signed",
+              "ms": 662.8739170000008
+            },
+            {
+              "width": 12,
+              "mode": "control",
+              "ms": 689.703583999999
+            },
+            {
+              "width": 12,
+              "mode": "signed",
+              "ms": 675.7646669999995
+            },
+            {
+              "width": 12,
+              "mode": "control",
+              "ms": 743.7212080000008
+            },
+            {
+              "width": 12,
+              "mode": "signed",
+              "ms": 665.0817080000015
+            },
+            {
+              "width": 13,
+              "mode": "control",
+              "ms": 704.8036670000001
+            },
+            {
+              "width": 13,
+              "mode": "signed",
+              "ms": 649.0046659999989
+            },
+            {
+              "width": 13,
+              "mode": "control",
+              "ms": 702.9950419999986
+            },
+            {
+              "width": 13,
+              "mode": "signed",
+              "ms": 656.0381249999991
+            },
+            {
+              "width": 13,
+              "mode": "control",
+              "ms": 694.5746250000011
+            },
+            {
+              "width": 13,
+              "mode": "signed",
+              "ms": 649.1202909999993
+            },
+            {
+              "width": 13,
+              "mode": "control",
+              "ms": 698.6872919999987
+            },
+            {
+              "width": 13,
+              "mode": "signed",
+              "ms": 662.327874999999
+            },
+            {
+              "width": 13,
+              "mode": "control",
+              "ms": 709.0885420000013
+            },
+            {
+              "width": 13,
+              "mode": "signed",
+              "ms": 657.5063330000012
+            },
+            {
+              "width": 14,
+              "mode": "control",
+              "ms": 686.5889999999999
+            },
+            {
+              "width": 14,
+              "mode": "signed",
+              "ms": 666.609457999999
+            },
+            {
+              "width": 14,
+              "mode": "control",
+              "ms": 710.9932499999995
+            },
+            {
+              "width": 14,
+              "mode": "signed",
+              "ms": 668.1177910000006
+            },
+            {
+              "width": 14,
+              "mode": "control",
+              "ms": 714.0728329999984
+            },
+            {
+              "width": 14,
+              "mode": "signed",
+              "ms": 659.3116249999985
+            },
+            {
+              "width": 14,
+              "mode": "control",
+              "ms": 707.8802909999977
+            },
+            {
+              "width": 14,
+              "mode": "signed",
+              "ms": 672.1304170000003
+            },
+            {
+              "width": 14,
+              "mode": "control",
+              "ms": 703.4571670000005
+            },
+            {
+              "width": 14,
+              "mode": "signed",
+              "ms": 661.6527919999971
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"count\":4097,\"workers\":14,\"samples\":[{\"width\":8,\"mode\":\"control\",\"ms\":17.198457999999846},{\"width\":8,\"mode\":\"signed\",\"ms\":14.432999999999993},{\"width\":8,\"mode\":\"control\",\"ms\":16.32437499999969},{\"width\":8,\"mode\":\"signed\",\"ms\":14.874084000000039},{\"width\":8,\"mode\":\"control\",\"ms\":15.81795800000009},{\"width\":8,\"mode\":\"signed\",\"ms\":15.43191700000034},{\"width\":8,\"mode\":\"control\",\"ms\":16.280291999999918},{\"width\":8,\"mode\":\"signed\",\"ms\":15.554042000000209},{\"width\":8,\"mode\":\"control\",\"ms\":16.784208000000035},{\"width\":8,\"mode\":\"signed\",\"ms\":14.414458000000195},{\"width\":9,\"mode\":\"control\",\"ms\":16.895833999999923},{\"width\":9,\"mode\":\"signed\",\"ms\":13.58199999999988},{\"width\":9,\"mode\":\"control\",\"ms\":16.974457999999686},{\"width\":9,\"mode\":\"signed\",\"ms\":14.27325000000019},{\"width\":9,\"mode\":\"control\",\"ms\":15.83054200000015},{\"width\":9,\"mode\":\"signed\",\"ms\":13.696542000000136},{\"width\":9,\"mode\":\"control\",\"ms\":17.07270900000003},{\"width\":9,\"mode\":\"signed\",\"ms\":14.660417000000052},{\"width\":9,\"mode\":\"control\",\"ms\":16.837582999999995},{\"width\":9,\"mode\":\"signed\",\"ms\":14.031375000000025},{\"width\":10,\"mode\":\"control\",\"ms\":16.092375000000175},{\"width\":10,\"mode\":\"signed\",\"ms\":15.279417000000194},{\"width\":10,\"mode\":\"control\",\"ms\":16.10366699999986},{\"width\":10,\"mode\":\"signed\",\"ms\":14.260499999999865},{\"width\":10,\"mode\":\"control\",\"ms\":16.69270800000004},{\"width\":10,\"mode\":\"signed\",\"ms\":14.181500000000142},{\"width\":10,\"mode\":\"control\",\"ms\":15.863333000000239},{\"width\":10,\"mode\":\"signed\",\"ms\":16.055499999999938},{\"width\":10,\"mode\":\"control\",\"ms\":15.710499999999683},{\"width\":10,\"mode\":\"signed\",\"ms\":14.237125000000106}]}\n{\"count\":262144,\"workers\":14,\"samples\":[{\"width\":12,\"mode\":\"control\",\"ms\":692.1016249999993},{\"width\":12,\"mode\":\"signed\",\"ms\":676.4209579999997},{\"width\":12,\"mode\":\"control\",\"ms\":694.0515409999998},{\"width\":12,\"mode\":\"signed\",\"ms\":658.6425000000008},{\"width\":12,\"mode\":\"control\",\"ms\":705.8690839999999},{\"width\":12,\"mode\":\"signed\",\"ms\":662.8739170000008},{\"width\":12,\"mode\":\"control\",\"ms\":689.703583999999},{\"width\":12,\"mode\":\"signed\",\"ms\":675.7646669999995},{\"width\":12,\"mode\":\"control\",\"ms\":743.7212080000008},{\"width\":12,\"mode\":\"signed\",\"ms\":665.0817080000015},{\"width\":13,\"mode\":\"control\",\"ms\":704.8036670000001},{\"width\":13,\"mode\":\"signed\",\"ms\":649.0046659999989},{\"width\":13,\"mode\":\"control\",\"ms\":702.9950419999986},{\"width\":13,\"mode\":\"signed\",\"ms\":656.0381249999991},{\"width\":13,\"mode\":\"control\",\"ms\":694.5746250000011},{\"width\":13,\"mode\":\"signed\",\"ms\":649.1202909999993},{\"width\":13,\"mode\":\"control\",\"ms\":698.6872919999987},{\"width\":13,\"mode\":\"signed\",\"ms\":662.327874999999},{\"width\":13,\"mode\":\"control\",\"ms\":709.0885420000013},{\"width\":13,\"mode\":\"signed\",\"ms\":657.5063330000012},{\"width\":14,\"mode\":\"control\",\"ms\":686.5889999999999},{\"width\":14,\"mode\":\"signed\",\"ms\":666.609457999999},{\"width\":14,\"mode\":\"control\",\"ms\":710.9932499999995},{\"width\":14,\"mode\":\"signed\",\"ms\":668.1177910000006},{\"width\":14,\"mode\":\"control\",\"ms\":714.0728329999984},{\"width\":14,\"mode\":\"signed\",\"ms\":659.3116249999985},{\"width\":14,\"mode\":\"control\",\"ms\":707.8802909999977},{\"width\":14,\"mode\":\"signed\",\"ms\":672.1304170000003},{\"width\":14,\"mode\":\"control\",\"ms\":703.4571670000005},{\"width\":14,\"mode\":\"signed\",\"ms\":661.6527919999971}]}\nChecked signed-digit reconstruction, final carry, stock MSM/known-generator algebra, identities and cancellation.\n",
+      "stderr": "(node:38892) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.5a",
+      "ref": "867343c13",
+      "file": "univariate/check-arithmetic-coset.ts",
+      "invocation": 1,
+      "exitCode": 0,
+      "wallMs": 8661,
+      "rows": [
+        {
+          "n": 262144,
+          "samples": [
+            {
+              "mode": "control",
+              "ms": 585.6422500000003
+            },
+            {
+              "mode": "coset",
+              "ms": 442.30141600000024
+            },
+            {
+              "mode": "control",
+              "ms": 585.8826669999999
+            },
+            {
+              "mode": "coset",
+              "ms": 430.5953749999999
+            },
+            {
+              "mode": "control",
+              "ms": 590.4555419999997
+            },
+            {
+              "mode": "coset",
+              "ms": 431.20295799999985
+            },
+            {
+              "mode": "control",
+              "ms": 590.3384169999999
+            },
+            {
+              "mode": "coset",
+              "ms": 434.8972080000003
+            },
+            {
+              "mode": "control",
+              "ms": 606.8647499999997
+            },
+            {
+              "mode": "coset",
+              "ms": 445.4589589999996
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"n\":262144,\"samples\":[{\"mode\":\"control\",\"ms\":585.6422500000003},{\"mode\":\"coset\",\"ms\":442.30141600000024},{\"mode\":\"control\",\"ms\":585.8826669999999},{\"mode\":\"coset\",\"ms\":430.5953749999999},{\"mode\":\"control\",\"ms\":590.4555419999997},{\"mode\":\"coset\",\"ms\":431.20295799999985},{\"mode\":\"control\",\"ms\":590.3384169999999},{\"mode\":\"coset\",\"ms\":434.8972080000003},{\"mode\":\"control\",\"ms\":606.8647499999997},{\"mode\":\"coset\",\"ms\":445.4589589999996}]}\nChecked coset arithmetic against the prior exact quotient with masks, leading zeros, singleton domains and rejection.\n",
+      "stderr": "(node:39494) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.5a",
+      "ref": "867343c13",
+      "file": "univariate/check-arithmetic-coset.ts",
+      "invocation": 2,
+      "exitCode": 0,
+      "wallMs": 8596,
+      "rows": [
+        {
+          "n": 262144,
+          "samples": [
+            {
+              "mode": "control",
+              "ms": 586.7601250000002
+            },
+            {
+              "mode": "coset",
+              "ms": 429.1318339999998
+            },
+            {
+              "mode": "control",
+              "ms": 592.3261660000007
+            },
+            {
+              "mode": "coset",
+              "ms": 436.47320800000034
+            },
+            {
+              "mode": "control",
+              "ms": 583.9942089999995
+            },
+            {
+              "mode": "coset",
+              "ms": 430.61204199999975
+            },
+            {
+              "mode": "control",
+              "ms": 586.7206250000008
+            },
+            {
+              "mode": "coset",
+              "ms": 422.17566700000043
+            },
+            {
+              "mode": "control",
+              "ms": 583.2099580000004
+            },
+            {
+              "mode": "coset",
+              "ms": 427.2891660000005
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"n\":262144,\"samples\":[{\"mode\":\"control\",\"ms\":586.7601250000002},{\"mode\":\"coset\",\"ms\":429.1318339999998},{\"mode\":\"control\",\"ms\":592.3261660000007},{\"mode\":\"coset\",\"ms\":436.47320800000034},{\"mode\":\"control\",\"ms\":583.9942089999995},{\"mode\":\"coset\",\"ms\":430.61204199999975},{\"mode\":\"control\",\"ms\":586.7206250000008},{\"mode\":\"coset\",\"ms\":422.17566700000043},{\"mode\":\"control\",\"ms\":583.2099580000004},{\"mode\":\"coset\",\"ms\":427.2891660000005}]}\nChecked coset arithmetic against the prior exact quotient with masks, leading zeros, singleton domains and rejection.\n",
+      "stderr": "(node:39685) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.5b",
+      "ref": "19bba9790",
+      "file": "univariate/check-copy-coset.ts",
+      "invocation": 1,
+      "exitCode": 0,
+      "wallMs": 10382,
+      "rows": [
+        {
+          "n": 262144,
+          "samples": [
+            {
+              "mode": "control",
+              "ms": 795.430167
+            },
+            {
+              "mode": "coset",
+              "ms": 486.1337910000002
+            },
+            {
+              "mode": "coset",
+              "ms": 484.3316250000007
+            },
+            {
+              "mode": "control",
+              "ms": 773.0632919999998
+            },
+            {
+              "mode": "control",
+              "ms": 763.0273340000003
+            },
+            {
+              "mode": "coset",
+              "ms": 491.7552089999999
+            },
+            {
+              "mode": "coset",
+              "ms": 492.0461669999995
+            },
+            {
+              "mode": "control",
+              "ms": 769.9095830000006
+            },
+            {
+              "mode": "control",
+              "ms": 758.1883330000001
+            },
+            {
+              "mode": "coset",
+              "ms": 481.2627909999992
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"n\":262144,\"samples\":[{\"mode\":\"control\",\"ms\":795.430167},{\"mode\":\"coset\",\"ms\":486.1337910000002},{\"mode\":\"coset\",\"ms\":484.3316250000007},{\"mode\":\"control\",\"ms\":773.0632919999998},{\"mode\":\"control\",\"ms\":763.0273340000003},{\"mode\":\"coset\",\"ms\":491.7552089999999},{\"mode\":\"coset\",\"ms\":492.0461669999995},{\"mode\":\"control\",\"ms\":769.9095830000006},{\"mode\":\"control\",\"ms\":758.1883330000001},{\"mode\":\"coset\",\"ms\":481.2627909999992}]}\nChecked copy coset exact coefficients, masks, degree-N folds, singleton/zero domains and rejection.\n",
+      "stderr": "(node:39876) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.5b",
+      "ref": "19bba9790",
+      "file": "univariate/check-copy-coset.ts",
+      "invocation": 2,
+      "exitCode": 0,
+      "wallMs": 10379,
+      "rows": [
+        {
+          "n": 262144,
+          "samples": [
+            {
+              "mode": "control",
+              "ms": 771.8720409999996
+            },
+            {
+              "mode": "coset",
+              "ms": 496.6868750000003
+            },
+            {
+              "mode": "coset",
+              "ms": 490.36683300000004
+            },
+            {
+              "mode": "control",
+              "ms": 776.5180419999997
+            },
+            {
+              "mode": "control",
+              "ms": 768.8459170000006
+            },
+            {
+              "mode": "coset",
+              "ms": 481.46000000000004
+            },
+            {
+              "mode": "coset",
+              "ms": 485.5930419999995
+            },
+            {
+              "mode": "control",
+              "ms": 776.6745839999994
+            },
+            {
+              "mode": "control",
+              "ms": 769.8542499999985
+            },
+            {
+              "mode": "coset",
+              "ms": 478.1149999999998
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"n\":262144,\"samples\":[{\"mode\":\"control\",\"ms\":771.8720409999996},{\"mode\":\"coset\",\"ms\":496.6868750000003},{\"mode\":\"coset\",\"ms\":490.36683300000004},{\"mode\":\"control\",\"ms\":776.5180419999997},{\"mode\":\"control\",\"ms\":768.8459170000006},{\"mode\":\"coset\",\"ms\":481.46000000000004},{\"mode\":\"coset\",\"ms\":485.5930419999995},{\"mode\":\"control\",\"ms\":776.6745839999994},{\"mode\":\"control\",\"ms\":769.8542499999985},{\"mode\":\"coset\",\"ms\":478.1149999999998}]}\nChecked copy coset exact coefficients, masks, degree-N folds, singleton/zero domains and rejection.\n",
+      "stderr": "(node:40112) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.6a",
+      "ref": "09b6f954d",
+      "file": "univariate/check-linear-combination-fusion.ts",
+      "invocation": 1,
+      "exitCode": 0,
+      "wallMs": 1180,
+      "rows": [
+        {
+          "n": 262144,
+          "samples": [
+            {
+              "candidate": false,
+              "ms": 20.095542000000023
+            },
+            {
+              "candidate": true,
+              "ms": 10.151417000000038
+            },
+            {
+              "candidate": true,
+              "ms": 10.014749999999935
+            },
+            {
+              "candidate": false,
+              "ms": 19.660082999999986
+            },
+            {
+              "candidate": false,
+              "ms": 25.830625000000055
+            },
+            {
+              "candidate": true,
+              "ms": 9.494374999999991
+            },
+            {
+              "candidate": true,
+              "ms": 9.530999999999949
+            },
+            {
+              "candidate": false,
+              "ms": 17.061250000000086
+            },
+            {
+              "candidate": false,
+              "ms": 18.079459000000043
+            },
+            {
+              "candidate": true,
+              "ms": 9.784874999999943
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"n\":262144,\"samples\":[{\"candidate\":false,\"ms\":20.095542000000023},{\"candidate\":true,\"ms\":10.151417000000038},{\"candidate\":true,\"ms\":10.014749999999935},{\"candidate\":false,\"ms\":19.660082999999986},{\"candidate\":false,\"ms\":25.830625000000055},{\"candidate\":true,\"ms\":9.494374999999991},{\"candidate\":true,\"ms\":9.530999999999949},{\"candidate\":false,\"ms\":17.061250000000086},{\"candidate\":false,\"ms\":18.079459000000043},{\"candidate\":true,\"ms\":9.784874999999943}]}\nChecked fused worker accumulation against batched/scalar controls, unequal/zero lengths, cancellation and malformed buffers.\n",
+      "stderr": "(node:40336) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.6a",
+      "ref": "09b6f954d",
+      "file": "univariate/check-linear-combination-fusion.ts",
+      "invocation": 2,
+      "exitCode": 0,
+      "wallMs": 1150,
+      "rows": [
+        {
+          "n": 262144,
+          "samples": [
+            {
+              "candidate": false,
+              "ms": 20.127749999999992
+            },
+            {
+              "candidate": true,
+              "ms": 10.144042000000013
+            },
+            {
+              "candidate": true,
+              "ms": 10.405167000000006
+            },
+            {
+              "candidate": false,
+              "ms": 19.263791999999967
+            },
+            {
+              "candidate": false,
+              "ms": 25.32554200000004
+            },
+            {
+              "candidate": true,
+              "ms": 8.883874999999989
+            },
+            {
+              "candidate": true,
+              "ms": 9.150999999999954
+            },
+            {
+              "candidate": false,
+              "ms": 17.274584000000004
+            },
+            {
+              "candidate": false,
+              "ms": 17.667749999999955
+            },
+            {
+              "candidate": true,
+              "ms": 9.407167000000072
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"n\":262144,\"samples\":[{\"candidate\":false,\"ms\":20.127749999999992},{\"candidate\":true,\"ms\":10.144042000000013},{\"candidate\":true,\"ms\":10.405167000000006},{\"candidate\":false,\"ms\":19.263791999999967},{\"candidate\":false,\"ms\":25.32554200000004},{\"candidate\":true,\"ms\":8.883874999999989},{\"candidate\":true,\"ms\":9.150999999999954},{\"candidate\":false,\"ms\":17.274584000000004},{\"candidate\":false,\"ms\":17.667749999999955},{\"candidate\":true,\"ms\":9.407167000000072}]}\nChecked fused worker accumulation against batched/scalar controls, unequal/zero lengths, cancellation and malformed buffers.\n",
+      "stderr": "(node:40359) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.6b",
+      "ref": "64200da0c",
+      "file": "univariate/check-short-convolution.ts",
+      "invocation": 1,
+      "exitCode": 0,
+      "wallMs": 1521,
+      "rows": [
+        {
+          "n": 262144,
+          "width": 2,
+          "samples": [
+            {
+              "candidate": false,
+              "ms": 9.884416999999985
+            },
+            {
+              "candidate": true,
+              "ms": 6.894333999999958
+            },
+            {
+              "candidate": true,
+              "ms": 6.85283400000003
+            },
+            {
+              "candidate": false,
+              "ms": 9.993208000000095
+            },
+            {
+              "candidate": false,
+              "ms": 9.952957999999967
+            },
+            {
+              "candidate": true,
+              "ms": 6.884083999999916
+            },
+            {
+              "candidate": true,
+              "ms": 6.611332999999945
+            },
+            {
+              "candidate": false,
+              "ms": 9.797249999999963
+            },
+            {
+              "candidate": false,
+              "ms": 14.72783400000003
+            },
+            {
+              "candidate": true,
+              "ms": 14.723375000000033
+            }
+          ]
+        },
+        {
+          "n": 262144,
+          "width": 4,
+          "samples": [
+            {
+              "candidate": false,
+              "ms": 18.833667000000105
+            },
+            {
+              "candidate": true,
+              "ms": 13.016041000000087
+            },
+            {
+              "candidate": true,
+              "ms": 10.956042000000025
+            },
+            {
+              "candidate": false,
+              "ms": 22.949041999999963
+            },
+            {
+              "candidate": false,
+              "ms": 17.08070799999996
+            },
+            {
+              "candidate": true,
+              "ms": 11.492542000000185
+            },
+            {
+              "candidate": true,
+              "ms": 11.576874999999973
+            },
+            {
+              "candidate": false,
+              "ms": 17.410875000000033
+            },
+            {
+              "candidate": false,
+              "ms": 17.373959000000013
+            },
+            {
+              "candidate": true,
+              "ms": 12.166500000000042
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"n\":262144,\"width\":2,\"samples\":[{\"candidate\":false,\"ms\":9.884416999999985},{\"candidate\":true,\"ms\":6.894333999999958},{\"candidate\":true,\"ms\":6.85283400000003},{\"candidate\":false,\"ms\":9.993208000000095},{\"candidate\":false,\"ms\":9.952957999999967},{\"candidate\":true,\"ms\":6.884083999999916},{\"candidate\":true,\"ms\":6.611332999999945},{\"candidate\":false,\"ms\":9.797249999999963},{\"candidate\":false,\"ms\":14.72783400000003},{\"candidate\":true,\"ms\":14.723375000000033}]}\n{\"n\":262144,\"width\":4,\"samples\":[{\"candidate\":false,\"ms\":18.833667000000105},{\"candidate\":true,\"ms\":13.016041000000087},{\"candidate\":true,\"ms\":10.956042000000025},{\"candidate\":false,\"ms\":22.949041999999963},{\"candidate\":false,\"ms\":17.08070799999996},{\"candidate\":true,\"ms\":11.492542000000185},{\"candidate\":true,\"ms\":11.576874999999973},{\"candidate\":false,\"ms\":17.410875000000033},{\"candidate\":false,\"ms\":17.373959000000013},{\"candidate\":true,\"ms\":12.166500000000042}]}\nChecked short convolution, shard halos, zero/sparse masks, unequal widths and rejection.\n",
+      "stderr": "(node:40414) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.6b",
+      "ref": "64200da0c",
+      "file": "univariate/check-short-convolution.ts",
+      "invocation": 2,
+      "exitCode": 0,
+      "wallMs": 1537,
+      "rows": [
+        {
+          "n": 262144,
+          "width": 2,
+          "samples": [
+            {
+              "candidate": false,
+              "ms": 10.011499999999955
+            },
+            {
+              "candidate": true,
+              "ms": 7.160082999999986
+            },
+            {
+              "candidate": true,
+              "ms": 7.14266699999996
+            },
+            {
+              "candidate": false,
+              "ms": 9.848500000000058
+            },
+            {
+              "candidate": false,
+              "ms": 10.148041000000035
+            },
+            {
+              "candidate": true,
+              "ms": 7.761000000000081
+            },
+            {
+              "candidate": true,
+              "ms": 7.230500000000006
+            },
+            {
+              "candidate": false,
+              "ms": 10.551874999999995
+            },
+            {
+              "candidate": false,
+              "ms": 17.918124999999918
+            },
+            {
+              "candidate": true,
+              "ms": 13.59274999999991
+            }
+          ]
+        },
+        {
+          "n": 262144,
+          "width": 4,
+          "samples": [
+            {
+              "candidate": false,
+              "ms": 18.603707999999983
+            },
+            {
+              "candidate": true,
+              "ms": 12.912207999999964
+            },
+            {
+              "candidate": true,
+              "ms": 12.757583999999952
+            },
+            {
+              "candidate": false,
+              "ms": 24.075832999999875
+            },
+            {
+              "candidate": false,
+              "ms": 17.097166000000016
+            },
+            {
+              "candidate": true,
+              "ms": 13.015958999999839
+            },
+            {
+              "candidate": true,
+              "ms": 13.317833000000064
+            },
+            {
+              "candidate": false,
+              "ms": 17.35570800000005
+            },
+            {
+              "candidate": false,
+              "ms": 17.791625000000067
+            },
+            {
+              "candidate": true,
+              "ms": 13.196041999999807
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"n\":262144,\"width\":2,\"samples\":[{\"candidate\":false,\"ms\":10.011499999999955},{\"candidate\":true,\"ms\":7.160082999999986},{\"candidate\":true,\"ms\":7.14266699999996},{\"candidate\":false,\"ms\":9.848500000000058},{\"candidate\":false,\"ms\":10.148041000000035},{\"candidate\":true,\"ms\":7.761000000000081},{\"candidate\":true,\"ms\":7.230500000000006},{\"candidate\":false,\"ms\":10.551874999999995},{\"candidate\":false,\"ms\":17.918124999999918},{\"candidate\":true,\"ms\":13.59274999999991}]}\n{\"n\":262144,\"width\":4,\"samples\":[{\"candidate\":false,\"ms\":18.603707999999983},{\"candidate\":true,\"ms\":12.912207999999964},{\"candidate\":true,\"ms\":12.757583999999952},{\"candidate\":false,\"ms\":24.075832999999875},{\"candidate\":false,\"ms\":17.097166000000016},{\"candidate\":true,\"ms\":13.015958999999839},{\"candidate\":true,\"ms\":13.317833000000064},{\"candidate\":false,\"ms\":17.35570800000005},{\"candidate\":false,\"ms\":17.791625000000067},{\"candidate\":true,\"ms\":13.196041999999807}]}\nChecked short convolution, shard halos, zero/sparse masks, unequal widths and rejection.\n",
+      "stderr": "(node:40442) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.6c",
+      "ref": "e7c59c46d",
+      "file": "univariate/check-product-difference.ts",
+      "invocation": 1,
+      "exitCode": 0,
+      "wallMs": 1063,
+      "rows": [
+        {
+          "n": 262144,
+          "samples": [
+            {
+              "candidate": false,
+              "ms": 16.83533299999999
+            },
+            {
+              "candidate": true,
+              "ms": 19.05904099999998
+            },
+            {
+              "candidate": true,
+              "ms": 8.634957999999983
+            },
+            {
+              "candidate": false,
+              "ms": 11.15970900000002
+            },
+            {
+              "candidate": false,
+              "ms": 11.590874999999983
+            },
+            {
+              "candidate": true,
+              "ms": 7.842208000000028
+            },
+            {
+              "candidate": true,
+              "ms": 7.85287500000004
+            },
+            {
+              "candidate": false,
+              "ms": 10.775458999999955
+            },
+            {
+              "candidate": false,
+              "ms": 10.586333999999965
+            },
+            {
+              "candidate": true,
+              "ms": 7.777707999999961
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"n\":262144,\"samples\":[{\"candidate\":false,\"ms\":16.83533299999999},{\"candidate\":true,\"ms\":19.05904099999998},{\"candidate\":true,\"ms\":8.634957999999983},{\"candidate\":false,\"ms\":11.15970900000002},{\"candidate\":false,\"ms\":11.590874999999983},{\"candidate\":true,\"ms\":7.842208000000028},{\"candidate\":true,\"ms\":7.85287500000004},{\"candidate\":false,\"ms\":10.775458999999955},{\"candidate\":false,\"ms\":10.586333999999965},{\"candidate\":true,\"ms\":7.777707999999961}]}\nChecked fused product differences, zeros, cancellation, uneven/empty ranges and malformed buffers.\n",
+      "stderr": "(node:40472) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.6c",
+      "ref": "e7c59c46d",
+      "file": "univariate/check-product-difference.ts",
+      "invocation": 2,
+      "exitCode": 0,
+      "wallMs": 1032,
+      "rows": [
+        {
+          "n": 262144,
+          "samples": [
+            {
+              "candidate": false,
+              "ms": 16.871667000000002
+            },
+            {
+              "candidate": true,
+              "ms": 14.912874999999985
+            },
+            {
+              "candidate": true,
+              "ms": 8.540583000000083
+            },
+            {
+              "candidate": false,
+              "ms": 10.823500000000081
+            },
+            {
+              "candidate": false,
+              "ms": 10.431707999999958
+            },
+            {
+              "candidate": true,
+              "ms": 7.7553329999999505
+            },
+            {
+              "candidate": true,
+              "ms": 7.703416000000061
+            },
+            {
+              "candidate": false,
+              "ms": 11.034208000000035
+            },
+            {
+              "candidate": false,
+              "ms": 11.897291999999993
+            },
+            {
+              "candidate": true,
+              "ms": 8.086374999999975
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"n\":262144,\"samples\":[{\"candidate\":false,\"ms\":16.871667000000002},{\"candidate\":true,\"ms\":14.912874999999985},{\"candidate\":true,\"ms\":8.540583000000083},{\"candidate\":false,\"ms\":10.823500000000081},{\"candidate\":false,\"ms\":10.431707999999958},{\"candidate\":true,\"ms\":7.7553329999999505},{\"candidate\":true,\"ms\":7.703416000000061},{\"candidate\":false,\"ms\":11.034208000000035},{\"candidate\":false,\"ms\":11.897291999999993},{\"candidate\":true,\"ms\":8.086374999999975}]}\nChecked fused product differences, zeros, cancellation, uneven/empty ranges and malformed buffers.\n",
+      "stderr": "(node:40520) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.6d",
+      "ref": "19bba9790",
+      "file": "univariate/check-combination-ruffini.ts",
+      "invocation": 1,
+      "exitCode": 0,
+      "wallMs": 2620,
+      "rows": [
+        {
+          "n": 262144,
+          "terms": 2,
+          "samples": [
+            {
+              "candidate": false,
+              "ms": 38.74595899999997
+            },
+            {
+              "candidate": true,
+              "ms": 73.035125
+            },
+            {
+              "candidate": true,
+              "ms": 73.48324999999988
+            },
+            {
+              "candidate": false,
+              "ms": 36.80295799999999
+            },
+            {
+              "candidate": false,
+              "ms": 37.909582999999884
+            },
+            {
+              "candidate": true,
+              "ms": 72.97966599999995
+            },
+            {
+              "candidate": true,
+              "ms": 71.75762500000019
+            },
+            {
+              "candidate": false,
+              "ms": 38.544124999999894
+            },
+            {
+              "candidate": false,
+              "ms": 39.16333400000008
+            },
+            {
+              "candidate": true,
+              "ms": 71.41954199999986
+            }
+          ]
+        },
+        {
+          "n": 262144,
+          "terms": 4,
+          "samples": [
+            {
+              "candidate": false,
+              "ms": 60.49475000000007
+            },
+            {
+              "candidate": true,
+              "ms": 95.27054099999987
+            },
+            {
+              "candidate": true,
+              "ms": 92.135041
+            },
+            {
+              "candidate": false,
+              "ms": 48.665250000000015
+            },
+            {
+              "candidate": false,
+              "ms": 49.234707999999955
+            },
+            {
+              "candidate": true,
+              "ms": 95.20433300000013
+            },
+            {
+              "candidate": true,
+              "ms": 94.52375000000006
+            },
+            {
+              "candidate": false,
+              "ms": 47.683084000000235
+            },
+            {
+              "candidate": false,
+              "ms": 48.19579200000044
+            },
+            {
+              "candidate": true,
+              "ms": 96.41349999999966
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"n\":262144,\"terms\":2,\"samples\":[{\"candidate\":false,\"ms\":38.74595899999997},{\"candidate\":true,\"ms\":73.035125},{\"candidate\":true,\"ms\":73.48324999999988},{\"candidate\":false,\"ms\":36.80295799999999},{\"candidate\":false,\"ms\":37.909582999999884},{\"candidate\":true,\"ms\":72.97966599999995},{\"candidate\":true,\"ms\":71.75762500000019},{\"candidate\":false,\"ms\":38.544124999999894},{\"candidate\":false,\"ms\":39.16333400000008},{\"candidate\":true,\"ms\":71.41954199999986}]}\n{\"n\":262144,\"terms\":4,\"samples\":[{\"candidate\":false,\"ms\":60.49475000000007},{\"candidate\":true,\"ms\":95.27054099999987},{\"candidate\":true,\"ms\":92.135041},{\"candidate\":false,\"ms\":48.665250000000015},{\"candidate\":false,\"ms\":49.234707999999955},{\"candidate\":true,\"ms\":95.20433300000013},{\"candidate\":true,\"ms\":94.52375000000006},{\"candidate\":false,\"ms\":47.683084000000235},{\"candidate\":false,\"ms\":48.19579200000044},{\"candidate\":true,\"ms\":96.41349999999966}]}\nChecked same-worker combination/Ruffini quotient and remainder, constants, zero terms, cancellation and unequal lengths.\n",
+      "stderr": "(node:40528) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.6d",
+      "ref": "19bba9790",
+      "file": "univariate/check-combination-ruffini.ts",
+      "invocation": 2,
+      "exitCode": 0,
+      "wallMs": 2588,
+      "rows": [
+        {
+          "n": 262144,
+          "terms": 2,
+          "samples": [
+            {
+              "candidate": false,
+              "ms": 38.356416999999965
+            },
+            {
+              "candidate": true,
+              "ms": 71.96991700000001
+            },
+            {
+              "candidate": true,
+              "ms": 72.9507910000001
+            },
+            {
+              "candidate": false,
+              "ms": 37.09962500000006
+            },
+            {
+              "candidate": false,
+              "ms": 38.052208000000064
+            },
+            {
+              "candidate": true,
+              "ms": 71.69370799999979
+            },
+            {
+              "candidate": true,
+              "ms": 72.25087500000018
+            },
+            {
+              "candidate": false,
+              "ms": 38.73933299999999
+            },
+            {
+              "candidate": false,
+              "ms": 38.97649999999999
+            },
+            {
+              "candidate": true,
+              "ms": 71.88870799999995
+            }
+          ]
+        },
+        {
+          "n": 262144,
+          "terms": 4,
+          "samples": [
+            {
+              "candidate": false,
+              "ms": 55.72437500000001
+            },
+            {
+              "candidate": true,
+              "ms": 95.00695799999994
+            },
+            {
+              "candidate": true,
+              "ms": 93.80054199999995
+            },
+            {
+              "candidate": false,
+              "ms": 46.70791600000007
+            },
+            {
+              "candidate": false,
+              "ms": 46.81683300000009
+            },
+            {
+              "candidate": true,
+              "ms": 95.26920799999994
+            },
+            {
+              "candidate": true,
+              "ms": 94.5805829999997
+            },
+            {
+              "candidate": false,
+              "ms": 46.81441700000005
+            },
+            {
+              "candidate": false,
+              "ms": 46.87229100000013
+            },
+            {
+              "candidate": true,
+              "ms": 94.2947079999999
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"n\":262144,\"terms\":2,\"samples\":[{\"candidate\":false,\"ms\":38.356416999999965},{\"candidate\":true,\"ms\":71.96991700000001},{\"candidate\":true,\"ms\":72.9507910000001},{\"candidate\":false,\"ms\":37.09962500000006},{\"candidate\":false,\"ms\":38.052208000000064},{\"candidate\":true,\"ms\":71.69370799999979},{\"candidate\":true,\"ms\":72.25087500000018},{\"candidate\":false,\"ms\":38.73933299999999},{\"candidate\":false,\"ms\":38.97649999999999},{\"candidate\":true,\"ms\":71.88870799999995}]}\n{\"n\":262144,\"terms\":4,\"samples\":[{\"candidate\":false,\"ms\":55.72437500000001},{\"candidate\":true,\"ms\":95.00695799999994},{\"candidate\":true,\"ms\":93.80054199999995},{\"candidate\":false,\"ms\":46.70791600000007},{\"candidate\":false,\"ms\":46.81683300000009},{\"candidate\":true,\"ms\":95.26920799999994},{\"candidate\":true,\"ms\":94.5805829999997},{\"candidate\":false,\"ms\":46.81441700000005},{\"candidate\":false,\"ms\":46.87229100000013},{\"candidate\":true,\"ms\":94.2947079999999}]}\nChecked same-worker combination/Ruffini quotient and remainder, constants, zero terms, cancellation and unequal lengths.\n",
+      "stderr": "(node:40601) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.6e",
+      "ref": "c3358279f",
+      "file": "univariate/check-permutation-batching.ts",
+      "invocation": 1,
+      "exitCode": 0,
+      "wallMs": 1905,
+      "rows": [
+        {
+          "n": 262144,
+          "explicitMappings": 32768,
+          "samples": [
+            {
+              "candidate": false,
+              "ms": 123.87958299999991
+            },
+            {
+              "candidate": true,
+              "ms": 17.795250000000124
+            },
+            {
+              "candidate": true,
+              "ms": 14.90033399999993
+            },
+            {
+              "candidate": false,
+              "ms": 128.65137499999992
+            },
+            {
+              "candidate": false,
+              "ms": 119.82066699999996
+            },
+            {
+              "candidate": true,
+              "ms": 14.232124999999996
+            },
+            {
+              "candidate": true,
+              "ms": 14.126416999999947
+            },
+            {
+              "candidate": false,
+              "ms": 121.7159999999999
+            },
+            {
+              "candidate": false,
+              "ms": 121.09654100000012
+            },
+            {
+              "candidate": true,
+              "ms": 13.76954099999989
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"n\":262144,\"explicitMappings\":32768,\"samples\":[{\"candidate\":false,\"ms\":123.87958299999991},{\"candidate\":true,\"ms\":17.795250000000124},{\"candidate\":true,\"ms\":14.90033399999993},{\"candidate\":false,\"ms\":128.65137499999992},{\"candidate\":false,\"ms\":119.82066699999996},{\"candidate\":true,\"ms\":14.232124999999996},{\"candidate\":true,\"ms\":14.126416999999947},{\"candidate\":false,\"ms\":121.7159999999999},{\"candidate\":false,\"ms\":121.09654100000012},{\"candidate\":true,\"ms\":13.76954099999989}]}\nChecked batched permutation roots/gather, identity, inactive slots, singleton, coefficient parity and admission failures.\n",
+      "stderr": "(node:40656) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.6e",
+      "ref": "c3358279f",
+      "file": "univariate/check-permutation-batching.ts",
+      "invocation": 2,
+      "exitCode": 0,
+      "wallMs": 1887,
+      "rows": [
+        {
+          "n": 262144,
+          "explicitMappings": 32768,
+          "samples": [
+            {
+              "candidate": false,
+              "ms": 124.41758300000004
+            },
+            {
+              "candidate": true,
+              "ms": 15.255708000000027
+            },
+            {
+              "candidate": true,
+              "ms": 15.569500000000062
+            },
+            {
+              "candidate": false,
+              "ms": 130.13920800000005
+            },
+            {
+              "candidate": false,
+              "ms": 120.76766700000007
+            },
+            {
+              "candidate": true,
+              "ms": 14.513249999999971
+            },
+            {
+              "candidate": true,
+              "ms": 14.240249999999833
+            },
+            {
+              "candidate": false,
+              "ms": 121.48808400000007
+            },
+            {
+              "candidate": false,
+              "ms": 120.51762499999995
+            },
+            {
+              "candidate": true,
+              "ms": 14.34595800000011
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"n\":262144,\"explicitMappings\":32768,\"samples\":[{\"candidate\":false,\"ms\":124.41758300000004},{\"candidate\":true,\"ms\":15.255708000000027},{\"candidate\":true,\"ms\":15.569500000000062},{\"candidate\":false,\"ms\":130.13920800000005},{\"candidate\":false,\"ms\":120.76766700000007},{\"candidate\":true,\"ms\":14.513249999999971},{\"candidate\":true,\"ms\":14.240249999999833},{\"candidate\":false,\"ms\":121.48808400000007},{\"candidate\":false,\"ms\":120.51762499999995},{\"candidate\":true,\"ms\":14.34595800000011}]}\nChecked batched permutation roots/gather, identity, inactive slots, singleton, coefficient parity and admission failures.\n",
+      "stderr": "(node:40704) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.6f",
+      "ref": "3f77a1c3c",
+      "file": "univariate/check-sparse-placement.ts",
+      "invocation": 1,
+      "exitCode": 0,
+      "wallMs": 1551,
+      "rows": [
+        {
+          "rows": [
+            1024,
+            512,
+            1024
+          ],
+          "placements": 207,
+          "samples": [
+            {
+              "candidate": false,
+              "ms": 96.10925000000003
+            },
+            {
+              "candidate": true,
+              "ms": 82.15945800000003
+            },
+            {
+              "candidate": true,
+              "ms": 81.60000000000002
+            },
+            {
+              "candidate": false,
+              "ms": 86.30287499999997
+            },
+            {
+              "candidate": false,
+              "ms": 89.09616600000004
+            },
+            {
+              "candidate": true,
+              "ms": 83.50274999999999
+            },
+            {
+              "candidate": true,
+              "ms": 83.49145900000008
+            },
+            {
+              "candidate": false,
+              "ms": 87.58687499999996
+            },
+            {
+              "candidate": false,
+              "ms": 85.98783300000014
+            },
+            {
+              "candidate": true,
+              "ms": 80.46404099999995
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"rows\":[1024,512,1024],\"placements\":207,\"samples\":[{\"candidate\":false,\"ms\":96.10925000000003},{\"candidate\":true,\"ms\":82.15945800000003},{\"candidate\":true,\"ms\":81.60000000000002},{\"candidate\":false,\"ms\":86.30287499999997},{\"candidate\":false,\"ms\":89.09616600000004},{\"candidate\":true,\"ms\":83.50274999999999},{\"candidate\":true,\"ms\":83.49145900000008},{\"candidate\":false,\"ms\":87.58687499999996},{\"candidate\":false,\"ms\":85.98783300000014},{\"candidate\":true,\"ms\":80.46404099999995}]}\nChecked placement-batched sparse rows, scalar oracle, empty/unequal rows, zeros and malformed input.\n",
+      "stderr": "(node:40759) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.6f",
+      "ref": "3f77a1c3c",
+      "file": "univariate/check-sparse-placement.ts",
+      "invocation": 2,
+      "exitCode": 0,
+      "wallMs": 1534,
+      "rows": [
+        {
+          "rows": [
+            1024,
+            512,
+            1024
+          ],
+          "placements": 207,
+          "samples": [
+            {
+              "candidate": false,
+              "ms": 93.15029199999998
+            },
+            {
+              "candidate": true,
+              "ms": 83.352708
+            },
+            {
+              "candidate": true,
+              "ms": 80.53674999999998
+            },
+            {
+              "candidate": false,
+              "ms": 87.90295900000001
+            },
+            {
+              "candidate": false,
+              "ms": 88.15983299999994
+            },
+            {
+              "candidate": true,
+              "ms": 81.10312499999998
+            },
+            {
+              "candidate": true,
+              "ms": 81.77137500000003
+            },
+            {
+              "candidate": false,
+              "ms": 90.27112499999998
+            },
+            {
+              "candidate": false,
+              "ms": 88.27720799999997
+            },
+            {
+              "candidate": true,
+              "ms": 81.99795799999993
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"rows\":[1024,512,1024],\"placements\":207,\"samples\":[{\"candidate\":false,\"ms\":93.15029199999998},{\"candidate\":true,\"ms\":83.352708},{\"candidate\":true,\"ms\":80.53674999999998},{\"candidate\":false,\"ms\":87.90295900000001},{\"candidate\":false,\"ms\":88.15983299999994},{\"candidate\":true,\"ms\":81.10312499999998},{\"candidate\":true,\"ms\":81.77137500000003},{\"candidate\":false,\"ms\":90.27112499999998},{\"candidate\":false,\"ms\":88.27720799999997},{\"candidate\":true,\"ms\":81.99795799999993}]}\nChecked placement-batched sparse rows, scalar oracle, empty/unequal rows, zeros and malformed input.\n",
+      "stderr": "(node:40784) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.6g",
+      "ref": "19bba9790",
+      "file": "univariate/check-selection-cofactors.ts",
+      "invocation": 1,
+      "exitCode": 0,
+      "wallMs": 976,
+      "rows": [
+        {
+          "width": 256,
+          "samples": [
+            {
+              "candidate": false,
+              "ms": 39.61212499999999
+            },
+            {
+              "candidate": true,
+              "ms": 2.216041999999959
+            },
+            {
+              "candidate": true,
+              "ms": 2.1721670000000017
+            },
+            {
+              "candidate": false,
+              "ms": 39.47891700000008
+            },
+            {
+              "candidate": false,
+              "ms": 39.40466600000002
+            },
+            {
+              "candidate": true,
+              "ms": 2.237875000000031
+            },
+            {
+              "candidate": true,
+              "ms": 2.200625000000059
+            },
+            {
+              "candidate": false,
+              "ms": 39.11520799999994
+            },
+            {
+              "candidate": false,
+              "ms": 39.16112499999997
+            },
+            {
+              "candidate": true,
+              "ms": 2.401124999999979
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"width\":256,\"samples\":[{\"candidate\":false,\"ms\":39.61212499999999},{\"candidate\":true,\"ms\":2.216041999999959},{\"candidate\":true,\"ms\":2.1721670000000017},{\"candidate\":false,\"ms\":39.47891700000008},{\"candidate\":false,\"ms\":39.40466600000002},{\"candidate\":true,\"ms\":2.237875000000031},{\"candidate\":true,\"ms\":2.200625000000059},{\"candidate\":false,\"ms\":39.11520799999994},{\"candidate\":false,\"ms\":39.16112499999997},{\"candidate\":true,\"ms\":2.401124999999979}]}\nChecked worker cofactors, row order, inactive/singleton roots, empty/sparse witness and malformed shapes.\n",
+      "stderr": "(node:40837) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.6g",
+      "ref": "19bba9790",
+      "file": "univariate/check-selection-cofactors.ts",
+      "invocation": 2,
+      "exitCode": 0,
+      "wallMs": 980,
+      "rows": [
+        {
+          "width": 256,
+          "samples": [
+            {
+              "candidate": false,
+              "ms": 38.80991700000004
+            },
+            {
+              "candidate": true,
+              "ms": 2.4733750000000327
+            },
+            {
+              "candidate": true,
+              "ms": 2.3154579999999783
+            },
+            {
+              "candidate": false,
+              "ms": 38.671708000000024
+            },
+            {
+              "candidate": false,
+              "ms": 38.50004100000001
+            },
+            {
+              "candidate": true,
+              "ms": 3.373917000000006
+            },
+            {
+              "candidate": true,
+              "ms": 2.833750000000009
+            },
+            {
+              "candidate": false,
+              "ms": 38.88554199999999
+            },
+            {
+              "candidate": false,
+              "ms": 38.67566599999998
+            },
+            {
+              "candidate": true,
+              "ms": 3.035082999999986
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"width\":256,\"samples\":[{\"candidate\":false,\"ms\":38.80991700000004},{\"candidate\":true,\"ms\":2.4733750000000327},{\"candidate\":true,\"ms\":2.3154579999999783},{\"candidate\":false,\"ms\":38.671708000000024},{\"candidate\":false,\"ms\":38.50004100000001},{\"candidate\":true,\"ms\":3.373917000000006},{\"candidate\":true,\"ms\":2.833750000000009},{\"candidate\":false,\"ms\":38.88554199999999},{\"candidate\":false,\"ms\":38.67566599999998},{\"candidate\":true,\"ms\":3.035082999999986}]}\nChecked worker cofactors, row order, inactive/singleton roots, empty/sparse witness and malformed shapes.\n",
+      "stderr": "(node:40865) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.6h",
+      "ref": "c318baece",
+      "file": "binary/check-crs-readahead.ts",
+      "invocation": 1,
+      "exitCode": 0,
+      "wallMs": 457,
+      "rows": [
+        {
+          "artificialLoadDelayMs": 3,
+          "chunks": 8,
+          "samples": [
+            {
+              "candidate": false,
+              "ms": 30.47316699999999,
+              "loads": 8,
+              "peak": 1
+            },
+            {
+              "candidate": true,
+              "ms": 15.414375000000007,
+              "loads": 8,
+              "peak": 2
+            },
+            {
+              "candidate": true,
+              "ms": 15.445084000000008,
+              "loads": 8,
+              "peak": 2
+            },
+            {
+              "candidate": false,
+              "ms": 30.137417,
+              "loads": 8,
+              "peak": 1
+            },
+            {
+              "candidate": false,
+              "ms": 29.878916000000032,
+              "loads": 8,
+              "peak": 1
+            },
+            {
+              "candidate": true,
+              "ms": 14.100124999999991,
+              "loads": 8,
+              "peak": 2
+            },
+            {
+              "candidate": true,
+              "ms": 15.165084000000036,
+              "loads": 8,
+              "peak": 2
+            },
+            {
+              "candidate": false,
+              "ms": 29.913958000000036,
+              "loads": 8,
+              "peak": 1
+            },
+            {
+              "candidate": false,
+              "ms": 29.92537500000003,
+              "loads": 8,
+              "peak": 1
+            },
+            {
+              "candidate": true,
+              "ms": 15.40829199999996,
+              "loads": 8,
+              "peak": 2
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"artificialLoadDelayMs\":3,\"chunks\":8,\"samples\":[{\"candidate\":false,\"ms\":30.47316699999999,\"loads\":8,\"peak\":1},{\"candidate\":true,\"ms\":15.414375000000007,\"loads\":8,\"peak\":2},{\"candidate\":true,\"ms\":15.445084000000008,\"loads\":8,\"peak\":2},{\"candidate\":false,\"ms\":30.137417,\"loads\":8,\"peak\":1},{\"candidate\":false,\"ms\":29.878916000000032,\"loads\":8,\"peak\":1},{\"candidate\":true,\"ms\":14.100124999999991,\"loads\":8,\"peak\":2},{\"candidate\":true,\"ms\":15.165084000000036,\"loads\":8,\"peak\":2},{\"candidate\":false,\"ms\":29.913958000000036,\"loads\":8,\"peak\":1},{\"candidate\":false,\"ms\":29.92537500000003,\"loads\":8,\"peak\":1},{\"candidate\":true,\"ms\":15.40829199999996,\"loads\":8,\"peak\":2}]}\nChecked bounded requested-range readahead, contiguous/strided order, digest-off/on and consumed/unconsumed failures.\n",
+      "stderr": "(node:41796) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    },
+    {
+      "id": "W10.6h",
+      "ref": "c318baece",
+      "file": "binary/check-crs-readahead.ts",
+      "invocation": 2,
+      "exitCode": 0,
+      "wallMs": 459,
+      "rows": [
+        {
+          "artificialLoadDelayMs": 3,
+          "chunks": 8,
+          "samples": [
+            {
+              "candidate": false,
+              "ms": 30.520375000000016,
+              "loads": 8,
+              "peak": 1
+            },
+            {
+              "candidate": true,
+              "ms": 15.371208000000024,
+              "loads": 8,
+              "peak": 2
+            },
+            {
+              "candidate": true,
+              "ms": 14.109875000000017,
+              "loads": 8,
+              "peak": 2
+            },
+            {
+              "candidate": false,
+              "ms": 29.259500000000003,
+              "loads": 8,
+              "peak": 1
+            },
+            {
+              "candidate": false,
+              "ms": 30.518917000000016,
+              "loads": 8,
+              "peak": 1
+            },
+            {
+              "candidate": true,
+              "ms": 15.349833000000018,
+              "loads": 8,
+              "peak": 2
+            },
+            {
+              "candidate": true,
+              "ms": 15.261124999999993,
+              "loads": 8,
+              "peak": 2
+            },
+            {
+              "candidate": false,
+              "ms": 29.26237500000002,
+              "loads": 8,
+              "peak": 1
+            },
+            {
+              "candidate": false,
+              "ms": 30.57291699999996,
+              "loads": 8,
+              "peak": 1
+            },
+            {
+              "candidate": true,
+              "ms": 15.277958000000012,
+              "loads": 8,
+              "peak": 2
+            }
+          ]
+        }
+      ],
+      "stdout": "{\"artificialLoadDelayMs\":3,\"chunks\":8,\"samples\":[{\"candidate\":false,\"ms\":30.520375000000016,\"loads\":8,\"peak\":1},{\"candidate\":true,\"ms\":15.371208000000024,\"loads\":8,\"peak\":2},{\"candidate\":true,\"ms\":14.109875000000017,\"loads\":8,\"peak\":2},{\"candidate\":false,\"ms\":29.259500000000003,\"loads\":8,\"peak\":1},{\"candidate\":false,\"ms\":30.518917000000016,\"loads\":8,\"peak\":1},{\"candidate\":true,\"ms\":15.349833000000018,\"loads\":8,\"peak\":2},{\"candidate\":true,\"ms\":15.261124999999993,\"loads\":8,\"peak\":2},{\"candidate\":false,\"ms\":29.26237500000002,\"loads\":8,\"peak\":1},{\"candidate\":false,\"ms\":30.57291699999996,\"loads\":8,\"peak\":1},{\"candidate\":true,\"ms\":15.277958000000012,\"loads\":8,\"peak\":2}]}\nChecked bounded requested-range readahead, contiguous/strided order, digest-off/on and consumed/unconsumed failures.\n",
+      "stderr": "(node:41821) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n"
+    }
+  ],
+  "setupFailures": [
+    {
+      "id": "W10.6h",
+      "ref": "c318baece",
+      "file": "binary/check-crs-readahead.ts",
+      "invocation": 1,
+      "exitCode": 1,
+      "wallMs": 204,
+      "rows": [],
+      "stdout": "",
+      "stderr": "\nnode:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\nError [ERR_MODULE_NOT_FOUND]: Cannot find module '/private/tmp/tokamak-w10-retest-59CeYU/source/packages/backend/wasm/src/generated/active/setup.generated.js' imported from /private/tmp/tokamak-w10-retest-59CeYU/source/packages/backend/wasm/src/artifacts/binary/compatibility.ts\n    at finalizeResolution (node:internal/modules/esm/resolve:271:11)\n    at moduleResolve (node:internal/modules/esm/resolve:861:10)\n    at defaultResolve (node:internal/modules/esm/resolve:988:11)\n    at nextResolve (node:internal/modules/esm/hooks:769:28)\n    at resolveBase (file:///Users/jehyuk/repo/Tokamak-zk-EVM/node_modules/tsx/dist/esm/index.mjs?1789385007976:2:3744)\n    at async resolveDirectory (file:///Users/jehyuk/repo/Tokamak-zk-EVM/node_modules/tsx/dist/esm/index.mjs?1789385007976:2:4237)\n    at async resolve (file:///Users/jehyuk/repo/Tokamak-zk-EVM/node_modules/tsx/dist/esm/index.mjs?1789385007976:2:5355)\n    at async nextResolve (node:internal/modules/esm/hooks:769:22)\n    at async AsyncLoaderHooksOnLoaderHookWorker.resolve (node:internal/modules/esm/hooks:265:24)\n    at async handleMessage (node:internal/modules/esm/worker:251:18) {\n  code: 'ERR_MODULE_NOT_FOUND',\n  url: 'file:///private/tmp/tokamak-w10-retest-59CeYU/source/packages/backend/wasm/src/generated/active/setup.generated.js'\n}\n\nNode.js v26.0.0\n"
+    }
+  ],
+  "comparison": [
+    {
+      "id": "W10.1",
+      "variant": {},
+      "previousEvidence": "wasm-w10-boundary-unit.json",
+      "previous": {
+        "controlMeanMs": 150.3149,
+        "candidateMeanMs": 32.69036680000001,
+        "reductionPercent": 78.2520782703511
+      },
+      "runs": [
+        {
+          "controlMeanMs": 153.39799979999992,
+          "candidateMeanMs": 31.731258400000023,
+          "reductionPercent": 79.31442493293838
+        },
+        {
+          "controlMeanMs": 152.5012916,
+          "candidateMeanMs": 30.94688340000007,
+          "reductionPercent": 79.70713357551651
+        }
+      ],
+      "directionReproduced": true,
+      "decision": "Retain existing implementation"
+    },
+    {
+      "id": "W10.2",
+      "variant": {},
+      "previousEvidence": "wasm-w10-recurrence-unit.json",
+      "previous": {
+        "controlMeanMs": 402.5302668,
+        "candidateMeanMs": 82.791767,
+        "reductionPercent": 79.4321635343919
+      },
+      "runs": [
+        {
+          "controlMeanMs": 396.0575665999999,
+          "candidateMeanMs": 80.55236699999992,
+          "reductionPercent": 79.66144980096944
+        },
+        {
+          "controlMeanMs": 405.71022480000005,
+          "candidateMeanMs": 80.6818162000001,
+          "reductionPercent": 80.11343780162967
+        }
+      ],
+      "directionReproduced": true,
+      "decision": "Retain existing implementation"
+    },
+    {
+      "id": "W10.3a",
+      "variant": {},
+      "previousEvidence": "wasm-w10-grouped-unit.json",
+      "previous": {
+        "controlMeanMs": 718.12435,
+        "candidateMeanMs": 734.2737665999999,
+        "reductionPercent": -2.2488328936346225
+      },
+      "runs": [
+        {
+          "controlMeanMs": 684.7106245999996,
+          "candidateMeanMs": 723.8942164000001,
+          "reductionPercent": -5.722649889198239
+        },
+        {
+          "controlMeanMs": 698.645525,
+          "candidateMeanMs": 709.7380082,
+          "reductionPercent": -1.5877126243669881
+        }
+      ],
+      "directionReproduced": true,
+      "decision": "Remain unadopted; unit results do not supersede previous whole-prover qualification"
+    },
+    {
+      "id": "W10.3b",
+      "variant": {},
+      "previousEvidence": "wasm-w10-shared-scalars-unit.json",
+      "previous": {
+        "controlMeanMs": 5.5638416,
+        "candidateMeanMs": 2.4921418,
+        "reductionPercent": 55.208253951730036
+      },
+      "runs": [
+        {
+          "controlMeanMs": 4.889933399999973,
+          "candidateMeanMs": 2.3992583999999626,
+          "reductionPercent": 50.93474279220294
+        },
+        {
+          "controlMeanMs": 4.805450200000041,
+          "candidateMeanMs": 2.485158200000069,
+          "reductionPercent": 48.28459152484719
+        }
+      ],
+      "directionReproduced": true,
+      "decision": "Remain unadopted; unit results do not supersede previous whole-prover qualification"
+    },
+    {
+      "id": "W10.3c",
+      "variant": {},
+      "previousEvidence": "wasm-w10-shared-bases-unit.json",
+      "previous": {
+        "controlMeanMs": 1784.0492,
+        "candidateMeanMs": 1812.8437999999999,
+        "reductionPercent": -1.614002573471618
+      },
+      "runs": [
+        {
+          "controlMeanMs": 1748.6878503999992,
+          "candidateMeanMs": 1727.9011584000007,
+          "reductionPercent": 1.1887022601114183
+        },
+        {
+          "controlMeanMs": 1751.4735749999995,
+          "candidateMeanMs": 1725.1420332000002,
+          "reductionPercent": 1.5033936095781075
+        }
+      ],
+      "directionReproduced": false,
+      "decision": "Remain unadopted; unit results do not supersede previous whole-prover qualification"
+    },
+    {
+      "id": "W10.4",
+      "variant": {
+        "count": 262144,
+        "width": 13
+      },
+      "previousEvidence": "wasm-w10-signed-unit-repeat.json",
+      "previous": {
+        "controlMeanMs": 702.7052416,
+        "candidateMeanMs": 655.4616334,
+        "reductionPercent": 6.723104568343674
+      },
+      "runs": [
+        {
+          "controlMeanMs": 710.0164334000008,
+          "candidateMeanMs": 655.6272000000008,
+          "reductionPercent": 7.660278106458806
+        },
+        {
+          "controlMeanMs": 702.0298336,
+          "candidateMeanMs": 654.7994579999995,
+          "reductionPercent": 6.727687818878536
+        }
+      ],
+      "directionReproduced": true,
+      "decision": "Retain existing implementation"
+    },
+    {
+      "id": "W10.5a",
+      "variant": {},
+      "previousEvidence": "wasm-w10-arithmetic-coset-unit.json",
+      "previous": {
+        "controlMeanMs": 579.8651752,
+        "candidateMeanMs": 433.1350916,
+        "reductionPercent": 25.304172396521587
+      },
+      "runs": [
+        {
+          "controlMeanMs": 591.8367251999999,
+          "candidateMeanMs": 436.8911832,
+          "reductionPercent": 26.18045406824645
+        },
+        {
+          "controlMeanMs": 586.6022166000004,
+          "candidateMeanMs": 429.13638340000017,
+          "reductionPercent": 26.843716021512233
+        }
+      ],
+      "directionReproduced": true,
+      "decision": "Remain unadopted; unit results do not supersede previous whole-prover qualification"
+    },
+    {
+      "id": "W10.5b",
+      "variant": {},
+      "previousEvidence": "wasm-w10-copy-coset-unit.json",
+      "previous": {
+        "controlMeanMs": 773.0977666,
+        "candidateMeanMs": 491.566125,
+        "reductionPercent": 36.41604642555696
+      },
+      "runs": [
+        {
+          "controlMeanMs": 771.9237418000001,
+          "candidateMeanMs": 487.1059165999999,
+          "reductionPercent": 36.897145375507115
+        },
+        {
+          "controlMeanMs": 772.7529667999995,
+          "candidateMeanMs": 486.44434999999993,
+          "reductionPercent": 37.05047137969781
+        }
+      ],
+      "directionReproduced": true,
+      "decision": "Retain existing implementation"
+    },
+    {
+      "id": "W10.6a",
+      "variant": {},
+      "previousEvidence": "wasm-w10-linear-combination-unit.json",
+      "previous": {
+        "controlMeanMs": 20.075175000000005,
+        "candidateMeanMs": 9.6735166,
+        "reductionPercent": 51.81353786455163
+      },
+      "runs": [
+        {
+          "controlMeanMs": 20.145391800000038,
+          "candidateMeanMs": 9.79528339999997,
+          "reductionPercent": 51.37705189729815
+        },
+        {
+          "controlMeanMs": 19.931883599999992,
+          "candidateMeanMs": 9.598250200000006,
+          "reductionPercent": 51.844740855299754
+        }
+      ],
+      "directionReproduced": true,
+      "decision": "Remain unadopted; unit results do not supersede previous whole-prover qualification"
+    },
+    {
+      "id": "W10.6b",
+      "variant": {
+        "width": 2
+      },
+      "previousEvidence": "wasm-w10-short-convolution-unit.json",
+      "previous": {
+        "controlMeanMs": 10.8313,
+        "candidateMeanMs": 7.916841600000001,
+        "reductionPercent": 26.9077432995116
+      },
+      "runs": [
+        {
+          "controlMeanMs": 10.871133400000009,
+          "candidateMeanMs": 8.393191999999976,
+          "reductionPercent": 22.79377235863954
+        },
+        {
+          "controlMeanMs": 11.695608199999992,
+          "candidateMeanMs": 8.577399999999988,
+          "reductionPercent": 26.66135994535116
+        }
+      ],
+      "directionReproduced": true,
+      "decision": "Remain unadopted; unit results do not supersede previous whole-prover qualification"
+    },
+    {
+      "id": "W10.6b",
+      "variant": {
+        "width": 4
+      },
+      "previousEvidence": "wasm-w10-short-convolution-unit.json",
+      "previous": {
+        "controlMeanMs": 17.3698166,
+        "candidateMeanMs": 12.625983399999999,
+        "reductionPercent": 27.310784617035054
+      },
+      "runs": [
+        {
+          "controlMeanMs": 18.729650200000016,
+          "candidateMeanMs": 11.841600000000062,
+          "reductionPercent": 36.77618175698737
+        },
+        {
+          "controlMeanMs": 18.984807999999997,
+          "candidateMeanMs": 13.039925199999924,
+          "reductionPercent": 31.31389477312635
+        }
+      ],
+      "directionReproduced": true,
+      "decision": "Remain unadopted; unit results do not supersede previous whole-prover qualification"
+    },
+    {
+      "id": "W10.6c",
+      "variant": {},
+      "previousEvidence": "wasm-w10-product-difference-unit.json",
+      "previous": {
+        "controlMeanMs": 11.1781164,
+        "candidateMeanMs": 8.7465248,
+        "reductionPercent": 21.753142595652353
+      },
+      "runs": [
+        {
+          "controlMeanMs": 12.189541999999983,
+          "candidateMeanMs": 10.233357999999999,
+          "reductionPercent": 16.04805168233545
+        },
+        {
+          "controlMeanMs": 12.211675000000014,
+          "candidateMeanMs": 9.399716400000012,
+          "reductionPercent": 23.026805086116354
+        }
+      ],
+      "directionReproduced": true,
+      "decision": "Remain unadopted; unit results do not supersede previous whole-prover qualification"
+    },
+    {
+      "id": "W10.6d",
+      "variant": {
+        "terms": 2
+      },
+      "previousEvidence": "wasm-w10-combination-ruffini-unit.json",
+      "previous": {
+        "controlMeanMs": 34.5546834,
+        "candidateMeanMs": 63.73687500000001,
+        "reductionPercent": -84.45220366278919
+      },
+      "runs": [
+        {
+          "controlMeanMs": 38.233191799999965,
+          "candidateMeanMs": 72.53504159999997,
+          "reductionPercent": -89.71746324354754
+        },
+        {
+          "controlMeanMs": 38.244816600000014,
+          "candidateMeanMs": 72.1507998,
+          "reductionPercent": -88.65510731720956
+        }
+      ],
+      "directionReproduced": true,
+      "decision": "Remain unadopted; unit results do not supersede previous whole-prover qualification"
+    },
+    {
+      "id": "W10.6d",
+      "variant": {
+        "terms": 4
+      },
+      "previousEvidence": "wasm-w10-combination-ruffini-unit.json",
+      "previous": {
+        "controlMeanMs": 43.7453332,
+        "candidateMeanMs": 83.3388,
+        "reductionPercent": -90.50900725565856
+      },
+      "runs": [
+        {
+          "controlMeanMs": 50.85471680000014,
+          "candidateMeanMs": 94.70943299999995,
+          "reductionPercent": -86.23529725368499
+        },
+        {
+          "controlMeanMs": 48.58716640000007,
+          "candidateMeanMs": 94.59039979999989,
+          "reductionPercent": -94.68186109326133
+        }
+      ],
+      "directionReproduced": true,
+      "decision": "Remain unadopted; unit results do not supersede previous whole-prover qualification"
+    },
+    {
+      "id": "W10.6e",
+      "variant": {},
+      "previousEvidence": "wasm-w10-permutation-unit.json",
+      "previous": {
+        "controlMeanMs": 110.1625584,
+        "candidateMeanMs": 13.7798834,
+        "reductionPercent": 87.4913186475161
+      },
+      "runs": [
+        {
+          "controlMeanMs": 123.03283319999996,
+          "candidateMeanMs": 14.964733399999977,
+          "reductionPercent": 87.8367968852074
+        },
+        {
+          "controlMeanMs": 123.46603340000004,
+          "candidateMeanMs": 14.784933200000001,
+          "reductionPercent": 88.0251006751789
+        }
+      ],
+      "directionReproduced": true,
+      "decision": "Remain unadopted; unit results do not supersede previous whole-prover qualification"
+    },
+    {
+      "id": "W10.6f",
+      "variant": {},
+      "previousEvidence": "wasm-w10-sparse-placement-unit.json",
+      "previous": {
+        "controlMeanMs": 88.72932499999999,
+        "candidateMeanMs": 81.6264248,
+        "reductionPercent": 8.005132688657323
+      },
+      "runs": [
+        {
+          "controlMeanMs": 89.01659980000002,
+          "candidateMeanMs": 82.24354160000001,
+          "reductionPercent": 7.608758608189403
+        },
+        {
+          "controlMeanMs": 89.55228339999998,
+          "candidateMeanMs": 81.75238319999998,
+          "reductionPercent": 8.709884219434649
+        }
+      ],
+      "directionReproduced": true,
+      "decision": "Remain unadopted; unit results do not supersede previous whole-prover qualification"
+    },
+    {
+      "id": "W10.6g",
+      "variant": {
+        "width": 256
+      },
+      "previousEvidence": "wasm-w10-selection-cofactors-unit.json",
+      "previous": {
+        "controlMeanMs": 38.454483200000006,
+        "candidateMeanMs": 2.8040336000000026,
+        "reductionPercent": 92.70817505096518
+      },
+      "runs": [
+        {
+          "controlMeanMs": 39.3544082,
+          "candidateMeanMs": 2.245566800000006,
+          "reductionPercent": 94.29398915468889
+        },
+        {
+          "controlMeanMs": 38.70857480000001,
+          "candidateMeanMs": 2.8063166000000024,
+          "reductionPercent": 92.7501422759693
+        }
+      ],
+      "directionReproduced": true,
+      "decision": "Retain existing implementation"
+    },
+    {
+      "id": "W10.6h",
+      "variant": {},
+      "previousEvidence": "wasm-w10-crs-readahead-unit.json",
+      "previous": {
+        "controlMeanMs": 27.53291660000001,
+        "candidateMeanMs": 13.78668320000001,
+        "reductionPercent": 49.92654283491345
+      },
+      "runs": [
+        {
+          "controlMeanMs": 30.065766600000018,
+          "candidateMeanMs": 15.106592000000001,
+          "reductionPercent": 49.75484177409935
+        },
+        {
+          "controlMeanMs": 30.026816800000006,
+          "candidateMeanMs": 15.073999800000013,
+          "reductionPercent": 49.79820904625492
+        }
+      ],
+      "directionReproduced": true,
+      "decision": "Remain unadopted; unit results do not supersede previous whole-prover qualification"
+    }
+  ]
+}

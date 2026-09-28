@@ -1,0 +1,266 @@
+:root {
+  color: #151817;
+  background: #f2f4f1;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+header,
+main {
+  width: min(1120px, calc(100% - 40px));
+  margin-inline: auto;
+}
+
+header {
+  min-height: 180px;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 32px;
+  padding-block: 48px 30px;
+  border-bottom: 1px solid #bfc6c0;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h1 {
+  margin-top: 8px;
+  font-size: clamp(2rem, 5vw, 4rem);
+  line-height: 1;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+h2 {
+  font-size: 1.1rem;
+  letter-spacing: 0;
+}
+
+h3 {
+  font-size: 1.15rem;
+  letter-spacing: 0;
+}
+
+.eyebrow,
+.step {
+  color: #315f4c;
+  font: 700 0.75rem/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-transform: uppercase;
+}
+
+#workflow-status {
+  min-width: 120px;
+  padding: 9px 12px;
+  border: 1px solid #7d8981;
+  background: #ffffff;
+  color: #303834;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+#workflow-status[data-state="running"] {
+  border-color: #ad7c14;
+  color: #744f00;
+}
+
+#workflow-status[data-state="complete"] {
+  border-color: #24704f;
+  color: #15533a;
+}
+
+#workflow-status[data-state="error"] {
+  border-color: #a43b32;
+  color: #84271f;
+}
+
+section {
+  padding-block: 34px;
+  border-bottom: 1px solid #bfc6c0;
+}
+
+.section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+
+.section-heading p,
+.operation-table article > div > p:last-child,
+.input-policy {
+  color: #5a645e;
+  font-size: 0.85rem;
+}
+
+.artifact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 22px;
+}
+
+label {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  color: #4c5650;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+input {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid #aeb7b0;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #151817;
+  padding: 8px 10px;
+  font: 0.82rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0;
+}
+
+input:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid #a8c9ba;
+  outline-offset: 2px;
+}
+
+.operation-table {
+  border-top: 1px solid #8f9992;
+}
+
+.operation-table article {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 180px minmax(270px, auto);
+  align-items: center;
+  gap: 24px;
+  min-height: 116px;
+  padding-block: 20px;
+  border-bottom: 1px solid #ccd2cd;
+}
+
+.operation-table article:last-child {
+  border-bottom: 0;
+}
+
+.step {
+  margin-bottom: 7px;
+}
+
+.operation-table h3 {
+  margin-bottom: 5px;
+}
+
+.input-policy {
+  max-width: 200px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: end;
+  gap: 8px;
+}
+
+button,
+.actions a {
+  min-height: 40px;
+  border: 1px solid #245b44;
+  border-radius: 4px;
+  padding: 9px 13px;
+  background: #245b44;
+  color: #ffffff;
+  font: 650 0.82rem/1 system-ui, sans-serif;
+  letter-spacing: 0;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+button:first-child {
+  background: transparent;
+  color: #245b44;
+}
+
+button:disabled {
+  border-color: #b8beba;
+  background: #dfe3df;
+  color: #7b837e;
+  cursor: not-allowed;
+}
+
+.result-band {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1.3fr);
+  gap: 36px;
+  border-bottom: 0;
+}
+
+.result-band .section-heading {
+  display: block;
+  margin: 0;
+}
+
+.result-band .section-heading p {
+  margin-top: 7px;
+}
+
+#result {
+  min-height: 92px;
+  overflow-wrap: anywhere;
+  border-left: 3px solid #315f4c;
+  background: #ffffff;
+  padding: 18px;
+  font: 0.86rem/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 760px) {
+  header,
+  main {
+    width: min(100% - 24px, 1120px);
+  }
+
+  header {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .section-heading,
+  .operation-table article,
+  .result-band {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .artifact-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .operation-table article {
+    gap: 16px;
+  }
+
+  .actions {
+    justify-content: start;
+    flex-wrap: wrap;
+  }
+}

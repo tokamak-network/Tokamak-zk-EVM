@@ -1,0 +1,13 @@
+{
+  "inputs": [
+    { "name": "publicKeyX", "logicalType": { "kind": "bls12-381-fr" } },
+    { "name": "publicKeyY", "logicalType": { "kind": "bls12-381-fr" } },
+    { "name": "previousChallengeHash", "logicalType": { "kind": "bls12-381-fr" } },
+    { "name": "firstTailWord", "logicalType": { "kind": "bls12-381-fr" } },
+    { "name": "secondTailWord", "logicalType": { "kind": "bls12-381-fr" } }
+  ],
+  "outputs": [
+    { "name": "publicKeyHash", "logicalType": { "kind": "bls12-381-fr" } },
+    { "name": "challengeHash", "logicalType": { "kind": "bls12-381-fr" } }
+  ]
+}

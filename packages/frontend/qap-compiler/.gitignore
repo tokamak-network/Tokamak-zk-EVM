@@ -1,2 +1,5 @@
 dist/
 .gemini/
+
+# The circuit library is regenerated from the tracked Circom sources before packaging.
+subcircuits/library/

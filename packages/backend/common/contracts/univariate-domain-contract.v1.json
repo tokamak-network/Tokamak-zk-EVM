@@ -1,0 +1,57 @@
+{
+  "contractVersion": 1,
+  "owner": "backend",
+  "protocolSchema": "tokamak-zk-evm-univariate",
+  "scalarRootOfUnity": {
+    "twoAdicity": 32,
+    "maxRootCanonicalHex": "0212d79e5b416b6f0fd56dc8d168d6c0c4024ff270b3e0941b788f500b912f1f",
+    "derivation": "root(N) = maxRoot^(2^32/N) for power-of-two N"
+  },
+  "arithmeticDomain": {
+    "size": "n * s",
+    "index": "i + s * r",
+    "vanishingPolynomial": "Z_A(Z) = Z^N_A - 1"
+  },
+  "connectionDomain": {
+    "size": "m_b * s",
+    "index": "i + s * j",
+    "vanishingPolynomial": "Z_C(Z) = Z^N_C - 1"
+  },
+  "combinedDomain": {
+    "intersectionSize": "gcd(N_A, N_C)",
+    "unionSize": "N_A + N_C - gcd(N_A, N_C)",
+    "intersectionVanishingPolynomial": "Z_G(Z) = Z^gcd(N_A,N_C) - 1",
+    "unionVanishingPolynomial": "Z_union(Z) = Z_A(Z) * Z_C(Z) / Z_G(Z)"
+  },
+  "maskingPolynomials": {
+    "arithmetic": "M_A(Z) = Z_C(Z) / Z_G(Z)",
+    "connection": "M_C(Z) = Z_A(Z) / Z_G(Z)"
+  },
+  "selectionDomain": {
+    "size": "s * t",
+    "index": "i + s * k",
+    "typeCapacity": {
+      "symbol": "t",
+      "emptySubcircuitId": "t - 1",
+      "compiledSubcircuitIdRange": "[0, actualSubcircuitCount)",
+      "unselectableSubcircuitIdRange": "[actualSubcircuitCount, t - 1)",
+      "externalInactiveSelector": -1
+    },
+    "vanishingPolynomial": "Z_S(Z) = Z^(s*t) - 1"
+  },
+  "publicDomain": {
+    "order": "publicWirePhases order, then subcircuitIds order, then ascending local wire in Public_idx",
+    "freeSize": "ceilPow2(max(1, actual free public coordinates))",
+    "fixedPublicRange": "[freeSize, total public coordinates)",
+    "fixedBufferPlacement": "placementIndex == subcircuitId"
+  },
+  "capacity": {
+    "d": "max(N_A + 1, N_C + 1)",
+    "h": "d + 1",
+    "P": "max(2*d + 1, N_S + 1, h + s*(t - 1), freeSize - 1)",
+    "K": "P - d",
+    "S": "P + 1",
+    "ordinaryMaximumExponent": "2*P",
+    "taggedMaximumExponent": "P"
+  }
+}

@@ -1,17 +1,33 @@
-import { AfterTxEvent, createVM, runTx, RunTxOpts, RunTxResult, VM, VMOpts } from '@ethereumjs/vm';
+import { createVM, runTx, RunTxOpts, RunTxResult, VM, VMOpts } from '@ethereumjs/vm';
 
 import { BlockData, BlockOptions, createBlock, HeaderData } from '@ethereumjs/block';
-import { bigIntToBytes, bigIntToHex, bytesToBigInt, bytesToHex, createAddressFromBigInt, setLengthLeft } from '@ethereumjs/util';
+import {
+  bigIntToBytes,
+  bigIntToHex,
+  bytesToBigInt,
+  bytesToHex,
+  createAddressFromBigInt,
+  hexToBigInt,
+  setLengthLeft,
+  toBytes,
+} from '@ethereumjs/util';
 
-import { EVMResult, InterpreterStep, Message } from '@ethereumjs/evm';
-import { DataAliasInfos, DataPt, MemoryPts, Placements, ReservedVariable, SynthesizerInterface, SynthesizerOpts, SynthesizerStepLogEntry } from './types/index.ts';
-import { ArithmeticManager, BufferManager, ContextConstructionData, ContextManager, InstructionHandler, MemoryManager, StateManager, SynthesizerOpHandler } from './handlers/index.ts';
-import { ArithmeticOperator, SubcircuitNames } from '../subcircuit/configuredTypes.ts';
+import { EVMResult, InterpreterStep } from '@ethereumjs/evm';
+import {
+  Placements,
+  type ReservedVariable,
+  SynthesizerInterface,
+  SynthesizerOpts,
+  SynthesizerStepLogEntry,
+} from './types/index.ts';
+import {
+  ContextManager,
+  createMemoryEntriesFromCopyResult,
+  InstructionHandler,
+  PlacementManager,
+} from './runtime/index.ts';
 import type { ResolvedSubcircuitLibrary } from '../subcircuit/libraryTypes.ts';
-import { DataPtFactory } from './dataStructure/dataPt.ts';
 import { TypedTransaction } from '@ethereumjs/tx';
-import { MemoryPt } from './dataStructure/memoryPt.ts';
-import { FUNCTION_INPUT_LENGTH } from 'tokamak-l2js';
 
 /**
  * The Synthesizer class manages data related to subcircuits.
@@ -19,27 +35,100 @@ import { FUNCTION_INPUT_LENGTH } from 'tokamak-l2js';
  */
 export class Synthesizer implements SynthesizerInterface
 {
-  protected _state: StateManager
-  protected _arithmeticManager: ArithmeticManager
-  protected _memoryManager: MemoryManager
-  protected _bufferManager: BufferManager
+  private _contextManager: ContextManager
+  private _placementManager: PlacementManager
   protected _instructionHandlers: InstructionHandler
-  public readonly cachedOpts: SynthesizerOpts
+  private readonly _cachedOpts: SynthesizerOpts
   public readonly subcircuitLibrary: ResolvedSubcircuitLibrary
+  private _eventHandlerError: unknown
+  private _hasEventHandlerError: boolean
   private _stepLogs: SynthesizerStepLogEntry[]
-  private _messageCodeAddresses: Set<`0x${string}`>
 
-  // @deprecated
   constructor(opts: SynthesizerOpts, subcircuitLibrary: ResolvedSubcircuitLibrary) {
-    this.cachedOpts = opts
+    this._cachedOpts = opts
     this.subcircuitLibrary = subcircuitLibrary
-    this._state = new StateManager(this)
-    this._bufferManager = new BufferManager(this)
-    this._arithmeticManager = new ArithmeticManager(this)
-    this._memoryManager = new MemoryManager(this)
-    this._instructionHandlers =  new InstructionHandler(this)
+    this._placementManager = new PlacementManager(
+      this.subcircuitLibrary,
+      this._resolveReservedInputValues(),
+    )
+    this._contextManager = new ContextManager(this._placementManager)
+    this._instructionHandlers = new InstructionHandler(
+      this._contextManager,
+      this._placementManager,
+      this.subcircuitLibrary,
+      this._cachedOpts,
+    )
+    this._eventHandlerError = undefined
+    this._hasEventHandlerError = false
     this._stepLogs = []
-    this._messageCodeAddresses = new Set()
+  }
+
+  private _resolveReservedInputValues(): ReadonlyMap<ReservedVariable, bigint> {
+    const values = new Map<ReservedVariable, bigint>()
+    const { blockInfo, signedTransaction } = this._cachedOpts
+    const senderPublicKey = signedTransaction.getUnsafeEddsaPubKey().toAffine()
+    const randomizer = signedTransaction.r === undefined
+      ? undefined
+      : signedTransaction.getUnsafeEddsaRandomizer()?.toAffine()
+
+    values.set('EDDSA_PUBLIC_KEY_X', senderPublicKey.x)
+    values.set('EDDSA_PUBLIC_KEY_Y', senderPublicKey.y)
+    values.set('EDDSA_RANDOMIZER_X', randomizer?.x ?? 0n)
+    values.set('EDDSA_RANDOMIZER_Y', randomizer?.y ?? 0n)
+    values.set('EDDSA_SIGNATURE', signedTransaction.s ?? 0n)
+    values.set('CONTRACT_ADDRESS', bytesToBigInt(toBytes(signedTransaction.to)))
+    values.set('FUNCTION_SELECTOR', bytesToBigInt(signedTransaction.getFunctionSelector()))
+    values.set('CHANNEL_TX_INDEX', signedTransaction.channelTransactionIndex)
+    for (const [inputIndex, variable] of this.subcircuitLibrary.transactionInputVariables.entries()) {
+      values.set(variable, bytesToBigInt(signedTransaction.getFunctionInput(inputIndex)))
+    }
+
+    values.set('COINBASE', hexToBigInt(blockInfo.coinBase))
+    values.set('TIMESTAMP', hexToBigInt(blockInfo.timeStamp))
+    values.set('NUMBER', hexToBigInt(blockInfo.blockNumber))
+    values.set('PREVRANDAO', hexToBigInt(blockInfo.prevRanDao))
+    values.set('GASLIMIT', hexToBigInt(blockInfo.gasLimit))
+    values.set('CHAINID', hexToBigInt(blockInfo.chainId))
+    values.set('SELFBALANCE', hexToBigInt(blockInfo.selfBalance))
+    values.set('BASEFEE', hexToBigInt(blockInfo.baseFee))
+    for (let i = 1; i <= this.subcircuitLibrary.numberOfPrevBlockHashes; i++) {
+      values.set(
+        `BLOCKHASH_${i}` as ReservedVariable,
+        hexToBigInt(blockInfo.prevBlockHashes[i - 1]),
+      )
+    }
+    return values
+  }
+
+  private _recordEventHandlerError(handlerName: string, err: unknown): void {
+    if (!this._hasEventHandlerError) {
+      this._eventHandlerError = err
+      this._hasEventHandlerError = true
+    }
+    console.error(`Synthesizer: ${handlerName} error:`, err)
+  }
+
+  private _executeVMEvent(
+    handlerName: string,
+    resolve: ((result?: any) => void) | undefined,
+    execute: () => Promise<void> | void,
+  ): void {
+    let result: Promise<void> | void
+    try {
+      result = this._hasEventHandlerError ? undefined : execute()
+    } catch (err) {
+      this._recordEventHandlerError(handlerName, err)
+      resolve?.()
+      return
+    }
+
+    if (result === undefined) {
+      resolve?.()
+      return
+    }
+    void result
+      .catch((err) => this._recordEventHandlerError(handlerName, err))
+      .finally(() => resolve?.())
   }
 
   private _attachSynthesizerToVM(vm: VM): void {
@@ -47,43 +136,33 @@ export class Synthesizer implements SynthesizerInterface
       throw new Error("EVM event emitter is turned off.")
     }
     vm.events.on('beforeTx', (_data: TypedTransaction, resolve?: (result?: any) => void) => {
-      ; (async () => {
-        try {
-          await this._prepareSynthesizeTransaction()
-          // TODO: BLOCKHASH preparation in state manager for EIP-7709
-        } catch (err) {
-          console.error('Synthesizer: beforeTx error:', err)
-        } finally {
-          resolve?.()
-        }
-      })()
+      this._executeVMEvent('beforeTx', resolve, async () => {
+        await this._prepareSynthesizeTransaction()
+        // TODO: BLOCKHASH preparation in state manager for EIP-7709
+      })
     });
-    vm.evm.events.on('beforeMessage', (data: Message, resolve?: (result?: any) => void) => {
-      try { 
-        this._prepareMessageCall(data);
-      } catch (err) {
-        console.error('Synthesizer: beforeMessage error:', err)
-      } finally {
-        resolve?.()
-      }
+    vm.evm.events.on('beforeMessage', (data, resolve?: (result?: any) => void) => {
+      this._executeVMEvent('beforeMessage', resolve, () => {
+        if (data.depth === 0) {
+          this._contextManager.initializeMessageContext(data)
+          return
+        }
+        const memoryCopyPlan = this._contextManager.prepareChildCallData(data)
+        const callDataPts = this._placementManager.placeComposition(
+          'MemoryView',
+          memoryCopyPlan.memoryViewOperands,
+        )
+        this._contextManager.initializeMessageContext(
+          data,
+          createMemoryEntriesFromCopyResult(memoryCopyPlan, callDataPts),
+        )
+      })
     });
     vm.evm.events!.on('step', (data: InterpreterStep, resolve?: (result?: any) => void) => {
-      ; (async () => {
-        try {
-          await this._applySynthesizerHandler(data);
-          if (data.opcode.name === 'SSTORE') {
-            await this._updateStoragePreStep(data);
-          }
-        } catch (err) {
-          console.error('Synthesizer: step error:', err)
-        } finally {
-          resolve?.()
-        }
-      }) () 
+      this._executeVMEvent('step', resolve, () => this._applySynthesizerHandler(data))
     })
     vm.evm.events.on('afterMessage', (data: EVMResult, resolve?: (result?: any) => void) => {
-      ; (async () => {
-        try {
+      this._executeVMEvent('afterMessage', resolve, async () => {
           const _runState = data.execResult.runState
           if (_runState === undefined) {
             throw new Error('Failed to capture the final state')
@@ -123,197 +202,93 @@ export class Synthesizer implements SynthesizerInterface
               _interpreter._env.eof !== undefined ? _interpreter._env.eof?.eofRunState.returnStack.length + 1 : undefined,
           }
           await this._applySynthesizerHandler(stepData);
-          this._returnMessageCall(stepData.depth);
-        } catch (err) {
-          console.error('Synthesizer: afterMessage error:', err)
-        } finally {
-          // console.log(`code = ${bytesToHex(data.execResult.runState!.code)}`)
-          resolve?.()
-        }
-      })()
+          this._contextManager.returnMessageCall(stepData.depth);
+          this._contextManager.completeFrame(
+            stepData.depth,
+            data.execResult.exceptionError === undefined,
+          )
+      })
     })
 
-    vm.events.on('afterTx', (_data: AfterTxEvent, resolve?: (result?: any) => void) => {
-      ; (async () => {
-        try {
-          await this._finalizeStorage()
-        } catch (err) {
-          console.error('Synthesizer: afterTx error:', err)
-        } finally {
-          // console.log(`code = ${bytesToHex(data.execResult.runState!.code)}`)
-          resolve?.()
-        }
-      })()
-    })
   }
 
   private async _prepareSynthesizeTransaction(): Promise<void> {
-    this.state.cachedRoots = new Map()
-    const storageAddresses = this.cachedOpts.stateManager.storageAddresses;
-    const roots = this.cachedOpts.stateManager.merkleTrees.getRoots(storageAddresses);
-    if (roots.length !== storageAddresses.length) {
-      throw new Error('Mismatch between Merkle root count and storage address count')
+    this._contextManager.resetTransactionTracking()
+    const transactionInputPts = this.subcircuitLibrary.transactionInputVariables.map((variable) =>
+      this._placementManager.getReservedInputBufferDataPt(variable),
+    )
+    const operands = [
+      this._placementManager.getReservedInputBufferDataPt('EDDSA_RANDOMIZER_X'),
+      this._placementManager.getReservedInputBufferDataPt('EDDSA_RANDOMIZER_Y'),
+      this._placementManager.getReservedInputBufferDataPt('EDDSA_PUBLIC_KEY_X'),
+      this._placementManager.getReservedInputBufferDataPt('EDDSA_PUBLIC_KEY_Y'),
+      this._placementManager.getReservedInputBufferDataPt('CHANNEL_TX_INDEX'),
+      ...transactionInputPts,
+      this._placementManager.getReservedInputBufferDataPt('CONTRACT_ADDRESS'),
+      this._placementManager.getReservedInputBufferDataPt('FUNCTION_SELECTOR'),
+      this._placementManager.getReservedInputBufferDataPt('EDDSA_SIGNATURE'),
+      this._placementManager.getReservedInputBufferDataPt('JUBJUB_POI_X'),
+      this._placementManager.getReservedInputBufferDataPt('JUBJUB_POI_Y'),
+    ]
+    const verifiedTransactionPts = this._placementManager.placeComposition(
+      'TransactionSignatureVerify',
+      operands,
+    )
+    const verifiedContractAddressPt = verifiedTransactionPts[0]
+    const verifiedFunctionSelectorPt = verifiedTransactionPts[1]
+    const verifiedOriginPt = verifiedTransactionPts[2]
+    if (
+      verifiedContractAddressPt === undefined
+      || verifiedFunctionSelectorPt === undefined
+      || verifiedOriginPt === undefined
+    ) {
+      throw new Error('Synthesizer: TransactionSignatureVerify returned incomplete results')
     }
-    for (const [idx, address] of storageAddresses.entries()) {
-      const addressBigInt = bytesToBigInt(address.bytes);
-      const addressString = address.toString();
-      this.state.cachedRoots.set(
-        addressBigInt,
-        [this.addReservedVariableToBufferIn('INI_MERKLE_ROOT', roots[idx], true, ` of ${addressString}`)],
-      );
-    }
-    this.state.cachedOrigin = this._instructionHandlers.getOriginAddressPt();
-  }
 
-  private _returnMessageCall(depth: number):void {
-    if (depth > 0){
-      this.state.contextByDepth[depth - 1].returnDataMemoryPts = this.state.contextByDepth[depth].resultMemoryPts.map(entry => {
-        return {
-          ...entry,
-          dataPt: DataPtFactory.deepCopy(entry.dataPt),
-        }
-      });
-    }
-  }
-
-  // Must run this function before everytime EVM executes CALLs.
-  private _prepareMessageCall(message: Message): void {
-    this._messageCodeAddresses.add(message.codeAddress.toString())
-    if (message.isCreate) {
-      throw new Error ("CREATE is not supported.")
-    }
-    if (message.isCompiled) {
-      throw new Error ("Precompiled functions are not supported.")
-    }
-    const depth = message.depth;
-    let callDataMemoryPts: MemoryPts;
-    let callerPt: DataPt;
-    let toAddressPt: DataPt;
-    if (depth == 0) {
-      const selectorPt = this.getReservedVariableFromBuffer('FUNCTION_SELECTOR')
-      const inPts: DataPt[] = Array.from({ length: FUNCTION_INPUT_LENGTH }, (_, i) =>
-        this.getReservedVariableFromBuffer(`TRANSACTION_INPUT${i}` as ReservedVariable)
+    const zeroFrPt = this._placementManager.getReservedInputBufferDataPt('CIRCOM_CONST_ZERO')
+    const convertedTransactionInputPts = []
+    for (let inputIndex = 0; inputIndex < transactionInputPts.length; inputIndex += 2) {
+      const convertedPair = this._placementManager.placeComposition(
+        'FrToLimbsPair',
+        [transactionInputPts[inputIndex]!, transactionInputPts[inputIndex + 1] ?? zeroFrPt],
       )
-      callDataMemoryPts = [
-        { memByteOffset: 0, containerByteSize: 4, dataPt: selectorPt },
-        ...inPts.map((dataPt, i) => ({
-          memByteOffset: 4 + 32 * i,
-          containerByteSize: 32,
-          dataPt,
-        })),
-      ]
-      if (this.state.cachedOrigin === undefined) {
-        throw new Error(`Sender address must be verified first`)
+      convertedTransactionInputPts.push(convertedPair[0]!)
+      if (inputIndex + 1 < transactionInputPts.length) {
+        convertedTransactionInputPts.push(convertedPair[1]!)
       }
-      callerPt = DataPtFactory.deepCopy(this.state.cachedOrigin);
-      toAddressPt = this.getReservedVariableFromBuffer('CONTRACT_ADDRESS');
-    } else if (depth > 0) {
-      const parentContext = this.state.contextByDepth[depth - 1];
-      if (parentContext === undefined) {
-        throw new Error('Debug: No parent context')
-      }
-      const callingStep = parentContext.prevInterpreterStep;
-      if (callingStep === null) {
-        throw new Error('Debug: A child context is called but no relevant interpreter step in the parent context')
-      }
-      let toAddress: bigint
-      let inOffset: bigint
-      let inLength: bigint
-      if (message.isStatic || message.delegatecall) {
-        const ins = callingStep.stack.slice(0, 6);
-        toAddress = ins[1]
-        toAddressPt = DataPtFactory.deepCopy(parentContext.stackPt.peek(6)[1]);
-        inOffset = ins[2]
-        inLength = ins[3]
-      } else {
-        const ins = callingStep.stack.slice(0, 7);
-        toAddress = ins[1]
-        toAddressPt = DataPtFactory.deepCopy(parentContext.stackPt.peek(7)[1]);
-        inOffset = ins[3]
-        inLength = ins[4]
-      }
-
-      if (toAddress >= 1n && toAddress <= 10n) {
-        throw new Error(
-          `Precompiles are not implemented in Synthesizer.`,
-        )
-      }
-      if (toAddress !== toAddressPt.value) {
-        throw new Error(`Debug: Address to call mismatch between EVM and Synthesizer`)
-      }
-      callerPt = DataPtFactory.deepCopy(
-        message.delegatecall === true ? 
-        this.state.contextByDepth[depth - 1].callerPt : 
-        this.state.contextByDepth[depth - 1].toAddressPt
-      );
-
-      callDataMemoryPts = this.copyMemoryPts(
-        parentContext.memoryPt.read(Number(inOffset), Number(inLength)),
-        inOffset,
-        inLength,
-      );
-      const simCalldataMemoryPt = MemoryPt.simulateMemoryPt(callDataMemoryPts);
-      const syntheCallData = simCalldataMemoryPt.viewMemory(0, Number(inLength));
-      const actualCallData = callingStep.memory.subarray(Number(inOffset), Number(inOffset) + Number(inLength))
-      if (bytesToBigInt(syntheCallData) !== bytesToBigInt(actualCallData)) {
-        throw new Error(`Debug: Mismatch between calldata memory and memoryPt of the parent context`)
-      }
-    } else {
-      throw new Error(`Debug: Invalid call depth: ${depth}`)
     }
-    const contextData: ContextConstructionData = {
-      callDataMemoryPts,
-      callerPt,
-      toAddressPt,
-    };
-    this.state.contextByDepth[depth] = new ContextManager(contextData);
-  }
-
-  private async _finalizeStorage(): Promise<void> {    
-    const storageAddresses = this.cachedOpts.stateManager.storageAddresses;
-    const roots = this.cachedOpts.stateManager.merkleTrees.getRoots(storageAddresses);
-    if (roots.length !== storageAddresses.length) {
-      throw new Error('Mismatch between Merkle root count and storage address count')
-    }
-    for (const [addressIdx, address] of storageAddresses.entries()) {
-      const addressBigInt = bytesToBigInt(address.bytes);
-      const addressString = address.toString();
-      const cachedRoots = this.state.cachedRoots.get(addressBigInt);
-      if (cachedRoots === undefined || cachedRoots.length === 0) {
-        throw new Error(`Cached Merkle roots are missing for address ${addressString}`)
-      }
-      const finalRootPt = cachedRoots[cachedRoots.length - 1];
-      if (finalRootPt.value !== roots[addressIdx]) {
-        throw new Error(`Final Merkle root mismatch for address ${addressString}`)
-      }
-      this.addReservedVariableToBufferOut('RES_MERKLE_ROOT', finalRootPt, true, ` of ${addressString}`)
-    }
+    this._contextManager.setVerifiedTransactionData(
+      verifiedContractAddressPt,
+      verifiedFunctionSelectorPt,
+      verifiedOriginPt,
+      convertedTransactionInputPts,
+    )
   }
 
   public async synthesizeTX(): Promise<RunTxResult> {
-    const common = this.cachedOpts.stateManager.common;
+    const common = this._cachedOpts.stateManager.common;
+    this._eventHandlerError = undefined
+    this._hasEventHandlerError = false
     this._stepLogs = []
 
     const headerData: HeaderData = {
       parentHash: setLengthLeft(
-        bigIntToBytes(this.getReservedVariableFromBuffer('BLOCKHASH_1').value),
+        bigIntToBytes(this._placementManager.getReservedInputBufferDataPt('BLOCKHASH_1').value),
         32,
       ),
-      coinbase: createAddressFromBigInt(this.getReservedVariableFromBuffer('COINBASE').value),
+      coinbase: createAddressFromBigInt(this._placementManager.getReservedInputBufferDataPt('COINBASE').value),
       // difficulty = 0 for PoS blocks
       difficulty: 0n,
-      number: this.getReservedVariableFromBuffer('NUMBER').value,
-      gasLimit: this.getReservedVariableFromBuffer('GASLIMIT').value,
-      timestamp: this.getReservedVariableFromBuffer('TIMESTAMP').value,
+      number: this._placementManager.getReservedInputBufferDataPt('NUMBER').value,
+      gasLimit: this._placementManager.getReservedInputBufferDataPt('GASLIMIT').value,
+      timestamp: this._placementManager.getReservedInputBufferDataPt('TIMESTAMP').value,
 
-      // To bypass checking EIPs
-      // baseFeePerGas: this.getReservedVariableFromBuffer('BASEFEE').valuef,
       baseFeePerGas: undefined,
     };
     
     const vmOpts: VMOpts = {
       common,
-      stateManager: this.cachedOpts.stateManager,
+      stateManager: this._cachedOpts.stateManager,
       profilerOpts: {reportAfterTx: true},
     };
     const vm = await createVM(vmOpts);
@@ -329,13 +304,30 @@ export class Synthesizer implements SynthesizerInterface
     const block = createBlock(blockData, blockOpts);
     const runTxOpts: RunTxOpts = {
       block,
-      tx: this.cachedOpts.signedTransaction,
+      tx: this._cachedOpts.signedTransaction,
       skipBalance: true,
+      skipNonce: true,
       skipBlockGasLimitValidation: true,
       skipHardForkValidation: true,
       reportPreimages: true,
     };
-    return await runTx(vm, runTxOpts)
+    let result: RunTxResult
+    try {
+      result = await runTx(vm, runTxOpts)
+    } catch (err) {
+      if (this._hasEventHandlerError) {
+        throw this._eventHandlerError
+      }
+      throw err
+    }
+    if (this._hasEventHandlerError) {
+      throw this._eventHandlerError
+    }
+    if (result.execResult.exceptionError !== undefined) {
+      throw result.execResult.exceptionError
+    }
+    this._contextManager.finalizeStorageStores()
+    return result
   }
 
   private _applySynthesizerHandler = async (data: InterpreterStep): Promise<void> => {
@@ -343,14 +335,14 @@ export class Synthesizer implements SynthesizerInterface
       ...data,
       stack: data.stack.slice().reverse(),
     }
-    const thisContext = this.state.contextByDepth[stepResult.depth];
+    const thisContext = this._contextManager.contextByDepth[stepResult.depth];
     if (thisContext === undefined ) {
       throw new Error('Debug: The current context is not initialized')
     }
     const prevStepResult = thisContext.prevInterpreterStep;
     if ( prevStepResult !== null) {
       const opcode = prevStepResult.opcode
-      const opHandler = this.synthesizerHandlers.get(opcode.code)
+      const opHandler = this._instructionHandlers.opcodeHandlers.get(opcode.code)
       if (opHandler === undefined) {
         throw new Error(`Undefined synthesizer handler for opcode ${opcode.name}`)
       }
@@ -384,140 +376,16 @@ export class Synthesizer implements SynthesizerInterface
     }
   }
 
-  private async _updateStoragePreStep(data: InterpreterStep): Promise<void> {
-    const stepResult: InterpreterStep = {
-      ...data,
-      stack: data.stack.slice().reverse(),
-    }
-    const context = this.state.contextByDepth[stepResult.depth];
-    if (context === undefined) {
-      throw new Error('Debug: The current context is not initialized')
-    }
-
-    const [keyPt, valuePt] = context.stackPt.peek(2);
-    const key = stepResult.stack[0];
-    const value = stepResult.stack[1];
-    if (key === undefined || value === undefined) {
-      throw new Error('Synthesizer: SSTORE pre-step requires key and value on stack')
-    }
-    if (keyPt.value !== key || valuePt.value !== value) {
-      throw new Error('Synthesizer: SSTORE pre-step stack mismatch')
-    }
-    const { merkleProof, indexPt, siblingPts } =
-      await this._instructionHandlers.buildStorageProof(stepResult.address, keyPt);
-
-    const valueStored = bytesToBigInt(
-      await this.cachedOpts.stateManager.getStorage(
-        stepResult.address,
-        setLengthLeft(bigIntToBytes(keyPt.value), 32),
-      ),
-    );
-    if (merkleProof.leaf !== valueStored) {
-      throw new Error('Mismatch in storage values between MPT and EVM stack');
-    }
-    const valueStoredPt = this.addReservedVariableToBufferIn(
-      'STORAGE_READ',
-      valueStored,
-      true,
-      ` at MT index: ${Number(indexPt.value)} of address: ${stepResult.address.toString()}`,
-    );
-
-    this.placeMerkleProofVerification(
-      indexPt,
-      valueStoredPt,
-      siblingPts,
-      this._instructionHandlers.getLatestCachedRootPt(bytesToBigInt(stepResult.address.bytes)),
-    )
-    if (this.state.cachedMerkleProof !== null) {
-      throw new Error('Debug: cachedMerkleProof must be empty before SSTORE pre-step caching')
-    }
-    this.state.cachedMerkleProof = {
-      indexPt: DataPtFactory.deepCopy(indexPt),
-      siblingPts: siblingPts.map((pts) => pts.map((pt) => DataPtFactory.deepCopy(pt))),
-    };
-  }
-
-  public get state(): StateManager {
-    return this._state;
-  }
-
   public get stepLogs(): SynthesizerStepLogEntry[] {
     return this._stepLogs
   }
 
-  public get messageCodeAddresses(): Set<`0x${string}`> {
-    return this._messageCodeAddresses
+  public get messageCodeAddresses(): readonly string[] {
+    return this._contextManager.messageCodeAddresses
   }
 
   public get placements(): Placements {
-    return this._state.placements
+    return this._placementManager.placements
   }
 
-  public get synthesizerHandlers(): Map<number, SynthesizerOpHandler> {
-      return this._instructionHandlers.synthesizerHandlers
-    }
-
-  place(name: SubcircuitNames, inPts: DataPt[], outPts: DataPt[], usage: string): void {
-    this._state.place(name, inPts, outPts, usage)
-  }
-
-  getReservedVariableFromBuffer(
-    varName: ReservedVariable
-  ): DataPt {
-    return this._bufferManager.getReservedVariableFromBuffer(varName)
-  }
-
-  addWirePairToBufferIn(inPt: DataPt, outPt: DataPt, dynamic: boolean): DataPt {
-    return this._state.addWirePairToBufferIn(inPt, outPt, dynamic)
-  }
-
-  addReservedVariableToBufferIn(varName: ReservedVariable, value?: bigint, dynamic?: boolean, message?: string): DataPt {
-    return this._bufferManager.addReservedVariableToBufferIn(varName, value, dynamic, message)
-  }
-  addReservedVariableToBufferOut(varName: ReservedVariable, symbolDataPt: DataPt, dynamic?: boolean, message?: string): DataPt {
-    return this._bufferManager.addReservedVariableToBufferOut(varName, symbolDataPt, dynamic, message)
-  }
-
-  loadArbitraryStatic(
-    value: bigint,
-    bitSize?: number,
-    desc?: string,
-  ): DataPt {
-    return this._bufferManager.loadArbitraryStatic(value, bitSize, desc)
-  }
-
-  placeArith(name: ArithmeticOperator, inPts: DataPt[]): DataPt[] {
-    return this._arithmeticManager.placeArith(name, inPts);
-  }
-
-  placeExp(inPts: DataPt[], reference?: bigint): DataPt {
-    return this._arithmeticManager.placeExp(inPts, reference)
-  }
-  placeJubjubExp(inPts: DataPt[], PoI: DataPt[], reference?: bigint): DataPt[] {
-    return this._arithmeticManager.placeJubjubExp(inPts, PoI, reference)
-  }
-  placePoseidon(inPts: DataPt[]): DataPt {
-    return this._arithmeticManager.placePoseidon(inPts)
-  }
-  placeMerkleProofVerification(indexPt: DataPt, leafPt: DataPt, siblingPts: DataPt[][], rootPt: DataPt): void {
-    return this._arithmeticManager.placeMerkleProofVerification(indexPt, leafPt, siblingPts, rootPt)
-  }
-
-  placeMemoryToStack(dataAliasInfos: DataAliasInfos): DataPt {
-    return this._memoryManager.placeMemoryToStack(dataAliasInfos);
-  }
-  placeMemoryToMemory(dataAliasInfos: DataAliasInfos): DataPt[] {
-    return this._memoryManager.placeMemoryToMemory(dataAliasInfos);
-  }
-  placeMSTORE(dataPt: DataPt, truncBitSize: number): DataPt {
-    return this._memoryManager.placeMSTORE(dataPt, truncBitSize);
-  }
-  copyMemoryPts(
-    target: MemoryPts,
-    srcOffset: bigint,
-    length: bigint,
-    dstOffset?: bigint,
-  ): MemoryPts {
-    return this._memoryManager.copyMemoryPts(target, srcOffset, length, dstOffset)
-  }
 }

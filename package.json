@@ -1,6 +1,6 @@
 {
   "name": "tokamak-zk-evm-monorepo",
-  "version": "2.1.3",
+  "version": "3.0.1",
   "description": "Tokamak zk-EVM: A tool that converts Ethereum transactions into Zero-Knowledge Proofs",
   "license": "MIT OR Apache-2.0",
   "author": "Tokamak Network",
@@ -13,16 +13,26 @@
   ],
   "scripts": {
     "test": "lerna run test",
-    "format": "prettier --write \"**/*.{ts,js,json,md}\"",
-    "format:check": "prettier --check \"**/*.{ts,js,json,md}\"",
     "clean": "lerna run clean",
     "docs:check": "node scripts/check-doc-readiness.mjs",
     "version:sync": "node scripts/sync-version.mjs",
-    "version:check": "node scripts/check-version-sync.mjs"
+    "version:sync:test": "node scripts/test-sync-version.mjs",
+    "version:check": "npm run version:prepublication:check",
+    "version:prepublication:check": "node scripts/check-version-sync.mjs --pre-publication",
+    "version:production-snapshot:check": "node scripts/check-production-snapshot.mjs",
+    "version:production-snapshot:refresh": "node scripts/refresh-production-snapshot.mjs",
+    "version:production-snapshot:test": "node scripts/test-production-snapshot.mjs",
+    "version:contract:check": "node scripts/check-version-contract.mjs",
+    "release:registry:test": "node scripts/test-release-registry.mjs",
+    "release:crs:test": "python3 scripts/test-download-release-crs.py",
+    "release:candidate:check": "node scripts/check-release-candidate.mjs",
+    "release:candidate:test": "node scripts/test-release-candidate-policy.mjs",
+    "release:package:check": "node scripts/check-release-package.mjs",
+    "source-digest:test": "tsx scripts/test-subcircuit-source-digest.ts",
+    "synthesizer:build-tools:check": "tsc -p tsconfig.synthesizer-build-tools.json --pretty false && node scripts/check-synthesizer-build-tools.mjs"
   },
   "devDependencies": {
     "lerna": "^8.0.0",
-    "prettier": "^3.5.3",
     "typescript": "^5.0.0"
   },
   "dependencies": {

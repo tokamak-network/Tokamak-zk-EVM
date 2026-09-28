@@ -1,10 +1,8 @@
 export {
   createSynthesisOutputJsonFiles,
-  getSynthesisOutputArtifactDefinitions,
 } from './app/serialization.ts';
 export {
   loadResolvedSubcircuitLibrary,
-  loadSubcircuitWasmBuffers,
   resolveSubcircuitLibraryData,
 } from './app/subcircuitLibrary.ts';
 export {

@@ -1,8 +1,8 @@
 export type SynthesizerSupportedOpcodes =
   | 'STOP'
   | SynthesizerSupportedArithOpcodes
-  | SynthesizerSupportedEnvInfOpcodes
-  | SynthesizerSupportedBlkInfOpcodes
+  | SynthesizerSupportedEnvironmentOpcodes
+  | SynthesizerSupportedBlockOpcodes
   | SynthesizerSupportedSysFlowOpcodes
   | 'PUSH1'
   | 'PUSH2'
@@ -98,7 +98,7 @@ export type SynthesizerSupportedArithOpcodes =
   | 'SAR'
   | 'KECCAK256'
   
-export type SynthesizerSupportedEnvInfOpcodes =
+export type SynthesizerSupportedEnvironmentOpcodes =
   | 'ADDRESS'
   | 'BALANCE'
   | 'ORIGIN'
@@ -116,7 +116,7 @@ export type SynthesizerSupportedEnvInfOpcodes =
   | 'RETURNDATACOPY'
   | 'EXTCODEHASH'
 
-export type SynthesizerSupportedBlkInfOpcodes =
+export type SynthesizerSupportedBlockOpcodes =
   | 'BLOCKHASH'
   | 'COINBASE'
   | 'TIMESTAMP'
@@ -217,8 +217,6 @@ export const synthesizerOpcodeList: Record<number, SynthesizerSupportedOpcodes> 
   0x46: 'CHAINID',
   0x47: 'SELFBALANCE',
   0x48: 'BASEFEE',
-//   0x49: 'BLOBHASH',
-//   0x4a: 'BLOBBASEFEE',
   0x50: 'POP',
   0x51: 'MLOAD',
   0x52: 'MSTORE',
@@ -231,8 +229,6 @@ export const synthesizerOpcodeList: Record<number, SynthesizerSupportedOpcodes> 
   0x59: 'MSIZE',
   0x5a: 'GAS',
   0x5b: 'JUMPDEST',
-  // 0x5c: TLOAD (unsupported per current status)
-  // 0x5d: TSTORE (unsupported per current status)
   0x5e: 'MCOPY',
   0x5f: 'PUSH0',
   0x60: 'PUSH1',  0x61: 'PUSH2',  0x62: 'PUSH3',  0x63: 'PUSH4',
@@ -251,18 +247,13 @@ export const synthesizerOpcodeList: Record<number, SynthesizerSupportedOpcodes> 
   0x94: 'SWAP5',  0x95: 'SWAP6',  0x96: 'SWAP7',  0x97: 'SWAP8',
   0x98: 'SWAP9',  0x99: 'SWAP10', 0x9a: 'SWAP11', 0x9b: 'SWAP12',
   0x9c: 'SWAP13', 0x9d: 'SWAP14', 0x9e: 'SWAP15', 0x9f: 'SWAP16',
-  // Synthesizer does nothing for LOGs
   0xa0: 'LOG0',   0xa1: 'LOG1',   0xa2: 'LOG2',   0xa3: 'LOG3',  0xa4: 'LOG4',
-  // 0xf0: 'CREATE', (unsupported per current status)
   0xf1: 'CALL',
   0xf2: 'CALLCODE',
   0xf3: 'RETURN',
   0xf4: 'DELEGATECALL',
-  // 0xf5: 'CREATE2', (unsupported per current status)
   0xfa: 'STATICCALL',
-  // 0xfd: 'REVERT', (unsupported per current status)
-  // 0xfe: 'INVALID', (unsupported per current status)
-  // 0xff: 'SELFDESTRUCT', (unsupported per current status)
+  0xfd: 'REVERT',
 } as const;
 
 /**

@@ -1,0 +1,141 @@
+{
+  "name": "@tokamak-zk-evm/snark-browser-compat",
+  "version": "3.0.1",
+  "description": "@tokamak-zk-evm/snark-browser-compat provides browser-compatible Tokamak zk-EVM preprocessing, proof generation, verification, and artifact conversion.",
+  "license": "MIT OR Apache-2.0",
+  "author": "Tokamak Network",
+  "keywords": [
+    "tokamak-zk-evm",
+    "zero-knowledge-proofs",
+    "zk-snark",
+    "browser-preprocessing",
+    "browser-prover",
+    "proof-verification",
+    "artifact-conversion",
+    "webassembly",
+    "wasm",
+    "JehyukJang",
+    "bls12-381"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JehyukJang/Tokamak-zk-EVM.git",
+    "directory": "packages/backend/wasm"
+  },
+  "homepage": "https://github.com/JehyukJang/Tokamak-zk-EVM/tree/main/packages/backend/wasm#readme",
+  "bugs": {
+    "url": "https://github.com/JehyukJang/Tokamak-zk-EVM/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "exports": {
+    "./prover": {
+      "types": "./dist/prover/index.d.ts",
+      "import": "./dist/prover/index.js"
+    },
+    "./preprocess": {
+      "types": "./dist/preprocess/index.d.ts",
+      "import": "./dist/preprocess/index.js"
+    },
+    "./verifier": {
+      "types": "./dist/verifier/index.d.ts",
+      "import": "./dist/verifier/index.js"
+    },
+    "./converter": {
+      "types": "./dist/converter/index.d.ts",
+      "import": "./dist/converter/index.js"
+    }
+  },
+  "files": [
+    "dist/backend-wasm-error.js",
+    "dist/backend-wasm-error.d.ts",
+    "dist/version.js",
+    "dist/version.d.ts",
+    "dist/api",
+    "dist/artifacts",
+    "dist/generated",
+    "dist/runtime",
+    "dist/univariate",
+    "dist/prover",
+    "dist/preprocess",
+    "dist/converter",
+    "dist/verifier",
+    "README.md",
+    "CONTRIBUTING.md",
+    "examples/browser",
+    "LICENSE-MIT",
+    "LICENSE-APACHE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "scripts": {
+    "build": "npm run build:development",
+    "build:development": "npm run contracts:prepare && npm run subcircuit-library:generate:development && npm run verifier:generate && tsc -p tsconfig.json --pretty false",
+    "build:production": "npm run contracts:prepare && npm run subcircuit-library:generate:production && npm run verifier:generate && tsc -p tsconfig.json --pretty false",
+    "verifier:generate": "tsx scripts/generate/generate-verifier.ts",
+    "contracts:prepare": "node ../common/scripts/prepare-contract-consumers.mjs",
+    "contracts:check": "npm run contracts:prepare && node ../common/scripts/check-contract-closure.mjs && node ../common/scripts/prepare-contract-consumers.mjs --check",
+    "prepack": "npm run clean && npm run build:production",
+    "typecheck": "npm run typecheck:development",
+    "typecheck:development": "npm run contracts:check && npm run subcircuit-library:check:development && tsc -p tsconfig.json --pretty false --noEmit",
+    "typecheck:production": "npm run contracts:check && npm run subcircuit-library:check:production && tsc -p tsconfig.json --pretty false --noEmit",
+    "typecheck:scripts": "tsc -p tsconfig.dev.json --pretty false",
+    "binary:check": "npm run contracts:check && tsx test/checks/binary/check-artifact-contract-closure.ts && tsx test/checks/binary/check-instance-conversion.ts && tsx test/checks/binary/check-selector-conversion.ts && tsx test/checks/binary/check-univariate-crs-conversion.ts",
+    "univariate-crs:convert": "tsx scripts/converter/convert-univariate-crs.ts",
+    "univariate-crs:offline:check": "npm run contracts:check && tsx test/checks/binary/check-crs-offline.ts",
+    "univariate:domain:check": "npm run contracts:check && tsx test/checks/univariate/check-univariate-domain.ts",
+    "univariate:relation:check": "npm run contracts:check && tsx test/checks/univariate/check-univariate-relation.ts",
+    "univariate:polynomial:check": "tsx test/checks/univariate/check-univariate-polynomial.ts",
+    "univariate:optimization:check": "tsx test/checks/univariate/check-selection-accumulation.ts && tsx test/checks/univariate/check-selection-cofactors.ts && tsx test/checks/univariate/check-copy-boundary.ts && tsx test/checks/univariate/check-copy-recurrence.ts && tsx test/checks/univariate/check-msm-delivery.ts && tsx test/checks/univariate/check-signed-msm.ts && tsx test/checks/univariate/check-batched-polynomial.ts && tsx test/checks/univariate/check-masked-quotients.ts && tsx test/checks/univariate/check-copy-coset.ts && tsx test/profiling/compare-copy-spectrum.ts",
+    "univariate:transcript:check": "tsx test/checks/univariate/check-univariate-transcript.ts",
+    "univariate:reference-browser:check": "tsx test/checks/browser/check-univariate-reference-browser.ts",
+    "architecture:check": "tsx test/checks/architecture/check-layering.ts",
+    "fixtures:copy": "npm run subcircuit-library:generate:development && tsx scripts/fixtures/copy-fixtures.ts fixtures/small/copy-manifest.json",
+    "fixtures:prepare": "npm run subcircuit-library:generate:development && tsx scripts/fixtures/prepare-runtime-fixtures.ts fixtures/small/copy-manifest.json",
+    "fixtures:check:native-verifier": "tsx test/checks/fixtures/check-native-verifier-fixture.ts fixtures/small/copy-manifest.json",
+    "preprocess:check": "tsx test/checks/univariate/check-univariate-preprocess.ts",
+    "preprocess:public-api:check": "tsx test/checks/preprocess/check-preprocess-public-api.ts",
+    "prover:ops:check": "npm run prover:ops:field && npm run univariate:polynomial:check && npm run univariate:relation:check",
+    "prover:ops:field": "tsx test/checks/prover/check-field-buffer-ops.ts",
+    "prover:browser:check": "tsx test/checks/browser/check-prover-browser.ts",
+    "converter:browser:check": "npm run build:development && npm run binary:check",
+    "converter:browser:check:production": "npm run binary:check",
+    "converter:crs:browser:check": "npm run build && tsx test/checks/binary/check-univariate-crs-conversion.ts",
+    "converter:webpack:check": "npm run build:development && tsx test/checks/browser/check-webpack-consumer.ts",
+    "converter:webpack:check:production": "tsx test/checks/browser/check-webpack-consumer.ts",
+    "docs:examples:check": "npm run build:development && tsx test/checks/docs/check-browser-example.ts",
+    "docs:development-package:check": "npm run clean && npm run docs:examples:check && tsx test/checks/package/check-publication-package.ts --expected-origin=localQapCompiler",
+    "package:publication:check": "tsx test/checks/package/check-publication-package.ts --expected-origin=npmSnapshot",
+    "subcircuit-library:check": "npm run subcircuit-library:check:development",
+    "subcircuit-library:input:check": "tsx test/checks/generate/check-subcircuit-library-input.ts",
+    "subcircuit-library:check:development": "npm run subcircuit-library:input:check && tsx scripts/generate/generate-subcircuit-library.ts --origin=localQapCompiler --check",
+    "subcircuit-library:check:production": "npm run subcircuit-library:input:check && tsx scripts/generate/generate-subcircuit-library.ts --origin=npmSnapshot --check",
+    "subcircuit-library:generate": "npm run subcircuit-library:generate:development",
+    "subcircuit-library:generate:development": "tsx scripts/generate/generate-subcircuit-library.ts --origin=localQapCompiler",
+    "subcircuit-library:generate:production": "tsx scripts/generate/generate-subcircuit-library.ts --origin=npmSnapshot",
+    "verifier-crs:input:check": "tsx test/checks/generate/check-final-crs-input.ts",
+    "verifier-crs:input:validate": "npm run subcircuit-library:generate:production && tsx scripts/generate/validate-final-crs-input.ts",
+    "verifier:browser:check": "npm run prover:browser:check",
+    "clean": "rm -rf dist",
+    "clean:temp": "node scripts/package/clean-temporary.mjs"
+  },
+  "dependencies": {
+    "@noble/hashes": "^1.8.0",
+    "@tokamak-zk-evm/subcircuit-library": "3.0.1",
+    "ffjavascript": "^0.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.14",
+    "esbuild": "^0.28.1",
+    "marked": "^18.0.7",
+    "playwright": "^1.61.1",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.3",
+    "vite": "^8.1.5",
+    "webpack": "^5.109.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

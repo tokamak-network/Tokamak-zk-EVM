@@ -2,31 +2,12 @@ import {
   createTokamakL2Common,
   createTokamakL2StateManagerFromStateSnapshot,
   createTokamakL2TxFromSnapshot,
-  fromEdwardsToAddress,
   type TokamakL2StateManagerSnapshotOpts,
 } from 'tokamak-l2js';
-import {
-  addHexPrefix,
-  createAccount,
-  createAddressFromString,
-  hexToBytes,
-} from '@ethereumjs/util';
+import { addHexPrefix, createAddressFromString } from '@ethereumjs/util';
 import { createCircuitGenerator } from '../circuitGenerator/circuitGenerator.ts';
 import { createSynthesizer } from '../synthesizer/constructors.ts';
 import type { SynthesisInput, SynthesisOutput } from './types.ts';
-
-async function seedSenderNonceFromTransactionSnapshot(
-  stateManager: Awaited<ReturnType<typeof createTokamakL2StateManagerFromStateSnapshot>>,
-  transactionSnapshot: SynthesisInput['transaction'],
-) {
-  const senderPubKey = hexToBytes(addHexPrefix(transactionSnapshot.senderPubKey));
-  const senderAddress = createAddressFromString(fromEdwardsToAddress(senderPubKey).toString());
-  const senderAccount = createAccount({
-    nonce: BigInt(transactionSnapshot.nonce),
-    balance: 0n,
-  });
-  await stateManager.putAccount(senderAddress, senderAccount);
-}
 
 export async function synthesizeFromSnapshotInput(
   input: SynthesisInput,
@@ -43,7 +24,6 @@ export async function synthesizeFromSnapshotInput(
     input.previousState,
     stateManagerOpts,
   );
-  await seedSenderNonceFromTransactionSnapshot(stateManager, input.transaction);
 
   const synthesizer = await createSynthesizer(
     {
@@ -56,20 +36,14 @@ export async function synthesizeFromSnapshotInput(
 
   await synthesizer.synthesizeTX();
   const finalStateSnapshot = await stateManager.captureStateSnapshot();
-  const circuitGenerator = await createCircuitGenerator(synthesizer, input.wasmBuffers);
-  const circuitArtifacts = circuitGenerator.getArtifacts();
-  const placements = circuitGenerator.circuitPlacements;
-  if (placements === undefined) {
-    throw new Error('Circuit placements are not generated yet.');
-  }
+  const circuitGeneration = await createCircuitGenerator(synthesizer);
 
   return {
-    ...circuitArtifacts,
-    placements,
+    ...circuitGeneration,
     finalStateSnapshot,
     evmAnalysis: {
       stepLogs: synthesizer.stepLogs,
-      messageCodeAddresses: Array.from(synthesizer.messageCodeAddresses),
+      messageCodeAddresses: synthesizer.messageCodeAddresses.slice(),
     },
   };
 }

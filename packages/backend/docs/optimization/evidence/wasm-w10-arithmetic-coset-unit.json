@@ -1,0 +1,13 @@
+{
+  "date": "2026-09-14",
+  "command": "npx tsx test/checks/univariate/check-arithmetic-coset.ts",
+  "domain": 262144,
+  "unit": "ms",
+  "warmup": "One complete call per path excluded",
+  "control": "Current mask-separated product plus exact vanishing division, not the older fully masked FFT product",
+  "candidate": "N-point coset quotient with an original-domain residue check and unchanged short-mask expansion",
+  "controlSamples": [591.406292, 572.708292, 575.876542, 577.813625, 581.521125],
+  "candidateSamples": [435.299542, 432.037625, 433.925125, 427.147750, 437.265416],
+  "checks": ["exact coefficient equality", "zero and nonzero masks", "N=1,2,8,64,262144", "zero/leading-zero polynomials", "nondivisible input rejection", "degree bound rejection", "existing unequal-domain masked quotient regression"],
+  "scope": "Node WASM unit operation including all additional checks, transforms and scaling; paired evaluation/coefficient inputs already produced by witness-map interpolation"
+}

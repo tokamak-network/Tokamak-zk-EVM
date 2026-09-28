@@ -17,6 +17,7 @@ Thank you for your interest in contributing to Tokamak-zk-EVM! This document pro
 ## Development Workflow
 
 1. Create a new branch from `dev`:
+
    ```bash
    git checkout dev
    git pull upstream dev
@@ -26,11 +27,13 @@ Thank you for your interest in contributing to Tokamak-zk-EVM! This document pro
 2. Make your changes following our coding conventions
 
 3. Commit your changes:
+
    ```bash
    git commit -m "feat: add new feature"
    ```
-   
+
    We use conventional commits with the following types:
+
    - `feat`: New feature
    - `fix`: Bug fix
    - `docs`: Documentation changes
@@ -39,6 +42,7 @@ Thank you for your interest in contributing to Tokamak-zk-EVM! This document pro
    - `refactor`: Code refactoring
 
 4. Push to your fork:
+
    ```bash
    git push origin feature/your-feature
    ```
@@ -61,7 +65,7 @@ Thank you for your interest in contributing to Tokamak-zk-EVM! This document pro
 - Follow language-specific conventions:
   - Rust: Follow `rustfmt` guidelines
   - Solidity: Follow Solidity style guide
-  - TypeScript: Use prettier and eslint configurations
+  - TypeScript: Follow the repository TypeScript and ESLint conventions
 
 ## Testing
 
@@ -77,4 +81,6 @@ Thank you for your interest in contributing to Tokamak-zk-EVM! This document pro
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the project's [MPL-2.0 License](./LICENSE). 
+By contributing, you agree that your contributions will be licensed under the
+project's [MIT](./LICENSE-MIT) or [Apache-2.0](./LICENSE-APACHE) license, at the
+recipient's option.

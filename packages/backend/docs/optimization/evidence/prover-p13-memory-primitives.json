@@ -1,0 +1,1926 @@
+{
+  "scope": "Independent release-only memory primitives; synthetic ranges/scalars over real CRS. No MSM in these timings. Includes per-invocation construction and copies.",
+  "disposition": "Scratch gather reuse rejected as marginal/mixed; range decode reuse entered full-command comparison",
+  "samples": [
+    {
+      "candidate": true,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.002023125,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.002262959,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.002168917,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.002148834,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.001871708,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.002270042,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.002089584,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.002113667,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.001895666,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.002248625,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.00288925,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.002653459,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.015067208,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.022367917,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.022281667,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.00879025,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.008776709,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.021866041,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.022920584,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.008620666,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.008980292,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.02231475,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.021737417,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.008370916,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.002245125,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.002495667,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.002401875,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.002361584,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.00224525,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.002608667,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.002446,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.00220575,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.002614375,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.002268208,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.002336167,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.002155375,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.015337,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.02529475,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.025484666,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.014941459,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.015445542,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.025274625,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.025050375,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.015587,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.015306291,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.029717042,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.024621167,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.015005417,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.001672209,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.001667417,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.002148167,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.001631417,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.001847709,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.00159875,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.001988875,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.001838,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.001799792,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.001629042,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.001704542,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.002072667,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.014624417,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.018358667,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.018563709,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.014779458,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.014680084,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.018585875,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.018397292,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.014865333,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.015412084,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.018806333,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.018729833,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.014463584,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.002043583,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.001695541,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.001869667,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.001595416,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.001581416,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.00203725,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.001722291,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.00187075,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.001639708,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.001778333,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.002021333,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "gather",
+      "n": 262148,
+      "seconds": 0.00172525,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.020965917,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.018657083,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.018333,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.021012875,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.020738625,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.018607916,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.01824675,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.02055175,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.021219583,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.018355833,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.018452625,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 262148,
+      "seconds": 0.020750208,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 0.000003833,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 0.00000325,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 0.000001208,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 8.33e-7,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 6.67e-7,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 7.91e-7,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 7.91e-7,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 6.67e-7,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 6.25e-7,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 7.5e-7,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 7.91e-7,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 0.000001667,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000127708,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000157209,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000238875,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.00003325,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000087791,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000194,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000148875,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000027167,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.00005125,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000153125,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000192459,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "reuse",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.00005025,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 0.000001458,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 0.000001208,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 0.000001084,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 8.75e-7,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 8.33e-7,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 0.000001042,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 9.17e-7,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 8.75e-7,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 7.92e-7,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 0.000001,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 9.16e-7,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 7.08e-7,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000119708,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000346917,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000300084,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000091208,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000070833,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000366917,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000246708,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000081958,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000110125,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.0001575,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000144584,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "shifted",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000090166,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 0.000003792,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 9.59e-7,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 9.16e-7,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 5.84e-7,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 5.83e-7,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 7.92e-7,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 7.5e-7,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 4.58e-7,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 5.83e-7,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 6.66e-7,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 7.08e-7,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 5.42e-7,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.0000825,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000142,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000136791,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000082583,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000088875,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000141791,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.00015425,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000095709,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000083125,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000130708,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000141625,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "overlap",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000140833,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 9.16e-7,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 9.58e-7,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 8.33e-7,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 7.08e-7,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 6.25e-7,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 7.08e-7,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 7.08e-7,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 7.5e-7,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 6.25e-7,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 5.84e-7,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 7.08e-7,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "gather",
+      "n": 64,
+      "seconds": 6.25e-7,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000144125,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000200417,
+      "threads": 14,
+      "trial": 0
+    },
+    {
+      "candidate": false,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000247459,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000117458,
+      "threads": 14,
+      "trial": 1
+    },
+    {
+      "candidate": true,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.00015475,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000120583,
+      "threads": 14,
+      "trial": 2
+    },
+    {
+      "candidate": false,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000134917,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000129417,
+      "threads": 14,
+      "trial": 3
+    },
+    {
+      "candidate": true,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000146541,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000126958,
+      "threads": 14,
+      "trial": 4
+    },
+    {
+      "candidate": false,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000172583,
+      "threads": 14,
+      "trial": 5
+    },
+    {
+      "candidate": true,
+      "case": "disjoint",
+      "equal": true,
+      "experiment": "decode-cache",
+      "n": 64,
+      "seconds": 0.000151083,
+      "threads": 14,
+      "trial": 5
+    }
+  ]
+}

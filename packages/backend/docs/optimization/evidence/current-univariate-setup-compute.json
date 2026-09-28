@@ -1,0 +1,4013 @@
+{
+  "date": "2026-09-11",
+  "controlCommit": "893c3eb17",
+  "scope": "P3.2 single-command trusted setup CPU computation; P3.1 storage unchanged",
+  "environment": {
+    "cpu": "Apple M4 Pro",
+    "logicalCores": 14,
+    "ramBytes": 51539607552,
+    "build": "release with timing feature, compilation excluded",
+    "runtime": "ICICLE 3.8.0 CPU; arkworks 0.5 fixed-base batching on CPU",
+    "input": "local QAP library, same as storage experiment",
+    "randomness": "fixed development trapdoor and generators for full runs; shared random scalars/generators across each independent encoding comparison"
+  },
+  "policy": {
+    "primaryMetric": "full setup process wall time",
+    "memoryCap": null,
+    "fullProofE2E": false,
+    "cudaMeasured": false
+  },
+  "accepted": "fixed-base-direct-output",
+  "files": {
+    "tau_sequence.rkyv": {
+      "bytes": 301992400,
+      "sha256": "0731717d278651ef0e0df83a1ad9b097eb111a06346d34c0d2153d196487cd9e"
+    },
+    "prover_keys.rkyv": {
+      "bytes": 626999056,
+      "sha256": "0cc80ab2a193dd70d4468c68b930b9b3f855fc19e8a12e8d83fa086978d5b2e5"
+    },
+    "preprocess_keys.rkyv": {
+      "bytes": 28276128,
+      "sha256": "1c90ab2e5dc78fdaa79bd172cc504e5780c9f9a3f1f3b1212c2df8623105da84"
+    },
+    "verifier_keys.rkyv": {
+      "bytes": 1104,
+      "sha256": "353a403bf8f3c9b75db8c49750d35ab736d48f905c09078d9f46c33fd0d9e2b8"
+    }
+  },
+  "sourceDigest": "sha256:e2d425690aa68524ffa46a755d0a1eab7419d202f44a16805852c5dbfbdb0c92",
+  "allFourFilesIdentical": true,
+  "allProvenanceDigestsVerified": true,
+  "summaries": [
+    {
+      "name": "control",
+      "count": 2,
+      "wallSeconds": [
+        222.33,
+        218.15
+      ],
+      "meanWallSeconds": 220.24,
+      "meanGenerationSeconds": 217.57264049999998,
+      "peakRssBytes": [
+        2400681984,
+        2404990976
+      ]
+    },
+    {
+      "name": "fixed-base-unindexed",
+      "count": 5,
+      "wallSeconds": [
+        14.24,
+        14.34,
+        12.84,
+        12.19,
+        14.66
+      ],
+      "meanWallSeconds": 13.654,
+      "meanGenerationSeconds": 10.0194744,
+      "peakRssBytes": [
+        3008446464,
+        3015786496,
+        3008888832,
+        2955296768,
+        3001778176
+      ]
+    },
+    {
+      "name": "fixed-base-direct-output",
+      "count": 5,
+      "wallSeconds": [
+        12.18,
+        12.21,
+        12.05,
+        12.13,
+        12.51
+      ],
+      "meanWallSeconds": 12.216,
+      "meanGenerationSeconds": 10.0889222,
+      "peakRssBytes": [
+        2409447424,
+        2414608384,
+        2410577920,
+        2410184704,
+        2407628800
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "name": "control-1",
+      "wallSeconds": 222.33,
+      "generationSeconds": 219.894165,
+      "serializationActivationSeconds": 1.875601,
+      "peakRssBytes": 2400681984,
+      "stages": [
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.167212916
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.222317166
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              16384
+            ]
+          ],
+          "seconds": 0.01046925
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              256
+            ]
+          ],
+          "seconds": 0.000282
+        },
+        {
+          "name": "nonpublic.scalar_labels",
+          "dimensions": [],
+          "seconds": 0.214451875
+        },
+        {
+          "name": "public.scalar_labels",
+          "dimensions": [],
+          "seconds": 0.000937916
+        },
+        {
+          "name": "powers",
+          "dimensions": [
+            [
+              1048583
+            ]
+          ],
+          "seconds": 0.005181792
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              1048583
+            ]
+          ],
+          "seconds": 14.319436667
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 7.299401458
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 7.241484375
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 104.163783375
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.002136209
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              140
+            ]
+          ],
+          "seconds": 0.002120916
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.002170292
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 3.482822042
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 3.56336075
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              158
+            ]
+          ],
+          "seconds": 0.002264208
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              6006784
+            ]
+          ],
+          "seconds": 79.17271825
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000181708
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.00016625
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000164084
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000164917
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.00013925
+        },
+        {
+          "name": "verifier_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.000001458
+        },
+        {
+          "name": "verifier_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.0000055
+        },
+        {
+          "name": "verifier_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.000273167
+        },
+        {
+          "name": "preprocess_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.000674709
+        },
+        {
+          "name": "tau_sequence.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.027357959
+        },
+        {
+          "name": "prover_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.0444765
+        },
+        {
+          "name": "preprocess_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.050016334
+        },
+        {
+          "name": "preprocess_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.007805125
+        },
+        {
+          "name": "tau_sequence.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.548782208
+        },
+        {
+          "name": "tau_sequence.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.256526625
+        },
+        {
+          "name": "prover_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 1.119120125
+        },
+        {
+          "name": "prover_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.711327083
+        }
+      ]
+    },
+    {
+      "name": "control-2",
+      "wallSeconds": 218.15,
+      "generationSeconds": 215.251116,
+      "serializationActivationSeconds": 2.655076,
+      "peakRssBytes": 2404990976,
+      "stages": [
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.164762666
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.164293708
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              16384
+            ]
+          ],
+          "seconds": 0.010141125
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              256
+            ]
+          ],
+          "seconds": 0.000209375
+        },
+        {
+          "name": "nonpublic.scalar_labels",
+          "dimensions": [],
+          "seconds": 0.210880958
+        },
+        {
+          "name": "public.scalar_labels",
+          "dimensions": [],
+          "seconds": 0.000797625
+        },
+        {
+          "name": "powers",
+          "dimensions": [
+            [
+              1048583
+            ]
+          ],
+          "seconds": 0.004638417
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              1048583
+            ]
+          ],
+          "seconds": 13.753334417
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 6.888992916
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 7.026567083
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 101.905845875
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.002120458
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              140
+            ]
+          ],
+          "seconds": 0.002013
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.002143334
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 3.379735958
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 3.38992125
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              158
+            ]
+          ],
+          "seconds": 0.002356167
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              6006784
+            ]
+          ],
+          "seconds": 78.321791666
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000165625
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000163334
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000160292
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000155042
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.000139209
+        },
+        {
+          "name": "verifier_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.000001833
+        },
+        {
+          "name": "verifier_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.000004458
+        },
+        {
+          "name": "verifier_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.000280166
+        },
+        {
+          "name": "preprocess_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.002249334
+        },
+        {
+          "name": "tau_sequence.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.026630666
+        },
+        {
+          "name": "prover_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.044279416
+        },
+        {
+          "name": "preprocess_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.049817708
+        },
+        {
+          "name": "preprocess_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.012896958
+        },
+        {
+          "name": "tau_sequence.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.553778792
+        },
+        {
+          "name": "tau_sequence.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.542282167
+        },
+        {
+          "name": "prover_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 1.123799083
+        },
+        {
+          "name": "prover_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 1.486310417
+        }
+      ]
+    },
+    {
+      "name": "fixed-base-1",
+      "wallSeconds": 14.24,
+      "generationSeconds": 9.834116,
+      "serializationActivationSeconds": 3.829121,
+      "peakRssBytes": 3008446464,
+      "stages": [
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.161761959
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.174132959
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              16384
+            ]
+          ],
+          "seconds": 0.010148458
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              256
+            ]
+          ],
+          "seconds": 0.000204958
+        },
+        {
+          "name": "nonpublic.scalar_labels",
+          "dimensions": [],
+          "seconds": 0.210800875
+        },
+        {
+          "name": "public.scalar_labels",
+          "dimensions": [],
+          "seconds": 0.000899625
+        },
+        {
+          "name": "powers",
+          "dimensions": [
+            [
+              1048583
+            ]
+          ],
+          "seconds": 0.004572458
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              1048583
+            ]
+          ],
+          "seconds": 0.96305
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 0.486559208
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 0.497195209
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 1.336029708
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.002141167
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              140
+            ]
+          ],
+          "seconds": 0.001940292
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.002247916
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.24781225
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.24820775
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              158
+            ]
+          ],
+          "seconds": 0.002238916
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              6006784
+            ]
+          ],
+          "seconds": 5.463410666
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000177958
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000169875
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.0001635
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000155583
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.000155333
+        },
+        {
+          "name": "verifier_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.000004125
+        },
+        {
+          "name": "verifier_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.000010208
+        },
+        {
+          "name": "verifier_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.0002865
+        },
+        {
+          "name": "preprocess_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.001065375
+        },
+        {
+          "name": "tau_sequence.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.025313083
+        },
+        {
+          "name": "prover_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.044143791
+        },
+        {
+          "name": "preprocess_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.050005625
+        },
+        {
+          "name": "preprocess_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.017070625
+        },
+        {
+          "name": "tau_sequence.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.545355792
+        },
+        {
+          "name": "tau_sequence.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.558602125
+        },
+        {
+          "name": "prover_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 1.137858083
+        },
+        {
+          "name": "prover_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 2.646406
+        }
+      ]
+    },
+    {
+      "name": "fixed-base-2",
+      "wallSeconds": 14.34,
+      "generationSeconds": 10.062472,
+      "serializationActivationSeconds": 4.087558,
+      "peakRssBytes": 3015786496,
+      "stages": [
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.16200575
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.185158959
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              16384
+            ]
+          ],
+          "seconds": 0.011119584
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              256
+            ]
+          ],
+          "seconds": 0.000250791
+        },
+        {
+          "name": "nonpublic.scalar_labels",
+          "dimensions": [],
+          "seconds": 0.208839541
+        },
+        {
+          "name": "public.scalar_labels",
+          "dimensions": [],
+          "seconds": 0.00098375
+        },
+        {
+          "name": "powers",
+          "dimensions": [
+            [
+              1048583
+            ]
+          ],
+          "seconds": 0.00465175
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              1048583
+            ]
+          ],
+          "seconds": 1.007278125
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 0.498657417
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 0.486795083
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 1.429237
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.0023685
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              140
+            ]
+          ],
+          "seconds": 0.004608583
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.002180959
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.252880584
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.246143542
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              158
+            ]
+          ],
+          "seconds": 0.002212083
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              6006784
+            ]
+          ],
+          "seconds": 5.53609525
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000176084
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000174416
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000169042
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000162292
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.000140292
+        },
+        {
+          "name": "verifier_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.000001625
+        },
+        {
+          "name": "verifier_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.000005
+        },
+        {
+          "name": "verifier_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.000230333
+        },
+        {
+          "name": "preprocess_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.000937583
+        },
+        {
+          "name": "tau_sequence.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.027249959
+        },
+        {
+          "name": "prover_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.043667834
+        },
+        {
+          "name": "preprocess_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.049804583
+        },
+        {
+          "name": "preprocess_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.035728209
+        },
+        {
+          "name": "tau_sequence.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.547243167
+        },
+        {
+          "name": "tau_sequence.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.431218917
+        },
+        {
+          "name": "prover_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 1.134360583
+        },
+        {
+          "name": "prover_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 2.908751083
+        }
+      ]
+    },
+    {
+      "name": "direct-output-1",
+      "wallSeconds": 12.18,
+      "generationSeconds": 9.994199,
+      "serializationActivationSeconds": 1.604908,
+      "peakRssBytes": 2409447424,
+      "stages": [
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.16604925
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.166172459
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              16384
+            ]
+          ],
+          "seconds": 0.01076975
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              256
+            ]
+          ],
+          "seconds": 0.000258084
+        },
+        {
+          "name": "nonpublic.scalar_labels",
+          "dimensions": [],
+          "seconds": 0.212461125
+        },
+        {
+          "name": "public.scalar_labels",
+          "dimensions": [],
+          "seconds": 0.000897166
+        },
+        {
+          "name": "powers",
+          "dimensions": [
+            [
+              1048583
+            ]
+          ],
+          "seconds": 0.004715417
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              1048583
+            ]
+          ],
+          "seconds": 0.969864542
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 0.490439375
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 0.508648417
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 1.3544585
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.002209375
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              140
+            ]
+          ],
+          "seconds": 0.002231625
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.002165666
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.252507917
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.268488375
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              158
+            ]
+          ],
+          "seconds": 0.002273042
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              6006784
+            ]
+          ],
+          "seconds": 5.559150458
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.00017975
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000168209
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000159292
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000191333
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.00014225
+        },
+        {
+          "name": "verifier_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.000002291
+        },
+        {
+          "name": "verifier_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.000005542
+        },
+        {
+          "name": "verifier_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.000220959
+        },
+        {
+          "name": "preprocess_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.000704833
+        },
+        {
+          "name": "tau_sequence.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.02592375
+        },
+        {
+          "name": "prover_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.042036292
+        },
+        {
+          "name": "preprocess_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.050086834
+        },
+        {
+          "name": "preprocess_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.035614042
+        },
+        {
+          "name": "tau_sequence.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.560382416
+        },
+        {
+          "name": "tau_sequence.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.447624792
+        },
+        {
+          "name": "prover_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 1.126783125
+        },
+        {
+          "name": "prover_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.435317917
+        }
+      ]
+    },
+    {
+      "name": "direct-output-2",
+      "wallSeconds": 12.21,
+      "generationSeconds": 10.117708,
+      "serializationActivationSeconds": 1.957171,
+      "peakRssBytes": 2414608384,
+      "stages": [
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.162864375
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.161750542
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              16384
+            ]
+          ],
+          "seconds": 0.0101325
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              256
+            ]
+          ],
+          "seconds": 0.00022725
+        },
+        {
+          "name": "nonpublic.scalar_labels",
+          "dimensions": [],
+          "seconds": 0.2098645
+        },
+        {
+          "name": "public.scalar_labels",
+          "dimensions": [],
+          "seconds": 0.000787417
+        },
+        {
+          "name": "powers",
+          "dimensions": [
+            [
+              1048583
+            ]
+          ],
+          "seconds": 0.004775
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              1048583
+            ]
+          ],
+          "seconds": 0.982252458
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 0.490938583
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 0.494049209
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 1.394098291
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.002195792
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              140
+            ]
+          ],
+          "seconds": 0.002067458
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.002168083
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.251412916
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.256162791
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              158
+            ]
+          ],
+          "seconds": 0.002195459
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              6006784
+            ]
+          ],
+          "seconds": 5.668995083
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000172542
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000167666
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000158375
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000154792
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.000137125
+        },
+        {
+          "name": "verifier_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.000001541
+        },
+        {
+          "name": "verifier_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.000005459
+        },
+        {
+          "name": "preprocess_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.000877792
+        },
+        {
+          "name": "verifier_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.010690625
+        },
+        {
+          "name": "tau_sequence.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.026621
+        },
+        {
+          "name": "prover_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.041839125
+        },
+        {
+          "name": "preprocess_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.049235459
+        },
+        {
+          "name": "preprocess_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.045263209
+        },
+        {
+          "name": "tau_sequence.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.5481185
+        },
+        {
+          "name": "tau_sequence.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.465995667
+        },
+        {
+          "name": "prover_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 1.118268166
+        },
+        {
+          "name": "prover_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.795443458
+        }
+      ]
+    },
+    {
+      "name": "cross-a1-1",
+      "wallSeconds": 12.84,
+      "generationSeconds": 9.801696,
+      "serializationActivationSeconds": 2.928907,
+      "peakRssBytes": 3008888832,
+      "stages": [
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.169930917
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.161485042
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              16384
+            ]
+          ],
+          "seconds": 0.009925958
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              256
+            ]
+          ],
+          "seconds": 0.000219709
+        },
+        {
+          "name": "nonpublic.scalar_labels",
+          "dimensions": [],
+          "seconds": 0.207335333
+        },
+        {
+          "name": "public.scalar_labels",
+          "dimensions": [],
+          "seconds": 0.000858875
+        },
+        {
+          "name": "powers",
+          "dimensions": [
+            [
+              1048583
+            ]
+          ],
+          "seconds": 0.00469125
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              1048583
+            ]
+          ],
+          "seconds": 0.976759292
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 0.490128958
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 0.485600334
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 1.342905084
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.002208167
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              140
+            ]
+          ],
+          "seconds": 0.002091084
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.002153416
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.247659125
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.248081541
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              158
+            ]
+          ],
+          "seconds": 0.002334958
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              6006784
+            ]
+          ],
+          "seconds": 5.427359333
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000172709
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000163833
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000178083
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000158916
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.00014
+        },
+        {
+          "name": "verifier_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.000003791
+        },
+        {
+          "name": "verifier_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.000010125
+        },
+        {
+          "name": "verifier_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.000257792
+        },
+        {
+          "name": "preprocess_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.001032375
+        },
+        {
+          "name": "tau_sequence.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.025247375
+        },
+        {
+          "name": "prover_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.045088542
+        },
+        {
+          "name": "preprocess_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.049900875
+        },
+        {
+          "name": "preprocess_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.045152833
+        },
+        {
+          "name": "tau_sequence.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.546622625
+        },
+        {
+          "name": "tau_sequence.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.435325583
+        },
+        {
+          "name": "prover_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 1.134432958
+        },
+        {
+          "name": "prover_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 1.748594917
+        }
+      ]
+    },
+    {
+      "name": "cross-b1-1",
+      "wallSeconds": 12.05,
+      "generationSeconds": 9.889273,
+      "serializationActivationSeconds": 2.040423,
+      "peakRssBytes": 2410577920,
+      "stages": [
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.160726459
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.161306666
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              16384
+            ]
+          ],
+          "seconds": 0.010080583
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              256
+            ]
+          ],
+          "seconds": 0.000293042
+        },
+        {
+          "name": "nonpublic.scalar_labels",
+          "dimensions": [],
+          "seconds": 0.208184166
+        },
+        {
+          "name": "public.scalar_labels",
+          "dimensions": [],
+          "seconds": 0.000856417
+        },
+        {
+          "name": "powers",
+          "dimensions": [
+            [
+              1048583
+            ]
+          ],
+          "seconds": 0.004478291
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              1048583
+            ]
+          ],
+          "seconds": 0.966833708
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 0.481778416
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 0.478606708
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 1.402300084
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.002219958
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              140
+            ]
+          ],
+          "seconds": 0.001941333
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.002222542
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.245967667
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.246057166
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              158
+            ]
+          ],
+          "seconds": 0.002270459
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              6006784
+            ]
+          ],
+          "seconds": 5.493624833
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000177917
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.0001645
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000159792
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.0001615
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.00015875
+        },
+        {
+          "name": "verifier_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.000002167
+        },
+        {
+          "name": "verifier_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.000005667
+        },
+        {
+          "name": "verifier_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.000241041
+        },
+        {
+          "name": "preprocess_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.000715416
+        },
+        {
+          "name": "tau_sequence.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.026300666
+        },
+        {
+          "name": "prover_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.042264791
+        },
+        {
+          "name": "preprocess_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.049743167
+        },
+        {
+          "name": "preprocess_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.04397175
+        },
+        {
+          "name": "tau_sequence.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.546070583
+        },
+        {
+          "name": "tau_sequence.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.431292875
+        },
+        {
+          "name": "prover_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 1.115283917
+        },
+        {
+          "name": "prover_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.882163292
+        }
+      ]
+    },
+    {
+      "name": "cross-b2-1",
+      "wallSeconds": 12.13,
+      "generationSeconds": 10.136281,
+      "serializationActivationSeconds": 1.89575,
+      "peakRssBytes": 2410184704,
+      "stages": [
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.161184291
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.1608795
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              16384
+            ]
+          ],
+          "seconds": 0.010234041
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              256
+            ]
+          ],
+          "seconds": 0.000217916
+        },
+        {
+          "name": "nonpublic.scalar_labels",
+          "dimensions": [],
+          "seconds": 0.20667
+        },
+        {
+          "name": "public.scalar_labels",
+          "dimensions": [],
+          "seconds": 0.000803209
+        },
+        {
+          "name": "powers",
+          "dimensions": [
+            [
+              1048583
+            ]
+          ],
+          "seconds": 0.004651167
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              1048583
+            ]
+          ],
+          "seconds": 0.973811334
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 0.500698625
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 0.493234209
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 1.436952042
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.0021625
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              140
+            ]
+          ],
+          "seconds": 0.001912292
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.002268292
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.263173791
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.255132417
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              158
+            ]
+          ],
+          "seconds": 0.00217575
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              6006784
+            ]
+          ],
+          "seconds": 5.64037
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000181834
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000176875
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000176792
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000168
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.000148959
+        },
+        {
+          "name": "verifier_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.000001708
+        },
+        {
+          "name": "verifier_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.000005875
+        },
+        {
+          "name": "verifier_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.000209084
+        },
+        {
+          "name": "preprocess_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.000774208
+        },
+        {
+          "name": "tau_sequence.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.023392333
+        },
+        {
+          "name": "prover_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.039838291
+        },
+        {
+          "name": "preprocess_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.050137333
+        },
+        {
+          "name": "preprocess_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.029742375
+        },
+        {
+          "name": "tau_sequence.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.545323
+        },
+        {
+          "name": "tau_sequence.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.509892708
+        },
+        {
+          "name": "prover_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 1.115782
+        },
+        {
+          "name": "prover_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.739525041
+        }
+      ]
+    },
+    {
+      "name": "cross-a2-1",
+      "wallSeconds": 12.19,
+      "generationSeconds": 10.27073,
+      "serializationActivationSeconds": 1.79509,
+      "peakRssBytes": 2955296768,
+      "stages": [
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.160727625
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.160145875
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              16384
+            ]
+          ],
+          "seconds": 0.010064167
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              256
+            ]
+          ],
+          "seconds": 0.000198083
+        },
+        {
+          "name": "nonpublic.scalar_labels",
+          "dimensions": [],
+          "seconds": 0.2222175
+        },
+        {
+          "name": "public.scalar_labels",
+          "dimensions": [],
+          "seconds": 0.000865542
+        },
+        {
+          "name": "powers",
+          "dimensions": [
+            [
+              1048583
+            ]
+          ],
+          "seconds": 0.004470375
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              1048583
+            ]
+          ],
+          "seconds": 0.987136083
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 0.494161084
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 0.510038166
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 1.458678834
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.002208
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              140
+            ]
+          ],
+          "seconds": 0.0020405
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.002243792
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.2529195
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.266395459
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              158
+            ]
+          ],
+          "seconds": 0.002124166
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              6006784
+            ]
+          ],
+          "seconds": 5.713147792
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000170792
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000154584
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000164834
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000156167
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.000141542
+        },
+        {
+          "name": "verifier_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.000002209
+        },
+        {
+          "name": "verifier_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.000005291
+        },
+        {
+          "name": "verifier_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.000219209
+        },
+        {
+          "name": "preprocess_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.000766542
+        },
+        {
+          "name": "tau_sequence.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.027139416
+        },
+        {
+          "name": "prover_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.043027542
+        },
+        {
+          "name": "preprocess_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.049689833
+        },
+        {
+          "name": "preprocess_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.045827458
+        },
+        {
+          "name": "tau_sequence.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.549410834
+        },
+        {
+          "name": "tau_sequence.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.331372375
+        },
+        {
+          "name": "prover_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 1.14808725
+        },
+        {
+          "name": "prover_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.603158792
+        }
+      ]
+    },
+    {
+      "name": "final-1",
+      "wallSeconds": 14.66,
+      "generationSeconds": 10.128358,
+      "serializationActivationSeconds": 3.955738,
+      "peakRssBytes": 3001778176,
+      "stages": [
+        {
+          "name": "input.load_and_validate",
+          "dimensions": [],
+          "seconds": 0.005405833
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.163684792
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.164172792
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              16384
+            ]
+          ],
+          "seconds": 0.0122175
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              256
+            ]
+          ],
+          "seconds": 0.000299167
+        },
+        {
+          "name": "nonpublic.scalar_labels",
+          "dimensions": [],
+          "seconds": 0.218715042
+        },
+        {
+          "name": "public.scalar_labels",
+          "dimensions": [],
+          "seconds": 0.000952334
+        },
+        {
+          "name": "powers",
+          "dimensions": [
+            [
+              1048583
+            ]
+          ],
+          "seconds": 0.004599792
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              1048583
+            ]
+          ],
+          "seconds": 1.0179755
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 0.508961458
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 0.504018958
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 1.372555333
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.002302458
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              140
+            ]
+          ],
+          "seconds": 0.002226584
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.002171125
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.264678833
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.256937875
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              158
+            ]
+          ],
+          "seconds": 0.002349292
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              6006784
+            ]
+          ],
+          "seconds": 5.607415625
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000181083
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000159333
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.0001775
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000176417
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.000151083
+        },
+        {
+          "name": "verifier_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.000011125
+        },
+        {
+          "name": "verifier_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.000010833
+        },
+        {
+          "name": "verifier_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.000197583
+        },
+        {
+          "name": "preprocess_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.002158042
+        },
+        {
+          "name": "tau_sequence.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.026947042
+        },
+        {
+          "name": "prover_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.045594708
+        },
+        {
+          "name": "preprocess_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.050205458
+        },
+        {
+          "name": "preprocess_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.009860917
+        },
+        {
+          "name": "tau_sequence.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.558320167
+        },
+        {
+          "name": "tau_sequence.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.297359417
+        },
+        {
+          "name": "prover_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 1.145440959
+        },
+        {
+          "name": "prover_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 2.763918167
+        },
+        {
+          "name": "provenance.write",
+          "dimensions": [],
+          "seconds": 0.000252375
+        },
+        {
+          "name": "generation.activate",
+          "dimensions": [],
+          "seconds": 0.000223375
+        }
+      ]
+    },
+    {
+      "name": "accepted-1",
+      "wallSeconds": 12.51,
+      "generationSeconds": 10.30715,
+      "serializationActivationSeconds": 1.697087,
+      "peakRssBytes": 2407628800,
+      "stages": [
+        {
+          "name": "input.load_and_validate",
+          "dimensions": [],
+          "seconds": 0.004287917
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.176714041
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.191734167
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              16384
+            ]
+          ],
+          "seconds": 0.011733041
+        },
+        {
+          "name": "lagrange_at",
+          "dimensions": [
+            [
+              256
+            ]
+          ],
+          "seconds": 0.000288042
+        },
+        {
+          "name": "nonpublic.scalar_labels",
+          "dimensions": [],
+          "seconds": 0.232614541
+        },
+        {
+          "name": "public.scalar_labels",
+          "dimensions": [],
+          "seconds": 0.000888916
+        },
+        {
+          "name": "powers",
+          "dimensions": [
+            [
+              1048583
+            ]
+          ],
+          "seconds": 0.004808584
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              1048583
+            ]
+          ],
+          "seconds": 1.125389
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 0.508093917
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 0.496529667
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              524292
+            ]
+          ],
+          "seconds": 1.388004875
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.002216292
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              140
+            ]
+          ],
+          "seconds": 0.00196
+        },
+        {
+          "name": "encode_g2",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.002213208
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.252795667
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              262144
+            ]
+          ],
+          "seconds": 0.253391417
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              158
+            ]
+          ],
+          "seconds": 0.002235375
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              6006784
+            ]
+          ],
+          "seconds": 5.635560458
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000166625
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000160583
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000173042
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              2
+            ]
+          ],
+          "seconds": 0.000168792
+        },
+        {
+          "name": "encode_g1",
+          "dimensions": [
+            [
+              1
+            ]
+          ],
+          "seconds": 0.00014025
+        },
+        {
+          "name": "verifier_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.000001708
+        },
+        {
+          "name": "verifier_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.000005084
+        },
+        {
+          "name": "verifier_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.000246333
+        },
+        {
+          "name": "preprocess_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.000736875
+        },
+        {
+          "name": "tau_sequence.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.02536075
+        },
+        {
+          "name": "prover_keys.rkyv.serialize",
+          "dimensions": [],
+          "seconds": 0.0411035
+        },
+        {
+          "name": "preprocess_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.0496975
+        },
+        {
+          "name": "preprocess_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.018886125
+        },
+        {
+          "name": "tau_sequence.rkyv.hash",
+          "dimensions": [],
+          "seconds": 0.550578666
+        },
+        {
+          "name": "tau_sequence.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.343664917
+        },
+        {
+          "name": "prover_keys.rkyv.hash",
+          "dimensions": [],
+          "seconds": 1.130882375
+        },
+        {
+          "name": "prover_keys.rkyv.write",
+          "dimensions": [],
+          "seconds": 0.524413583
+        },
+        {
+          "name": "provenance.write",
+          "dimensions": [],
+          "seconds": 0.000255375
+        },
+        {
+          "name": "generation.activate",
+          "dimensions": [],
+          "seconds": 0.000182583
+        }
+      ]
+    }
+  ],
+  "encodingSamples": [
+    {
+      "count": 0,
+      "curve": "G1",
+      "milliseconds": 0.000167,
+      "mode": "direct",
+      "trial": 0
+    },
+    {
+      "count": 0,
+      "curve": "G1",
+      "milliseconds": 0.000042,
+      "mode": "fixed",
+      "trial": 0
+    },
+    {
+      "count": 0,
+      "curve": "G1",
+      "milliseconds": 0,
+      "mode": "batch",
+      "trial": 0
+    },
+    {
+      "count": 0,
+      "curve": "G1",
+      "milliseconds": 0,
+      "mode": "fixed",
+      "trial": 1
+    },
+    {
+      "count": 0,
+      "curve": "G1",
+      "milliseconds": 0.000041,
+      "mode": "direct",
+      "trial": 1
+    },
+    {
+      "count": 0,
+      "curve": "G1",
+      "milliseconds": 0,
+      "mode": "batch",
+      "trial": 1
+    },
+    {
+      "count": 0,
+      "curve": "G1",
+      "milliseconds": 0.000041,
+      "mode": "direct",
+      "trial": 2
+    },
+    {
+      "count": 0,
+      "curve": "G1",
+      "milliseconds": 0,
+      "mode": "fixed",
+      "trial": 2
+    },
+    {
+      "count": 0,
+      "curve": "G1",
+      "milliseconds": 0,
+      "mode": "batch",
+      "trial": 2
+    },
+    {
+      "count": 1,
+      "curve": "G1",
+      "milliseconds": 0.009625,
+      "mode": "direct",
+      "trial": 0
+    },
+    {
+      "count": 1,
+      "curve": "G1",
+      "milliseconds": 1.2525,
+      "mode": "fixed",
+      "trial": 0
+    },
+    {
+      "count": 1,
+      "curve": "G1",
+      "milliseconds": 2.413875,
+      "mode": "batch",
+      "trial": 0
+    },
+    {
+      "count": 1,
+      "curve": "G1",
+      "milliseconds": 1.202708,
+      "mode": "fixed",
+      "trial": 1
+    },
+    {
+      "count": 1,
+      "curve": "G1",
+      "milliseconds": 0.011,
+      "mode": "direct",
+      "trial": 1
+    },
+    {
+      "count": 1,
+      "curve": "G1",
+      "milliseconds": 1.7771670000000002,
+      "mode": "batch",
+      "trial": 1
+    },
+    {
+      "count": 1,
+      "curve": "G1",
+      "milliseconds": 0.010042,
+      "mode": "direct",
+      "trial": 2
+    },
+    {
+      "count": 1,
+      "curve": "G1",
+      "milliseconds": 1.1127500000000001,
+      "mode": "fixed",
+      "trial": 2
+    },
+    {
+      "count": 1,
+      "curve": "G1",
+      "milliseconds": 1.129959,
+      "mode": "batch",
+      "trial": 2
+    },
+    {
+      "count": 17,
+      "curve": "G1",
+      "milliseconds": 0.437375,
+      "mode": "direct",
+      "trial": 0
+    },
+    {
+      "count": 17,
+      "curve": "G1",
+      "milliseconds": 1.498375,
+      "mode": "fixed",
+      "trial": 0
+    },
+    {
+      "count": 17,
+      "curve": "G1",
+      "milliseconds": 14.609832999999998,
+      "mode": "batch",
+      "trial": 0
+    },
+    {
+      "count": 17,
+      "curve": "G1",
+      "milliseconds": 1.270667,
+      "mode": "fixed",
+      "trial": 1
+    },
+    {
+      "count": 17,
+      "curve": "G1",
+      "milliseconds": 0.48475,
+      "mode": "direct",
+      "trial": 1
+    },
+    {
+      "count": 17,
+      "curve": "G1",
+      "milliseconds": 13.265291,
+      "mode": "batch",
+      "trial": 1
+    },
+    {
+      "count": 17,
+      "curve": "G1",
+      "milliseconds": 0.39179200000000003,
+      "mode": "direct",
+      "trial": 2
+    },
+    {
+      "count": 17,
+      "curve": "G1",
+      "milliseconds": 1.295,
+      "mode": "fixed",
+      "trial": 2
+    },
+    {
+      "count": 17,
+      "curve": "G1",
+      "milliseconds": 13.51325,
+      "mode": "batch",
+      "trial": 2
+    },
+    {
+      "count": 1024,
+      "curve": "G1",
+      "milliseconds": 14.01475,
+      "mode": "direct",
+      "trial": 0
+    },
+    {
+      "count": 1024,
+      "curve": "G1",
+      "milliseconds": 15.673,
+      "mode": "fixed",
+      "trial": 0
+    },
+    {
+      "count": 1024,
+      "curve": "G1",
+      "milliseconds": 794.612792,
+      "mode": "batch",
+      "trial": 0
+    },
+    {
+      "count": 1024,
+      "curve": "G1",
+      "milliseconds": 16.871541999999998,
+      "mode": "fixed",
+      "trial": 1
+    },
+    {
+      "count": 1024,
+      "curve": "G1",
+      "milliseconds": 13.811709,
+      "mode": "direct",
+      "trial": 1
+    },
+    {
+      "count": 1024,
+      "curve": "G1",
+      "milliseconds": 790.420166,
+      "mode": "batch",
+      "trial": 1
+    },
+    {
+      "count": 1024,
+      "curve": "G1",
+      "milliseconds": 13.250209,
+      "mode": "direct",
+      "trial": 2
+    },
+    {
+      "count": 1024,
+      "curve": "G1",
+      "milliseconds": 15.826375,
+      "mode": "fixed",
+      "trial": 2
+    },
+    {
+      "count": 1024,
+      "curve": "G1",
+      "milliseconds": 792.446541,
+      "mode": "batch",
+      "trial": 2
+    },
+    {
+      "count": 16384,
+      "curve": "G1",
+      "milliseconds": 217.82725,
+      "mode": "direct",
+      "trial": 0
+    },
+    {
+      "count": 16384,
+      "curve": "G1",
+      "milliseconds": 30.252208999999997,
+      "mode": "fixed",
+      "trial": 0
+    },
+    {
+      "count": 16384,
+      "curve": "G1",
+      "milliseconds": 29.781667000000002,
+      "mode": "fixed",
+      "trial": 1
+    },
+    {
+      "count": 16384,
+      "curve": "G1",
+      "milliseconds": 217.285125,
+      "mode": "direct",
+      "trial": 1
+    },
+    {
+      "count": 16384,
+      "curve": "G1",
+      "milliseconds": 215.891083,
+      "mode": "direct",
+      "trial": 2
+    },
+    {
+      "count": 16384,
+      "curve": "G1",
+      "milliseconds": 29.422833,
+      "mode": "fixed",
+      "trial": 2
+    },
+    {
+      "count": 0,
+      "curve": "G2",
+      "milliseconds": 0.000084,
+      "mode": "direct",
+      "trial": 0
+    },
+    {
+      "count": 0,
+      "curve": "G2",
+      "milliseconds": 0.000042,
+      "mode": "fixed",
+      "trial": 0
+    },
+    {
+      "count": 0,
+      "curve": "G2",
+      "milliseconds": 0.000042,
+      "mode": "batch",
+      "trial": 0
+    },
+    {
+      "count": 0,
+      "curve": "G2",
+      "milliseconds": 0.000042,
+      "mode": "fixed",
+      "trial": 1
+    },
+    {
+      "count": 0,
+      "curve": "G2",
+      "milliseconds": 0.000041,
+      "mode": "direct",
+      "trial": 1
+    },
+    {
+      "count": 0,
+      "curve": "G2",
+      "milliseconds": 0,
+      "mode": "batch",
+      "trial": 1
+    },
+    {
+      "count": 0,
+      "curve": "G2",
+      "milliseconds": 0.000041,
+      "mode": "direct",
+      "trial": 2
+    },
+    {
+      "count": 0,
+      "curve": "G2",
+      "milliseconds": 0.000042,
+      "mode": "fixed",
+      "trial": 2
+    },
+    {
+      "count": 0,
+      "curve": "G2",
+      "milliseconds": 0.000041,
+      "mode": "batch",
+      "trial": 2
+    },
+    {
+      "count": 1,
+      "curve": "G2",
+      "milliseconds": 0.12425000000000001,
+      "mode": "direct",
+      "trial": 0
+    },
+    {
+      "count": 1,
+      "curve": "G2",
+      "milliseconds": 1.857791,
+      "mode": "fixed",
+      "trial": 0
+    },
+    {
+      "count": 1,
+      "curve": "G2",
+      "milliseconds": 12.237,
+      "mode": "batch",
+      "trial": 0
+    },
+    {
+      "count": 1,
+      "curve": "G2",
+      "milliseconds": 1.810292,
+      "mode": "fixed",
+      "trial": 1
+    },
+    {
+      "count": 1,
+      "curve": "G2",
+      "milliseconds": 0.145708,
+      "mode": "direct",
+      "trial": 1
+    },
+    {
+      "count": 1,
+      "curve": "G2",
+      "milliseconds": 12.426792,
+      "mode": "batch",
+      "trial": 1
+    },
+    {
+      "count": 1,
+      "curve": "G2",
+      "milliseconds": 0.12912500000000002,
+      "mode": "direct",
+      "trial": 2
+    },
+    {
+      "count": 1,
+      "curve": "G2",
+      "milliseconds": 1.832625,
+      "mode": "fixed",
+      "trial": 2
+    },
+    {
+      "count": 1,
+      "curve": "G2",
+      "milliseconds": 12.392875,
+      "mode": "batch",
+      "trial": 2
+    },
+    {
+      "count": 17,
+      "curve": "G2",
+      "milliseconds": 4.492833,
+      "mode": "direct",
+      "trial": 0
+    },
+    {
+      "count": 17,
+      "curve": "G2",
+      "milliseconds": 2.8297499999999998,
+      "mode": "fixed",
+      "trial": 0
+    },
+    {
+      "count": 17,
+      "curve": "G2",
+      "milliseconds": 196.970375,
+      "mode": "batch",
+      "trial": 0
+    },
+    {
+      "count": 17,
+      "curve": "G2",
+      "milliseconds": 2.9003330000000003,
+      "mode": "fixed",
+      "trial": 1
+    },
+    {
+      "count": 17,
+      "curve": "G2",
+      "milliseconds": 4.4485,
+      "mode": "direct",
+      "trial": 1
+    },
+    {
+      "count": 17,
+      "curve": "G2",
+      "milliseconds": 195.03045799999998,
+      "mode": "batch",
+      "trial": 1
+    },
+    {
+      "count": 17,
+      "curve": "G2",
+      "milliseconds": 4.411957999999999,
+      "mode": "direct",
+      "trial": 2
+    },
+    {
+      "count": 17,
+      "curve": "G2",
+      "milliseconds": 2.922709,
+      "mode": "fixed",
+      "trial": 2
+    },
+    {
+      "count": 17,
+      "curve": "G2",
+      "milliseconds": 195.946958,
+      "mode": "batch",
+      "trial": 2
+    },
+    {
+      "count": 1024,
+      "curve": "G2",
+      "milliseconds": 198.034,
+      "mode": "direct",
+      "trial": 0
+    },
+    {
+      "count": 1024,
+      "curve": "G2",
+      "milliseconds": 44.039750000000005,
+      "mode": "fixed",
+      "trial": 0
+    },
+    {
+      "count": 1024,
+      "curve": "G2",
+      "milliseconds": 11712.649292,
+      "mode": "batch",
+      "trial": 0
+    },
+    {
+      "count": 1024,
+      "curve": "G2",
+      "milliseconds": 44.332167,
+      "mode": "fixed",
+      "trial": 1
+    },
+    {
+      "count": 1024,
+      "curve": "G2",
+      "milliseconds": 196.47400000000002,
+      "mode": "direct",
+      "trial": 1
+    },
+    {
+      "count": 1024,
+      "curve": "G2",
+      "milliseconds": 11651.833666,
+      "mode": "batch",
+      "trial": 1
+    },
+    {
+      "count": 1024,
+      "curve": "G2",
+      "milliseconds": 201.13887499999998,
+      "mode": "direct",
+      "trial": 2
+    },
+    {
+      "count": 1024,
+      "curve": "G2",
+      "milliseconds": 45.520375,
+      "mode": "fixed",
+      "trial": 2
+    },
+    {
+      "count": 1024,
+      "curve": "G2",
+      "milliseconds": 11656.523125,
+      "mode": "batch",
+      "trial": 2
+    },
+    {
+      "count": 16384,
+      "curve": "G2",
+      "milliseconds": 3167.6455840000003,
+      "mode": "direct",
+      "trial": 0
+    },
+    {
+      "count": 16384,
+      "curve": "G2",
+      "milliseconds": 85.189125,
+      "mode": "fixed",
+      "trial": 0
+    },
+    {
+      "count": 16384,
+      "curve": "G2",
+      "milliseconds": 83.833708,
+      "mode": "fixed",
+      "trial": 1
+    },
+    {
+      "count": 16384,
+      "curve": "G2",
+      "milliseconds": 3242.638292,
+      "mode": "direct",
+      "trial": 1
+    },
+    {
+      "count": 16384,
+      "curve": "G2",
+      "milliseconds": 3175.929666,
+      "mode": "direct",
+      "trial": 2
+    },
+    {
+      "count": 16384,
+      "curve": "G2",
+      "milliseconds": 81.431958,
+      "mode": "fixed",
+      "trial": 2
+    }
+  ],
+  "collectionSamples": [
+    {
+      "trial": 0,
+      "mode": "unindexed",
+      "seconds": 0.955145125
+    },
+    {
+      "trial": 0,
+      "mode": "direct",
+      "seconds": 1.03035925
+    },
+    {
+      "trial": 1,
+      "mode": "direct",
+      "seconds": 0.9724505
+    },
+    {
+      "trial": 1,
+      "mode": "unindexed",
+      "seconds": 0.957568833
+    },
+    {
+      "trial": 2,
+      "mode": "unindexed",
+      "seconds": 0.952078209
+    },
+    {
+      "trial": 2,
+      "mode": "direct",
+      "seconds": 1.00379175
+    },
+    {
+      "trial": 3,
+      "mode": "direct",
+      "seconds": 0.979735208
+    },
+    {
+      "trial": 3,
+      "mode": "unindexed",
+      "seconds": 0.95696975
+    },
+    {
+      "trial": 4,
+      "mode": "unindexed",
+      "seconds": 0.9935805
+    },
+    {
+      "trial": 4,
+      "mode": "direct",
+      "seconds": 0.964133125
+    },
+    {
+      "trial": 5,
+      "mode": "direct",
+      "seconds": 0.979194125
+    },
+    {
+      "trial": 5,
+      "mode": "unindexed",
+      "seconds": 0.961460583
+    },
+    {
+      "trial": 6,
+      "mode": "unindexed",
+      "seconds": 0.970843292
+    },
+    {
+      "trial": 6,
+      "mode": "direct",
+      "seconds": 0.958411916
+    }
+  ],
+  "limitations": [
+    "Collection-only measurements favor unindexed slightly; full setup measurements including I/O favor direct output. Do not equate either with a universal speed guarantee.",
+    "Ordered point encoding events are identified by count and source invocation order; concurrent file-event durations must not be summed as serial wall time.",
+    "No runtime consumer rewrite or proof E2E performed. Existing l_free=0 relation fixtures remain unresolved."
+  ]
+}

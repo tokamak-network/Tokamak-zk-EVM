@@ -1,0 +1,8 @@
+{
+  "command": "npx tsx test/checks/univariate/check-copy-coset.ts",
+  "domainSize": 262144,
+  "warmup": "Equality calls excluded before five alternating-order pairs; assertions outside measured intervals.",
+  "controlMs": [773.793625, 773.278667, 771.080500, 770.018916, 777.317125],
+  "candidateMs": [491.324084, 491.377208, 495.902292, 489.788083, 489.438958],
+  "correctness": "Exact coefficients for N=1,2,8,64,262144; zero/nonzero masks; degree-N F/G fold; zero/leading-zero polynomials; non-divisible numerator and degree-bound rejection."
+}

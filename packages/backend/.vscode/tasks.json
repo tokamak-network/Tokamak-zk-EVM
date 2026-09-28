@@ -6,11 +6,11 @@
       "type": "shell",
       "command": "python3",
       "args": [
-        "${workspaceFolder}/prove/optimization/scripts/timing_to_md.py",
+        "${workspaceFolder}/rust/prove/optimization/scripts/timing_to_md.py",
         "--input",
-        "${workspaceFolder}/prove/optimization/timing.release.json",
+        "${workspaceFolder}/rust/prove/optimization/timing.release.json",
         "--output",
-        "${workspaceFolder}/prove/optimization/timing.release.md"
+        "${workspaceFolder}/rust/prove/optimization/timing.release.md"
       ],
       "problemMatcher": [],
       "detail": "Convert timing JSON to Markdown report"

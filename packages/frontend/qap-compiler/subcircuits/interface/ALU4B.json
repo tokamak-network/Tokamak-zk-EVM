@@ -1,0 +1,14 @@
+{
+  "inputs": [
+    { "name": "absDividend", "logicalType": { "kind": "uint", "bits": 256 } },
+    { "name": "absQuotient", "logicalType": { "kind": "uint", "bits": 256 } },
+    { "name": "absRemainder", "logicalType": { "kind": "uint", "bits": 256 } },
+    { "name": "absDivisorWord", "length": 4, "logicalType": { "kind": "uint", "bits": 64 } },
+    { "name": "divisorIsZero", "logicalType": { "kind": "uint", "bits": 1 } },
+    { "name": "resultIsNegative", "logicalType": { "kind": "uint", "bits": 1 } },
+    { "name": "useMod", "logicalType": { "kind": "uint", "bits": 1 } }
+  ],
+  "outputs": [
+    { "name": "result", "logicalType": { "kind": "uint", "bits": 256 } }
+  ]
+}

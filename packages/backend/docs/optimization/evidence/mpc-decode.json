@@ -1,0 +1,99 @@
+{
+  "arch": "aarch64",
+  "rayonThreads": 14,
+  "retainedRounds": 5,
+  "samples": [
+    {
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.203752042,
+      "variant": "parallel-checked-plus-admission"
+    },
+    {
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.1032155,
+      "variant": "parallel-decode-single-admission"
+    },
+    {
+      "points": 32768,
+      "round": 1,
+      "seconds": 1.147986417,
+      "variant": "serial-checked-plus-admission"
+    },
+    {
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.106716459,
+      "variant": "parallel-decode-single-admission"
+    },
+    {
+      "points": 32768,
+      "round": 2,
+      "seconds": 1.156580583,
+      "variant": "serial-checked-plus-admission"
+    },
+    {
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.22544825,
+      "variant": "parallel-checked-plus-admission"
+    },
+    {
+      "points": 32768,
+      "round": 3,
+      "seconds": 1.147759583,
+      "variant": "serial-checked-plus-admission"
+    },
+    {
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.203262542,
+      "variant": "parallel-checked-plus-admission"
+    },
+    {
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.103829209,
+      "variant": "parallel-decode-single-admission"
+    },
+    {
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.205531209,
+      "variant": "parallel-checked-plus-admission"
+    },
+    {
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.104888667,
+      "variant": "parallel-decode-single-admission"
+    },
+    {
+      "points": 32768,
+      "round": 4,
+      "seconds": 1.146181708,
+      "variant": "serial-checked-plus-admission"
+    },
+    {
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.10381925,
+      "variant": "parallel-decode-single-admission"
+    },
+    {
+      "points": 32768,
+      "round": 5,
+      "seconds": 1.161158417,
+      "variant": "serial-checked-plus-admission"
+    },
+    {
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.208027792,
+      "variant": "parallel-checked-plus-admission"
+    }
+  ],
+  "scope": "synthetic CPU kernels, not native E2E or live MPC",
+  "warmupRounds": 1
+}

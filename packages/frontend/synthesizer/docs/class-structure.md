@@ -10,28 +10,25 @@ This document summarizes the main classes and modules in the current split works
   - orchestrates opcode tracing
   - subscribes to EVM lifecycle events
   - exposes `synthesizeTX()`
-- **StateManager** (`core/src/synthesizer/handlers/stateManager.ts`)
-  - owns placements, buffer placements, and subcircuit metadata
-  - caches storage reads and writes
-  - tracks symbolic stack and memory state
-- **InstructionHandler** (`core/src/synthesizer/handlers/instructionHandler.ts`)
+- **ContextManager** (`core/src/synthesizer/runtime/contextManager.ts`)
+  - owns storage and log caches, initial storage reads, call frames, and memory context
+  - restores frame-scoped state after reverted calls
+- **PlacementManager** (`core/src/synthesizer/runtime/placementManager.ts`)
+  - owns circuit placements and reserved buffer placements
+  - appends symbolic buffer wires and validates placement connections
+- **InstructionHandler** (`core/src/synthesizer/runtime/instructionHandler.ts`)
   - dispatches opcode handling
   - coordinates arithmetic, memory, and storage flows
-- **BufferManager** (`core/src/synthesizer/handlers/bufferManager.ts`)
-  - initializes reserved buffer placements
-  - injects block, transaction, and Merkle-root inputs
-- **ArithmeticManager** (`core/src/synthesizer/handlers/arithmeticManager.ts`)
-  - maps arithmetic operations to subcircuits
-- **MemoryManager** (`core/src/synthesizer/handlers/memoryManager.ts`)
-  - resolves memory aliasing and copy semantics
+- **Subcircuit output operations** (`core/src/subcircuit/subcircuitOutputOperations.ts`)
+  - provides the library-owned host output calculation function for composition subcircuits
 
 ## Shared circuit generation
 
-- **CircuitGenerator** (`core/src/circuitGenerator/circuitGenerator.ts`)
-  - wraps circuit artifact generation
-- **VariableGenerator** (`core/src/circuitGenerator/handlers/variableGenerator.ts`)
+- **`createCircuitGenerator`** (`core/src/circuitGenerator/circuitGenerator.ts`)
+  - builds the circuit-generation result from placement variables and the shared library
+- **VariableGenerator** (`core/src/circuitGenerator/generators/variableGenerator.ts`)
   - produces placement variables and public instances
-- **PermutationGenerator** (`core/src/circuitGenerator/handlers/permutationGenerator.ts`)
+- **PermutationGenerator** (`core/src/circuitGenerator/generators/permutationGenerator.ts`)
   - produces wire-equality permutations
 
 ## Adapter modules

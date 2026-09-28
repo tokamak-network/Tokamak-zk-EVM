@@ -1,0 +1,219 @@
+{
+  "arch": "aarch64",
+  "rayonThreads": 14,
+  "retainedRounds": 5,
+  "samples": [
+    {
+      "family": "packed",
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.768379,
+      "variant": "batch-only"
+    },
+    {
+      "family": "packed",
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.505604916,
+      "variant": "fused-batch-factors"
+    },
+    {
+      "family": "packed",
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.828185667,
+      "variant": "individual"
+    },
+    {
+      "family": "packed",
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.495843166,
+      "variant": "fused-batch-factors"
+    },
+    {
+      "family": "packed",
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.804806541,
+      "variant": "individual"
+    },
+    {
+      "family": "packed",
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.78006525,
+      "variant": "batch-only"
+    },
+    {
+      "family": "packed",
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.819093166,
+      "variant": "individual"
+    },
+    {
+      "family": "packed",
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.779369959,
+      "variant": "batch-only"
+    },
+    {
+      "family": "packed",
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.500744292,
+      "variant": "fused-batch-factors"
+    },
+    {
+      "family": "packed",
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.798866333,
+      "variant": "batch-only"
+    },
+    {
+      "family": "packed",
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.491801834,
+      "variant": "fused-batch-factors"
+    },
+    {
+      "family": "packed",
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.8017775,
+      "variant": "individual"
+    },
+    {
+      "family": "packed",
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.54704425,
+      "variant": "fused-batch-factors"
+    },
+    {
+      "family": "packed",
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.877763417,
+      "variant": "individual"
+    },
+    {
+      "family": "packed",
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.863056084,
+      "variant": "batch-only"
+    },
+    {
+      "family": "fixed",
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.566191791,
+      "variant": "batch-only"
+    },
+    {
+      "family": "fixed",
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.281246833,
+      "variant": "fused-batch-factors"
+    },
+    {
+      "family": "fixed",
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.644039167,
+      "variant": "individual"
+    },
+    {
+      "family": "fixed",
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.280497208,
+      "variant": "fused-batch-factors"
+    },
+    {
+      "family": "fixed",
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.608758416,
+      "variant": "individual"
+    },
+    {
+      "family": "fixed",
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.611467417,
+      "variant": "batch-only"
+    },
+    {
+      "family": "fixed",
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.595068666,
+      "variant": "individual"
+    },
+    {
+      "family": "fixed",
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.582181666,
+      "variant": "batch-only"
+    },
+    {
+      "family": "fixed",
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.315351792,
+      "variant": "fused-batch-factors"
+    },
+    {
+      "family": "fixed",
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.647986125,
+      "variant": "batch-only"
+    },
+    {
+      "family": "fixed",
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.295321958,
+      "variant": "fused-batch-factors"
+    },
+    {
+      "family": "fixed",
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.59757775,
+      "variant": "individual"
+    },
+    {
+      "family": "fixed",
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.293311833,
+      "variant": "fused-batch-factors"
+    },
+    {
+      "family": "fixed",
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.593112875,
+      "variant": "individual"
+    },
+    {
+      "family": "fixed",
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.564158375,
+      "variant": "batch-only"
+    }
+  ],
+  "scope": "synthetic CPU kernels, not native E2E or live MPC",
+  "warmupRounds": 1
+}

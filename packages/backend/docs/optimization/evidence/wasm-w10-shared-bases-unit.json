@@ -1,0 +1,11 @@
+{
+  "date": "2026-09-14",
+  "command": "npx tsx test/checks/univariate/check-shared-msm-bases.ts",
+  "points": 262144,
+  "unit": "ms",
+  "warmup": "One call per path excluded",
+  "controlSamples": [1771.695292, 1777.510791, 1806.572667, 1776.111584, 1788.355666],
+  "candidateSamples": [1739.921166, 1764.264416, 1797.693334, 1983.656417, 1778.683667],
+  "scope": "Node WASM pair of MSMs; small pool of known base points with full-width scalars",
+  "checks": ["separate stock MSM equality", "identity and negated bases", "zero/one/r-1/random scalars", "unequal and empty coefficient vectors", "chunk tails", "malformed sizes and capacities"]
+}

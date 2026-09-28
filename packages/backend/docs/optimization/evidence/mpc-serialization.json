@@ -1,0 +1,99 @@
+{
+  "arch": "aarch64",
+  "rayonThreads": 14,
+  "retainedRounds": 5,
+  "samples": [
+    {
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.001900167,
+      "variant": "reserve"
+    },
+    {
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.000517166,
+      "variant": "parallel-ranges"
+    },
+    {
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.001903166,
+      "variant": "grow"
+    },
+    {
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.000458833,
+      "variant": "parallel-ranges"
+    },
+    {
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.001864125,
+      "variant": "grow"
+    },
+    {
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.001850541,
+      "variant": "reserve"
+    },
+    {
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.001860042,
+      "variant": "grow"
+    },
+    {
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.001850584,
+      "variant": "reserve"
+    },
+    {
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.000422125,
+      "variant": "parallel-ranges"
+    },
+    {
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.001978167,
+      "variant": "reserve"
+    },
+    {
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.00048625,
+      "variant": "parallel-ranges"
+    },
+    {
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.00198125,
+      "variant": "grow"
+    },
+    {
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.00041675,
+      "variant": "parallel-ranges"
+    },
+    {
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.002046708,
+      "variant": "grow"
+    },
+    {
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.001924167,
+      "variant": "reserve"
+    }
+  ],
+  "scope": "synthetic CPU kernels, not native E2E or live MPC",
+  "warmupRounds": 1
+}

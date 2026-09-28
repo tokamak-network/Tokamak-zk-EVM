@@ -30,7 +30,6 @@ export interface SynthesisPayloadInput {
 
 export interface SynthesisInput extends SynthesisPayloadInput {
   subcircuitLibrary: ResolvedSubcircuitLibrary;
-  wasmBuffers: ArrayBuffer[];
 }
 
 export interface SynthesisOutput extends CircuitArtifacts {

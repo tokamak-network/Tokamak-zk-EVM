@@ -1,0 +1,12 @@
+{
+  "inputs": [
+    { "name": "remainingResponse", "logicalType": { "kind": "uint", "bits": 64 } },
+    { "name": "fixedAccumulator", "length": 4, "logicalType": { "kind": "bls12-381-fr" } },
+    { "name": "variableAccumulator", "length": 4, "logicalType": { "kind": "bls12-381-fr" } },
+    { "name": "randomizerCofactorCoordinate", "length": 4, "logicalType": { "kind": "bls12-381-fr" } },
+    { "name": "publicKeyHash", "logicalType": { "kind": "bls12-381-fr" } }
+  ],
+  "outputs": [
+    { "name": "origin", "logicalType": { "kind": "uint", "bits": 256 } }
+  ]
+}

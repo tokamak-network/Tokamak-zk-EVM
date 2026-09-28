@@ -1,0 +1,105 @@
+{
+  "date": "2026-09-20",
+  "revision": "b740ff480e02724a79838d4cbb35c97f05f36ffe",
+  "scope": "Functional release qualification of the normalized public-and-bus wiring protocol. These are single samples, not optimization comparisons.",
+  "host": {
+    "cpu": "Apple M4 Pro",
+    "logicalCpus": 14,
+    "ramBytes": 51539607552,
+    "os": "Darwin 25.5.0",
+    "arch": "arm64",
+    "browser": "Chromium 149.0.7827.55"
+  },
+  "library": {
+    "n": 1024,
+    "m": 2048,
+    "m_b": 512,
+    "t": 64,
+    "s": 256,
+    "publicInputs": 396,
+    "paddedFreePublicInputs": 256,
+    "compiledSubcircuits": 44,
+    "virtualEmptySubcircuitId": 63
+  },
+  "fixture": {
+    "source": "packages/backend/tmp/current-local-fixture",
+    "activePlacements": 172,
+    "inactivePlacements": 84,
+    "distinctSelectedSubcircuits": 31
+  },
+  "native": {
+    "releaseOptimized": true,
+    "device": "arkworks CPU for preprocess/prove/verify; trusted setup uses the accepted CPU setup implementation",
+    "setup": {
+      "internalSeconds": 11.992173,
+      "processWallSeconds": 12.38
+    },
+    "preprocess": {
+      "internalSeconds": 0.257277,
+      "processWallSeconds": 0.26,
+      "bytes": 384,
+      "sha256": "42a05acd94b9344cc084796b09d233639d71a1c8fb42739e5902465b529ec68f"
+    },
+    "prove": {
+      "internalSeconds": 3.366,
+      "processWallSeconds": 3.83,
+      "bytes": 1184,
+      "sha256": "af42d46bbd64e2ffef4ddce42ed2ee8f805a1da73a11eb66387bea6256cac165"
+    },
+    "verify": {
+      "internalSeconds": 0.008045,
+      "result": true
+    }
+  },
+  "browser": {
+    "loadFixtureMs": 41.65000003576279,
+    "installRuntimesMs": 166.22999995946884,
+    "preprocessMs": 2436.064999997616,
+    "proveMs": 17675.875,
+    "verifyMs": 26.539999961853027,
+    "proofBytes": 1184,
+    "result": true
+  },
+  "nodeWasmCrossCheck": {
+    "nativeProofVerifyMs": 30.531750000000102,
+    "preprocessMs": 2438.567709,
+    "proveMs": 17053.884084,
+    "wasmProofVerifyMs": 25.235790999999153,
+    "preprocessMatchesNative": true,
+    "nativeAcceptsWasmProof": true,
+    "wasmAcceptsNativeProof": true,
+    "wasmProofSha256": "f724c7712f868f9fed90e2d9c9aa6ba9cd32b25be5ab8ea21352bacbae094e40"
+  },
+  "crs": {
+    "logicalBytes": 995017424,
+    "logicalGiB": 0.9266821891069412,
+    "browserChunkBytes": 995641080,
+    "files": {
+      "tau_sequence.rkyv": {
+        "bytes": 301992400,
+        "sha256": "44cc16bc6cde4b1f0c2068e4a811f7f0c3544e468142e97c79c7c3e2f01c40ba"
+      },
+      "prover_keys.rkyv": {
+        "bytes": 677330704,
+        "sha256": "6b9c0d4ffa053004489f1afb475114b75f9da465123239d0f8b118656fb707ed"
+      },
+      "preprocess_keys.rkyv": {
+        "bytes": 15693216,
+        "sha256": "a44fa23b55559d1206260f2c322ce04b0f87f2c3bc88d13cf9b2b66cbdc2119b"
+      },
+      "verifier_keys.rkyv": {
+        "bytes": 1104,
+        "sha256": "543a3642045d6b0a23867065c3cfb0ac11dbf47bfc1d1d770510159a38536eff"
+      }
+    }
+  },
+  "validation": {
+    "nativeReleaseTests": "140 libs unit tests, 3 artifact encoding tests, 1 publication command test, 4 univariate math tests, 6 preprocess tests, 8 prove tests, 4 trusted-setup command tests, and 17 verify/build tests passed; performance and opt-in fixture tests remained ignored.",
+    "frontendTopologyTests": "10 permutation and selector unit tests passed.",
+    "wasmChecks": "Normalized relation and preprocess checks passed; browser E2E and both cross-runtime proof directions returned true.",
+    "tamperChecks": "All 10 proof points, 7 evaluations, 3 preprocess operands, and changed public input were rejected; malformed encodings failed admission.",
+    "cudaMeasured": false,
+    "productionNpmMeasured": false,
+    "mpcMeasured": false
+  }
+}

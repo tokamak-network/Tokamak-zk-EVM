@@ -2,5 +2,6 @@ pragma circom 2.1.6;
 include "../../templates/buffer.circom";
 include "./constants.circom";
 
-// Input wires are public, and output wires are private.
+// This standalone wrapper exposes `in` so Circom emits its input port.
+// The final QAP boundary is defined by scripts/configure.js.
 component main{public [in]} = Buffer2(nPrvIn());

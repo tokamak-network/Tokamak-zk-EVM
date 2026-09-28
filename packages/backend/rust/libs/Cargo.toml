@@ -1,0 +1,49 @@
+[package]
+name = "libs"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+authors = { workspace = true }
+repository = { workspace = true }
+homepage = { workspace = true }
+
+[dependencies]
+icicle-runtime = { workspace = true }
+icicle-core = { workspace = true }
+icicle-bls12-381 = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+rayon = { workspace = true }
+hex = "0.4.3"
+sha2 = "0.10"
+ark-bls12-381 = { workspace = true }
+ark-ec = { workspace = true }
+ark-ff = { workspace = true }
+rkyv = { workspace = true, features = ["alloc", "bytecheck", "validation"] }
+backend-interface = { workspace = true }
+backend-univariate-crs-interface = { workspace = true }
+clap = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }
+tiny-keccak = "1.5"
+
+[dev-dependencies]
+ark-poly = { version = "0.5.0", features = ["parallel"] }
+ark-ec = { workspace = true, features = ["parallel"] }
+libc = "0.2"
+memmap2 = { workspace = true }
+criterion = "0.3"
+tempfile = "3.20.0"
+
+[features]
+default = ["local-development-subcircuit-library"]
+testing-mode = []
+timing = []
+development-crs-bypass = []
+local-development-subcircuit-library = []
+production-npm-subcircuit-library = []
+
+[build-dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }

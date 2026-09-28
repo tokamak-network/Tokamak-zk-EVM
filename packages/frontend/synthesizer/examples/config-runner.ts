@@ -17,15 +17,6 @@ import type { BlockInfo } from '../core/src/synthesizer.ts';
 import { createSynthesizer } from '../node-cli/src/synthesizer/constructors.ts';
 import { writeSynthesisOutputJson } from '../node-cli/src/io/jsonWriter.ts';
 import { installedSubcircuitLibrary } from '../node-cli/src/subcircuit/installedLibrary.ts';
-import { loadSubcircuitWasm } from '../node-cli/src/subcircuit/wasmLoader.ts';
-import {
-  buildErc20Calldata,
-  deriveParticipantKeys as deriveErc20ParticipantKeys,
-  loadConfig as loadErc20Config,
-  toStateManagerChannelConfig as toErc20StateManagerChannelConfig,
-  type ExampleErc20TransferConfig,
-  type ExampleNetwork as Erc20ExampleNetwork,
-} from './erc20Transfers/utils.ts';
 import {
   type DerivedParticipantKeys as SharedDerivedParticipantKeys,
   derivePrivateStateParticipantKeys,
@@ -46,7 +37,6 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 
 type ConfigExampleType =
-  | 'erc20-transfer'
   | 'private-state-mint'
   | 'private-state-redeem'
   | 'private-state-transfer';
@@ -58,7 +48,7 @@ type ConfigAdapter<TConfig> = {
   getSenderIndex(config: TConfig): number;
   buildCalldata(config: TConfig, keyMaterial: SharedDerivedParticipantKeys): Uint8Array;
   toStateManagerChannelConfig(config: TConfig): ChannelStateConfig;
-  getTxNonce(config: TConfig): number;
+  getChannelTransactionIndex(config: TConfig): number;
   getEntryContractAddress(config: TConfig): `0x${string}`;
 };
 
@@ -75,7 +65,7 @@ const ANVIL_RPC_URL_ENV_KEY = 'ANVIL_RPC_URL';
 const DEFAULT_ANVIL_RPC_URL = 'http://127.0.0.1:8545';
 
 function getRpcUrlFromEnv(
-  network: Erc20ExampleNetwork | PrivateStateExampleNetwork,
+  network: PrivateStateExampleNetwork,
   env: NodeJS.ProcessEnv,
 ): string {
   if (network === 'anvil') {
@@ -133,16 +123,6 @@ async function getBlockInfoFromRPC(
 }
 
 const configAdapters: Record<ConfigExampleType, ConfigAdapter<any>> = {
-  'erc20-transfer': {
-    loadConfig: loadErc20Config,
-    getRpcUrl: (config: ExampleErc20TransferConfig, env) => getRpcUrlFromEnv(config.network, env),
-    deriveParticipantKeys: (config: ExampleErc20TransferConfig) => deriveErc20ParticipantKeys(config.participants),
-    getSenderIndex: (config: ExampleErc20TransferConfig) => config.senderIndex,
-    buildCalldata: (config: ExampleErc20TransferConfig, keyMaterial) => buildErc20Calldata(config, keyMaterial),
-    toStateManagerChannelConfig: toErc20StateManagerChannelConfig,
-    getTxNonce: (config: ExampleErc20TransferConfig) => config.txNonce,
-    getEntryContractAddress: (config: ExampleErc20TransferConfig) => config.function.entryContractAddress,
-  },
   'private-state-mint': {
     loadConfig: loadPrivateStateMintConfig,
     getRpcUrl: (config: PrivateStateMintConfig, env) => getRpcUrlFromEnv(config.network, env),
@@ -150,7 +130,7 @@ const configAdapters: Record<ConfigExampleType, ConfigAdapter<any>> = {
     getSenderIndex: (config: PrivateStateMintConfig) => config.senderIndex,
     buildCalldata: (config: PrivateStateMintConfig) => hexToBytes(config.calldata),
     toStateManagerChannelConfig: toPrivateStateMintStateManagerChannelConfig,
-    getTxNonce: (config: PrivateStateMintConfig) => config.txNonce,
+    getChannelTransactionIndex: (config: PrivateStateMintConfig) => config.channelTransactionIndex,
     getEntryContractAddress: (config: PrivateStateMintConfig) => config.function.entryContractAddress,
   },
   'private-state-redeem': {
@@ -160,7 +140,7 @@ const configAdapters: Record<ConfigExampleType, ConfigAdapter<any>> = {
     getSenderIndex: (config: PrivateStateRedeemConfig) => config.senderIndex,
     buildCalldata: (config: PrivateStateRedeemConfig) => hexToBytes(config.calldata),
     toStateManagerChannelConfig: toPrivateStateRedeemStateManagerChannelConfig,
-    getTxNonce: (config: PrivateStateRedeemConfig) => config.txNonce,
+    getChannelTransactionIndex: (config: PrivateStateRedeemConfig) => config.channelTransactionIndex,
     getEntryContractAddress: (config: PrivateStateRedeemConfig) => config.function.entryContractAddress,
   },
   'private-state-transfer': {
@@ -170,7 +150,7 @@ const configAdapters: Record<ConfigExampleType, ConfigAdapter<any>> = {
     getSenderIndex: (config: PrivateStateTransferConfig) => config.senderIndex,
     buildCalldata: (config: PrivateStateTransferConfig) => hexToBytes(config.calldata),
     toStateManagerChannelConfig: toPrivateStateTransferStateManagerChannelConfig,
-    getTxNonce: (config: PrivateStateTransferConfig) => config.txNonce,
+    getChannelTransactionIndex: (config: PrivateStateTransferConfig) => config.channelTransactionIndex,
     getEntryContractAddress: (config: PrivateStateTransferConfig) => config.function.entryContractAddress,
   },
 };
@@ -204,7 +184,7 @@ async function runConfigExample<TConfig>(
   );
 
   const txData: TokamakL2TxData = {
-    nonce: BigInt(adapter.getTxNonce(config)),
+    channelTransactionIndex: BigInt(adapter.getChannelTransactionIndex(config)),
     to: createAddressFromString(adapter.getEntryContractAddress(config)),
     data: callData,
     senderPubKey: senderPubKey.toBytes(),
@@ -219,20 +199,13 @@ async function runConfigExample<TConfig>(
   });
   const runTxResult = await synthesizer.synthesizeTX();
   const finalStateSnapshot = await stateManager.captureStateSnapshot();
-  const subcircuitBuffers = loadSubcircuitWasm();
-  const circuitGenerator = await createCircuitGenerator(synthesizer, subcircuitBuffers);
-  const circuitArtifacts = circuitGenerator.getArtifacts();
-  const placements = circuitGenerator.circuitPlacements;
-  if (placements === undefined) {
-    throw new Error('Circuit placements are not generated yet.');
-  }
+  const circuitGeneration = await createCircuitGenerator(synthesizer);
   const output: SynthesisOutput = {
-    ...circuitArtifacts,
-    placements,
+    ...circuitGeneration,
     finalStateSnapshot,
     evmAnalysis: {
       stepLogs: synthesizer.stepLogs,
-      messageCodeAddresses: Array.from(synthesizer.messageCodeAddresses),
+      messageCodeAddresses: synthesizer.messageCodeAddresses.slice(),
     },
   };
   writeSynthesisOutputJson(output, undefined, {
@@ -270,7 +243,7 @@ async function main(): Promise<void> {
 
   if (exampleType === undefined || !(exampleType in configAdapters)) {
     throw new Error(
-      'Example type required. Usage: tsx examples/config-runner.ts <erc20-transfer|private-state-mint|private-state-redeem|private-state-transfer> <config.json> [--output-supplement]',
+      'Example type required. Usage: tsx examples/config-runner.ts <private-state-mint|private-state-redeem|private-state-transfer> <config.json> [--output-supplement]',
     );
   }
   if (configPath === undefined) {

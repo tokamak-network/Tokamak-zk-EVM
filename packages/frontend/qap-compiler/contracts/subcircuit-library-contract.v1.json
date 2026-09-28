@@ -1,0 +1,77 @@
+{
+  "contractVersion": 1,
+  "owner": "qap-compiler",
+  "libraryArtifacts": {
+    "setupParams": {
+      "fileName": "setupParams.json",
+      "requiredFields": ["n", "m", "m_b", "t", "s", "publicWirePhases"],
+      "fields": {
+        "constraintCapacity": "n",
+        "localWireCapacity": "m",
+        "wiringCapacity": "m_b",
+        "subcircuitCapacity": "t",
+        "placementCapacity": "s",
+        "orderedPublicWirePhases": "publicWirePhases"
+      },
+      "derivedDimensions": {
+        "arithmeticDomain": "n * s",
+        "connectionDomain": "m_b * s",
+        "selectionDomain": "t * s",
+        "emptySubcircuitId": "t - 1"
+      },
+      "publicCoordinateOrder": "phase order, then subcircuitIds order, then ascending local wire in Public_idx"
+    },
+    "subcircuitInfo": {
+      "fileName": "subcircuitInfo.json",
+      "requiredFields": [
+        "id",
+        "name",
+        "Nwires",
+        "NrealWires",
+        "Nconsts",
+        "Out_idx",
+        "In_idx",
+        "Wiring_idx",
+        "Public_idx",
+        "Internal_idx"
+      ],
+      "optionalFields": ["bufferDirection", "publicPhase", "logicalInterface"],
+      "fields": {
+        "normalizedWireCount": "Nwires",
+        "compiledRealWireCount": "NrealWires",
+        "constraintCount": "Nconsts",
+        "normalizedOutputRange": "Out_idx",
+        "normalizedInputRange": "In_idx",
+        "realWiringRange": "Wiring_idx",
+        "publicWiringRange": "Public_idx",
+        "realInternalRange": "Internal_idx"
+      },
+      "derivedRanges": {
+        "bus": "Wiring_idx minus Public_idx",
+        "wiringPadding": "[end(Wiring_idx), m_b)",
+        "internalPadding": "[end(Internal_idx), m)"
+      },
+      "invariants": {
+        "constantWire": "local wire 0 is real, constant-one, and bus",
+        "publicInputBuffer": "Public_idx equals In_idx",
+        "publicOutputBuffer": "Public_idx equals Out_idx",
+        "otherSubcircuits": "Public_idx is empty"
+      }
+    },
+    "r1cs": {
+      "directoryName": "r1cs",
+      "fileNamePattern": "subcircuit{id}.r1cs",
+      "wireIndexing": "normalized local wire index",
+      "transport": {
+        "format": "circom-r1cs",
+        "magic": "r1cs",
+        "version": 1,
+        "endianness": "little",
+        "sections": {
+          "header": 1,
+          "constraints": 2
+        }
+      }
+    }
+  }
+}

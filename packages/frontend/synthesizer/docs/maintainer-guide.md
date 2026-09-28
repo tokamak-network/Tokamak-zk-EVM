@@ -40,10 +40,13 @@ The canonical changelog is the repository root `CHANGELOG.md`.
 
 Rules:
 
-- Keep an `Unreleased` section at the top.
-- Each released version that changes synthesizer behavior must include a `### Synthesizer` section.
+- A release PR replaces its candidate `Unreleased` section with the dated
+  version entry before the PR is opened. The release entry date is the offline
+  preparation date described in the repository version rules.
+- Each released version that changes synthesizer behavior must include a
+  `### Synthesizer Packages` section.
 - If there is no user-visible synthesizer change in a synchronized release, write `No consumer-facing synthesizer changes.`
-- The `### Synthesizer` section must be written from consumer impact, not from internal refactor detail.
+- The `### Synthesizer Packages` section must be written from consumer impact, not from internal refactor detail.
 - Record only changes that affect npm-published package artifacts or their consumer-facing behavior.
 
 For package publishing, changelog content stays only in the repository root `CHANGELOG.md`. Package artifacts do not include package-local changelog files; package READMEs link to the root changelog instead.
@@ -86,14 +89,10 @@ Build model:
 
 Release model:
 
-- The workspace root provides the official `npm run publish` entry point.
-- `npm run release` remains as an alias to the same workflow.
-- The release script runs `npm install` before the workspace build and publish steps.
-- The release script compares local package versions with npm.
-- If remote version lookup fails for any package, the release stops.
-- If neither package needs publishing, the release fails instead of silently succeeding.
-- Build and publish order is `node-cli` first, then `web-app`.
-- After any actual publish succeeds, create the Git tag `synthesizer-vX.Y.Z`.
+- On a `main` push, the publishing workflow builds the Synthesizer packages
+  from merged source and publishes absent exact versions after confirming the
+  published subcircuit library and CRS. See the repository
+  [version and release rules](../../../../docs/version-rules.md).
 
 Version-bump policy:
 
@@ -102,13 +101,11 @@ Version-bump policy:
 
 ## Validation Rules
 
-The release workflow validates:
+Release-related checks validate:
 
 - synchronized package versions
-- canonical file existence
-- canonical markdown link targets
-- secondary-reference note presence
-- changelog structure for the target version
+- local links in consumer documentation and consumer package references
+- the dated Changelog entry for a version-changing candidate
 - publish eligibility against npm
 
 ## Removed Legacy Surface

@@ -93,8 +93,7 @@ The current shared entrypoints are:
   - subcircuit-library resolution helpers
 - `core/src/circuit.ts`
   - `createCircuitGenerator`
-  - `CircuitGenerator`
-  - `CircuitArtifacts`
+  - `CircuitArtifacts` and `CircuitGenerationResult` types
 - `core/src/synthesizer.ts`
   - `createSynthesizer`
   - `SynthesizerInterface`
@@ -128,10 +127,9 @@ These entrypoints are intentionally narrower than the underlying directory tree 
 
 - canonical changelog source: repository root `CHANGELOG.md`
 - publish inclusion: package artifacts do not include changelog files; package READMEs link to the root changelog
-- workspace tag format: `synthesizer-vX.Y.Z`
-- canonical release entrypoint: `npm run publish`
-- release alias: `npm run release`
-- release bootstrap: `npm run publish` installs workspace dependencies before build and package publish
+- normal publication: the `main`-push workflow builds the Synthesizer packages
+  from merged source and publishes missing exact versions after prerequisite
+  checks
 
 ## Stability rules
 

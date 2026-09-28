@@ -20,27 +20,6 @@
     {
       "type": "node",
       "request": "launch",
-      "name": "L2 transfer on mainnet/sepolia",
-      "runtimeExecutable": "node",
-      "program": "${workspaceFolder}/examples/config-runner.ts",
-      "args": [
-        "erc20-transfer",
-        "${workspaceFolder}/examples/erc20Transfers/usdt/config-usdt-sepolia.json",
-        "--output-supplement"
-      ],
-      "cwd": "${workspaceFolder}/node-cli",
-      "skipFiles": [
-        "<node_internals>/**"
-      ],
-      "console": "integratedTerminal",
-      "runtimeArgs": [
-        "--import",
-        "tsx"
-      ]
-    },
-    {
-      "type": "node",
-      "request": "launch",
       "name": "Private-state mintNotes1 on anvil",
       "runtimeExecutable": "node",
       "program": "${workspaceFolder}/node-cli/src/cli/index.ts",
@@ -545,19 +524,19 @@
     {
       "type": "node",
       "request": "launch",
-      "name": "tokamak-ch-tx (debug, file inputs)",
+      "name": "tokamak-ch-tx (debug, transferNotes1To2)",
       "runtimeExecutable": "node",
       "program": "${workspaceFolder}/node-cli/src/cli/index.ts",
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
-        "${workspaceFolder}/examples/L2StateChannel/previous_state_snapshot.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes1To2/previous_state_snapshot.json",
         "--transaction",
-        "${workspaceFolder}/examples/L2StateChannel/transaction.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes1To2/transaction.json",
         "--block-info",
-        "${workspaceFolder}/examples/L2StateChannel/block_info.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes1To2/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/L2StateChannel/contract_codes.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes1To2/contract_codes.json",
         "--output-supplement"
       ],
       "cwd": "${workspaceFolder}/node-cli",

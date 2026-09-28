@@ -1,0 +1,11 @@
+{
+  "command": "npx tsx test/checks/univariate/check-combination-ruffini.ts",
+  "elements": 262144,
+  "warmup": "Equality calls excluded; five alternating pairs per case, assertions outside timing.",
+  "cases": [
+    {"terms": 2, "controlMs": [33.743667,35.498000,36.026709,33.788833,33.716208], "candidateMs": [65.907167,62.883750,63.561041,62.682292,63.650125]},
+    {"terms": 4, "controlMs": [48.831958,42.030916,41.688208,44.255709,41.919875], "candidateMs": [83.497125,83.185750,84.496917,82.832542,82.681666]}
+  ],
+  "correctness": "Exact quotient and remainder with N=1,2,17,65,262144; constants, empty/zero terms, cancellation and unequal lengths.",
+  "decision": "Rejected at isolated performance gate. No production integration or whole-prover timing is claimed."
+}

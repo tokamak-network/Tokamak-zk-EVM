@@ -1,76 +1,143 @@
-# Tokamak zk-EVM Synthesizer Node CLI
+# `@tokamak-zk-evm/synthesizer-node`
 
-`@tokamak-zk-evm/synthesizer-node` is the Node package for running the Tokamak zk-EVM synthesizer against JSON snapshot inputs.
+File-based Node.js adapter for converting one Tokamak L2 transaction snapshot
+into circuit-ready JSON artifacts.
 
-## When to use this package
+## Install and run
 
-Use `@tokamak-zk-evm/synthesizer-node` when you want a file-based Node.js CLI that reads Tokamak L2 transaction replay JSON files from disk and writes synthesized JSON artifacts back to disk.
-
-## Install
+The command below assumes a local copy of the
+[`transferNotes1To2` example](../examples/privateState/transferNotes/transferNotes1To2)
+at `./transferNotes1To2`; the example is not included in the npm package.
 
 ```bash
 npm install @tokamak-zk-evm/synthesizer-node
+npx synthesizer tokamak-ch-tx \
+  --previous-state ./transferNotes1To2/previous_state_snapshot.json \
+  --transaction ./transferNotes1To2/transaction.json \
+  --block-info ./transferNotes1To2/block_info.json \
+  --contract-code ./transferNotes1To2/contract_codes.json
 ```
 
-## Package Role
+Use this package when inputs and outputs belong on the local filesystem. Use
+[`@tokamak-zk-evm/synthesizer-web`](../web-app/README.md) for browser
+applications.
 
-- Exposes the published `synthesizer` CLI.
-- Loads `@tokamak-zk-evm/subcircuit-library` from the installed dependency at runtime.
-- Reads one JSON transaction replay payload from disk.
-- Writes synthesized JSON artifacts back to disk.
+## Required input files
 
-The shared synthesis logic lives in `../core` and is bundled into this package at build time.
+The command accepts four explicit JSON file paths. The files must describe the
+same pre-transaction state and block context; their directory and filenames are
+otherwise application choices.
 
-## CLI usage
+| File                           | Role                                                          | Format and owner                                                                                                          | How to obtain it                                                                     | Example                                                         |
+| ------------------------------ | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
+| `previous_state_snapshot.json` | Reconstructs state immediately before execution               | [`tokamak-l2js` `StateSnapshot`](https://github.com/tokamak-network/TokamakL2JS/blob/main/src/interface/channel/types.ts) | Call `TokamakL2StateManager.captureStateSnapshot()` before executing the transaction | [File](../examples/privateState/transferNotes/transferNotes1To2/previous_state_snapshot.json) |
+| `transaction.json`             | Supplies the signed Tokamak L2 transaction                    | [`tokamak-l2js` `TxSnapshot`](https://github.com/tokamak-network/TokamakL2JS/blob/main/src/interface/channel/types.ts)    | Call `TokamakL2Tx.captureTxSnapshot()`                                               | [File](../examples/privateState/transferNotes/transferNotes1To2/transaction.json)             |
+| `block_info.json`              | Supplies block-opcode and execution-environment values        | Synthesizer `BlockInfo` JSON                                                                                              | Normalize the trusted application or L2 RPC block context                            | [File](../examples/privateState/transferNotes/transferNotes1To2/block_info.json)              |
+| `contract_codes.json`          | Supplies deployed bytecode reached by the supported call flow | Synthesizer `ContractCodeEntry[]` JSON                                                                                    | Export deployment/state data or query the trusted state source                       | [File](../examples/privateState/transferNotes/transferNotes1To2/contract_codes.json)          |
+
+`StateSnapshot` and `TxSnapshot` are defined by the `tokamak-l2js` version
+recorded in this package's `buildMetadata`. Use those exported types and
+capture methods instead of recreating compatibility interfaces.
+
+### File formats
+
+`previous_state_snapshot.json` contains:
+
+| Field              | JSON shape                               | Meaning                                        |
+| ------------------ | ---------------------------------------- | ---------------------------------------------- |
+| `stateRoots`       | `string[]`                               | Tokamak state roots before execution           |
+| `storageAddresses` | `string[]`                               | Storage-bearing contract addresses             |
+| `storageKeys`      | `string[][]`                             | Original storage-slot keys grouped by address  |
+| `storageTrieRoots` | `string[]`                               | Ethereum storage-trie roots grouped by address |
+| `storageTrieDb`    | `{ "key": string, "value": string }[][]` | Trie records used to rebuild storage           |
+| `channelId`        | `number`                                 | Tokamak L2 channel identifier                  |
+
+The address-indexed arrays must stay aligned. `storageKeys` values are storage
+slots; `storageTrieDb[*][*].key` values are trie database keys.
+
+`transaction.json` contains `channelTransactionIndex`, `to`, hex calldata in `data`,
+`senderPubKey`, and optional signature strings `v`, `r`, and `s`.
+
+`block_info.json` contains `0x`-prefixed `coinBase`, `timeStamp`,
+`blockNumber`, `prevRanDao`, `gasLimit`, `chainId`, `selfBalance`, and
+`baseFee` values plus the `prevBlockHashes` array.
+
+`contract_codes.json` is an array of deployed bytecode entries:
+
+```json
+[
+  {
+    "address": "0x...",
+    "code": "0x..."
+  }
+]
+```
+
+## Commands
 
 ```bash
-synthesizer tokamak-ch-tx \
-  --previous-state ./previous_state_snapshot.json \
-  --transaction ./transaction.json \
-  --block-info ./block_info.json \
-  --contract-code ./contract_codes.json
+npx synthesizer tokamak-ch-tx \
+  --previous-state ./inputs/previous_state_snapshot.json \
+  --transaction ./inputs/transaction.json \
+  --block-info ./inputs/block_info.json \
+  --contract-code ./inputs/contract_codes.json
+
+# Include supplementary execution analysis
+npx synthesizer tokamak-ch-tx \
+  --previous-state ./inputs/previous_state_snapshot.json \
+  --transaction ./inputs/transaction.json \
+  --block-info ./inputs/block_info.json \
+  --contract-code ./inputs/contract_codes.json \
+  --output-supplement
 ```
 
-## Required Input Files
+Relative paths are resolved from the current working directory. The
+Synthesizer rejects incomplete or incoherent inputs rather than fetching
+missing state.
 
-- `previous_state_snapshot.json`
-- `transaction.json`
-- `block_info.json`
-- `contract_codes.json`
+## Outputs
 
-These files must describe a complete synthesis payload for one transaction replay.
+The command creates `outputs/` in the current working directory and prints
+each absolute output path as it writes the file.
 
-## Transaction Support
+| File                        | Purpose                                               |
+| --------------------------- | ----------------------------------------------------- |
+| `placementVariables.json`   | Placement subcircuit IDs, offsets, and witness values |
+| `selector.json`             | Capacity-length placement selector for preprocessing and proving |
+| `instance.json`             | Public and function-instance field values             |
+| `instance_description.json` | Human-readable instance descriptions                  |
+| `permutation.json`          | Wire-equality cycles used by preprocess and prove     |
+| `state_snapshot.json`       | Post-transaction `tokamak-l2js` `StateSnapshot`       |
 
-This package uses the shared Synthesizer transaction-support boundary. It is not limited to simple token or native transfers, but contract-call support depends on whether execution stays within the opcode set, call flows, storage/memory/log handling, and runtime model currently supported by Tokamak zk-EVM.
+`--output-supplement` additionally writes execution steps, expanded placements,
+and observed message-code addresses under `supplement/`. Keep
+`placementVariables.json`, `selector.json`, `instance.json`, and
+`permutation.json` from the same run.
 
-For the full consumer-facing answer, see the workspace [transaction support FAQ](../README.md#transaction-support-faq).
+Transaction support follows the
+[shared Synthesizer boundary](../README.md#transaction-support).
 
-Add `--output-supplement` when execution analysis outputs are needed.
+## npm publication
 
-## Output Files
+| Item              | Value                                                                                                |
+| ----------------- | ---------------------------------------------------------------------------------------------------- |
+| Package           | [`@tokamak-zk-evm/synthesizer-node`](https://www.npmjs.com/package/@tokamak-zk-evm/synthesizer-node) |
+| Published version | `npm view @tokamak-zk-evm/synthesizer-node version`                                                  |
+| Release notes     | [Repository `CHANGELOG.md`](../../../../CHANGELOG.md)                                                |
 
-The CLI writes primary outputs by default:
+## Security and application responsibilities
 
-- `placementVariables.json`
-- `instance.json`
-- `instance_description.json`
-- `permutation.json`
-- `state_snapshot.json`
+Validate that all four files came from the same trusted state source. Keep RPC
+credentials and signing keys out of input files, terminal history, outputs,
+and source control. Snapshots, witnesses, and execution logs may contain
+sensitive application data. Successful synthesis establishes artifact
+generation, not the security of the application, circuit library, setup, or
+surrounding protocol.
 
-With `--output-supplement`, it also writes:
+## Project and license
 
-- `supplement/step_log.json`
-- `supplement/placements.json`
-- `supplement/message_code_addresses.json`
+- [Source](https://github.com/JehyukJang/Tokamak-zk-EVM/tree/main/packages/frontend/synthesizer/node-cli)
+- [Issues](https://github.com/JehyukJang/Tokamak-zk-EVM/issues)
+- [Workspace overview](../README.md)
 
-## Notes
-
-- Build-time dependency metadata is exported as `buildMetadata`.
-- The same metadata is also written to `build-metadata.json` in the published package root.
-- `buildMetadata.dependencies.subcircuitLibrary.buildVersion` records the version present when this package was built, while the Node runtime still resolves the installed `@tokamak-zk-evm/subcircuit-library` package.
-- `buildMetadata.dependencies.tokamakL2js.buildVersion` records the exact `tokamak-l2js` version bundled into the published package.
-- Debug-only config execution lives under `examples/config-runner.ts`.
-- Browser usage belongs to `@tokamak-zk-evm/synthesizer-web`.
-- Workspace overview: [../README.md](../README.md)
-- Repository changelog: [https://github.com/tokamak-network/Tokamak-zk-EVM/blob/main/CHANGELOG.md](https://github.com/tokamak-network/Tokamak-zk-EVM/blob/main/CHANGELOG.md)
+Dual-licensed under `MIT OR Apache-2.0`.

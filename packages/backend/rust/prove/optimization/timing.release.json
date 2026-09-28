@@ -1,0 +1,78 @@
+{
+  "generated_at_unix_ms": 1788953950889,
+  "total_wall_ms": 393144.912083,
+  "category_ms": {
+    "commitment": 284357.779875,
+    "initialization_and_ingress": 36330.99837400002,
+    "output": 0.466584,
+    "poly": 72455.66725
+  },
+  "events": [
+    {
+      "name": "univariate.masked_arithmetic",
+      "category": "poly",
+      "nanos": 61932478042,
+      "sizes": []
+    },
+    {
+      "name": "univariate.private_binding",
+      "category": "commitment",
+      "nanos": 5108557041,
+      "sizes": []
+    },
+    {
+      "name": "univariate.witness_commitments",
+      "category": "commitment",
+      "nanos": 46999159250,
+      "sizes": []
+    },
+    {
+      "name": "univariate.shifted_commitment",
+      "category": "commitment",
+      "nanos": 16121790875,
+      "sizes": []
+    },
+    {
+      "name": "univariate.copy_relation",
+      "category": "poly",
+      "nanos": 2362814583,
+      "sizes": []
+    },
+    {
+      "name": "univariate.copy_commitment",
+      "category": "commitment",
+      "nanos": 285823333,
+      "sizes": []
+    },
+    {
+      "name": "univariate.combine_quotients",
+      "category": "poly",
+      "nanos": 669066750,
+      "sizes": []
+    },
+    {
+      "name": "univariate.quotient_commitment",
+      "category": "commitment",
+      "nanos": 29893880334,
+      "sizes": []
+    },
+    {
+      "name": "univariate.opening_polynomials",
+      "category": "poly",
+      "nanos": 7491307875,
+      "sizes": []
+    },
+    {
+      "name": "univariate.opening_commitments",
+      "category": "commitment",
+      "nanos": 185948569042,
+      "sizes": []
+    },
+    {
+      "name": "univariate.output",
+      "category": "output",
+      "nanos": 466584,
+      "sizes": []
+    }
+  ]
+}

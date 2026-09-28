@@ -1,0 +1,15 @@
+export const FIELD_BATCH_ADD = "frm_batchAdd";
+export const FIELD_BATCH_SUB = "frm_batchSub";
+export const FIELD_BATCH_MUL = "frm_batchMul";
+export const FIELD_BATCH_ADD_SCALED = "tokamak_frm_batchAddScaled";
+export const FIELD_BATCH_SCALE_X = "tokamak_frm_batchScaleX";
+export const FIELD_RUFFINI_Y = "tokamak_frm_ruffiniY";
+export const FIELD_EVAL_ROWS = "tokamak_frm_evalRows";
+export const FIELD_EVAL_REDUCE = "tokamak_frm_evalReduce";
+export const FIELD_SPARSE_ROW_DOT = "tokamak_frm_sparseRowDot";
+export const FIELD_SELECTION_ACCUMULATE = "tokamak_frm_selectionAccumulate";
+export const FIELD_ORDERED_RECURRENCE = "tokamak_frm_orderedRecurrence";
+export const FIELD_COPY_OPERANDS = "tokamak_frm_copyOperands";
+export const FIELD_UNIVARIATE_VANISHING = "tokamak_frm_univariateVanishing";
+export const FIELD_PRODUCT_DIFFERENCE = "tokamak_frm_productDifference";
+export const FIELD_SHORT_CONVOLUTION = "tokamak_frm_shortConvolution";

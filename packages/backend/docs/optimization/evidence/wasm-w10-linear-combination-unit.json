@@ -1,0 +1,9 @@
+{
+  "command": "npx tsx test/checks/univariate/check-linear-combination-fusion.ts",
+  "elements": 262144,
+  "terms": "Four terms: two full-length, one ceil(N/3), one zero polynomial; factors 1,13,1,19.",
+  "warmup": "Equality calls excluded; five alternating-order pairs, assertions outside measured intervals.",
+  "controlMs": [20.161625, 22.137792, 23.128791, 17.654250, 17.293417],
+  "candidateMs": [9.604334, 10.743333, 9.049291, 9.337125, 9.633500],
+  "correctness": "Exact equality with batched/scalar controls; N=1,2,17,65,4097,262144; empty/zero terms, cancellation, unequal lengths and malformed buffer rejection."
+}

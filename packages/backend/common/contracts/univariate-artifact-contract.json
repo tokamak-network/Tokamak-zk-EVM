@@ -1,0 +1,52 @@
+{
+  "owner": "backend/common",
+  "encoding": {
+    "byteOrder": "little-endian",
+    "representation": "canonical-non-Montgomery",
+    "baseFieldBytes": 48,
+    "scalarBytes": 32,
+    "baseFieldModulus": "1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab",
+    "scalarModulus": "73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
+    "g1Coordinates": ["x", "y"],
+    "g2Coordinates": ["x.c0", "x.c1", "y.c0", "y.c1"],
+    "infinity": "all-zero-coordinates"
+  },
+  "crs": {
+    "container": "rkyv-0.8-little-endian-64-bit-offsets",
+    "binding": "common/interface/univariate-crs/src/lib.rs",
+    "files": {
+      "tau_sequence.rkyv": "TauSequenceRkyv",
+      "prover_keys.rkyv": "ProverKeysRkyv",
+      "preprocess_keys.rkyv": "PreprocessKeysRkyv",
+      "verifier_keys.rkyv": "VerifierKeysRkyv"
+    },
+    "nonpublicQueryOrder": "placement, compiled subcircuit, retained normalized local wire; retain every real bus/internal wire, omit public wires, producer-declared wiring/internal padding, and virtual IDs",
+    "weightedQueryOrder": "retained normalized local wire, then placement coefficient a=0..s-1; retain the union [0,max_k b_k) and [m_b,m_b+max_k r_k), omit only producer-declared padding",
+    "records": {
+      "TauSequenceRkyv": [["schema_id", "String"], ["s0_g1", "Vec<UnivariateG1Rkyv>"], ["sxi_g1", "Vec<UnivariateG1Rkyv>"], ["spsi_g1", "Vec<UnivariateG1Rkyv>"], ["tau_powers_g2", "Vec<UnivariateG2Rkyv>"], ["psi_g2", "UnivariateG2Rkyv"]],
+      "ProverKeysRkyv": [["schema_id", "String"], ["weighted_g1", "Vec<UnivariateG1Rkyv>"], ["weighted_shifted_g1", "Vec<UnivariateG1Rkyv>"], ["free_public_queries", "Vec<UnivariateG1Rkyv>"], ["nonpublic_queries", "Vec<UnivariateG1Rkyv>"], ["mask_u", "[UnivariateG1Rkyv; 2]"], ["mask_v", "[UnivariateG1Rkyv; 2]"], ["mask_w", "[UnivariateG1Rkyv; 2]"], ["mask_b", "[UnivariateG1Rkyv; 2]"], ["mask_selection", "UnivariateG1Rkyv"]],
+      "PreprocessKeysRkyv": [["schema_id", "String"], ["sc_g1", "Vec<UnivariateG1Rkyv>"], ["selection_g2", "Vec<UnivariateG2Rkyv>"], ["fixed_public_queries", "Vec<UnivariateG1Rkyv>"]],
+      "VerifierKeysRkyv": [["schema_id", "String"], ["one_g1", "UnivariateG1Rkyv"], ["xi_g1", "UnivariateG1Rkyv"], ["psi_g1", "UnivariateG1Rkyv"], ["one_g2", "UnivariateG2Rkyv"], ["tau_g2", "UnivariateG2Rkyv"], ["tau_k_g2", "UnivariateG2Rkyv"], ["delta_g2", "UnivariateG2Rkyv"]]
+    }
+  },
+  "artifacts": [
+    {
+      "name": "univariate_proof",
+      "record": "ProofBytes",
+      "fileName": "univariate_proof.bin",
+      "fields": [
+        ["c_l", "g1"], ["c_h", "g1"], ["c_o", "g1"],
+        ["d_q", "g1"], ["d_q_k", "g1"], ["c_d", "g1"],
+        ["c_r", "g1"], ["c_q", "g1"], ["pi_chi", "g1"], ["pi_plus", "g1"],
+        ["s_c", "scalar"], ["u", "scalar"], ["v", "scalar"],
+        ["w", "scalar"], ["b", "scalar"], ["r", "scalar"], ["r_plus", "scalar"]
+      ]
+    },
+    {
+      "name": "univariate_verifier_preprocess",
+      "record": "PreprocessBytes",
+      "fileName": "univariate_verifier_preprocess.bin",
+      "fields": [["s_c", "g1"], ["c_fix", "g1"], ["e_kappa", "g2"]]
+    }
+  ]
+}

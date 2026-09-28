@@ -1,0 +1,6034 @@
+{
+  "date": "2026-09-11T15:04:07.000Z",
+  "source": "f91f43545be91646106e0416c44ab2f6095321e1",
+  "profile": "release + timing",
+  "host": "Apple M4 Pro",
+  "logicalCpus": 14,
+  "scope": "Native CPU proof generation, not verification/E2E. One discarded warmup per binary; alternating-order pairs. Fresh randomizers; default threads; no concurrent task-owned benchmark/build. Ordinary desktop applications uncontrolled.",
+  "binaries": {
+    "control": {
+      "path": "/tmp/tokamak-p13-Ma8j4A/parallel-hash",
+      "sha256": "a8bceadfef48a79b75e0e6485c6621e850d8666e11d7e1b6a5cf4e3ad010aec2"
+    },
+    "candidate": {
+      "path": "/tmp/tokamak-p13-Ma8j4A/reuse-read",
+      "sha256": "44caa201b773a6dbcd2dddd7fcaac9b6fcf5044d97bdabf3ac5f17f24af1a5cb"
+    }
+  },
+  "args": [
+    "--subcircuit-library",
+    "../frontend/qap-compiler/subcircuits/library",
+    "--tau-sequence",
+    "/tmp/tokamak-setup-compute-mZ3UVZ/accepted-1/tau_sequence.rkyv",
+    "--keys",
+    "/tmp/tokamak-setup-compute-mZ3UVZ/accepted-1",
+    "--synthesizer-stat",
+    "tmp/current-local-fixture"
+  ],
+  "inputs": [
+    {
+      "path": "/tmp/tokamak-setup-compute-mZ3UVZ/accepted-1/tau_sequence.rkyv",
+      "bytes": 301992400,
+      "sha256": "0731717d278651ef0e0df83a1ad9b097eb111a06346d34c0d2153d196487cd9e"
+    },
+    {
+      "path": "/tmp/tokamak-setup-compute-mZ3UVZ/accepted-1/prover_keys.rkyv",
+      "bytes": 626999056,
+      "sha256": "0cc80ab2a193dd70d4468c68b930b9b3f855fc19e8a12e8d83fa086978d5b2e5"
+    },
+    {
+      "path": "/Users/jehyuk/repo/Tokamak-zk-EVM/packages/backend/tmp/current-local-fixture/selector.json",
+      "bytes": 1531,
+      "sha256": "33dd4e47391d1296c8da1ea9f29ba9caeae7b0abed0b32b5ee13be5098c8e604"
+    },
+    {
+      "path": "/Users/jehyuk/repo/Tokamak-zk-EVM/packages/backend/tmp/current-local-fixture/permutation.json",
+      "bytes": 83774,
+      "sha256": "4696c225feaf15570b0cf0e93e9e73a51ae06c8801858a2e1a56dc67308a9209"
+    },
+    {
+      "path": "/Users/jehyuk/repo/Tokamak-zk-EVM/packages/backend/tmp/current-local-fixture/instance.json",
+      "bytes": 6321,
+      "sha256": "c70290532b14176082218e2a0e808b83c543aec5794aa7e8a8239326ec00c383"
+    },
+    {
+      "path": "/Users/jehyuk/repo/Tokamak-zk-EVM/packages/backend/tmp/current-local-fixture/placementVariables.json",
+      "bytes": 2941433,
+      "sha256": "f86e268f21774d994b5ae76e357cb53aa9f63c1701cc31e0128c1fadb5cdcb2e"
+    }
+  ],
+  "warmups": [
+    {
+      "index": 0,
+      "variant": "control",
+      "wallSeconds": 5.49280525,
+      "peakRssBytes": 3132669952,
+      "events": [
+        {
+          "name": "univariate.identity.read",
+          "category": "verifier_keys",
+          "nanos": 32875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "verifier_keys",
+          "nanos": 2708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.read",
+          "category": "tau",
+          "nanos": 31786542,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.read",
+          "category": "prover_keys",
+          "nanos": 63314708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "tau",
+          "nanos": 539163791,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "prover_keys",
+          "nanos": 1121300500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.library",
+          "category": "identity",
+          "nanos": 63710459,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity",
+          "category": "input",
+          "nanos": 1249226917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.library",
+          "category": "input",
+          "nanos": 11064500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.read.tau",
+          "category": "input",
+          "nanos": 19536792,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.decode.tau",
+          "category": "input",
+          "nanos": 31309708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.read.keys",
+          "category": "input",
+          "nanos": 42248458,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.decode.keys",
+          "category": "input",
+          "nanos": 66634125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs",
+          "category": "input",
+          "nanos": 159860416,
+          "sizes": []
+        },
+        {
+          "name": "univariate.fixture",
+          "category": "input",
+          "nanos": 27761417,
+          "sizes": []
+        },
+        {
+          "name": "univariate.maps",
+          "category": "prepare",
+          "nanos": 155472167,
+          "sizes": []
+        },
+        {
+          "name": "univariate.arithmetic",
+          "category": "prove",
+          "nanos": 131033916,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_L",
+          "nanos": 4886500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 13414833,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 439253083,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_L",
+          "nanos": 457564375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_H",
+          "nanos": 1470917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 12687250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 442211375,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524292
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_H",
+          "nanos": 456381250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_O",
+          "nanos": 1281167,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 2362208,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 20584625,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                78190
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.binding",
+          "category": "prove",
+          "nanos": 24233625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection.interpolate",
+          "category": "polynomial",
+          "nanos": 37213000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "D_Q",
+          "nanos": 1312834,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6481750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 218399583,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "D_Q",
+          "nanos": 226200042,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "D_QK",
+          "nanos": 916625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6414834,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 222965000,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "D_QK",
+          "nanos": 230301209,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection",
+          "category": "prove",
+          "nanos": 493723208,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_D",
+          "nanos": 2733916,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 12378416,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 437488916,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_D",
+          "nanos": 452606083,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.denominators",
+          "category": "copy",
+          "nanos": 7637666,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.inversion",
+          "category": "copy",
+          "nanos": 1348583,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.recurrence",
+          "category": "copy",
+          "nanos": 11144000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.interpolate",
+          "category": "copy",
+          "nanos": 13008959,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.boundary",
+          "category": "copy",
+          "nanos": 98065541,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.products",
+          "category": "copy",
+          "nanos": 247768166,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy",
+          "category": "prove",
+          "nanos": 381704583,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_R",
+          "nanos": 1133292,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6335208,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 223804375,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262148
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_R",
+          "nanos": 231277500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_Q",
+          "nanos": 1086458,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6495667,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 232173166,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262149
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_Q",
+          "nanos": 239764834,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "Pi_chi",
+          "nanos": 5566042,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 19644125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 659836541,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                786438
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "Pi_chi",
+          "nanos": 685056375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "Pi_plus",
+          "nanos": 886542,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6289416,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 225997958,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262147
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "Pi_plus",
+          "nanos": 233185959,
+          "sizes": []
+        },
+        {
+          "name": "univariate.openings",
+          "category": "prove",
+          "nanos": 951448375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.protocol",
+          "category": "prove",
+          "nanos": 3838930458,
+          "sizes": []
+        },
+        {
+          "name": "univariate.output",
+          "category": "output",
+          "nanos": 267291,
+          "sizes": []
+        },
+        {
+          "name": "univariate.total",
+          "category": "total",
+          "nanos": 5477313583,
+          "sizes": []
+        }
+      ]
+    },
+    {
+      "index": 0,
+      "variant": "candidate",
+      "wallSeconds": 5.846405625,
+      "peakRssBytes": 3122839552,
+      "events": [
+        {
+          "name": "univariate.identity.read",
+          "category": "verifier_keys",
+          "nanos": 27541,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "verifier_keys",
+          "nanos": 3500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.read",
+          "category": "tau",
+          "nanos": 37404833,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.read",
+          "category": "prover_keys",
+          "nanos": 70049250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "tau",
+          "nanos": 537282500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "prover_keys",
+          "nanos": 1125426041,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.library",
+          "category": "identity",
+          "nanos": 39582917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity",
+          "category": "input",
+          "nanos": 1235763917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.library",
+          "category": "input",
+          "nanos": 10927250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.decode.tau",
+          "category": "input",
+          "nanos": 32179875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.decode.keys",
+          "category": "input",
+          "nanos": 70416625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs",
+          "category": "input",
+          "nanos": 102682333,
+          "sizes": []
+        },
+        {
+          "name": "univariate.fixture",
+          "category": "input",
+          "nanos": 27250750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.maps",
+          "category": "prepare",
+          "nanos": 155978458,
+          "sizes": []
+        },
+        {
+          "name": "univariate.arithmetic",
+          "category": "prove",
+          "nanos": 123508333,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_L",
+          "nanos": 4562667,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 13472375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 426222583,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_L",
+          "nanos": 444271542,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_H",
+          "nanos": 1413042,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 12380125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 449281708,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524292
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_H",
+          "nanos": 463083417,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_O",
+          "nanos": 1536792,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 2245084,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 19627709,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                78190
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.binding",
+          "category": "prove",
+          "nanos": 23414125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection.interpolate",
+          "category": "polynomial",
+          "nanos": 33177958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "D_Q",
+          "nanos": 922125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6229708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 217659625,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "D_Q",
+          "nanos": 224818250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "D_QK",
+          "nanos": 1187750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6357041,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 227385791,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "D_QK",
+          "nanos": 234938167,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection",
+          "category": "prove",
+          "nanos": 492942083,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_D",
+          "nanos": 2480125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 12505750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 434271292,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_D",
+          "nanos": 449268750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.denominators",
+          "category": "copy",
+          "nanos": 7499125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.inversion",
+          "category": "copy",
+          "nanos": 1417125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.recurrence",
+          "category": "copy",
+          "nanos": 11090084,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.interpolate",
+          "category": "copy",
+          "nanos": 13129458,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.boundary",
+          "category": "copy",
+          "nanos": 99725125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.products",
+          "category": "copy",
+          "nanos": 225047792,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy",
+          "category": "prove",
+          "nanos": 360890334,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_R",
+          "nanos": 985583,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6272042,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 235547125,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262148
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_R",
+          "nanos": 242811500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_Q",
+          "nanos": 682375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6310625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 236699625,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262149
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_Q",
+          "nanos": 243702000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "Pi_chi",
+          "nanos": 5448708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 19746625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 658655750,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                786438
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "Pi_chi",
+          "nanos": 683861417,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "Pi_plus",
+          "nanos": 788500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6187333,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 220909750,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262147
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "Pi_plus",
+          "nanos": 227893791,
+          "sizes": []
+        },
+        {
+          "name": "univariate.openings",
+          "category": "prove",
+          "nanos": 944825959,
+          "sizes": []
+        },
+        {
+          "name": "univariate.protocol",
+          "category": "prove",
+          "nanos": 3808970083,
+          "sizes": []
+        },
+        {
+          "name": "univariate.output",
+          "category": "output",
+          "nanos": 262791,
+          "sizes": []
+        },
+        {
+          "name": "univariate.total",
+          "category": "total",
+          "nanos": 5376859333,
+          "sizes": []
+        }
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "index": 1,
+      "variant": "candidate",
+      "wallSeconds": 5.435296875,
+      "peakRssBytes": 3131211776,
+      "events": [
+        {
+          "name": "univariate.identity.read",
+          "category": "verifier_keys",
+          "nanos": 51042,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "verifier_keys",
+          "nanos": 3125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.read",
+          "category": "tau",
+          "nanos": 33943334,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.read",
+          "category": "prover_keys",
+          "nanos": 65662250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "tau",
+          "nanos": 543164209,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "prover_keys",
+          "nanos": 1124459291,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.library",
+          "category": "identity",
+          "nanos": 37244667,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity",
+          "category": "input",
+          "nanos": 1227711541,
+          "sizes": []
+        },
+        {
+          "name": "univariate.library",
+          "category": "input",
+          "nanos": 10815625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.decode.tau",
+          "category": "input",
+          "nanos": 33023708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.decode.keys",
+          "category": "input",
+          "nanos": 77699708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs",
+          "category": "input",
+          "nanos": 110837917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.fixture",
+          "category": "input",
+          "nanos": 27222250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.maps",
+          "category": "prepare",
+          "nanos": 158462625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.arithmetic",
+          "category": "prove",
+          "nanos": 122915250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_L",
+          "nanos": 4340875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 13259084,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 441155375,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_L",
+          "nanos": 458766583,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_H",
+          "nanos": 1387042,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 12400083,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 437374084,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524292
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_H",
+          "nanos": 451177583,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_O",
+          "nanos": 1443917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 2412375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 20069792,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                78190
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.binding",
+          "category": "prove",
+          "nanos": 23937834,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection.interpolate",
+          "category": "polynomial",
+          "nanos": 35140833,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "D_Q",
+          "nanos": 1020375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6567750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 236498417,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "D_Q",
+          "nanos": 244091667,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "D_QK",
+          "nanos": 1048750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6252291,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 237934667,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "D_QK",
+          "nanos": 245243542,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection",
+          "category": "prove",
+          "nanos": 524486375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_D",
+          "nanos": 2723875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 24732375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 468331250,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_D",
+          "nanos": 495796625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.denominators",
+          "category": "copy",
+          "nanos": 8649792,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.inversion",
+          "category": "copy",
+          "nanos": 1390334,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.recurrence",
+          "category": "copy",
+          "nanos": 11470000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.interpolate",
+          "category": "copy",
+          "nanos": 12453000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.boundary",
+          "category": "copy",
+          "nanos": 98977625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.products",
+          "category": "copy",
+          "nanos": 224154000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy",
+          "category": "prove",
+          "nanos": 359832416,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_R",
+          "nanos": 2032625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6407625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 222178875,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262148
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_R",
+          "nanos": 230627167,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_Q",
+          "nanos": 714250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6461625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 227621333,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262149
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_Q",
+          "nanos": 234805458,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "Pi_chi",
+          "nanos": 4833917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 19822750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 639310750,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                786438
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "Pi_chi",
+          "nanos": 663980167,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "Pi_plus",
+          "nanos": 843000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6216000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 226330583,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262147
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "Pi_plus",
+          "nanos": 233399625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.openings",
+          "category": "prove",
+          "nanos": 928582208,
+          "sizes": []
+        },
+        {
+          "name": "univariate.protocol",
+          "category": "prove",
+          "nanos": 3853822042,
+          "sizes": []
+        },
+        {
+          "name": "univariate.output",
+          "category": "output",
+          "nanos": 290750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.total",
+          "category": "total",
+          "nanos": 5421630750,
+          "sizes": []
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "variant": "control",
+      "wallSeconds": 5.466325125,
+      "peakRssBytes": 3129229312,
+      "events": [
+        {
+          "name": "univariate.identity.read",
+          "category": "verifier_keys",
+          "nanos": 66041,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "verifier_keys",
+          "nanos": 2417,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.read",
+          "category": "tau",
+          "nanos": 32622750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.read",
+          "category": "prover_keys",
+          "nanos": 64440500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "tau",
+          "nanos": 541274666,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "prover_keys",
+          "nanos": 1128234875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.library",
+          "category": "identity",
+          "nanos": 38817834,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity",
+          "category": "input",
+          "nanos": 1231839459,
+          "sizes": []
+        },
+        {
+          "name": "univariate.library",
+          "category": "input",
+          "nanos": 10709916,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.read.tau",
+          "category": "input",
+          "nanos": 20195250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.decode.tau",
+          "category": "input",
+          "nanos": 31801500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.read.keys",
+          "category": "input",
+          "nanos": 42697959,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.decode.keys",
+          "category": "input",
+          "nanos": 69146291,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs",
+          "category": "input",
+          "nanos": 163941875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.fixture",
+          "category": "input",
+          "nanos": 27635584,
+          "sizes": []
+        },
+        {
+          "name": "univariate.maps",
+          "category": "prepare",
+          "nanos": 159066542,
+          "sizes": []
+        },
+        {
+          "name": "univariate.arithmetic",
+          "category": "prove",
+          "nanos": 124716000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_L",
+          "nanos": 4807541,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 13030167,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 460243833,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_L",
+          "nanos": 478095583,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_H",
+          "nanos": 1263458,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 12671833,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 417810667,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524292
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_H",
+          "nanos": 431751375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_O",
+          "nanos": 1754292,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 2263500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 20406459,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                78190
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.binding",
+          "category": "prove",
+          "nanos": 24428417,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection.interpolate",
+          "category": "polynomial",
+          "nanos": 35432292,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "D_Q",
+          "nanos": 1060584,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6503583,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 223058958,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "D_Q",
+          "nanos": 230632375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "D_QK",
+          "nanos": 1435125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6259833,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 208967458,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "D_QK",
+          "nanos": 216669542,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection",
+          "category": "prove",
+          "nanos": 482744000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_D",
+          "nanos": 2014292,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 12649958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 440212958,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_D",
+          "nanos": 454883291,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.denominators",
+          "category": "copy",
+          "nanos": 7519583,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.inversion",
+          "category": "copy",
+          "nanos": 1272375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.recurrence",
+          "category": "copy",
+          "nanos": 11199750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.interpolate",
+          "category": "copy",
+          "nanos": 12451958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.boundary",
+          "category": "copy",
+          "nanos": 97572625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.products",
+          "category": "copy",
+          "nanos": 234867958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy",
+          "category": "prove",
+          "nanos": 367777084,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_R",
+          "nanos": 1347125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6703083,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 238232625,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262148
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_R",
+          "nanos": 246287750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_Q",
+          "nanos": 643959,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 7069750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 228463458,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262149
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_Q",
+          "nanos": 236184083,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "Pi_chi",
+          "nanos": 6086250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 19738917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 666392708,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                786438
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "Pi_chi",
+          "nanos": 692228459,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "Pi_plus",
+          "nanos": 971875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 7009625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 224816416,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262147
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "Pi_plus",
+          "nanos": 232807625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.openings",
+          "category": "prove",
+          "nanos": 958370208,
+          "sizes": []
+        },
+        {
+          "name": "univariate.protocol",
+          "category": "prove",
+          "nanos": 3825448459,
+          "sizes": []
+        },
+        {
+          "name": "univariate.output",
+          "category": "output",
+          "nanos": 302125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.total",
+          "category": "total",
+          "nanos": 5450690750,
+          "sizes": []
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "variant": "control",
+      "wallSeconds": 5.442610875,
+      "peakRssBytes": 3135012864,
+      "events": [
+        {
+          "name": "univariate.identity.read",
+          "category": "verifier_keys",
+          "nanos": 44042,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "verifier_keys",
+          "nanos": 3000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.read",
+          "category": "tau",
+          "nanos": 34794791,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.read",
+          "category": "prover_keys",
+          "nanos": 66400167,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "tau",
+          "nanos": 543066958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "prover_keys",
+          "nanos": 1132271792,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.library",
+          "category": "identity",
+          "nanos": 37099042,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity",
+          "category": "input",
+          "nanos": 1236114750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.library",
+          "category": "input",
+          "nanos": 10906458,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.read.tau",
+          "category": "input",
+          "nanos": 20045792,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.decode.tau",
+          "category": "input",
+          "nanos": 31714041,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.read.keys",
+          "category": "input",
+          "nanos": 41816458,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.decode.keys",
+          "category": "input",
+          "nanos": 69752500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs",
+          "category": "input",
+          "nanos": 163437291,
+          "sizes": []
+        },
+        {
+          "name": "univariate.fixture",
+          "category": "input",
+          "nanos": 27763000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.maps",
+          "category": "prepare",
+          "nanos": 160069958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.arithmetic",
+          "category": "prove",
+          "nanos": 125164958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_L",
+          "nanos": 4372666,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 13475167,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 431824417,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_L",
+          "nanos": 449677833,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_H",
+          "nanos": 1392125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 12391834,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 428183750,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524292
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_H",
+          "nanos": 441972666,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_O",
+          "nanos": 1746958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 2595417,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 19049750,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                78190
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.binding",
+          "category": "prove",
+          "nanos": 23404542,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection.interpolate",
+          "category": "polynomial",
+          "nanos": 37261166,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "D_Q",
+          "nanos": 1298083,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6491417,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 227080875,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "D_Q",
+          "nanos": 234878583,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "D_QK",
+          "nanos": 1283750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 17339250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 216819875,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "D_QK",
+          "nanos": 235462291,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection",
+          "category": "prove",
+          "nanos": 507608167,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_D",
+          "nanos": 2496750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 12557750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 445359084,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_D",
+          "nanos": 460425833,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.denominators",
+          "category": "copy",
+          "nanos": 8481750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.inversion",
+          "category": "copy",
+          "nanos": 1453209,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.recurrence",
+          "category": "copy",
+          "nanos": 11745875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.interpolate",
+          "category": "copy",
+          "nanos": 12648416,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.boundary",
+          "category": "copy",
+          "nanos": 100553125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.products",
+          "category": "copy",
+          "nanos": 227701250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy",
+          "category": "prove",
+          "nanos": 365376500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_R",
+          "nanos": 1068166,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6558208,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 222107542,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262148
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_R",
+          "nanos": 229740667,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_Q",
+          "nanos": 549541,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6372916,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 233396250,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262149
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_Q",
+          "nanos": 240325125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "Pi_chi",
+          "nanos": 5166708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 20003416,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 650968084,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                786438
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "Pi_chi",
+          "nanos": 676143541,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "Pi_plus",
+          "nanos": 958500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6621875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 221112250,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262147
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "Pi_plus",
+          "nanos": 228699833,
+          "sizes": []
+        },
+        {
+          "name": "univariate.openings",
+          "category": "prove",
+          "nanos": 937614959,
+          "sizes": []
+        },
+        {
+          "name": "univariate.protocol",
+          "category": "prove",
+          "nanos": 3801434416,
+          "sizes": []
+        },
+        {
+          "name": "univariate.output",
+          "category": "output",
+          "nanos": 299917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.total",
+          "category": "total",
+          "nanos": 5430009375,
+          "sizes": []
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "variant": "candidate",
+      "wallSeconds": 5.5264735,
+      "peakRssBytes": 3134455808,
+      "events": [
+        {
+          "name": "univariate.identity.read",
+          "category": "verifier_keys",
+          "nanos": 46917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "verifier_keys",
+          "nanos": 3209,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.read",
+          "category": "tau",
+          "nanos": 31772125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.read",
+          "category": "prover_keys",
+          "nanos": 64450708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "tau",
+          "nanos": 540712208,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "prover_keys",
+          "nanos": 1130210375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.library",
+          "category": "identity",
+          "nanos": 38269750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity",
+          "category": "input",
+          "nanos": 1233261458,
+          "sizes": []
+        },
+        {
+          "name": "univariate.library",
+          "category": "input",
+          "nanos": 10913250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.decode.tau",
+          "category": "input",
+          "nanos": 31899958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.decode.keys",
+          "category": "input",
+          "nanos": 68123583,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs",
+          "category": "input",
+          "nanos": 100114500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.fixture",
+          "category": "input",
+          "nanos": 26918709,
+          "sizes": []
+        },
+        {
+          "name": "univariate.maps",
+          "category": "prepare",
+          "nanos": 158627042,
+          "sizes": []
+        },
+        {
+          "name": "univariate.arithmetic",
+          "category": "prove",
+          "nanos": 125078916,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_L",
+          "nanos": 4460667,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 13438334,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 455546459,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_L",
+          "nanos": 473472750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_H",
+          "nanos": 1251167,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 14206916,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 438986625,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524292
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_H",
+          "nanos": 454452917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_O",
+          "nanos": 1438667,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 2296875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 19731625,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                78190
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.binding",
+          "category": "prove",
+          "nanos": 23482084,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection.interpolate",
+          "category": "polynomial",
+          "nanos": 38532583,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "D_Q",
+          "nanos": 1023750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 7585000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 238405041,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "D_Q",
+          "nanos": 247019041,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "D_QK",
+          "nanos": 1323208,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 17286667,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 223496208,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "D_QK",
+          "nanos": 242114917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection",
+          "category": "prove",
+          "nanos": 527672708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_D",
+          "nanos": 3408416,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 13025583,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 441723084,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_D",
+          "nanos": 458172166,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.denominators",
+          "category": "copy",
+          "nanos": 6935333,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.inversion",
+          "category": "copy",
+          "nanos": 1382625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.recurrence",
+          "category": "copy",
+          "nanos": 10782833,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.interpolate",
+          "category": "copy",
+          "nanos": 13787709,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.boundary",
+          "category": "copy",
+          "nanos": 126439959,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.products",
+          "category": "copy",
+          "nanos": 263420166,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy",
+          "category": "prove",
+          "nanos": 425606084,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_R",
+          "nanos": 1115542,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 7143875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 220141292,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262148
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_R",
+          "nanos": 228408958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_Q",
+          "nanos": 1319958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6770458,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 226098708,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262149
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_Q",
+          "nanos": 234197583,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "Pi_chi",
+          "nanos": 4914625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 22461667,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 667683208,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                786438
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "Pi_chi",
+          "nanos": 695070084,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "Pi_plus",
+          "nanos": 1143291,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 7273875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 245284041,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262147
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "Pi_plus",
+          "nanos": 253707625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.openings",
+          "category": "prove",
+          "nanos": 980420417,
+          "sizes": []
+        },
+        {
+          "name": "univariate.protocol",
+          "category": "prove",
+          "nanos": 3952374209,
+          "sizes": []
+        },
+        {
+          "name": "univariate.output",
+          "category": "output",
+          "nanos": 341833,
+          "sizes": []
+        },
+        {
+          "name": "univariate.total",
+          "category": "total",
+          "nanos": 5513909667,
+          "sizes": []
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "variant": "candidate",
+      "wallSeconds": 5.442320792,
+      "peakRssBytes": 3122790400,
+      "events": [
+        {
+          "name": "univariate.identity.read",
+          "category": "verifier_keys",
+          "nanos": 32167,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "verifier_keys",
+          "nanos": 3292,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.read",
+          "category": "tau",
+          "nanos": 34015625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.read",
+          "category": "prover_keys",
+          "nanos": 65713458,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "tau",
+          "nanos": 539675750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "prover_keys",
+          "nanos": 1124279750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.library",
+          "category": "identity",
+          "nanos": 36937750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity",
+          "category": "input",
+          "nanos": 1227258375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.library",
+          "category": "input",
+          "nanos": 10504125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.decode.tau",
+          "category": "input",
+          "nanos": 31408208,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.decode.keys",
+          "category": "input",
+          "nanos": 67007958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs",
+          "category": "input",
+          "nanos": 98515875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.fixture",
+          "category": "input",
+          "nanos": 26410958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.maps",
+          "category": "prepare",
+          "nanos": 157798583,
+          "sizes": []
+        },
+        {
+          "name": "univariate.arithmetic",
+          "category": "prove",
+          "nanos": 123386917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_L",
+          "nanos": 4428875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 13317083,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 440927208,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_L",
+          "nanos": 458683916,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_H",
+          "nanos": 1169125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 12676917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 438884958,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524292
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_H",
+          "nanos": 452744958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_O",
+          "nanos": 1583959,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 2541708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 20461833,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                78190
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.binding",
+          "category": "prove",
+          "nanos": 24592500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection.interpolate",
+          "category": "polynomial",
+          "nanos": 39443167,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "D_Q",
+          "nanos": 965750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6273334,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 240526417,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "D_Q",
+          "nanos": 247774083,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "D_QK",
+          "nanos": 950500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6628584,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 275477375,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "D_QK",
+          "nanos": 283063083,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection",
+          "category": "prove",
+          "nanos": 570288375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_D",
+          "nanos": 2217542,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 12491250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 426313500,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_D",
+          "nanos": 441029125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.denominators",
+          "category": "copy",
+          "nanos": 7896250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.inversion",
+          "category": "copy",
+          "nanos": 1420958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.recurrence",
+          "category": "copy",
+          "nanos": 11636375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.interpolate",
+          "category": "copy",
+          "nanos": 12184916,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.boundary",
+          "category": "copy",
+          "nanos": 96845500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.products",
+          "category": "copy",
+          "nanos": 227440625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy",
+          "category": "prove",
+          "nanos": 360284417,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_R",
+          "nanos": 930916,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6500500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 228283250,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262148
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_R",
+          "nanos": 235719958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_Q",
+          "nanos": 636791,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6264500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 230184792,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262149
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_Q",
+          "nanos": 237091416,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "Pi_chi",
+          "nanos": 5075209,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 20210916,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 670408500,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                786438
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "Pi_chi",
+          "nanos": 695708709,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "Pi_plus",
+          "nanos": 942958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6453708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 219642042,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262147
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "Pi_plus",
+          "nanos": 227045292,
+          "sizes": []
+        },
+        {
+          "name": "univariate.openings",
+          "category": "prove",
+          "nanos": 954860292,
+          "sizes": []
+        },
+        {
+          "name": "univariate.protocol",
+          "category": "prove",
+          "nanos": 3878836333,
+          "sizes": []
+        },
+        {
+          "name": "univariate.output",
+          "category": "output",
+          "nanos": 273458,
+          "sizes": []
+        },
+        {
+          "name": "univariate.total",
+          "category": "total",
+          "nanos": 5429739083,
+          "sizes": []
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "variant": "control",
+      "wallSeconds": 5.4921265,
+      "peakRssBytes": 3125739520,
+      "events": [
+        {
+          "name": "univariate.identity.read",
+          "category": "verifier_keys",
+          "nanos": 23125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "verifier_keys",
+          "nanos": 2875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.read",
+          "category": "tau",
+          "nanos": 32209292,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.read",
+          "category": "prover_keys",
+          "nanos": 64872917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "tau",
+          "nanos": 541817166,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "prover_keys",
+          "nanos": 1134974375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.library",
+          "category": "identity",
+          "nanos": 38120542,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity",
+          "category": "input",
+          "nanos": 1238309958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.library",
+          "category": "input",
+          "nanos": 10739666,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.read.tau",
+          "category": "input",
+          "nanos": 20130083,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.decode.tau",
+          "category": "input",
+          "nanos": 31940166,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.read.keys",
+          "category": "input",
+          "nanos": 42802791,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.decode.keys",
+          "category": "input",
+          "nanos": 68688750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs",
+          "category": "input",
+          "nanos": 163678708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.fixture",
+          "category": "input",
+          "nanos": 29457000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.maps",
+          "category": "prepare",
+          "nanos": 158916750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.arithmetic",
+          "category": "prove",
+          "nanos": 135693250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_L",
+          "nanos": 4406125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 13198417,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 441487875,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_L",
+          "nanos": 459107208,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_H",
+          "nanos": 1355625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 12401750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 426943375,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524292
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_H",
+          "nanos": 440710333,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_O",
+          "nanos": 1783625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 2318791,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 20256917,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                78190
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.binding",
+          "category": "prove",
+          "nanos": 24366917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection.interpolate",
+          "category": "polynomial",
+          "nanos": 33415000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "D_Q",
+          "nanos": 1139250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6561250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 221970000,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "D_Q",
+          "nanos": 229678917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "D_QK",
+          "nanos": 986625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6569833,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 225260167,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "D_QK",
+          "nanos": 232823000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection",
+          "category": "prove",
+          "nanos": 495922208,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_D",
+          "nanos": 1964875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 12626500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 443774542,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_D",
+          "nanos": 458370500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.denominators",
+          "category": "copy",
+          "nanos": 7639625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.inversion",
+          "category": "copy",
+          "nanos": 1516792,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.recurrence",
+          "category": "copy",
+          "nanos": 11319250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.interpolate",
+          "category": "copy",
+          "nanos": 12165167,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.boundary",
+          "category": "copy",
+          "nanos": 98938542,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.products",
+          "category": "copy",
+          "nanos": 226087750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy",
+          "category": "prove",
+          "nanos": 360663875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_R",
+          "nanos": 993250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6523250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 226623708,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262148
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_R",
+          "nanos": 234145459,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_Q",
+          "nanos": 659916,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6376708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 218715916,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262149
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_Q",
+          "nanos": 225761541,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "Pi_chi",
+          "nanos": 4821917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 19925208,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 665595792,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                786438
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "Pi_chi",
+          "nanos": 690354417,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "Pi_plus",
+          "nanos": 874083,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6471208,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 262226917,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262147
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "Pi_plus",
+          "nanos": 269584959,
+          "sizes": []
+        },
+        {
+          "name": "univariate.openings",
+          "category": "prove",
+          "nanos": 992227917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.protocol",
+          "category": "prove",
+          "nanos": 3847057125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.output",
+          "category": "output",
+          "nanos": 285666,
+          "sizes": []
+        },
+        {
+          "name": "univariate.total",
+          "category": "total",
+          "nanos": 5478520292,
+          "sizes": []
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "variant": "control",
+      "wallSeconds": 5.470540541,
+      "peakRssBytes": 3121283072,
+      "events": [
+        {
+          "name": "univariate.identity.read",
+          "category": "verifier_keys",
+          "nanos": 31583,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "verifier_keys",
+          "nanos": 3333,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.read",
+          "category": "tau",
+          "nanos": 34340959,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.read",
+          "category": "prover_keys",
+          "nanos": 65067500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "tau",
+          "nanos": 541257791,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "prover_keys",
+          "nanos": 1135864416,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.library",
+          "category": "identity",
+          "nanos": 38051459,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity",
+          "category": "input",
+          "nanos": 1239345000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.library",
+          "category": "input",
+          "nanos": 10942125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.read.tau",
+          "category": "input",
+          "nanos": 20254792,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.decode.tau",
+          "category": "input",
+          "nanos": 32349625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.read.keys",
+          "category": "input",
+          "nanos": 43100625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.decode.keys",
+          "category": "input",
+          "nanos": 69194208,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs",
+          "category": "input",
+          "nanos": 165044584,
+          "sizes": []
+        },
+        {
+          "name": "univariate.fixture",
+          "category": "input",
+          "nanos": 27690958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.maps",
+          "category": "prepare",
+          "nanos": 157188375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.arithmetic",
+          "category": "prove",
+          "nanos": 123947584,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_L",
+          "nanos": 4619333,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 13175042,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 449128417,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_L",
+          "nanos": 466931750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_H",
+          "nanos": 3635875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 12844541,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 456928250,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524292
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_H",
+          "nanos": 473415542,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_O",
+          "nanos": 1592708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 2176333,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 19954541,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                78190
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.binding",
+          "category": "prove",
+          "nanos": 23731750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection.interpolate",
+          "category": "polynomial",
+          "nanos": 34411500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "D_Q",
+          "nanos": 1280708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6354000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 224330500,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "D_Q",
+          "nanos": 231971875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "D_QK",
+          "nanos": 981833,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6463375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 228790375,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "D_QK",
+          "nanos": 236242917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection",
+          "category": "prove",
+          "nanos": 502632125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_D",
+          "nanos": 2407833,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 12426083,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 446034792,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_D",
+          "nanos": 460880333,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.denominators",
+          "category": "copy",
+          "nanos": 7992458,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.inversion",
+          "category": "copy",
+          "nanos": 1277291,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.recurrence",
+          "category": "copy",
+          "nanos": 11693166,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.interpolate",
+          "category": "copy",
+          "nanos": 12533792,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.boundary",
+          "category": "copy",
+          "nanos": 97726917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.products",
+          "category": "copy",
+          "nanos": 225185042,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy",
+          "category": "prove",
+          "nanos": 359280833,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_R",
+          "nanos": 1386791,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6384250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 217970042,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262148
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_R",
+          "nanos": 225746208,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_Q",
+          "nanos": 727041,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6439875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 223689833,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262149
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_Q",
+          "nanos": 230865000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "Pi_chi",
+          "nanos": 5089750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 19957250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 640307292,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                786438
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "Pi_chi",
+          "nanos": 665365875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "Pi_plus",
+          "nanos": 548334,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6593625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 230905583,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262147
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "Pi_plus",
+          "nanos": 238059958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.openings",
+          "category": "prove",
+          "nanos": 936276166,
+          "sizes": []
+        },
+        {
+          "name": "univariate.protocol",
+          "category": "prove",
+          "nanos": 3825678000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.output",
+          "category": "output",
+          "nanos": 289708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.total",
+          "category": "total",
+          "nanos": 5457431917,
+          "sizes": []
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "variant": "candidate",
+      "wallSeconds": 5.395715042,
+      "peakRssBytes": 3131228160,
+      "events": [
+        {
+          "name": "univariate.identity.read",
+          "category": "verifier_keys",
+          "nanos": 38625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "verifier_keys",
+          "nanos": 2541,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.read",
+          "category": "tau",
+          "nanos": 35655333,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.read",
+          "category": "prover_keys",
+          "nanos": 65949042,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "tau",
+          "nanos": 544641292,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "prover_keys",
+          "nanos": 1135260667,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.library",
+          "category": "identity",
+          "nanos": 38456542,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity",
+          "category": "input",
+          "nanos": 1240058625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.library",
+          "category": "input",
+          "nanos": 11325250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.decode.tau",
+          "category": "input",
+          "nanos": 32977750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.decode.keys",
+          "category": "input",
+          "nanos": 73542209,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs",
+          "category": "input",
+          "nanos": 106615958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.fixture",
+          "category": "input",
+          "nanos": 26912708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.maps",
+          "category": "prepare",
+          "nanos": 159775291,
+          "sizes": []
+        },
+        {
+          "name": "univariate.arithmetic",
+          "category": "prove",
+          "nanos": 119926792,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_L",
+          "nanos": 4547166,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 13556333,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 440771875,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_L",
+          "nanos": 458892792,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_H",
+          "nanos": 1453375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 12435292,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 426695667,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524292
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_H",
+          "nanos": 440592166,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_O",
+          "nanos": 1787250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 2180334,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 18471542,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                78190
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.binding",
+          "category": "prove",
+          "nanos": 22444166,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection.interpolate",
+          "category": "polynomial",
+          "nanos": 37293375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "D_Q",
+          "nanos": 1290417,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6169459,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 229448417,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "D_Q",
+          "nanos": 236914500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "D_QK",
+          "nanos": 968917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6272125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 224969833,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "D_QK",
+          "nanos": 232217458,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection",
+          "category": "prove",
+          "nanos": 506432500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_D",
+          "nanos": 2196042,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 12276000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 443924333,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_D",
+          "nanos": 458403584,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.denominators",
+          "category": "copy",
+          "nanos": 7876208,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.inversion",
+          "category": "copy",
+          "nanos": 1412917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.recurrence",
+          "category": "copy",
+          "nanos": 11612000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.interpolate",
+          "category": "copy",
+          "nanos": 12665042,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.boundary",
+          "category": "copy",
+          "nanos": 98498834,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.products",
+          "category": "copy",
+          "nanos": 227659084,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy",
+          "category": "prove",
+          "nanos": 362725167,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_R",
+          "nanos": 1096667,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6501125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 222554167,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262148
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_R",
+          "nanos": 230157916,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_Q",
+          "nanos": 627042,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6301000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 223426917,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262149
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_Q",
+          "nanos": 230362125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "Pi_chi",
+          "nanos": 5077541,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 20302209,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 656915083,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                786438
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "Pi_chi",
+          "nanos": 682304541,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "Pi_plus",
+          "nanos": 672417,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6597917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 229131500,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262147
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "Pi_plus",
+          "nanos": 236407584,
+          "sizes": []
+        },
+        {
+          "name": "univariate.openings",
+          "category": "prove",
+          "nanos": 950954708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.protocol",
+          "category": "prove",
+          "nanos": 3800913459,
+          "sizes": []
+        },
+        {
+          "name": "univariate.output",
+          "category": "output",
+          "nanos": 265750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.total",
+          "category": "total",
+          "nanos": 5381604583,
+          "sizes": []
+        }
+      ]
+    },
+    {
+      "index": 5,
+      "variant": "candidate",
+      "wallSeconds": 5.41843575,
+      "peakRssBytes": 3129114624,
+      "events": [
+        {
+          "name": "univariate.identity.read",
+          "category": "verifier_keys",
+          "nanos": 34750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "verifier_keys",
+          "nanos": 3375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.read",
+          "category": "tau",
+          "nanos": 34904583,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.read",
+          "category": "prover_keys",
+          "nanos": 65665500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "tau",
+          "nanos": 541931916,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "prover_keys",
+          "nanos": 1133300917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.library",
+          "category": "identity",
+          "nanos": 36615416,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity",
+          "category": "input",
+          "nanos": 1235946250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.library",
+          "category": "input",
+          "nanos": 10840375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.decode.tau",
+          "category": "input",
+          "nanos": 31628375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.decode.keys",
+          "category": "input",
+          "nanos": 68703666,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs",
+          "category": "input",
+          "nanos": 100412417,
+          "sizes": []
+        },
+        {
+          "name": "univariate.fixture",
+          "category": "input",
+          "nanos": 27143833,
+          "sizes": []
+        },
+        {
+          "name": "univariate.maps",
+          "category": "prepare",
+          "nanos": 157468000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.arithmetic",
+          "category": "prove",
+          "nanos": 124665292,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_L",
+          "nanos": 4543292,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 13215333,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 439771291,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_L",
+          "nanos": 457541333,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_H",
+          "nanos": 1369209,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 12255959,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 448265750,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524292
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_H",
+          "nanos": 461900041,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_O",
+          "nanos": 1587792,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 2560042,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 18876833,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                78190
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.binding",
+          "category": "prove",
+          "nanos": 23044208,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection.interpolate",
+          "category": "polynomial",
+          "nanos": 34744792,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "D_Q",
+          "nanos": 1830958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6574750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 221556542,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "D_Q",
+          "nanos": 229966125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "D_QK",
+          "nanos": 968792,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6616166,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 229487625,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "D_QK",
+          "nanos": 237079584,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection",
+          "category": "prove",
+          "nanos": 501797708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_D",
+          "nanos": 2289041,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 12488000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 439829625,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_D",
+          "nanos": 454615625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.denominators",
+          "category": "copy",
+          "nanos": 8229167,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.inversion",
+          "category": "copy",
+          "nanos": 1440792,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.recurrence",
+          "category": "copy",
+          "nanos": 11595666,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.interpolate",
+          "category": "copy",
+          "nanos": 12029708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.boundary",
+          "category": "copy",
+          "nanos": 97110958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.products",
+          "category": "copy",
+          "nanos": 226156291,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy",
+          "category": "prove",
+          "nanos": 359240625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_R",
+          "nanos": 1006625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6365542,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 222939083,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262148
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_R",
+          "nanos": 230315750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_Q",
+          "nanos": 836625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6278250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 236568834,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262149
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_Q",
+          "nanos": 243690083,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "Pi_chi",
+          "nanos": 5008708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 19645125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 662703958,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                786438
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "Pi_chi",
+          "nanos": 687368125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "Pi_plus",
+          "nanos": 613917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6488125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 224798667,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262147
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "Pi_plus",
+          "nanos": 231907833,
+          "sizes": []
+        },
+        {
+          "name": "univariate.openings",
+          "category": "prove",
+          "nanos": 951595250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.protocol",
+          "category": "prove",
+          "nanos": 3841286167,
+          "sizes": []
+        },
+        {
+          "name": "univariate.output",
+          "category": "output",
+          "nanos": 249417,
+          "sizes": []
+        },
+        {
+          "name": "univariate.total",
+          "category": "total",
+          "nanos": 5405613417,
+          "sizes": []
+        }
+      ]
+    },
+    {
+      "index": 5,
+      "variant": "control",
+      "wallSeconds": 5.461015541,
+      "peakRssBytes": 3128410112,
+      "events": [
+        {
+          "name": "univariate.identity.read",
+          "category": "verifier_keys",
+          "nanos": 30708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "verifier_keys",
+          "nanos": 2708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.read",
+          "category": "tau",
+          "nanos": 33505333,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.read",
+          "category": "prover_keys",
+          "nanos": 64547917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "tau",
+          "nanos": 535689083,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.sha256",
+          "category": "prover_keys",
+          "nanos": 1119896625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity.library",
+          "category": "identity",
+          "nanos": 37669375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.identity",
+          "category": "input",
+          "nanos": 1222474833,
+          "sizes": []
+        },
+        {
+          "name": "univariate.library",
+          "category": "input",
+          "nanos": 10672625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.read.tau",
+          "category": "input",
+          "nanos": 20683791,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.decode.tau",
+          "category": "input",
+          "nanos": 31443875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.read.keys",
+          "category": "input",
+          "nanos": 45842375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs.decode.keys",
+          "category": "input",
+          "nanos": 68823625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs",
+          "category": "input",
+          "nanos": 166915125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.fixture",
+          "category": "input",
+          "nanos": 27385458,
+          "sizes": []
+        },
+        {
+          "name": "univariate.maps",
+          "category": "prepare",
+          "nanos": 157358542,
+          "sizes": []
+        },
+        {
+          "name": "univariate.arithmetic",
+          "category": "prove",
+          "nanos": 123286458,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_L",
+          "nanos": 4451917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 13235500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 444294916,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_L",
+          "nanos": 461987458,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_H",
+          "nanos": 1171375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 12535500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 435384458,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524292
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_H",
+          "nanos": 449095750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_O",
+          "nanos": 1503625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 2364041,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 19582208,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                78190
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.binding",
+          "category": "prove",
+          "nanos": 23460041,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection.interpolate",
+          "category": "polynomial",
+          "nanos": 35067500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "D_Q",
+          "nanos": 1010084,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6397042,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 224304833,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "D_Q",
+          "nanos": 231724375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "D_QK",
+          "nanos": 922375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6171583,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 228957542,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "D_QK",
+          "nanos": 236056167,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection",
+          "category": "prove",
+          "nanos": 502853583,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_D",
+          "nanos": 2192125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 13026875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 454885834,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_D",
+          "nanos": 470113166,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.denominators",
+          "category": "copy",
+          "nanos": 7241542,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.inversion",
+          "category": "copy",
+          "nanos": 1435667,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.recurrence",
+          "category": "copy",
+          "nanos": 11368375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.interpolate",
+          "category": "copy",
+          "nanos": 13429083,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.boundary",
+          "category": "copy",
+          "nanos": 97349083,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy.products",
+          "category": "copy",
+          "nanos": 228554125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy",
+          "category": "prove",
+          "nanos": 362452542,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_R",
+          "nanos": 1115125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6392208,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 229772250,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262148
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_R",
+          "nanos": 237284458,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "C_Q",
+          "nanos": 542750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6395875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 220165708,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262149
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "C_Q",
+          "nanos": 227113250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "Pi_chi",
+          "nanos": 6111375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 19693833,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 652166709,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                786438
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "Pi_chi",
+          "nanos": 677983209,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.gather",
+          "category": "Pi_plus",
+          "nanos": 815542,
+          "sizes": []
+        },
+        {
+          "name": "univariate.commit.decode",
+          "category": "prepare",
+          "nanos": 6515417,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 236657583,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262147
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "Pi_plus",
+          "nanos": 243997375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.openings",
+          "category": "prove",
+          "nanos": 954394209,
+          "sizes": []
+        },
+        {
+          "name": "univariate.protocol",
+          "category": "prove",
+          "nanos": 3833212584,
+          "sizes": []
+        },
+        {
+          "name": "univariate.output",
+          "category": "output",
+          "nanos": 283708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.total",
+          "category": "total",
+          "nanos": 5448214666,
+          "sizes": []
+        }
+      ]
+    }
+  ],
+  "meanSeconds": {
+    "control": {
+      "univariate.identity.read": 0.098599525,
+      "univariate.identity.sha256": 1.6708724160000004,
+      "univariate.identity.library": 0.0379516504,
+      "univariate.identity": 1.2336168,
+      "univariate.library": 0.010794158,
+      "univariate.crs.read.tau": 0.0202619416,
+      "univariate.crs.decode.tau": 0.0318498414,
+      "univariate.crs.read.keys": 0.0432520416,
+      "univariate.crs.decode.keys": 0.06912107479999999,
+      "univariate.crs": 0.1646035166,
+      "univariate.fixture": 0.0279864,
+      "univariate.maps": 0.1585200334,
+      "univariate.arithmetic": 0.12656165,
+      "univariate.commit.gather": 0.020561907600000002,
+      "univariate.commit.decode": 0.0953645324,
+      "univariate.msm": 3.1323148584,
+      "univariate.commit": 3.2244474910000003,
+      "univariate.binding": 0.0238783334,
+      "univariate.selection.interpolate": 0.0351174916,
+      "univariate.selection": 0.4983520166,
+      "univariate.copy.denominators": 0.0077749916,
+      "univariate.copy.inversion": 0.0013910667999999999,
+      "univariate.copy.recurrence": 0.011465283199999999,
+      "univariate.copy.interpolate": 0.012645683199999999,
+      "univariate.copy.boundary": 0.09842805839999999,
+      "univariate.copy.products": 0.228479225,
+      "univariate.copy": 0.36311016679999997,
+      "univariate.openings": 0.9557766918,
+      "univariate.protocol": 3.8265661167999996,
+      "univariate.output": 0.0002922248,
+      "univariate.total": 5.4529734
+    },
+    "candidate": {
+      "univariate.identity.read": 0.0995870918,
+      "univariate.identity.sha256": 1.6715303834,
+      "univariate.identity.library": 0.037504825,
+      "univariate.identity": 1.2328472498,
+      "univariate.library": 0.010879725,
+      "univariate.crs.decode.tau": 0.0321875998,
+      "univariate.crs.decode.keys": 0.0710154248,
+      "univariate.crs": 0.10329933340000001,
+      "univariate.fixture": 0.026921691600000002,
+      "univariate.maps": 0.1584263082,
+      "univariate.arithmetic": 0.1231946334,
+      "univariate.commit.gather": 0.020092267,
+      "univariate.commit.decode": 0.09889175880000001,
+      "univariate.msm": 3.1572237668,
+      "univariate.commit": 3.2528004326,
+      "univariate.binding": 0.023500158400000002,
+      "univariate.selection.interpolate": 0.03703095,
+      "univariate.selection": 0.5261355332,
+      "univariate.copy.denominators": 0.00791735,
+      "univariate.copy.inversion": 0.0014095251999999999,
+      "univariate.copy.recurrence": 0.0114193748,
+      "univariate.copy.interpolate": 0.012624075000000002,
+      "univariate.copy.boundary": 0.10357457519999999,
+      "univariate.copy.products": 0.2337660332,
+      "univariate.copy": 0.3735377418,
+      "univariate.openings": 0.953282575,
+      "univariate.protocol": 3.8654464419999996,
+      "univariate.output": 0.0002842416,
+      "univariate.total": 5.430499499999999
+    }
+  }
+}

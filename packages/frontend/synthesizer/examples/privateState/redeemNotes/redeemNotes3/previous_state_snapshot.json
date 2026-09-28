@@ -1,5 +1,5 @@
 {
-  "channelId": 4,
+  "channelId": "4",
   "stateRoots": [
     "0x09299525ed2f49e5c40dae12a9a6cf85584483448cf7403eca429d9352de7d5b",
     "0x32fe7eab871c48cbc0c5c1b6444be3d71bfba4056511b49dd0ceb179c8807bc6"

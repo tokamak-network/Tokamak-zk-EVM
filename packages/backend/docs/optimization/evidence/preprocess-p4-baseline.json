@@ -1,0 +1,123 @@
+{
+  "date": "2026-09-12",
+  "kind": "Initial native preprocess release baseline; not E2E verification",
+  "sourceBaseCommit": "8722f2b87",
+  "sourceState": "P4 implementation changes on top of the base commit; see source hashes.",
+  "build": "cargo build -p preprocess --locked --release --target-dir /tmp/tokamak-prover-p12-GTrRdE/target",
+  "hardware": {
+    "cpu": "Apple M4 Pro",
+    "logicalCores": 14
+  },
+  "cwd": "/Users/jehyuk/repo/Tokamak-zk-EVM/packages/backend",
+  "command": "/usr/bin/time -l /usr/bin/env ICICLE_BACKEND_INSTALL_DIR=/nonexistent DYLD_LIBRARY_PATH=\"/Users/jehyuk/repo/Tokamak-zk-EVM/packages/backend/external-lib/mac/lib\" /tmp/tokamak-prover-p12-GTrRdE/target/release/preprocess --subcircuit-library ../frontend/qap-compiler/subcircuits/library --keys /tmp/tokamak-preprocess-p4-35PRM1/keys --synthesizer-stat tmp/current-local-fixture --output /tmp/tokamak-preprocess-p4-35PRM1/output",
+  "notes": [
+    "One excluded warmup and five serial measurements; ordinary desktop background activity is uncontrolled.",
+    "Only preprocess_keys.rkyv and crs_provenance.json are present in the input keys directory.",
+    "CPU execution deliberately uses a nonexistent ICICLE backend discovery directory; linked shared libraries remain available.",
+    "ICICLE CPU arithmetic parity and CUDA-unavailable rejection are separate checks, not CUDA performance measurements.",
+    "SHA-256 values below were collected outside the timed command, not by runtime payload digest checks."
+  ],
+  "hashes": {
+    "rust/preprocess/src/engine.rs": "8df97cd04b9dd0149b196fbccb37e1d0cc1cb60a625853dad9d788a747fbf2b0",
+    "rust/preprocess/src/input.rs": "ea93c011a1f2078aa173ce5e1c189ba5fe2f3ccb5765d3b8d185e7f34ed84e95",
+    "rust/preprocess/src/lib.rs": "b8fc1570c5a5fa40f6077f7f24bf57c134ef0ac91232c7e65935708838a8c816",
+    "rust/preprocess/src/main.rs": "8e2b37e5aef9f6da993e2fe4d3dbeeb0cc49de927c12414483f5755265fee42c",
+    "rust/preprocess/src/tests.rs": "9c28506dad7fcc51fc14500ea3bc6d9494280aa49a8a0a98e8e91280bcdea87c",
+    "rust/preprocess/Cargo.toml": "b6ececd8852d28d06097076599e8653d28d0d92603c1a800d3eaa76ab89d39a5",
+    "rust/libs/src/univariate_relation.rs": "01e567059da14af7264f06a1d55b4bec607d25dc38d4e8cd16a96fa474ee5624",
+    "rust/libs/src/subcircuit_library.rs": "983d3724370f6bc40c5eb6faf4fe672b69a9796dd399af3c4a8f7bdf9b2f2014",
+    "Cargo.lock": "9fd1b1c1b4269544d29758d38a8a78b3cb2cfae78944e30842126ef2240f9f95",
+    "../frontend/qap-compiler/subcircuits/library/setupParams.json": "516b59046108e34b32613528548c5c02b9b7cf8351d25fcab69aa5b0a329d495",
+    "../frontend/qap-compiler/subcircuits/library/subcircuitInfo.json": "6d78110ad2a746d8072d3cece11ddc755cf95b4c817d2f26c464faf0ff6a6560",
+    "../frontend/qap-compiler/subcircuits/library/globalWireList.json": "812206377295d2b94872673910fbb946739c845c36d34a93dec4acaa09fd9fef",
+    "tmp/current-local-fixture/selector.json": "33dd4e47391d1296c8da1ea9f29ba9caeae7b0abed0b32b5ee13be5098c8e604",
+    "tmp/current-local-fixture/permutation.json": "4696c225feaf15570b0cf0e93e9e73a51ae06c8801858a2e1a56dc67308a9209",
+    "tmp/current-local-fixture/instance.json": "c70290532b14176082218e2a0e808b83c543aec5794aa7e8a8239326ec00c383",
+    "/tmp/tokamak-preprocess-p4-35PRM1/keys/preprocess_keys.rkyv": "f28c36373d2f67614cc076d85092094250b87ba78e6b12b6c0043df9ce06f2b8",
+    "/tmp/tokamak-preprocess-p4-35PRM1/keys/crs_provenance.json": "742e2ddf911156b18274458da6990bafef06d77199085f5346e3151dc5098145",
+    "/tmp/tokamak-preprocess-p4-35PRM1/output/univariate_verifier_preprocess.bin": "13baed2db3479b1ac5d1c0d06e0a183ea0c49f9e305959b75e03cb69b8ca5ebb",
+    "/tmp/tokamak-prover-p12-GTrRdE/target/release/preprocess": "52014bc855335e73f1eedb975a4e642967478f7d13261e62c100bc1497d65fec"
+  },
+  "samples": [
+    {
+      "totalSeconds": 0.369775,
+      "inputSeconds": 0.007094,
+      "scSeconds": 0.2221,
+      "eKappaSeconds": 0.138843,
+      "cFixSeconds": 0.000592,
+      "wallSeconds": 0.37,
+      "peakRssBytes": 228982784
+    },
+    {
+      "totalSeconds": 0.36476,
+      "inputSeconds": 0.007479,
+      "scSeconds": 0.216446,
+      "eKappaSeconds": 0.139162,
+      "cFixSeconds": 0.000485,
+      "wallSeconds": 0.37,
+      "peakRssBytes": 229343232
+    },
+    {
+      "totalSeconds": 0.373907,
+      "inputSeconds": 0.007474,
+      "scSeconds": 0.224697,
+      "eKappaSeconds": 0.140151,
+      "cFixSeconds": 0.000472,
+      "wallSeconds": 0.38,
+      "peakRssBytes": 227442688
+    },
+    {
+      "totalSeconds": 0.368979,
+      "inputSeconds": 0.007338,
+      "scSeconds": 0.220702,
+      "eKappaSeconds": 0.139384,
+      "cFixSeconds": 0.000443,
+      "wallSeconds": 0.37,
+      "peakRssBytes": 230948864
+    },
+    {
+      "totalSeconds": 0.379319,
+      "inputSeconds": 0.007481,
+      "scSeconds": 0.231165,
+      "eKappaSeconds": 0.138947,
+      "cFixSeconds": 0.000569,
+      "wallSeconds": 0.38,
+      "peakRssBytes": 228327424
+    }
+  ],
+  "mean": {
+    "totalSeconds": 0.37134799999999996,
+    "inputSeconds": 0.007373199999999999,
+    "scSeconds": 0.223022,
+    "eKappaSeconds": 0.13929739999999996,
+    "cFixSeconds": 0.0005122,
+    "wallSeconds": 0.374,
+    "peakRssBytes": 229008998.4
+  },
+  "rawRuns": [
+    {
+      "warmup": true,
+      "output": "preprocess input: 0.007352 s\npreprocess S_C: 0.250103 s\npreprocess E_kappa: 0.130722 s\npreprocess C_fix: 0.000481 s\nPreprocess saved to /tmp/tokamak-preprocess-p4-35PRM1/output/univariate_verifier_preprocess.bin\nTotal preprocess time: 0.390074 s\n        0.83 real         2.73 user         0.23 sys\n           226426880  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n               14824  page reclaims\n                   7  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                   0  voluntary context switches\n               13370  involuntary context switches\n         42825350520  instructions retired\n         10606316584  cycles elapsed\n           220267144  peak memory footprint\n"
+    },
+    {
+      "warmup": false,
+      "output": "preprocess input: 0.007094 s\npreprocess S_C: 0.222100 s\npreprocess E_kappa: 0.138843 s\npreprocess C_fix: 0.000592 s\nPreprocess saved to /tmp/tokamak-preprocess-p4-35PRM1/output/univariate_verifier_preprocess.bin\nTotal preprocess time: 0.369775 s\n        0.37 real         2.66 user         0.26 sys\n           228982784  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n               14815  page reclaims\n                   7  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                   0  voluntary context switches\n               13516  involuntary context switches\n         43013540944  instructions retired\n         10592018755  cycles elapsed\n           222823048  peak memory footprint\n"
+    },
+    {
+      "warmup": false,
+      "output": "preprocess input: 0.007479 s\npreprocess S_C: 0.216446 s\npreprocess E_kappa: 0.139162 s\npreprocess C_fix: 0.000485 s\nPreprocess saved to /tmp/tokamak-preprocess-p4-35PRM1/output/univariate_verifier_preprocess.bin\nTotal preprocess time: 0.364760 s\n        0.37 real         2.66 user         0.27 sys\n           229343232  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n               14827  page reclaims\n                   7  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                   0  voluntary context switches\n               13331  involuntary context switches\n         43029997066  instructions retired\n         10607907678  cycles elapsed\n           223183496  peak memory footprint\n"
+    },
+    {
+      "warmup": false,
+      "output": "preprocess input: 0.007474 s\npreprocess S_C: 0.224697 s\npreprocess E_kappa: 0.140151 s\npreprocess C_fix: 0.000472 s\nPreprocess saved to /tmp/tokamak-preprocess-p4-35PRM1/output/univariate_verifier_preprocess.bin\nTotal preprocess time: 0.373907 s\n        0.38 real         2.68 user         0.28 sys\n           227442688  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n               14959  page reclaims\n                   7  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                   0  voluntary context switches\n               13626  involuntary context switches\n         43063905155  instructions retired\n         10670442271  cycles elapsed\n           221282952  peak memory footprint\n"
+    },
+    {
+      "warmup": false,
+      "output": "preprocess input: 0.007338 s\npreprocess S_C: 0.220702 s\npreprocess E_kappa: 0.139384 s\npreprocess C_fix: 0.000443 s\nPreprocess saved to /tmp/tokamak-preprocess-p4-35PRM1/output/univariate_verifier_preprocess.bin\nTotal preprocess time: 0.368979 s\n        0.37 real         2.67 user         0.28 sys\n           230948864  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n               15208  page reclaims\n                   7  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                   0  voluntary context switches\n               14266  involuntary context switches\n         43065130902  instructions retired\n         10654208841  cycles elapsed\n           224789128  peak memory footprint\n"
+    },
+    {
+      "warmup": false,
+      "output": "preprocess input: 0.007481 s\npreprocess S_C: 0.231165 s\npreprocess E_kappa: 0.138947 s\npreprocess C_fix: 0.000569 s\nPreprocess saved to /tmp/tokamak-preprocess-p4-35PRM1/output/univariate_verifier_preprocess.bin\nTotal preprocess time: 0.379319 s\n        0.38 real         2.66 user         0.27 sys\n           228327424  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n               14825  page reclaims\n                   7  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                   0  voluntary context switches\n               13358  involuntary context switches\n         43034052376  instructions retired\n         10616547583  cycles elapsed\n           222184096  peak memory footprint\n"
+    }
+  ]
+}

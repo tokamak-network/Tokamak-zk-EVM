@@ -1,0 +1,34 @@
+{
+  "reference": "Accepted ICICLE-centered native prover before hardware split",
+  "sourceCommit": "96f4f2283",
+  "binary": "/tmp/tokamak-prove-opt-lb8MLw/sum",
+  "binarySha256": "cf99fa511460491452d77290d47071c821d7a5d746a5b8769f4a5842cb0348c3",
+  "profile": "release + timing",
+  "provider": "ICICLE CPU; runtime reports METAL but the existing dispatch selects CPU",
+  "library": "packages/frontend/qap-compiler/subcircuits/library",
+  "fixture": "packages/backend/tmp/current-local-fixture",
+  "crs": "/tmp/tokamak-setup-compute-mZ3UVZ/accepted-1",
+  "outputs": "/tmp/tokamak-prover-hardware-Nozd3K/reference-{1,2,3}",
+  "runs": [
+    {
+      "run": 1,
+      "totalNanos": 8577664959,
+      "identityNanos": 1852599791,
+      "protocolNanos": 6288660417
+    },
+    {
+      "run": 2,
+      "totalNanos": 8910104542,
+      "identityNanos": 1769118375,
+      "protocolNanos": 6702874125
+    },
+    {
+      "run": 3,
+      "totalNanos": 8823284792,
+      "identityNanos": 1751708333,
+      "protocolNanos": 6635813875
+    }
+  ],
+  "scope": "Three sequential whole-command proof-generation baselines; fresh masks, no concurrent build/test launched by this task during timed commands. Not verification, a new arkworks result, or CUDA coverage.",
+  "meanSeconds": 8.770351431
+}

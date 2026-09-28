@@ -1,0 +1,21 @@
+{
+  "owner": "backend",
+  "schemaId": "tokamak-zk-evm-univariate-fs",
+  "hash": "keccak256",
+  "framing": "u32be(labelUtf8.length) || labelUtf8 || u64be(value.length) || value",
+  "scalarEncoding": "canonical-32-byte-big-endian",
+  "g1Encoding": "canonical-x-48-byte-big-endian || canonical-y-48-byte-big-endian",
+  "oracleFields": ["protocol", "round", "output-index", "input", "message", "rejection-counter"],
+  "sampling": "interpret digest as unsigned big-endian; reject values >= scalar modulus or outside round range; increment u32 counter without changing input",
+  "publicInput": {"length": "l_free", "countLabel": "public-input-count", "elementLabelPrefix": "public-input."},
+  "previousChallenge": {"elementLabelPrefix": "challenge."},
+  "pointMessage": {"countLabel": "count", "elementLabelPrefix": "F2.a{round}."},
+  "rounds": [
+    {"index": 1, "input": "free-public-vector", "message": ["C_L", "C_H", "C_O", "D_Q", "D_QK"], "kind": "g1", "challenges": ["upsilon"], "range": "field"},
+    {"index": 2, "input": ["upsilon"], "message": ["C_D"], "kind": "g1", "challenges": ["beta", "gamma_C"], "range": "field"},
+    {"index": 3, "input": ["beta", "gamma_C"], "message": ["C_R"], "kind": "g1", "challenges": ["theta"], "range": "field"},
+    {"index": 4, "input": ["theta"], "message": ["C_Q"], "kind": "g1", "challenges": ["chi"], "range": "nonzero-outside-arithmetic-and-connection-domains"},
+    {"index": 5, "input": ["chi"], "message": ["s_C", "u", "v", "w", "b", "r", "r_plus"], "kind": "scalar", "challenges": ["varpi"], "range": "field"},
+    {"index": 6, "input": ["varpi"], "message": ["Pi_chi", "Pi_plus"], "kind": "g1", "challenges": ["mu"], "range": "nonzero-field"}
+  ]
+}

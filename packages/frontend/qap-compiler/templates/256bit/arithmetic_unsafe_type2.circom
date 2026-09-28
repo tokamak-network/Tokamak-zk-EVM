@@ -193,15 +193,6 @@ template SignedShiftRight256_unsafe(){
     // Extract the sign
     signal (isNeg_in, abs[2]) <== getSignAndAbs256_unsafe()(in);
 
-    // // ShiftRight256
-    // signal (exp_shift[2], is_shift_gt_255) <== FindShiftingTwosPower256()(shift);
-    // signal (shifted_out[2], rem[2]) <== Div256_unsafe()(in, exp_shift);
-    // // Filling the empty high bits.
-    // signal neg_filler_unshifted[2] <== Sub256_unsafe()([0, 0], exp_shift);
-    // signal filler_unshifted[2] <== Mux256()(isNeg_in, neg_filler_unshifted, [0, 0]);
-    // signal (_out[2], carry) <== Add256_unsafe()(filler, shifted_out);
-    // out <== _out;
-
     signal (shifted_in[2], _rem[2], _divisor[2]) <== ShiftRight256_unsafe(8)(shift, in);
     signal inv_shift <== 256 - shift;
     signal (exp_inv_shift[2], is_inv_shift_gt_255) <== FindShiftingTwosPower256(8)(inv_shift);

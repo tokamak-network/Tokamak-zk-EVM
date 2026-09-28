@@ -1,0 +1,711 @@
+[
+  {
+    "mode": "off",
+    "browser": "149.0.7827.55",
+    "nativeVerified": true,
+    "status": "ok",
+    "checkDigests": false,
+    "valid": true,
+    "preprocessMatchesNative": true,
+    "proofBytes": 1184,
+    "timings": [
+      {
+        "label": "install",
+        "ms": 171.30999994277954
+      },
+      {
+        "label": "preprocess",
+        "ms": 3365.085000038147
+      },
+      {
+        "label": "prove",
+        "ms": 21545.06000006199
+      },
+      {
+        "label": "verify",
+        "ms": 25.985000014305115
+      }
+    ],
+    "stages": [],
+    "operations": {},
+    "runtimes": [],
+    "hardwareConcurrency": 14,
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36"
+  },
+  {
+    "mode": "profile-off",
+    "browser": "149.0.7827.55",
+    "nativeVerified": true,
+    "status": "ok",
+    "checkDigests": false,
+    "valid": true,
+    "preprocessMatchesNative": true,
+    "proofBytes": 1184,
+    "timings": [
+      {
+        "label": "install",
+        "ms": 183.13499999046326
+      },
+      {
+        "label": "preprocess",
+        "ms": 3327.3650000095367
+      },
+      {
+        "label": "prove",
+        "ms": 21728.9699999094
+      },
+      {
+        "label": "verify",
+        "ms": 25.485000014305115
+      }
+    ],
+    "stages": [
+      {
+        "label": "preprocess.input-admission",
+        "ms": 1.9200000762939453
+      },
+      {
+        "label": "preprocess.domain",
+        "ms": 0.06999993324279785
+      },
+      {
+        "label": "preprocess.selected-roots",
+        "ms": 19.81500005722046
+      },
+      {
+        "label": "preprocess.permutation",
+        "ms": 145.69999992847443
+      },
+      {
+        "label": "preprocess.public-check",
+        "ms": 2.5049999952316284
+      },
+      {
+        "label": "preprocess.commit-SC",
+        "ms": 1297.1200000047684
+      },
+      {
+        "label": "preprocess.commit-Cfix",
+        "ms": 2.6050000190734863
+      },
+      {
+        "label": "preprocess.unselected-division",
+        "ms": 1569.4750000238419
+      },
+      {
+        "label": "preprocess.commit-Ekappa",
+        "ms": 287.5
+      },
+      {
+        "label": "preprocess.encode",
+        "ms": 0.5800000429153442
+      },
+      {
+        "label": "prove.input-admission",
+        "ms": 2.934999942779541
+      },
+      {
+        "label": "prove.domain",
+        "ms": 0.020000100135803223
+      },
+      {
+        "label": "prove.permutation",
+        "ms": 141.06499993801117
+      },
+      {
+        "label": "prove.witness-slots",
+        "ms": 3.840000033378601
+      },
+      {
+        "label": "prove.witness-maps",
+        "ms": 325.6100000143051
+      },
+      {
+        "label": "prove.public-check-masks",
+        "ms": 11.110000014305115
+      },
+      {
+        "label": "prove.arithmetic-quotient",
+        "ms": 586.5349999666214
+      },
+      {
+        "label": "prove.public-polynomial",
+        "ms": 0.6100000143051147
+      },
+      {
+        "label": "prove.commit-cL-cH",
+        "ms": 5286.610000014305
+      },
+      {
+        "label": "prove.binding-cO",
+        "ms": 336.88499999046326
+      },
+      {
+        "label": "prove.selected-roots",
+        "ms": 14.865000009536743
+      },
+      {
+        "label": "prove.selection-witness",
+        "ms": 6.514999985694885
+      },
+      {
+        "label": "prove.selection-quotients",
+        "ms": 178.01499998569489
+      },
+      {
+        "label": "prove.commit-dQ-dQK",
+        "ms": 2637.9900000095367
+      },
+      {
+        "label": "prove.transcript-1",
+        "ms": 4.204999923706055
+      },
+      {
+        "label": "prove.commit-cD",
+        "ms": 2632.6050000190735
+      },
+      {
+        "label": "prove.transcript-2",
+        "ms": 0.4500000476837158
+      },
+      {
+        "label": "prove.copy-relation",
+        "ms": 0.039999961853027344
+      },
+      {
+        "label": "prove.copy-recurrence",
+        "ms": 422.8949999809265
+      },
+      {
+        "label": "prove.copy-interpolation",
+        "ms": 114.69000005722046
+      },
+      {
+        "label": "prove.copy-qC0",
+        "ms": 152.3049999475479
+      },
+      {
+        "label": "prove.copy-qC1",
+        "ms": 768.045000076294
+      },
+      {
+        "label": "prove.commit-cR",
+        "ms": 1306.8249999284744
+      },
+      {
+        "label": "prove.combine-quotients",
+        "ms": 21.210000038146973
+      },
+      {
+        "label": "prove.commit-cQ",
+        "ms": 1317.6599999666214
+      },
+      {
+        "label": "prove.evaluations",
+        "ms": 36.84500002861023
+      },
+      {
+        "label": "prove.opening-combination",
+        "ms": 25.125
+      },
+      {
+        "label": "prove.opening-piChi",
+        "ms": 4052.774999976158
+      },
+      {
+        "label": "prove.opening-piPlus",
+        "ms": 1339.4950000047684
+      },
+      {
+        "label": "prove.final-transcript",
+        "ms": 0.46000003814697266
+      },
+      {
+        "label": "prove.encode",
+        "ms": 0.6899999380111694
+      },
+      {
+        "label": "verify.decode",
+        "ms": 6.644999980926514
+      },
+      {
+        "label": "verify.online",
+        "ms": 1.875
+      },
+      {
+        "label": "verify.field-algebra",
+        "ms": 0.8949999809265137
+      },
+      {
+        "label": "verify.group-algebra",
+        "ms": 7.179999947547913
+      },
+      {
+        "label": "verify.prepare-G2",
+        "ms": 0.49000000953674316
+      },
+      {
+        "label": "verify.pairing",
+        "ms": 8.350000023841858
+      }
+    ],
+    "operations": {
+      "preprocess.selected-roots/poly.multiply": {
+        "calls": 255,
+        "ms": 18.56499993801117,
+        "elements": 0
+      },
+      "preprocess.selected-roots/Fr.fftBuffer": {
+        "calls": 14,
+        "ms": 9.070000290870667,
+        "elements": 3072
+      },
+      "preprocess.selected-roots/Fr.batchMulBuffer": {
+        "calls": 7,
+        "ms": 1.1249998807907104,
+        "elements": 1536
+      },
+      "preprocess.selected-roots/Fr.ifftBuffer": {
+        "calls": 7,
+        "ms": 4.039999842643738,
+        "elements": 1536
+      },
+      "preprocess.permutation/Fr.ifftBuffer": {
+        "calls": 1,
+        "ms": 84.68499994277954,
+        "elements": 262144
+      },
+      "preprocess.commit-SC/CRS.readElements": {
+        "calls": 2,
+        "ms": 35.31000006198883,
+        "elements": 262144
+      },
+      "preprocess.commit-SC/Fr.batchFromMontgomeryBuffer": {
+        "calls": 2,
+        "ms": 4.664999961853027,
+        "elements": 262144
+      },
+      "preprocess.commit-SC/G1.msmAffineRaw": {
+        "calls": 2,
+        "ms": 1256.945000052452,
+        "elements": 786432
+      },
+      "preprocess.commit-Cfix/CRS.readElements": {
+        "calls": 1,
+        "ms": 1.334999918937683,
+        "elements": 140
+      },
+      "preprocess.commit-Cfix/Fr.batchFromMontgomeryBuffer": {
+        "calls": 1,
+        "ms": 0.1700000762939453,
+        "elements": 140
+      },
+      "preprocess.commit-Cfix/G1.msmAffineRaw": {
+        "calls": 1,
+        "ms": 1.0549999475479126,
+        "elements": 420
+      },
+      "preprocess.commit-Ekappa/CRS.readElements": {
+        "calls": 1,
+        "ms": 5.509999990463257,
+        "elements": 16129
+      },
+      "preprocess.commit-Ekappa/Fr.batchFromMontgomeryBuffer": {
+        "calls": 1,
+        "ms": 0.4650000333786011,
+        "elements": 16129
+      },
+      "preprocess.commit-Ekappa/G2.msmAffineRaw": {
+        "calls": 1,
+        "ms": 281.47000002861023,
+        "elements": 96774
+      },
+      "prove.input-admission/CRS.readElements": {
+        "calls": 1,
+        "ms": 1.3149999380111694,
+        "elements": 1
+      },
+      "prove.permutation/Fr.ifftBuffer": {
+        "calls": 1,
+        "ms": 73.94000005722046,
+        "elements": 262144
+      },
+      "prove.witness-maps/Fr.sparseRowDotBuffer": {
+        "calls": 621,
+        "ms": 79.50499927997589,
+        "elements": 79565.625
+      },
+      "prove.witness-maps/Fr.ifftBuffer": {
+        "calls": 4,
+        "ms": 703.2649999856949,
+        "elements": 1048576
+      },
+      "prove.arithmetic-quotient/Fr.fftBuffer": {
+        "calls": 2,
+        "ms": 282.2349998950958,
+        "elements": 1048576
+      },
+      "prove.arithmetic-quotient/Fr.batchMulBuffer": {
+        "calls": 1,
+        "ms": 13.914999961853027,
+        "elements": 524288
+      },
+      "prove.arithmetic-quotient/Fr.ifftBuffer": {
+        "calls": 1,
+        "ms": 144.5550000667572,
+        "elements": 524288
+      },
+      "prove.arithmetic-quotient/poly.multiply": {
+        "calls": 4,
+        "ms": 470.7649998664856,
+        "elements": 0
+      },
+      "prove.arithmetic-quotient/Fr.batchAddScaledBuffer": {
+        "calls": 11,
+        "ms": 79.8199999332428,
+        "elements": 3407889
+      },
+      "prove.arithmetic-quotient/Fr.divideUnivariateVanishingBuffer": {
+        "calls": 1,
+        "ms": 14.700000047683716,
+        "elements": 524287
+      },
+      "prove.arithmetic-quotient/poly.divideVanishingExactBatched": {
+        "calls": 1,
+        "ms": 49.7849999666214,
+        "elements": 0
+      },
+      "prove.public-polynomial/Fr.ifftBuffer": {
+        "calls": 1,
+        "ms": 0.5900000333786011,
+        "elements": 256
+      },
+      "prove.commit-cL-cH/CRS.readElements": {
+        "calls": 9,
+        "ms": 183.625,
+        "elements": 1048840
+      },
+      "prove.commit-cL-cH/Fr.batchFromMontgomeryBuffer": {
+        "calls": 9,
+        "ms": 13.710000038146973,
+        "elements": 1048840
+      },
+      "prove.commit-cL-cH/G1.msmAffineRaw": {
+        "calls": 9,
+        "ms": 5088.969999909401,
+        "elements": 3146520
+      },
+      "prove.binding-cO/CRS.readElements": {
+        "calls": 212,
+        "ms": 169.47500050067902,
+        "elements": 89465
+      },
+      "prove.binding-cO/Fr.batchFromMontgomeryBuffer": {
+        "calls": 1,
+        "ms": 1.2350000143051147,
+        "elements": 89466
+      },
+      "prove.binding-cO/G1.msmAffineRaw": {
+        "calls": 1,
+        "ms": 158.73500001430511,
+        "elements": 268398
+      },
+      "prove.selected-roots/poly.multiply": {
+        "calls": 255,
+        "ms": 13.990000009536743,
+        "elements": 0
+      },
+      "prove.selected-roots/Fr.fftBuffer": {
+        "calls": 14,
+        "ms": 6.325000166893005,
+        "elements": 3072
+      },
+      "prove.selected-roots/Fr.batchMulBuffer": {
+        "calls": 7,
+        "ms": 0.9249999523162842,
+        "elements": 1536
+      },
+      "prove.selected-roots/Fr.ifftBuffer": {
+        "calls": 7,
+        "ms": 3.359999895095825,
+        "elements": 1536
+      },
+      "prove.selection-quotients/poly.ruffini": {
+        "calls": 256,
+        "ms": 27.589999794960022,
+        "elements": 256
+      },
+      "prove.selection-quotients/poly.scale": {
+        "calls": 256,
+        "ms": 16.94000017642975,
+        "elements": 256
+      },
+      "prove.selection-quotients/Fr.selectionAccumulateBuffer": {
+        "calls": 1,
+        "ms": 132.60000002384186,
+        "elements": 262144
+      },
+      "prove.commit-dQ-dQK/CRS.readElements": {
+        "calls": 4,
+        "ms": 86.7700001001358,
+        "elements": 524802
+      },
+      "prove.commit-dQ-dQK/Fr.batchFromMontgomeryBuffer": {
+        "calls": 4,
+        "ms": 6.925000071525574,
+        "elements": 524802
+      },
+      "prove.commit-dQ-dQK/G1.msmAffineRaw": {
+        "calls": 4,
+        "ms": 2543.1249998807907,
+        "elements": 1574406
+      },
+      "prove.commit-cD/CRS.readElements": {
+        "calls": 5,
+        "ms": 66.74500000476837,
+        "elements": 524548
+      },
+      "prove.commit-cD/Fr.batchFromMontgomeryBuffer": {
+        "calls": 5,
+        "ms": 6.650000095367432,
+        "elements": 524548
+      },
+      "prove.commit-cD/G1.msmAffineRaw": {
+        "calls": 5,
+        "ms": 2532.6050000190735,
+        "elements": 1573644
+      },
+      "prove.commit-cD/Fr.batchAddScaledBuffer": {
+        "calls": 4,
+        "ms": 22.929999947547913,
+        "elements": 1048584
+      },
+      "prove.copy-recurrence/Fr.batchInverseBuffer": {
+        "calls": 1,
+        "ms": 14.284999966621399,
+        "elements": 262144
+      },
+      "prove.copy-recurrence/Fr.orderedRecurrenceBuffer": {
+        "calls": 1,
+        "ms": 48.34500002861023,
+        "elements": 262144
+      },
+      "prove.copy-interpolation/Fr.ifftBuffer": {
+        "calls": 1,
+        "ms": 79.125,
+        "elements": 262144
+      },
+      "prove.copy-interpolation/Fr.batchAddScaledBuffer": {
+        "calls": 5,
+        "ms": 28.2849999666214,
+        "elements": 1310720
+      },
+      "prove.copy-qC0/poly.ruffini": {
+        "calls": 1,
+        "ms": 91.75499999523163,
+        "elements": 1
+      },
+      "prove.copy-qC0/poly.scale": {
+        "calls": 1,
+        "ms": 60.43999993801117,
+        "elements": 1
+      },
+      "prove.copy-qC1/Fr.batchApplyKeyBuffer": {
+        "calls": 1,
+        "ms": 9.014999985694885,
+        "elements": 262144
+      },
+      "prove.copy-qC1/poly.scaleArgument": {
+        "calls": 1,
+        "ms": 0.04499995708465576,
+        "elements": 1
+      },
+      "prove.copy-qC1/Fr.fftBuffer": {
+        "calls": 3,
+        "ms": 419.8349999189377,
+        "elements": 1572864
+      },
+      "prove.copy-qC1/Fr.batchMulBuffer": {
+        "calls": 2,
+        "ms": 24.235000014305115,
+        "elements": 1048576
+      },
+      "prove.copy-qC1/Fr.batchSubBuffer": {
+        "calls": 1,
+        "ms": 9.659999966621399,
+        "elements": 524288
+      },
+      "prove.copy-qC1/Fr.ifftBuffer": {
+        "calls": 1,
+        "ms": 140.7850000858307,
+        "elements": 524288
+      },
+      "prove.copy-qC1/Fr.divideUnivariateVanishingBuffer": {
+        "calls": 1,
+        "ms": 11.740000009536743,
+        "elements": 524287
+      },
+      "prove.copy-qC1/poly.divideVanishingExactBatched": {
+        "calls": 1,
+        "ms": 48.044999957084656,
+        "elements": 0
+      },
+      "prove.copy-qC1/Fr.batchAddScaledBuffer": {
+        "calls": 17,
+        "ms": 95.23500037193298,
+        "elements": 4456499
+      },
+      "prove.copy-qC1/poly.multiply": {
+        "calls": 4,
+        "ms": 63.63499999046326,
+        "elements": 0
+      },
+      "prove.copy-qC1/poly.sub": {
+        "calls": 1,
+        "ms": 0.060000061988830566,
+        "elements": 0
+      },
+      "prove.commit-cR/CRS.readElements": {
+        "calls": 2,
+        "ms": 44.80499994754791,
+        "elements": 262148
+      },
+      "prove.commit-cR/Fr.batchFromMontgomeryBuffer": {
+        "calls": 2,
+        "ms": 3.2500001192092896,
+        "elements": 262148
+      },
+      "prove.commit-cR/G1.msmAffineRaw": {
+        "calls": 2,
+        "ms": 1258.7099999189377,
+        "elements": 786444
+      },
+      "prove.combine-quotients/Fr.batchAddScaledBuffer": {
+        "calls": 3,
+        "ms": 17.955000162124634,
+        "elements": 786447
+      },
+      "prove.commit-cQ/CRS.readElements": {
+        "calls": 2,
+        "ms": 43.449999928474426,
+        "elements": 262149
+      },
+      "prove.commit-cQ/Fr.batchFromMontgomeryBuffer": {
+        "calls": 2,
+        "ms": 3.1799999475479126,
+        "elements": 262149
+      },
+      "prove.commit-cQ/G1.msmAffineRaw": {
+        "calls": 2,
+        "ms": 1270.9950000047684,
+        "elements": 786447
+      },
+      "prove.evaluations/Fr.evaluatePolynomialBuffer": {
+        "calls": 7,
+        "ms": 205.2849999666214,
+        "elements": 1835024
+      },
+      "prove.opening-combination/Fr.batchAddScaledBuffer": {
+        "calls": 4,
+        "ms": 22.850000023841858,
+        "elements": 1048596
+      },
+      "prove.opening-piChi/Fr.ruffiniYBuffer": {
+        "calls": 3,
+        "ms": 93.8400000333786,
+        "elements": 786441
+      },
+      "prove.opening-piChi/CRS.readElements": {
+        "calls": 6,
+        "ms": 129.08500003814697,
+        "elements": 786438
+      },
+      "prove.opening-piChi/Fr.batchFromMontgomeryBuffer": {
+        "calls": 6,
+        "ms": 10.949999928474426,
+        "elements": 786438
+      },
+      "prove.opening-piChi/G1.msmAffineRaw": {
+        "calls": 6,
+        "ms": 3791.1100001335144,
+        "elements": 2359314
+      },
+      "prove.opening-piChi/Fr.batchAddScaledBuffer": {
+        "calls": 4,
+        "ms": 22.865000009536743,
+        "elements": 1048584
+      },
+      "prove.opening-piPlus/Fr.ruffiniYBuffer": {
+        "calls": 1,
+        "ms": 30.070000052452087,
+        "elements": 262148
+      },
+      "prove.opening-piPlus/CRS.readElements": {
+        "calls": 2,
+        "ms": 43.02499997615814,
+        "elements": 262147
+      },
+      "prove.opening-piPlus/Fr.batchFromMontgomeryBuffer": {
+        "calls": 2,
+        "ms": 3.3899999856948853,
+        "elements": 262147
+      },
+      "prove.opening-piPlus/G1.msmAffineRaw": {
+        "calls": 2,
+        "ms": 1262.454999923706,
+        "elements": 786441
+      },
+      "verify.field-algebra/Fr.batchInverseBuffer": {
+        "calls": 1,
+        "ms": 0.44999992847442627,
+        "elements": 256
+      }
+    },
+    "runtimes": [
+      {
+        "workers": 14
+      },
+      {
+        "workers": 14
+      },
+      {
+        "workers": 14
+      }
+    ],
+    "hardwareConcurrency": 14,
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36"
+  },
+  {
+    "mode": "on",
+    "browser": "149.0.7827.55",
+    "nativeVerified": true,
+    "status": "ok",
+    "checkDigests": true,
+    "valid": true,
+    "preprocessMatchesNative": true,
+    "proofBytes": 1184,
+    "timings": [
+      {
+        "label": "install",
+        "ms": 175.91500008106232
+      },
+      {
+        "label": "preprocess",
+        "ms": 3442.125
+      },
+      {
+        "label": "prove",
+        "ms": 23836.169999957085
+      },
+      {
+        "label": "verify",
+        "ms": 27.114999890327454
+      }
+    ],
+    "stages": [],
+    "operations": {},
+    "runtimes": [],
+    "hardwareConcurrency": 14,
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36"
+  }
+]

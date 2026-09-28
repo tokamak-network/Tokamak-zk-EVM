@@ -1,0 +1,12 @@
+{
+  "n": 262144,
+  "scope": "Node field runtime, two alternating pairs, worker preparation and transfers included; exact byte comparison after timing",
+  "results": [
+    {"operation":"linear-combination","controlMs":[117.800167,114.170791],"candidateMs":[12.355334,8.880541]},
+    {"operation":"exact-vanishing","controlMs":[173.477250,173.207416],"candidateMs":[45.265375,44.435875]},
+    {"operation":"evaluation","controlMs":[83.177417,100.112041],"candidateMs":[24.738875,24.226375]},
+    {"operation":"ruffini","controlMs":[84.983583,102.526541],"candidateMs":[30.263292,30.292209]},
+    {"operation":"short-product","controlMs":[432.289125,422.616042],"candidateMs":[17.180875,17.400667]},
+    {"operation":"short-vanishing","controlMs":[46.519125,42.464083],"candidateMs":[0.354750,0.286875]}
+  ]
+}

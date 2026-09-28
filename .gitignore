@@ -1,17 +1,19 @@
 # Rust
 target/
 Cargo.lock
+!packages/backend/Cargo.lock
 **/*.rs.bk
 **/output/
-!packages/backend/prove/output/
-packages/backend/prove/output/*
-!packages/backend/prove/output/timing.release.md
+!packages/backend/rust/prove/output/
+packages/backend/rust/prove/output/*
+!packages/backend/rust/prove/output/timing.release.md
 
 # Node
 node_modules/
 build/
 .env
 act.env
+*.tsbuildinfo
 
 # Solidity
 artifacts/
@@ -23,10 +25,14 @@ coverage.json
 *.swp
 *.swo
 
+# Temporary workspace files
+tmp/
+/packages/backend/rust/setup/mpc-setup/filecoin-phase1/
+/packages/backend/rust/setup/output
+
 # Misc
 .DS_Store
 *.log
-tmp/
 
 #Cursor
 .cursor
@@ -41,7 +47,9 @@ tmp/
 dist/
 dist-*/
 **/dist/
+package-tarballs/
 packages/cli/vendor/
+packages/cli/versioning/
 
 #Package
 *.zip

@@ -1,0 +1,65 @@
+{
+  "scope": "Separate untimed local-fixture run; counts only, no scalar values. Same instrumented binary and inputs as prover-p13-instrumentation.json.",
+  "rows": [
+    {
+      "bases": 524548,
+      "commitment": "C_L",
+      "nonzero": 524548,
+      "scalars": 524548
+    },
+    {
+      "bases": 524292,
+      "commitment": "C_H",
+      "nonzero": 524292,
+      "scalars": 524292
+    },
+    {
+      "bases": 78190,
+      "commitment": "C_O",
+      "nonzero": 30199,
+      "scalars": 78190
+    },
+    {
+      "bases": 262401,
+      "commitment": "D_Q",
+      "nonzero": 261121,
+      "scalars": 262401
+    },
+    {
+      "bases": 262401,
+      "commitment": "D_QK",
+      "nonzero": 261121,
+      "scalars": 262401
+    },
+    {
+      "bases": 524548,
+      "commitment": "C_D",
+      "nonzero": 524548,
+      "scalars": 524548
+    },
+    {
+      "bases": 262148,
+      "commitment": "C_R",
+      "nonzero": 262148,
+      "scalars": 262148
+    },
+    {
+      "bases": 262149,
+      "commitment": "C_Q",
+      "nonzero": 262149,
+      "scalars": 262149
+    },
+    {
+      "bases": 786438,
+      "commitment": "Pi_chi",
+      "nonzero": 786438,
+      "scalars": 786438
+    },
+    {
+      "bases": 262147,
+      "commitment": "Pi_plus",
+      "nonzero": 262147,
+      "scalars": 262147
+    }
+  ]
+}

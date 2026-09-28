@@ -1,0 +1,9 @@
+{
+  "command": "npx tsx test/checks/univariate/check-sparse-placement.ts",
+  "rows": [1024,512,1024],
+  "placements": 207,
+  "warmup": "Equality calls excluded; five alternating pairs, scalar and result assertions outside timing.",
+  "controlMs": [95.237375,85.687167,88.027791,88.758292,85.936000],
+  "candidateMs": [84.770459,78.993083,82.069791,81.740458,80.558333],
+  "correctness": "Three distinct outputs match sequential/scalar oracles; row counts 0,1,17,1024 plus unequal half-length rows; zero entries; empty batch; malformed offsets/columns/coefficients."
+}

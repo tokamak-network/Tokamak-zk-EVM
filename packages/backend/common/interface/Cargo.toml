@@ -1,0 +1,12 @@
+[package]
+name = "backend-interface"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+authors = { workspace = true }
+repository = { workspace = true }
+homepage = { workspace = true }
+publish = false
+
+[dependencies]
+backend-univariate-crs-interface = { workspace = true }

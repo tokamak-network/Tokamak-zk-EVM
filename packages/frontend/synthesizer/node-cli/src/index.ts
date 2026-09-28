@@ -18,9 +18,11 @@ export type {
 } from '../../core/src/subcircuit.ts';
 export * from './synthesizer/constructors.ts';
 export {
-  CircuitGenerator,
   createCircuitGenerator,
+  INACTIVE_PLACEMENT_SELECTOR_ENTRY,
   type CircuitArtifacts,
+  type CircuitGenerationResult,
+  type PlacementSelector,
 } from '../../core/src/circuit.ts';
 export {
   type SynthesizerInterface,

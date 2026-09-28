@@ -42,9 +42,9 @@ Debug-only config execution is separate:
 
 `core/src/app/synthesize.ts`:
 - reconstructs the Tokamak L2 state manager from the snapshot
-- seeds sender nonce state
 - constructs the shared Synthesizer runtime
-- executes `synthesizeTX()`
+- executes `synthesizeTX()` without Ethereum account-nonce checks; the signed
+  channel transaction index is bound by transaction-signature verification
 - captures the final state snapshot
 - builds circuit artifacts
 

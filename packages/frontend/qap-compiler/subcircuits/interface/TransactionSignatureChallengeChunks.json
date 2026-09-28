@@ -1,0 +1,8 @@
+{
+  "inputs": [
+    { "name": "challengeHash", "logicalType": { "kind": "bls12-381-fr" } }
+  ],
+  "outputs": [
+    { "name": "challengeChunk", "length": 4, "logicalType": { "kind": "uint", "bits": 64 } }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "inputs": [
+    { "name": "mode", "logicalType": { "kind": "uint", "bits": 1 } },
+    { "name": "firstLeft", "logicalType": { "kind": "bls12-381-fr" } },
+    { "name": "firstRight", "logicalType": { "kind": "bls12-381-fr" } },
+    { "name": "independentSecondLeft", "logicalType": { "kind": "bls12-381-fr" } },
+    { "name": "secondRight", "logicalType": { "kind": "bls12-381-fr" } },
+    { "name": "thirdRight", "logicalType": { "kind": "bls12-381-fr" } },
+    { "name": "fourthRight", "logicalType": { "kind": "bls12-381-fr" } }
+  ],
+  "outputs": [
+    { "name": "firstHash", "logicalType": { "kind": "bls12-381-fr" } },
+    { "name": "finalHash", "logicalType": { "kind": "bls12-381-fr" } }
+  ]
+}

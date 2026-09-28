@@ -16,14 +16,6 @@
     "composite": true,
     "preserveSymlinks": true
   },
-  "include": [
-    "src/**/*",
-    "scripts/**/*",
-    "../scripts/**/*",
-    "../core/src/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist"
-  ]
+  "include": ["src/**/*", "../core/src/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

@@ -1,0 +1,9 @@
+[package]
+name = "backend-univariate-crs-interface"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+rkyv = { version = "=0.8.18", default-features = false, features = ["alloc", "bytecheck", "little_endian", "pointer_width_64", "std"] }

@@ -1,15 +1,9 @@
 #!/usr/bin/env node
 import fs from 'fs/promises';
 import path from 'path';
-import { spawn } from 'child_process';
-import { fileURLToPath } from 'url';
+import { createPrivateStateAnvilFixture, runInheritedCommand } from './private-state-anvil-fixture.ts';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 const packageRoot = path.resolve(process.cwd());
-const repoRoot = path.resolve(packageRoot, '..', '..', '..', '..', '..');
-const privateStateAppDir = path.resolve(repoRoot, 'apps', 'private-state');
-const outputDir = path.resolve(packageRoot, 'tests', 'configs', 'private-state-mint');
 const participantCount = 4;
 const senderIndexes = [0, 1, 2, 3];
 const defaultOutputCount = 1;
@@ -23,7 +17,7 @@ const parseInteger = (value: unknown, label: string): number => {
 };
 
 const parseArgs = () => {
-  const args = { outputs: defaultOutputCount };
+  const args: { outputs: number; outputDir?: string } = { outputs: defaultOutputCount };
   const argv = process.argv.slice(2);
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -47,44 +41,32 @@ const parseArgs = () => {
         args.outputs = outputCount;
         break;
       }
+      case '--output-dir':
+        args.outputDir = consumeValue(current);
+        break;
       default:
         throw new Error(`Unknown argument: ${current}`);
     }
   }
 
-  return args;
+  if (args.outputDir === undefined) {
+    throw new Error('--output-dir is required for a private-state topology matrix');
+  }
+  return { outputs: args.outputs, outputDir: path.resolve(args.outputDir) };
 };
 
-const runCommand = (command: string, args: string[]) =>
-  new Promise<void>((resolve, reject) => {
-    const child = spawn(command, args, { stdio: 'inherit' });
-    child.on('error', reject);
-    child.on('close', (code) => {
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`${command} exited with code ${code ?? 'unknown'}`));
-      }
-    });
-  });
-
-const buildOutputPath = (outputCount: number, senderIndex: number) =>
+const buildOutputPath = (outputDir: string, outputCount: number, senderIndex: number) =>
   path.join(outputDir, `config-anvil-private-state-mint-m${outputCount}-p${participantCount}-s${senderIndex}.json`);
 
 const main = async () => {
-  const { outputs } = parseArgs();
+  const { outputs, outputDir } = parseArgs();
+  const fixture = await createPrivateStateAnvilFixture(packageRoot, `mint-m${outputs}`);
   await fs.mkdir(outputDir, { recursive: true });
-  await fs.rm(outputDir, { recursive: true, force: true });
-  await fs.mkdir(outputDir, { recursive: true });
-
-  await runCommand('make', ['-C', privateStateAppDir, 'anvil-stop']);
-  await runCommand('make', ['-C', privateStateAppDir, 'anvil-start']);
-  await runCommand('make', ['-C', privateStateAppDir, 'anvil-bootstrap']);
 
   for (const senderIndex of senderIndexes) {
-    const outputPath = buildOutputPath(outputs, senderIndex);
+    const outputPath = buildOutputPath(outputDir, outputs, senderIndex);
     console.log(`[private-state-mint-config] outputs=${outputs} sender=${senderIndex} output=${outputPath}`);
-    await runCommand('tsx', [
+    await runInheritedCommand('tsx', [
       '--tsconfig',
       path.resolve(packageRoot, 'tsconfig.dev.json'),
       path.resolve(packageRoot, 'scripts', 'generate-private-state-mint-config.ts'),
@@ -98,7 +80,11 @@ const main = async () => {
       String(senderIndex),
       '--outputs',
       String(outputs),
-    ]);
+      '--deployment-manifest',
+      fixture.deploymentManifestPath,
+      '--storage-layout',
+      fixture.storageLayoutPath,
+    ], packageRoot);
   }
 };
 

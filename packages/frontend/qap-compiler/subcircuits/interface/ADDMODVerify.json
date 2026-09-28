@@ -1,0 +1,15 @@
+{
+  "inputs": [
+    { "name": "numeratorWord0", "logicalType": { "kind": "uint", "bits": 86 } },
+    { "name": "numeratorWord1", "logicalType": { "kind": "uint", "bits": 86 } },
+    { "name": "numeratorWord2", "logicalType": { "kind": "uint", "bits": 85 } },
+    { "name": "modulus", "logicalType": { "kind": "uint", "bits": 256 } },
+    { "name": "quotientWord0", "logicalType": { "kind": "uint", "bits": 86 } },
+    { "name": "quotientWord1", "logicalType": { "kind": "uint", "bits": 86 } },
+    { "name": "quotientWord2", "logicalType": { "kind": "uint", "bits": 85 } },
+    { "name": "remainder", "logicalType": { "kind": "uint", "bits": 256 } }
+  ],
+  "outputs": [
+    { "name": "result", "logicalType": { "kind": "uint", "bits": 256 } }
+  ]
+}

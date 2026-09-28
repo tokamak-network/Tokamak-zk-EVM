@@ -1,0 +1,149 @@
+{
+  "arch": "aarch64",
+  "rayonThreads": 14,
+  "retainedRounds": 5,
+  "samples": [
+    {
+      "points": 4096,
+      "preparationSeconds": 4.2e-8,
+      "round": 1,
+      "seconds": 0.312318375,
+      "variant": "product"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0.070080791,
+      "round": 1,
+      "seconds": 0.503190375,
+      "variant": "prepared-two"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0.069897042,
+      "round": 1,
+      "seconds": 0.326043917,
+      "variant": "prepared-product"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 4.2e-8,
+      "round": 1,
+      "seconds": 0.485084959,
+      "variant": "two-pairings"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0.06891575,
+      "round": 2,
+      "seconds": 0.534861,
+      "variant": "prepared-two"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0.069864209,
+      "round": 2,
+      "seconds": 0.323840709,
+      "variant": "prepared-product"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 4.1e-8,
+      "round": 2,
+      "seconds": 0.479073,
+      "variant": "two-pairings"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0,
+      "round": 2,
+      "seconds": 0.302052292,
+      "variant": "product"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0.068539167,
+      "round": 3,
+      "seconds": 0.32209575,
+      "variant": "prepared-product"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0,
+      "round": 3,
+      "seconds": 0.490162791,
+      "variant": "two-pairings"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 4.2e-8,
+      "round": 3,
+      "seconds": 0.305299667,
+      "variant": "product"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0.068225834,
+      "round": 3,
+      "seconds": 0.5312835,
+      "variant": "prepared-two"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0,
+      "round": 4,
+      "seconds": 0.487131959,
+      "variant": "two-pairings"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 4.2e-8,
+      "round": 4,
+      "seconds": 0.316310542,
+      "variant": "product"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0.068997875,
+      "round": 4,
+      "seconds": 0.530784083,
+      "variant": "prepared-two"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0.068002042,
+      "round": 4,
+      "seconds": 0.325612459,
+      "variant": "prepared-product"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 4.2e-8,
+      "round": 5,
+      "seconds": 0.31411725,
+      "variant": "product"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0.068124958,
+      "round": 5,
+      "seconds": 0.512224833,
+      "variant": "prepared-two"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0.06986125,
+      "round": 5,
+      "seconds": 0.325263292,
+      "variant": "prepared-product"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0,
+      "round": 5,
+      "seconds": 0.503909084,
+      "variant": "two-pairings"
+    }
+  ],
+  "scope": "synthetic CPU kernels, not native E2E or live MPC",
+  "warmupRounds": 1
+}

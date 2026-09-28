@@ -1,0 +1,48 @@
+[package]
+name = "mpc-setup"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+authors = { workspace = true }
+repository = { workspace = true }
+homepage = { workspace = true }
+autobins = false
+
+[[bin]]
+name = "mpc"
+path = "src/main.rs"
+
+[dependencies]
+backend-univariate-crs-interface = { workspace = true }
+
+icicle-core = { workspace = true }
+icicle-bls12-381 = { workspace = true }
+
+libs = { workspace = true, default-features = false, features = ["local-development-subcircuit-library"] }
+serde_json = { workspace = true }
+rayon = { workspace = true }
+ark-bls12-381 = { workspace = true }
+ark-ec = { workspace = true }
+ark-ff = { workspace = true }
+ark-poly = "0.5.0"
+zeroize = "1.8"
+rand = { workspace = true }
+blake2 = "0.8.1"
+rand_chacha = "=0.3.1"
+# blstrs 0.4.1 used this exact primitive in Filecoin's SnapDeals phase 2.
+blst = "=0.3.6"
+hex = { workspace = true }
+ark-serialize = "0.5.0"
+clap = { workspace = true }
+chrono = "0.4"
+dotenvy = "0.15"
+
+thiserror = "2.0.12"
+tempfile = "3.20.0"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+sha2 = "0.10"
+yup-oauth2 = "9.0.0"
+tokio = { version = "1", features = ["rt-multi-thread"] }
+[features]
+testing-mode = ["libs/testing-mode"]
+timing = ["libs/timing"]

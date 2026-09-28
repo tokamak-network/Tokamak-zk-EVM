@@ -1,0 +1,39 @@
+{
+  "arch": "aarch64",
+  "rayonThreads": 14,
+  "retainedRounds": 5,
+  "samples": [
+    {
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.102351167,
+      "variant": "existing-parallel-canonical-admission"
+    },
+    {
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.103481375,
+      "variant": "existing-parallel-canonical-admission"
+    },
+    {
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.112521416,
+      "variant": "existing-parallel-canonical-admission"
+    },
+    {
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.101309542,
+      "variant": "existing-parallel-canonical-admission"
+    },
+    {
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.109170166,
+      "variant": "existing-parallel-canonical-admission"
+    }
+  ],
+  "scope": "synthetic CPU kernels, not native E2E or live MPC",
+  "warmupRounds": 1
+}

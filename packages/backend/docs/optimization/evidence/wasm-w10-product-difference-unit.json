@@ -1,0 +1,8 @@
+{
+  "command": "npx tsx test/checks/univariate/check-product-difference.ts",
+  "elements": 262144,
+  "warmup": "Equality calls excluded; five alternating pairs, assertions outside timing.",
+  "controlMs": [16.474291, 9.394375, 10.434250, 9.797750, 9.789916],
+  "candidateMs": [14.165125, 7.997916, 7.238958, 7.074375, 7.256250],
+  "correctness": "Exact batched/scalar equality; N=0,1,2,17,65,4097,262144; zero/cancellation/uneven ranges; mismatched and malformed buffers."
+}

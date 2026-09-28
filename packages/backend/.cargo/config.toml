@@ -1,4 +1,4 @@
-[build]
+[target.'cfg(all(unix, not(target_arch = "wasm32")))']
 rustflags = ["-C", "link-args=-Wl,-rpath,/app/target/debug/deps"]
 
 [env]

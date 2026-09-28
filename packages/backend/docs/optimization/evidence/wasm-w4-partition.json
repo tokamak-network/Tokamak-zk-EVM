@@ -1,0 +1,138 @@
+[
+  {
+    "variant": "control1",
+    "mode": "off",
+    "browser": "149.0.7827.55",
+    "nativeVerified": true,
+    "status": "ok",
+    "checkDigests": false,
+    "valid": true,
+    "preprocessMatchesNative": true,
+    "proofBytes": 1184,
+    "timings": [
+      {
+        "label": "install",
+        "ms": 178.1799999475479
+      },
+      {
+        "label": "preprocess",
+        "ms": 3315.2549999952316
+      },
+      {
+        "label": "prove",
+        "ms": 26859.375
+      },
+      {
+        "label": "verify",
+        "ms": 26.299999952316284
+      }
+    ],
+    "stages": [],
+    "operations": {},
+    "runtimes": [],
+    "hardwareConcurrency": 14,
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36"
+  },
+  {
+    "variant": "candidate1",
+    "mode": "off",
+    "browser": "149.0.7827.55",
+    "nativeVerified": true,
+    "status": "ok",
+    "checkDigests": false,
+    "valid": true,
+    "preprocessMatchesNative": true,
+    "proofBytes": 1184,
+    "timings": [
+      {
+        "label": "install",
+        "ms": 171.91999995708466
+      },
+      {
+        "label": "preprocess",
+        "ms": 3326.4500000476837
+      },
+      {
+        "label": "prove",
+        "ms": 26506.055000066757
+      },
+      {
+        "label": "verify",
+        "ms": 25.669999957084656
+      }
+    ],
+    "stages": [],
+    "operations": {},
+    "runtimes": [],
+    "hardwareConcurrency": 14,
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36"
+  },
+  {
+    "variant": "control2",
+    "mode": "off",
+    "browser": "149.0.7827.55",
+    "nativeVerified": true,
+    "status": "ok",
+    "checkDigests": false,
+    "valid": true,
+    "preprocessMatchesNative": true,
+    "proofBytes": 1184,
+    "timings": [
+      {
+        "label": "install",
+        "ms": 174.58000004291534
+      },
+      {
+        "label": "preprocess",
+        "ms": 3323.1549999713898
+      },
+      {
+        "label": "prove",
+        "ms": 26852.735000014305
+      },
+      {
+        "label": "verify",
+        "ms": 26.325000047683716
+      }
+    ],
+    "stages": [],
+    "operations": {},
+    "runtimes": [],
+    "hardwareConcurrency": 14,
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36"
+  },
+  {
+    "variant": "candidate2",
+    "mode": "off",
+    "browser": "149.0.7827.55",
+    "nativeVerified": true,
+    "status": "ok",
+    "checkDigests": false,
+    "valid": true,
+    "preprocessMatchesNative": true,
+    "proofBytes": 1184,
+    "timings": [
+      {
+        "label": "install",
+        "ms": 174.2699999809265
+      },
+      {
+        "label": "preprocess",
+        "ms": 3307.639999985695
+      },
+      {
+        "label": "prove",
+        "ms": 26556.47000002861
+      },
+      {
+        "label": "verify",
+        "ms": 25.15499997138977
+      }
+    ],
+    "stages": [],
+    "operations": {},
+    "runtimes": [],
+    "hardwareConcurrency": 14,
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36"
+  }
+]

@@ -1,0 +1,59 @@
+{
+  "date": "2026-09-20",
+  "scope": "P18.4 candidate triage after compact weighted CRS adoption; no candidate changed the protocol or artifact format.",
+  "environment": {
+    "build": "release with timing feature",
+    "device": "CPU",
+    "input": "local normalized QAP library and 172-placement synthesizer fixture",
+    "digestChecking": false
+  },
+  "compactLayout": {
+    "m": 2048,
+    "m_b": 512,
+    "s": 256,
+    "retainedWeightedRows": 1295,
+    "weightedScalarsPerCommitment": 331520,
+    "executionLocallyZeroRows": 127
+  },
+  "setupControl": {
+    "totalSeconds": 11.470298,
+    "generationSeconds": 10.063259,
+    "nonpublicScalarLabelsSeconds": 0.223490792
+  },
+  "proveControl": {
+    "totalSeconds": 3.5723695,
+    "fixtureIngressSeconds": 0.080972583,
+    "selectionInterpolationSeconds": 0.039583333,
+    "copyDenominatorInversionRecurrenceSeconds": 0.010767125,
+    "copyPolynomialProductsSeconds": 0.132121917,
+    "weightedCommitmentPresentedScalars": 331777,
+    "weightedCommitmentNonzeroScalars": 299265
+  },
+  "decisions": [
+    {
+      "candidate": "direct retained-target setup image accumulation",
+      "decision": "rejected",
+      "reason": "Even eliminating all nonpublic scalar-label work would improve the full trusted setup by at most 1.95%; the candidate would add a second image-accumulation path without affecting dominant fixed-base encoding."
+    },
+    {
+      "candidate": "parse only real witness ranges at native ingress",
+      "decision": "rejected",
+      "reason": "The entire fixture ingress is 80.97 ms (2.27% of the measured proof), and parsing is only part of that span. The current direct m-wide indexing is simpler and preserves one witness representation."
+    },
+    {
+      "candidate": "identity-copy recurrence compaction",
+      "decision": "rejected",
+      "reason": "Only denominator construction, inversion, and recurrence are removable; together they are 10.77 ms (0.30% of proof time). The 132.12 ms polynomial-product quotient remains dense."
+    },
+    {
+      "candidate": "execution-local all-zero weighted rows",
+      "decision": "rejected",
+      "reason": "127 of 1295 retained rows are all zero for this execution. Existing CPU MSM filtering already removes zero scalar/base pairs. At most 3.88 ms of the 39.58 ms selection interpolation span could disappear, below the adoption threshold."
+    },
+    {
+      "candidate": "custom sparse or pruned FFT",
+      "decision": "not implemented",
+      "reason": "The complete arithmetic and connection domains remain protocol inputs, and no existing provider primitive offers an equivalent faster sparse transform."
+    }
+  ]
+}

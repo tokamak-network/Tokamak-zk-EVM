@@ -1,0 +1,3225 @@
+{
+  "date": "2026-09-11T13:24:43.323Z",
+  "profile": "release + timing",
+  "host": "Apple M4 Pro",
+  "logicalCpus": 14,
+  "policy": "Default arkworks CPU; explicit CUDA uses ICICLE. No CUDA measurements.",
+  "sourceBase": "489b59702",
+  "referenceSource": "96f4f2283",
+  "binaries": {
+    "reference": {
+      "path": "/tmp/tokamak-prove-opt-lb8MLw/sum",
+      "sha256": "cf99fa511460491452d77290d47071c821d7a5d746a5b8769f4a5842cb0348c3"
+    },
+    "cpu": {
+      "path": "/tmp/tokamak-prover-p12-GTrRdE/target/release/prove",
+      "sha256": "e5c058cabc7b9a3838785e4b22c3d33eef22a89c61f9bf346b07597c740a18df"
+    }
+  },
+  "cwd": "/Users/jehyuk/repo/Tokamak-zk-EVM/packages/backend",
+  "args": [
+    "--subcircuit-library",
+    "../frontend/qap-compiler/subcircuits/library",
+    "--tau-sequence",
+    "/tmp/tokamak-setup-compute-mZ3UVZ/accepted-1/tau_sequence.rkyv",
+    "--keys",
+    "/tmp/tokamak-setup-compute-mZ3UVZ/accepted-1",
+    "--synthesizer-stat",
+    "tmp/current-local-fixture"
+  ],
+  "inputs": [
+    {
+      "path": "/tmp/tokamak-setup-compute-mZ3UVZ/accepted-1/tau_sequence.rkyv",
+      "bytes": 301992400,
+      "sha256": "0731717d278651ef0e0df83a1ad9b097eb111a06346d34c0d2153d196487cd9e"
+    },
+    {
+      "path": "/tmp/tokamak-setup-compute-mZ3UVZ/accepted-1/prover_keys.rkyv",
+      "bytes": 626999056,
+      "sha256": "0cc80ab2a193dd70d4468c68b930b9b3f855fc19e8a12e8d83fa086978d5b2e5"
+    },
+    {
+      "path": "/Users/jehyuk/repo/Tokamak-zk-EVM/packages/backend/tmp/current-local-fixture/selector.json",
+      "bytes": 1531,
+      "sha256": "33dd4e47391d1296c8da1ea9f29ba9caeae7b0abed0b32b5ee13be5098c8e604"
+    },
+    {
+      "path": "/Users/jehyuk/repo/Tokamak-zk-EVM/packages/backend/tmp/current-local-fixture/permutation.json",
+      "bytes": 83774,
+      "sha256": "4696c225feaf15570b0cf0e93e9e73a51ae06c8801858a2e1a56dc67308a9209"
+    },
+    {
+      "path": "/Users/jehyuk/repo/Tokamak-zk-EVM/packages/backend/tmp/current-local-fixture/instance.json",
+      "bytes": 6321,
+      "sha256": "c70290532b14176082218e2a0e808b83c543aec5794aa7e8a8239326ec00c383"
+    },
+    {
+      "path": "/Users/jehyuk/repo/Tokamak-zk-EVM/packages/backend/tmp/current-local-fixture/placementVariables.json",
+      "bytes": 2941433,
+      "sha256": "f86e268f21774d994b5ae76e357cb53aa9f63c1701cc31e0128c1fadb5cdcb2e"
+    }
+  ],
+  "scope": "Whole native proof generation, not protocol E2E or verification. Fresh randomizers. One discarded warmup per binary, five alternating-order pairs, no task-owned concurrent build/test. Normal desktop applications remained active. CPU backend discovery path deliberately points to a nonexistent directory.",
+  "runs": [
+    {
+      "engine": "reference",
+      "index": 1,
+      "wallSeconds": 8.601467583,
+      "output": "/tmp/tokamak-prover-p12-GTrRdE/reference-1",
+      "outputBytes": 2914,
+      "events": [
+        {
+          "name": "univariate.identity",
+          "category": "input",
+          "nanos": 1827266958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.library",
+          "category": "input",
+          "nanos": 13271958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs",
+          "category": "input",
+          "nanos": 154130625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.fixture",
+          "category": "input",
+          "nanos": 27598125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.maps",
+          "category": "prepare",
+          "nanos": 243582000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.arithmetic",
+          "category": "prove",
+          "nanos": 190467375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 599091542,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 568445041,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524292
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 59730917,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                78190
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.binding",
+          "category": "prove",
+          "nanos": 65123375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection.interpolate",
+          "category": "polynomial",
+          "nanos": 14471083,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 315780167,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262144
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 1984709,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                257
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 300030958,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262144
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 2153584,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                257
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.selection",
+          "category": "prove",
+          "nanos": 1002016416,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 566551333,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.copy",
+          "category": "prove",
+          "nanos": 722199791,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 319457458,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262148
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 310881792,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262149
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 845541375,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                786438
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 305902542,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262147
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.openings",
+          "category": "prove",
+          "nanos": 1264268833,
+          "sizes": []
+        },
+        {
+          "name": "univariate.protocol",
+          "category": "prove",
+          "nanos": 6230768167,
+          "sizes": []
+        },
+        {
+          "name": "univariate.output",
+          "category": "output",
+          "nanos": 230750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.total",
+          "category": "total",
+          "nanos": 8499014875,
+          "sizes": []
+        }
+      ]
+    },
+    {
+      "engine": "cpu",
+      "index": 1,
+      "wallSeconds": 5.988309,
+      "output": "/tmp/tokamak-prover-p12-GTrRdE/cpu-1",
+      "outputBytes": 1184,
+      "events": [
+        {
+          "name": "univariate.identity",
+          "category": "input",
+          "nanos": 1812470333,
+          "sizes": []
+        },
+        {
+          "name": "univariate.library",
+          "category": "input",
+          "nanos": 11118833,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs",
+          "category": "input",
+          "nanos": 162298625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.fixture",
+          "category": "input",
+          "nanos": 27648291,
+          "sizes": []
+        },
+        {
+          "name": "univariate.maps",
+          "category": "prepare",
+          "nanos": 159692291,
+          "sizes": []
+        },
+        {
+          "name": "univariate.arithmetic",
+          "category": "prove",
+          "nanos": 122115625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 461924042,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 480259625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 408185041,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524292
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 422118458,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 19402750,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                78190
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.binding",
+          "category": "prove",
+          "nanos": 23490625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection.interpolate",
+          "category": "polynomial",
+          "nanos": 34327916,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 220592250,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 228174417,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 222039542,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 229250833,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection",
+          "category": "prove",
+          "nanos": 491762417,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 428979041,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 443932750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy",
+          "category": "prove",
+          "nanos": 362482292,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 230763000,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262148
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 238244083,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 224768834,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262149
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 231987542,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 642432583,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                786438
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 667567417,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 227519208,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262147
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 234304416,
+          "sizes": []
+        },
+        {
+          "name": "univariate.openings",
+          "category": "prove",
+          "nanos": 934088083,
+          "sizes": []
+        },
+        {
+          "name": "univariate.protocol",
+          "category": "prove",
+          "nanos": 3770562500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.output",
+          "category": "output",
+          "nanos": 268833,
+          "sizes": []
+        },
+        {
+          "name": "univariate.total",
+          "category": "total",
+          "nanos": 5978634958,
+          "sizes": []
+        }
+      ]
+    },
+    {
+      "engine": "cpu",
+      "index": 2,
+      "wallSeconds": 5.975611958,
+      "output": "/tmp/tokamak-prover-p12-GTrRdE/cpu-2",
+      "outputBytes": 1184,
+      "events": [
+        {
+          "name": "univariate.identity",
+          "category": "input",
+          "nanos": 1820215791,
+          "sizes": []
+        },
+        {
+          "name": "univariate.library",
+          "category": "input",
+          "nanos": 11204084,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs",
+          "category": "input",
+          "nanos": 162798292,
+          "sizes": []
+        },
+        {
+          "name": "univariate.fixture",
+          "category": "input",
+          "nanos": 27443166,
+          "sizes": []
+        },
+        {
+          "name": "univariate.maps",
+          "category": "prepare",
+          "nanos": 161358375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.arithmetic",
+          "category": "prove",
+          "nanos": 120010334,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 441169875,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 459059250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 439773958,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524292
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 453907583,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 19665042,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                78190
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.binding",
+          "category": "prove",
+          "nanos": 23792958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection.interpolate",
+          "category": "polynomial",
+          "nanos": 35210167,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 221530709,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 228952875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 215778917,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 223230125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection",
+          "category": "prove",
+          "nanos": 487400375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 420267584,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 434908875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy",
+          "category": "prove",
+          "nanos": 350890959,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 217340959,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262148
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 225053166,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 236639833,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262149
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 243516625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 639488125,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                786438
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 665182333,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 221060625,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262147
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 227870708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.openings",
+          "category": "prove",
+          "nanos": 925283500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.protocol",
+          "category": "prove",
+          "nanos": 3744594542,
+          "sizes": []
+        },
+        {
+          "name": "univariate.output",
+          "category": "output",
+          "nanos": 258542,
+          "sizes": []
+        },
+        {
+          "name": "univariate.total",
+          "category": "total",
+          "nanos": 5965837042,
+          "sizes": []
+        }
+      ]
+    },
+    {
+      "engine": "reference",
+      "index": 2,
+      "wallSeconds": 8.701047541,
+      "output": "/tmp/tokamak-prover-p12-GTrRdE/reference-2",
+      "outputBytes": 2914,
+      "events": [
+        {
+          "name": "univariate.identity",
+          "category": "input",
+          "nanos": 1843180583,
+          "sizes": []
+        },
+        {
+          "name": "univariate.library",
+          "category": "input",
+          "nanos": 13222208,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs",
+          "category": "input",
+          "nanos": 151196875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.fixture",
+          "category": "input",
+          "nanos": 27583209,
+          "sizes": []
+        },
+        {
+          "name": "univariate.maps",
+          "category": "prepare",
+          "nanos": 245403875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.arithmetic",
+          "category": "prove",
+          "nanos": 192929000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 598334875,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 565252666,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524292
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 59903250,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                78190
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.binding",
+          "category": "prove",
+          "nanos": 65128000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection.interpolate",
+          "category": "polynomial",
+          "nanos": 17057458,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 320364584,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262144
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 1945541,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                257
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 310477292,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262144
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 1910833,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                257
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.selection",
+          "category": "prove",
+          "nanos": 1017512167,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 589402875,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.copy",
+          "category": "prove",
+          "nanos": 769741125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 305662417,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262148
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 315046458,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262149
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 868917000,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                786438
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 307475958,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262147
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.openings",
+          "category": "prove",
+          "nanos": 1290652583,
+          "sizes": []
+        },
+        {
+          "name": "univariate.protocol",
+          "category": "prove",
+          "nanos": 6318181208,
+          "sizes": []
+        },
+        {
+          "name": "univariate.output",
+          "category": "output",
+          "nanos": 259834,
+          "sizes": []
+        },
+        {
+          "name": "univariate.total",
+          "category": "total",
+          "nanos": 8601230333,
+          "sizes": []
+        }
+      ]
+    },
+    {
+      "engine": "reference",
+      "index": 3,
+      "wallSeconds": 8.728385917,
+      "output": "/tmp/tokamak-prover-p12-GTrRdE/reference-3",
+      "outputBytes": 2914,
+      "events": [
+        {
+          "name": "univariate.identity",
+          "category": "input",
+          "nanos": 1843350625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.library",
+          "category": "input",
+          "nanos": 13629875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs",
+          "category": "input",
+          "nanos": 152020416,
+          "sizes": []
+        },
+        {
+          "name": "univariate.fixture",
+          "category": "input",
+          "nanos": 27583041,
+          "sizes": []
+        },
+        {
+          "name": "univariate.maps",
+          "category": "prepare",
+          "nanos": 243936875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.arithmetic",
+          "category": "prove",
+          "nanos": 190181083,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 601155750,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 569384875,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524292
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 58604083,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                78190
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.binding",
+          "category": "prove",
+          "nanos": 64046458,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection.interpolate",
+          "category": "polynomial",
+          "nanos": 17145291,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 310892417,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262144
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 2004833,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                257
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 330120375,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262144
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 1881833,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                257
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.selection",
+          "category": "prove",
+          "nanos": 1031407208,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 625234458,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.copy",
+          "category": "prove",
+          "nanos": 749605500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 323525833,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262148
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 318370791,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262149
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 848628833,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                786438
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 303599417,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262147
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.openings",
+          "category": "prove",
+          "nanos": 1264619792,
+          "sizes": []
+        },
+        {
+          "name": "univariate.protocol",
+          "category": "prove",
+          "nanos": 6346605000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.output",
+          "category": "output",
+          "nanos": 307583,
+          "sizes": []
+        },
+        {
+          "name": "univariate.total",
+          "category": "total",
+          "nanos": 8629630208,
+          "sizes": []
+        }
+      ]
+    },
+    {
+      "engine": "cpu",
+      "index": 3,
+      "wallSeconds": 5.973592916,
+      "output": "/tmp/tokamak-prover-p12-GTrRdE/cpu-3",
+      "outputBytes": 1184,
+      "events": [
+        {
+          "name": "univariate.identity",
+          "category": "input",
+          "nanos": 1801683458,
+          "sizes": []
+        },
+        {
+          "name": "univariate.library",
+          "category": "input",
+          "nanos": 10979416,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs",
+          "category": "input",
+          "nanos": 164423625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.fixture",
+          "category": "input",
+          "nanos": 27917584,
+          "sizes": []
+        },
+        {
+          "name": "univariate.maps",
+          "category": "prepare",
+          "nanos": 159951083,
+          "sizes": []
+        },
+        {
+          "name": "univariate.arithmetic",
+          "category": "prove",
+          "nanos": 120410750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 433484167,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 451141000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 447716458,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524292
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 465895417,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 18612000,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                78190
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.binding",
+          "category": "prove",
+          "nanos": 22776750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection.interpolate",
+          "category": "polynomial",
+          "nanos": 35812541,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 218910458,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 226374875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 221740750,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 229493292,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection",
+          "category": "prove",
+          "nanos": 491688542,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 425032291,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 439657375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy",
+          "category": "prove",
+          "nanos": 354815250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 226756333,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262148
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 233727291,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 236241958,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262149
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 243091334,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 638455541,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                786438
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 663059167,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 216960666,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262147
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 224178875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.openings",
+          "category": "prove",
+          "nanos": 919497167,
+          "sizes": []
+        },
+        {
+          "name": "univariate.protocol",
+          "category": "prove",
+          "nanos": 3763335084,
+          "sizes": []
+        },
+        {
+          "name": "univariate.output",
+          "category": "output",
+          "nanos": 238958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.total",
+          "category": "total",
+          "nanos": 5963706916,
+          "sizes": []
+        }
+      ]
+    },
+    {
+      "engine": "cpu",
+      "index": 4,
+      "wallSeconds": 5.961744042,
+      "output": "/tmp/tokamak-prover-p12-GTrRdE/cpu-4",
+      "outputBytes": 1184,
+      "events": [
+        {
+          "name": "univariate.identity",
+          "category": "input",
+          "nanos": 1802750958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.library",
+          "category": "input",
+          "nanos": 11217333,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs",
+          "category": "input",
+          "nanos": 163883958,
+          "sizes": []
+        },
+        {
+          "name": "univariate.fixture",
+          "category": "input",
+          "nanos": 27470500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.maps",
+          "category": "prepare",
+          "nanos": 158281042,
+          "sizes": []
+        },
+        {
+          "name": "univariate.arithmetic",
+          "category": "prove",
+          "nanos": 120531000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 427672542,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 445289667,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 434449625,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524292
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 447829541,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 20145792,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                78190
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.binding",
+          "category": "prove",
+          "nanos": 24049875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection.interpolate",
+          "category": "polynomial",
+          "nanos": 36307458,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 215069500,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 222527375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 220189459,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 227590708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection",
+          "category": "prove",
+          "nanos": 486434625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 429783500,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 444110334,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy",
+          "category": "prove",
+          "nanos": 352268916,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 220098458,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262148
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 227455291,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 225392792,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262149
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 232638875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 661834667,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                786438
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 686432708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 226253209,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262147
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 233115292,
+          "sizes": []
+        },
+        {
+          "name": "univariate.openings",
+          "category": "prove",
+          "nanos": 950757667,
+          "sizes": []
+        },
+        {
+          "name": "univariate.protocol",
+          "category": "prove",
+          "nanos": 3752354459,
+          "sizes": []
+        },
+        {
+          "name": "univariate.output",
+          "category": "output",
+          "nanos": 237125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.total",
+          "category": "total",
+          "nanos": 5951972500,
+          "sizes": []
+        }
+      ]
+    },
+    {
+      "engine": "reference",
+      "index": 4,
+      "wallSeconds": 8.638141667,
+      "output": "/tmp/tokamak-prover-p12-GTrRdE/reference-4",
+      "outputBytes": 2914,
+      "events": [
+        {
+          "name": "univariate.identity",
+          "category": "input",
+          "nanos": 1829563167,
+          "sizes": []
+        },
+        {
+          "name": "univariate.library",
+          "category": "input",
+          "nanos": 13326917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs",
+          "category": "input",
+          "nanos": 158773083,
+          "sizes": []
+        },
+        {
+          "name": "univariate.fixture",
+          "category": "input",
+          "nanos": 27723333,
+          "sizes": []
+        },
+        {
+          "name": "univariate.maps",
+          "category": "prepare",
+          "nanos": 246205041,
+          "sizes": []
+        },
+        {
+          "name": "univariate.arithmetic",
+          "category": "prove",
+          "nanos": 190446375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 580886000,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 584756417,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524292
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 60439917,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                78190
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.binding",
+          "category": "prove",
+          "nanos": 65398375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection.interpolate",
+          "category": "polynomial",
+          "nanos": 16752208,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 310428458,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262144
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 2044375,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                257
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 308614792,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262144
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 1837791,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                257
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.selection",
+          "category": "prove",
+          "nanos": 1004919417,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 578844709,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.copy",
+          "category": "prove",
+          "nanos": 735536375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 305970959,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262148
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 312857542,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262149
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 879894958,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                786438
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 305728334,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262147
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.openings",
+          "category": "prove",
+          "nanos": 1295440042,
+          "sizes": []
+        },
+        {
+          "name": "univariate.protocol",
+          "category": "prove",
+          "nanos": 6264996416,
+          "sizes": []
+        },
+        {
+          "name": "univariate.output",
+          "category": "output",
+          "nanos": 248959,
+          "sizes": []
+        },
+        {
+          "name": "univariate.total",
+          "category": "total",
+          "nanos": 8542839875,
+          "sizes": []
+        }
+      ]
+    },
+    {
+      "engine": "reference",
+      "index": 5,
+      "wallSeconds": 8.622069208,
+      "output": "/tmp/tokamak-prover-p12-GTrRdE/reference-5",
+      "outputBytes": 2914,
+      "events": [
+        {
+          "name": "univariate.identity",
+          "category": "input",
+          "nanos": 1822149667,
+          "sizes": []
+        },
+        {
+          "name": "univariate.library",
+          "category": "input",
+          "nanos": 13361792,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs",
+          "category": "input",
+          "nanos": 154344084,
+          "sizes": []
+        },
+        {
+          "name": "univariate.fixture",
+          "category": "input",
+          "nanos": 27747875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.maps",
+          "category": "prepare",
+          "nanos": 247333292,
+          "sizes": []
+        },
+        {
+          "name": "univariate.arithmetic",
+          "category": "prove",
+          "nanos": 193937833,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 594501417,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 568529834,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524292
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 61023750,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                78190
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.binding",
+          "category": "prove",
+          "nanos": 66111583,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection.interpolate",
+          "category": "polynomial",
+          "nanos": 16584084,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 318233292,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262144
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 2104000,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                257
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 304135292,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262144
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 1994959,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                257
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.selection",
+          "category": "prove",
+          "nanos": 1012884166,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 585456916,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.copy",
+          "category": "prove",
+          "nanos": 713882458,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 308480291,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262148
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 304209292,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262149
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 872535833,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                786438
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 302022500,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262147
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.openings",
+          "category": "prove",
+          "nanos": 1285276208,
+          "sizes": []
+        },
+        {
+          "name": "univariate.protocol",
+          "category": "prove",
+          "nanos": 6256195709,
+          "sizes": []
+        },
+        {
+          "name": "univariate.output",
+          "category": "output",
+          "nanos": 269125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.total",
+          "category": "total",
+          "nanos": 8523320542,
+          "sizes": []
+        }
+      ]
+    },
+    {
+      "engine": "cpu",
+      "index": 5,
+      "wallSeconds": 6.087898417,
+      "output": "/tmp/tokamak-prover-p12-GTrRdE/cpu-5",
+      "outputBytes": 1184,
+      "events": [
+        {
+          "name": "univariate.identity",
+          "category": "input",
+          "nanos": 1804671500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.library",
+          "category": "input",
+          "nanos": 10849709,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs",
+          "category": "input",
+          "nanos": 161598542,
+          "sizes": []
+        },
+        {
+          "name": "univariate.fixture",
+          "category": "input",
+          "nanos": 26436541,
+          "sizes": []
+        },
+        {
+          "name": "univariate.maps",
+          "category": "prepare",
+          "nanos": 155306875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.arithmetic",
+          "category": "prove",
+          "nanos": 125327709,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 430166708,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 447947208,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 430443042,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524292
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 444702875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 20105958,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                78190
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.binding",
+          "category": "prove",
+          "nanos": 24314625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection.interpolate",
+          "category": "polynomial",
+          "nanos": 36722084,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 232339041,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 241117417,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 225113000,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 233707375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection",
+          "category": "prove",
+          "nanos": 511556875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 465718583,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 480854708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy",
+          "category": "prove",
+          "nanos": 371757125,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 234786209,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262148
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 242393333,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 228262333,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262149
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 235476542,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 687418834,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                786438
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 712569750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 227060917,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262147
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 234147041,
+          "sizes": []
+        },
+        {
+          "name": "univariate.openings",
+          "category": "prove",
+          "nanos": 978872500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.protocol",
+          "category": "prove",
+          "nanos": 3883722375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.output",
+          "category": "output",
+          "nanos": 171291,
+          "sizes": []
+        },
+        {
+          "name": "univariate.total",
+          "category": "total",
+          "nanos": 6077926000,
+          "sizes": []
+        }
+      ]
+    }
+  ],
+  "warmups": [
+    {
+      "engine": "reference",
+      "index": "warmup",
+      "wallSeconds": 8.575957166,
+      "output": "/tmp/tokamak-prover-p12-GTrRdE/reference-warmup",
+      "outputBytes": 2914,
+      "events": [
+        {
+          "name": "univariate.identity",
+          "category": "input",
+          "nanos": 1746128459,
+          "sizes": []
+        },
+        {
+          "name": "univariate.library",
+          "category": "input",
+          "nanos": 13280459,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs",
+          "category": "input",
+          "nanos": 156666708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.fixture",
+          "category": "input",
+          "nanos": 26396542,
+          "sizes": []
+        },
+        {
+          "name": "univariate.maps",
+          "category": "prepare",
+          "nanos": 235362583,
+          "sizes": []
+        },
+        {
+          "name": "univariate.arithmetic",
+          "category": "prove",
+          "nanos": 208721959,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 586187417,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 563592750,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524292
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 59448750,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                78190
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.binding",
+          "category": "prove",
+          "nanos": 65321042,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection.interpolate",
+          "category": "polynomial",
+          "nanos": 15532000,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 317817375,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262144
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 2054959,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                257
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 315433209,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262144
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 1966291,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                257
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.selection",
+          "category": "prove",
+          "nanos": 1028385917,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 571498458,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.copy",
+          "category": "prove",
+          "nanos": 723008208,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 311241666,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262148
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 350187708,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262149
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 849475208,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                786438
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 310125875,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262147
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.openings",
+          "category": "prove",
+          "nanos": 1271256375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.protocol",
+          "category": "prove",
+          "nanos": 6293106500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.output",
+          "category": "output",
+          "nanos": 245208,
+          "sizes": []
+        },
+        {
+          "name": "univariate.total",
+          "category": "total",
+          "nanos": 8473295083,
+          "sizes": []
+        }
+      ]
+    },
+    {
+      "engine": "cpu",
+      "index": "warmup-paired",
+      "wallSeconds": 6.426136667,
+      "output": "/tmp/tokamak-prover-p12-GTrRdE/cpu-warmup-paired",
+      "outputBytes": 1184,
+      "events": [
+        {
+          "name": "univariate.identity",
+          "category": "input",
+          "nanos": 1792394250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.library",
+          "category": "input",
+          "nanos": 11034375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.crs",
+          "category": "input",
+          "nanos": 161723625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.fixture",
+          "category": "input",
+          "nanos": 27065792,
+          "sizes": []
+        },
+        {
+          "name": "univariate.maps",
+          "category": "prepare",
+          "nanos": 157697375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.arithmetic",
+          "category": "prove",
+          "nanos": 123635959,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 445583583,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 462946916,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 426707292,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524292
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 440179750,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 19331584,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                78190
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.binding",
+          "category": "prove",
+          "nanos": 23279375,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection.interpolate",
+          "category": "polynomial",
+          "nanos": 34381667,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 227736500,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 234923708,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 228251875,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262401
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 235647875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.selection",
+          "category": "prove",
+          "nanos": 504961625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 433557625,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                524548
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 452335625,
+          "sizes": []
+        },
+        {
+          "name": "univariate.copy",
+          "category": "prove",
+          "nanos": 358151333,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 222665000,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262148
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 230154667,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 226675375,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262149
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 233424500,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 652329458,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                786438
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 677603875,
+          "sizes": []
+        },
+        {
+          "name": "univariate.msm",
+          "category": "msm",
+          "nanos": 220197292,
+          "sizes": [
+            {
+              "label": "bases",
+              "dims": [
+                262147
+              ]
+            }
+          ]
+        },
+        {
+          "name": "univariate.commit",
+          "category": "commit",
+          "nanos": 227145041,
+          "sizes": []
+        },
+        {
+          "name": "univariate.openings",
+          "category": "prove",
+          "nanos": 936498084,
+          "sizes": []
+        },
+        {
+          "name": "univariate.protocol",
+          "category": "prove",
+          "nanos": 3786856792,
+          "sizes": []
+        },
+        {
+          "name": "univariate.output",
+          "category": "output",
+          "nanos": 239250,
+          "sizes": []
+        },
+        {
+          "name": "univariate.total",
+          "category": "total",
+          "nanos": 5973535708,
+          "sizes": []
+        }
+      ]
+    }
+  ],
+  "referenceMeanSeconds": 8.5592071666,
+  "cpuMeanSeconds": 5.9876154832
+}

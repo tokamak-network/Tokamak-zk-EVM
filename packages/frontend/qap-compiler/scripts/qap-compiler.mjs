@@ -10,7 +10,7 @@ const packageRoot = path.resolve(__dirname, '..');
 const compileScript = path.resolve(packageRoot, 'scripts/compile.sh');
 const reloadScript = path.resolve(packageRoot, 'scripts/reload-constants.sh');
 const distScript = path.resolve(packageRoot, 'scripts/dist-package.mjs');
-const expectedCircomVersion = process.env.QAP_COMPILER_EXPECTED_CIRCOM_VERSION ?? null;
+const expectedCircomVersion = '2.2.3';
 
 const printHelp = () => {
   console.log(`Usage:

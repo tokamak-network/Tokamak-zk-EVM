@@ -1,14 +1,18 @@
 import fs from 'fs';
-import { loadTokamakL2JsConstants } from './source.mjs';
+import { FUNCTION_INPUT_LENGTH, POSEIDON_INPUTS } from 'tokamak-l2js';
 
 const constantsPath = process.argv[2];
 if (typeof constantsPath !== 'string' || constantsPath.length === 0) {
   throw new Error('Expected constants.circom path as the first argument.');
 }
 
-const { POSEIDON_INPUTS, MT_DEPTH } = loadTokamakL2JsConstants();
-if (!Number.isInteger(POSEIDON_INPUTS) || !Number.isInteger(MT_DEPTH)) {
-  throw new Error(`Invalid TokamakL2JS constants: POSEIDON_INPUTS=${POSEIDON_INPUTS}, MT_DEPTH=${MT_DEPTH}`);
+if (!Number.isInteger(FUNCTION_INPUT_LENGTH) || FUNCTION_INPUT_LENGTH < 0) {
+  throw new Error(
+    `Invalid TokamakL2JS constant: FUNCTION_INPUT_LENGTH=${FUNCTION_INPUT_LENGTH}`,
+  );
+}
+if (!Number.isInteger(POSEIDON_INPUTS)) {
+  throw new Error(`Invalid TokamakL2JS constant: POSEIDON_INPUTS=${POSEIDON_INPUTS}`);
 }
 
 const src = fs.readFileSync(constantsPath, 'utf8');
@@ -22,12 +26,20 @@ const readCurrentConstant = (source, name) => {
   return Number(match[1]);
 };
 
+const previousPrivateMessageInputs = readCurrentConstant(src, 'nPrivateMessageInputs');
 const previousPoseidonInputs = readCurrentConstant(src, 'nPoseidonInputs');
-const previousMtDepth = readCurrentConstant(src, 'nMtDepth');
 
 let next = src;
+let updatedPrivateMessageInputs = false;
+next = next.replace(
+  /(function\s+nPrivateMessageInputs\s*\(\s*\)\s*\{\s*return\s+)\d+(\s*;\s*\})/,
+  (_, prefix, suffix) => {
+    updatedPrivateMessageInputs = true;
+    return `${prefix}${FUNCTION_INPUT_LENGTH}${suffix}`;
+  }
+);
+
 let updatedPoseidonInputs = false;
-let updatedMtDepth = false;
 next = next.replace(
   /(function\s+nPoseidonInputs\s*\(\s*\)\s*\{\s*return\s+)\d+(\s*;\s*\})/,
   (_, prefix, suffix) => {
@@ -35,23 +47,20 @@ next = next.replace(
     return `${prefix}${POSEIDON_INPUTS}${suffix}`;
   }
 );
-next = next.replace(
-  /(function\s+nMtDepth\s*\(\s*\)\s*\{\s*return\s+)\d+(\s*;\s*\})/,
-  (_, prefix, suffix) => {
-    updatedMtDepth = true;
-    return `${prefix}${MT_DEPTH}${suffix}`;
-  }
-);
 
-if (!updatedPoseidonInputs || !updatedMtDepth) {
+if (!updatedPrivateMessageInputs || !updatedPoseidonInputs) {
   throw new Error('Failed to update constants.circom (pattern not found).');
 }
 
 fs.writeFileSync(constantsPath, next);
 
+const privateMessageStatus = previousPrivateMessageInputs === FUNCTION_INPUT_LENGTH
+  ? 'unchanged'
+  : 'updated';
 const poseidonStatus = previousPoseidonInputs === POSEIDON_INPUTS ? 'unchanged' : 'updated';
-const mtDepthStatus = previousMtDepth === MT_DEPTH ? 'unchanged' : 'updated';
 
 console.log(`[qap-compiler] Reloaded constants in ${constantsPath}`);
+console.log(
+  `[qap-compiler] nPrivateMessageInputs: ${previousPrivateMessageInputs} -> ${FUNCTION_INPUT_LENGTH} (${privateMessageStatus})`,
+);
 console.log(`[qap-compiler] nPoseidonInputs: ${previousPoseidonInputs} -> ${POSEIDON_INPUTS} (${poseidonStatus})`);
-console.log(`[qap-compiler] nMtDepth: ${previousMtDepth} -> ${MT_DEPTH} (${mtDepthStatus})`);

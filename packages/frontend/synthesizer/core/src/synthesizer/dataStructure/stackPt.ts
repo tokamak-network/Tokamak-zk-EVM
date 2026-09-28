@@ -1,4 +1,5 @@
 import type { DataPt } from '../types/index.ts'
+import { DataPtFactory } from './dataPt.ts'
 
 /**
  * Key differences between Stack and StackPt classes
@@ -23,7 +24,7 @@ import type { DataPt } from '../types/index.ts'
  * but operate internally for different purposes.
  */
 
-export type TStackPt = DataPt[]
+export type StackDataPts = DataPt[]
 
 /**
  * Stack implementation for EVM symbolic execution
@@ -55,7 +56,7 @@ export type TStackPt = DataPt[]
 export class StackPt {
   // This array is initialized as an empty array. Once values are pushed, the array size will never decrease.
   // Internal array storing actual data. Size doesn't decrease after push 
-  private _storePt: TStackPt
+  private _storePt: StackDataPts
   // Maximum allowed stack height (default: 1024)
   private _maxHeight: number
   // Actual number of items currently in use in the stack
@@ -82,8 +83,10 @@ export class StackPt {
       )
     }
 
+    const evmWordPt = DataPtFactory.copyEvmWord(pt)
     // Read current length, set `_storePt` to value, and then increase the length
-    this._storePt[this._len++] = pt
+    this._storePt[this._len] = evmWordPt
+    this._len++
   }
 
   pop(): DataPt {
@@ -164,43 +167,14 @@ export class StackPt {
    * Pushes a copy of an item in the stack.
    * @param position - Index of item to be copied (1-indexed)
    */
-  // I would say that we do not need this method any more
-  // since you can't copy a primitive data type
-  // Nevertheless not sure if we "loose" something here?
-  // Will keep commented out for now
   dup(position: number) {
     const len = this._len
     if (len < position) {
       throw new Error('Unreachable stackPt index')
     }
 
-    // Note: this code is borrowed from `push()` (avoids a call)
-    if (len >= this._maxHeight) {
-      throw new Error('Unreachable stackPt index')
-    }
-
     const i = len - position
-    this._storePt[this._len++] = this._storePt[i]
-  }
-
-  /**
-   * Swap number 1 with number 2 on the stack
-   * @param swap1
-   * @param swap2
-   */
-  exchange(swap1: number, swap2: number) {
-    const headIndex = this._len - 1
-    const exchangeIndex1 = headIndex - swap1
-    const exchangeIndex2 = headIndex - swap2
-
-    // Stack underflow is not possible in EOF
-    if (exchangeIndex1 < 0 || exchangeIndex2 < 0) {
-      throw new Error('Unreachable stackPt index')
-    }
-
-    const cache = this._storePt[exchangeIndex2]
-    this._storePt[exchangeIndex2] = this._storePt[exchangeIndex1]
-    this._storePt[exchangeIndex1] = cache
+    this.push(this._storePt[i])
   }
 
   /**

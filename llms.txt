@@ -6,21 +6,32 @@ Use this file as the root LLM-readable map for the repository. It points to the 
 
 ## Canonical Overview
 
-- [Repository README](README.md): main repository entry point, installation workflow, runtime requirements, and CLI usage.
+- [Repository README](README.md): repository overview, package map, project
+  scope, and canonical package-documentation routes.
 - [Repository changelog](CHANGELOG.md): canonical release notes for all published packages in this monorepo.
 
 ## Public Packages
 
 - `@tokamak-zk-evm/cli`: end-to-end command-line package for installing the local runtime and running synthesize, preprocess, prove, verify, and proof extraction commands.
-  - [CLI README](packages/cli/README.md)
+  - [CLI README](packages/cli/README.md): complete installation, command,
+    input-file, output-file, and operational guidance.
+  - [npm publication](https://www.npmjs.com/package/@tokamak-zk-evm/cli)
 - `@tokamak-zk-evm/subcircuit-library`: published package of prebuilt R1CS artifacts, WASM witness-generation artifacts, JSON metadata, and related subcircuit-library files.
   - [Subcircuit Library README](packages/frontend/qap-compiler/README.md)
+  - [npm publication](https://www.npmjs.com/package/@tokamak-zk-evm/subcircuit-library)
 - `@tokamak-zk-evm/synthesizer-node`: Node.js CLI package that reads Tokamak L2 transaction replay JSON files from disk and writes synthesized JSON artifacts back to disk.
-  - [Synthesizer Node README](packages/frontend/synthesizer/node-cli/README.md)
+  - [Synthesizer Node README](packages/frontend/synthesizer/node-cli/README.md):
+    file formats, input ownership, acquisition routes, examples, and outputs.
+  - [npm publication](https://www.npmjs.com/package/@tokamak-zk-evm/synthesizer-node)
 - `@tokamak-zk-evm/synthesizer-web`: browser-facing package that accepts payload objects or uploaded files and uses bundled subcircuit-library assets.
-  - [Synthesizer Web README](packages/frontend/synthesizer/web-app/README.md)
-- `@tokamak-zk-evm/snark-browser-compat`: browser-compatible Tokamak zk-SNARK prover, verifier, and artifact converter for bundler-based applications.
-  - [Browser-Compatible SNARK README](packages/backend-wasm/README.md)
+  - [Synthesizer Web README](packages/frontend/synthesizer/web-app/README.md):
+    object, file, and URL inputs with formats, acquisition routes, and examples.
+  - [npm publication](https://www.npmjs.com/package/@tokamak-zk-evm/synthesizer-web)
+- `@tokamak-zk-evm/snark-browser-compat`: browser-compatible Tokamak zk-SNARK preprocessor, prover, verifier, and artifact converter for bundler-based applications.
+  - [Browser-Compatible SNARK README](packages/backend/wasm/README.md):
+    runtime artifact formats, sources, conversion examples, APIs, deployment,
+    and operational responsibilities.
+  - [npm publication](https://www.npmjs.com/package/@tokamak-zk-evm/snark-browser-compat)
 
 ## Synthesizer Workspace
 

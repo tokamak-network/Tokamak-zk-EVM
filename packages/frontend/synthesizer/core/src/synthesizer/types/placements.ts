@@ -23,14 +23,12 @@ export function placementEntryDeepCopy(placement: PlacementEntry): PlacementEntr
 export function placementsDeepCopy(placements: Placements): Placements {
   const copy: Placements = []
   for (const placement of placements) {
-    copy.push({
-      ...placement,
-      inPts: placement.inPts.slice(),
-      outPts: placement.outPts.slice(),
-    })
+    copy.push(placementEntryDeepCopy(placement))
   }
   return copy
 }
+
+export type CompositionOperands = readonly DataPt[] | readonly (readonly DataPt[])[];
 
 export type PlacementVariableEntry = {
   subcircuitId: number;
@@ -39,14 +37,3 @@ export type PlacementVariableEntry = {
 };
 
 export type PlacementVariables = PlacementVariableEntry[];
-
-// export type SynthesizerState = {
-//   placements: Placements;
-//   auxin: Auxin;
-//   envInf: Map<string, { value: bigint; wireIndex: number }>;
-//   blkInf: Map<string, { value: bigint; wireIndex: number }>;
-//   storagePt: Map<string, DataPt>;
-//   logPt: { topicPts: DataPt[]; valPts: DataPt[] }[];
-//   keccakPt: { inValues: bigint[]; outValue: bigint }[];
-//   TStoragePt: Map<string, Map<bigint, DataPt>>;
-// };

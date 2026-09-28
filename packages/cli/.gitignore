@@ -1,0 +1,3 @@
+# Contract projections are regenerated from backend-owned authorities.
+src/generated/*.generated.*
+src/generated/*.json

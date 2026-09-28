@@ -27,3 +27,6 @@ resource/
 
 # test outputs
 test-outputs/
+
+# Generated from the installed subcircuit-library package before the web build.
+web-app/src/subcircuit/bundled.generated.ts

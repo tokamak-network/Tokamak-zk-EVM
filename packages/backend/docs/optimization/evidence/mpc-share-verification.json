@@ -1,0 +1,69 @@
+{
+  "arch": "aarch64",
+  "rayonThreads": 14,
+  "retainedRounds": 5,
+  "samples": [
+    {
+      "points": 1024,
+      "round": 1,
+      "seconds": 0.252026041,
+      "variant": "parallel"
+    },
+    {
+      "points": 1024,
+      "round": 1,
+      "seconds": 2.72711275,
+      "variant": "serial"
+    },
+    {
+      "points": 1024,
+      "round": 2,
+      "seconds": 2.7301075,
+      "variant": "serial"
+    },
+    {
+      "points": 1024,
+      "round": 2,
+      "seconds": 0.255609917,
+      "variant": "parallel"
+    },
+    {
+      "points": 1024,
+      "round": 3,
+      "seconds": 0.251545666,
+      "variant": "parallel"
+    },
+    {
+      "points": 1024,
+      "round": 3,
+      "seconds": 2.718697667,
+      "variant": "serial"
+    },
+    {
+      "points": 1024,
+      "round": 4,
+      "seconds": 2.716066,
+      "variant": "serial"
+    },
+    {
+      "points": 1024,
+      "round": 4,
+      "seconds": 0.252743292,
+      "variant": "parallel"
+    },
+    {
+      "points": 1024,
+      "round": 5,
+      "seconds": 0.252273,
+      "variant": "parallel"
+    },
+    {
+      "points": 1024,
+      "round": 5,
+      "seconds": 2.732046583,
+      "variant": "serial"
+    }
+  ],
+  "scope": "synthetic CPU kernels, not native E2E or live MPC",
+  "warmupRounds": 1
+}

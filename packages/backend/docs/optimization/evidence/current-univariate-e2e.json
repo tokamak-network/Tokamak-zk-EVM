@@ -1,0 +1,459 @@
+{
+  "date": "2026-09-13",
+  "host": {
+    "cpu": "Apple M4 Pro",
+    "logicalCpus": 14,
+    "ramBytes": 51539607552,
+    "os": "25.5.0",
+    "arch": "arm64"
+  },
+  "build": "native cargo --release, prove timing enabled; minified esbuild es2022 browser bundle with ffjavascript 0.3.1",
+  "measurementBoundary": "Sequential functional qualification samples, not paired optimization trials. Native internal spans exclude compilation; process RSS uses /usr/bin/time -l around cached cargo run. Browser final actual sample includes one-second OS RSS sampling.",
+  "records": {
+    "actual": {
+      "run": "/tmp/tokamak-p8-trusted-e2e-9jQ5E1",
+      "activePlacements": 207,
+      "native": {
+        "setupSeconds": 11.655642,
+        "preprocessSeconds": 0.391148,
+        "proveSeconds": 3.920296167,
+        "verifySeconds": 0.004198,
+        "peakRssBytes": {
+          "setup": 2404679680,
+          "preprocess": 230129664,
+          "prove": 2728148992,
+          "verify": 9601024
+        },
+        "verify": true
+      },
+      "browser": {
+        "version": "149.0.7827.55",
+        "timingsMs": [
+          {
+            "label": "install",
+            "ms": 67.5699999332428
+          },
+          {
+            "label": "native proof -> browser verify",
+            "ms": 28.175000071525574
+          },
+          {
+            "label": "browser preprocess",
+            "ms": 3358.235000014305
+          },
+          {
+            "label": "browser prove",
+            "ms": 38090.625
+          },
+          {
+            "label": "browser proof -> browser verify",
+            "ms": 24.725000023841858
+          }
+        ],
+        "memory": {
+          "peakProcessRssBytes": 6367330304,
+          "method": "Maximum sampled sum of Chromium process RSS, one-second interval; not an exact peak."
+        },
+        "verify": true,
+        "preprocessMatchesNative": true
+      }
+    },
+    "minimal": {
+      "run": "/tmp/tokamak-p8-minimal-e2e-oHz8x1",
+      "activePlacements": 6,
+      "native": {
+        "setupSeconds": 11.089858,
+        "preprocessSeconds": 0.169881,
+        "proveSeconds": 2.3150825,
+        "verifySeconds": 0.004048,
+        "peakRssBytes": {
+          "setup": 2405138432,
+          "preprocess": 120995840,
+          "prove": 2628386816,
+          "verify": 9666560
+        },
+        "verify": true
+      },
+      "browser": {
+        "version": "149.0.7827.55",
+        "timingsMs": [
+          {
+            "label": "install",
+            "ms": 74.55000007152557
+          },
+          {
+            "label": "native proof -> browser verify",
+            "ms": 29.125
+          },
+          {
+            "label": "browser preprocess",
+            "ms": 2206.6299999952316
+          },
+          {
+            "label": "browser prove",
+            "ms": 22817.920000076294
+          },
+          {
+            "label": "browser proof -> browser verify",
+            "ms": 25.96499991416931
+          }
+        ],
+        "memory": null,
+        "verify": true,
+        "preprocessMatchesNative": true
+      }
+    }
+  },
+  "earlierActualBrowserSampleMs": {
+    "install": 77.44,
+    "nativeVerify": 32.825,
+    "preprocess": 3603.22,
+    "prove": 40670.99,
+    "verify": 25.605
+  },
+  "nodeActual": {
+    "native proof -> WASM verify": 32.025292000000036,
+    "WASM preprocess": 3581.5701249999997,
+    "WASM prove": 37950.602917000004,
+    "WASM proof -> WASM verify": 26.913042000000132
+  },
+  "setup": {
+    "l_log_out": 50,
+    "l_storage_store": 80,
+    "l_storage_load": 130,
+    "l_tx_in": 134,
+    "l_block_in": 158,
+    "l_evm_in": 396,
+    "l_free": 256,
+    "l_user_out": 130,
+    "l_user": 134,
+    "l": 396,
+    "l_D": 1420,
+    "m_D": 45056,
+    "n": 1024,
+    "m": 1024,
+    "t": 64,
+    "s_D": 44,
+    "s_max": 256
+  },
+  "crs": {
+    "files": {
+      "preprocess_keys.rkyv": {
+        "bytes": 28276128,
+        "sha256": "880abe14b1cdbc371f409145018c6ac2e6738b0cb56e406fbf34b8efda282974"
+      },
+      "prover_keys.rkyv": {
+        "bytes": 626999056,
+        "sha256": "c3f299828673c3be8163227d98b614ec8d33981c1a027d952f7d0205c4db5ee7"
+      },
+      "tau_sequence.rkyv": {
+        "bytes": 301992400,
+        "sha256": "750f69bfc6177cff697a1bfaca3c67e064f617baf0669fb941e922e03f117819"
+      },
+      "verifier_keys.rkyv": {
+        "bytes": 1104,
+        "sha256": "8beb0389798a436e2438284dd7a9f7ce6c0e967ddad871e61c554263e17cfb9a"
+      }
+    },
+    "sections": [
+      {
+        "label": "crs.s0",
+        "points": 1048583,
+        "bytes": 100663968,
+        "infinities": 0,
+        "runHistogram": {},
+        "runTableBytes16": 0
+      },
+      {
+        "label": "crs.sxi",
+        "points": 524292,
+        "bytes": 50332032,
+        "infinities": 0,
+        "runHistogram": {},
+        "runTableBytes16": 0
+      },
+      {
+        "label": "crs.spsi",
+        "points": 524292,
+        "bytes": 50332032,
+        "infinities": 0,
+        "runHistogram": {},
+        "runTableBytes16": 0
+      },
+      {
+        "label": "crs.tau-g2",
+        "points": 524292,
+        "bytes": 100664064,
+        "infinities": 0,
+        "runHistogram": {},
+        "runTableBytes16": 0
+      },
+      {
+        "label": "crs.psi-g2",
+        "points": 1,
+        "bytes": 192,
+        "infinities": 0,
+        "runHistogram": {},
+        "runTableBytes16": 0
+      },
+      {
+        "label": "crs.weighted",
+        "points": 262144,
+        "bytes": 25165824,
+        "infinities": 0,
+        "runHistogram": {},
+        "runTableBytes16": 0
+      },
+      {
+        "label": "crs.weighted-shifted",
+        "points": 262144,
+        "bytes": 25165824,
+        "infinities": 0,
+        "runHistogram": {},
+        "runTableBytes16": 0
+      },
+      {
+        "label": "crs.free-public-queries",
+        "points": 158,
+        "bytes": 15168,
+        "infinities": 0,
+        "runHistogram": {},
+        "runTableBytes16": 0
+      },
+      {
+        "label": "crs.nonpublic-queries",
+        "points": 6006784,
+        "bytes": 576651264,
+        "infinities": 0,
+        "runHistogram": {},
+        "runTableBytes16": 0
+      },
+      {
+        "label": "crs.mask-u",
+        "points": 2,
+        "bytes": 192,
+        "infinities": 0,
+        "runHistogram": {},
+        "runTableBytes16": 0
+      },
+      {
+        "label": "crs.mask-v",
+        "points": 2,
+        "bytes": 192,
+        "infinities": 0,
+        "runHistogram": {},
+        "runTableBytes16": 0
+      },
+      {
+        "label": "crs.mask-w",
+        "points": 2,
+        "bytes": 192,
+        "infinities": 0,
+        "runHistogram": {},
+        "runTableBytes16": 0
+      },
+      {
+        "label": "crs.mask-b",
+        "points": 2,
+        "bytes": 192,
+        "infinities": 0,
+        "runHistogram": {},
+        "runTableBytes16": 0
+      },
+      {
+        "label": "crs.mask-selection",
+        "points": 1,
+        "bytes": 96,
+        "infinities": 0,
+        "runHistogram": {},
+        "runTableBytes16": 0
+      },
+      {
+        "label": "crs.preprocess-sc",
+        "points": 262144,
+        "bytes": 25165824,
+        "infinities": 0,
+        "runHistogram": {},
+        "runTableBytes16": 0
+      },
+      {
+        "label": "crs.preprocess-selection",
+        "points": 16129,
+        "bytes": 3096768,
+        "infinities": 0,
+        "runHistogram": {},
+        "runTableBytes16": 0
+      },
+      {
+        "label": "crs.fixed-public-queries",
+        "points": 140,
+        "bytes": 13440,
+        "infinities": 0,
+        "runHistogram": {},
+        "runTableBytes16": 0
+      },
+      {
+        "label": "crs.g1-handles",
+        "points": 3,
+        "bytes": 288,
+        "infinities": 0,
+        "runHistogram": {},
+        "runTableBytes16": 0
+      },
+      {
+        "label": "crs.g2",
+        "points": 4,
+        "bytes": 768,
+        "infinities": 0,
+        "runHistogram": {},
+        "runTableBytes16": 0
+      }
+    ],
+    "chunkCount": 132,
+    "maxChunkBytes": 8388576,
+    "manifestBytes": 38425,
+    "logicalNonpublicSlotsRemoved": 10694144,
+    "queryCoordinateOverheadBytes": 0
+  },
+  "storageRequalification": {
+    "otherProverSectionsEqual": true,
+    "placeholders": false,
+    "residual": {
+      "fixed_public_queries": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 140
+      },
+      "free_public_queries": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 158
+      },
+      "mask_b": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 2
+      },
+      "mask_selection": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 1
+      },
+      "mask_u": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 2
+      },
+      "mask_v": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 2
+      },
+      "mask_w": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 2
+      },
+      "nonpublic_queries": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 6006784
+      },
+      "psi_g2": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 1
+      },
+      "s0_g1": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 1048583
+      },
+      "sc_g1": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 262144
+      },
+      "selection_g2": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 16129
+      },
+      "spsi_g1": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 524292
+      },
+      "sxi_g1": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 524292
+      },
+      "tau_powers_g2": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 524292
+      },
+      "verifier_g1": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 3
+      },
+      "verifier_g2": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 4
+      },
+      "weighted_g1": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 262144
+      },
+      "weighted_shifted_g1": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 262144
+      }
+    },
+    "retainedPointsEqual": 6006784
+  },
+  "proofBytes": 1184,
+  "preprocessBytes": 384,
+  "tests": {
+    "nativeProve": {
+      "pass": 12,
+      "ignored": 6
+    },
+    "nativeLibs": {
+      "pass": 133,
+      "ignored": 6
+    },
+    "commonContracts": 20,
+    "deterministicProofParity": [
+      "n2",
+      "n8",
+      "singleton"
+    ],
+    "tampering": {
+      "proofPoints": 10,
+      "evaluations": 7,
+      "preprocessOperands": 3,
+      "changedPublic": true,
+      "malformedEncoding": true
+    },
+    "buildKey": [
+      "key-only development directory",
+      "missing key rejection",
+      "truncated key rejection",
+      "noncanonical coordinate rejection",
+      "zero fixed key rejection",
+      "wrong subgroup rejection"
+    ]
+  },
+  "notMeasured": [
+    "CUDA",
+    "live MPC",
+    "npm/Drive production E2E",
+    "fresh controlled whole-prover dense-versus-omitted storage A/B"
+  ]
+}

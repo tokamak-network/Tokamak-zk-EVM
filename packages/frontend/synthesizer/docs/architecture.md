@@ -34,8 +34,7 @@ Stable entrypoints:
   - `BlockInfo`
 - `core/src/circuit.ts`
   - `createCircuitGenerator`
-  - `CircuitGenerator`
-  - `CircuitArtifacts`
+  - `CircuitArtifacts` and `CircuitGenerationResult` types
 - `core/src/subcircuit.ts`
   - resolved subcircuit-library metadata helpers and types
 

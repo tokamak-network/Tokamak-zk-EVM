@@ -1,124 +1,121 @@
+import { addHexPrefix } from '@ethereumjs/util';
 import { SynthesizerInterface } from '../synthesizer/types/index.ts';
-import { VariableGenerator } from './handlers/variableGenerator.ts';
-import { Placements } from '../synthesizer/types/placements.ts';
-import { PermutationGenerator } from './handlers/permutationGenerator.ts';
+import type { PlacementVariables } from '../synthesizer/types/placements.ts';
 import {
-  CircuitArtifacts,
+  VariableGenerator,
+} from './generators/variableGenerator.ts';
+import { derivePlacementSelector } from './generators/placementSelector.ts';
+import { PermutationGenerator } from './generators/permutationGenerator.ts';
+import {
+  CircuitGenerationResult,
+  PublicInstance,
+  PublicInstanceDescription,
 } from './types/types.ts';
-import type { ResolvedSubcircuitLibrary } from '../subcircuit/libraryTypes.ts';
 
-export async function createCircuitGenerator(synthesizer: SynthesizerInterface, subcircuitWasmBuffers: any[]): Promise<CircuitGenerator> {
-  const circuitGenerator = new CircuitGenerator(synthesizer, subcircuitWasmBuffers);
-  await circuitGenerator.variableGenerator.initVariableGenerator();
-  circuitGenerator.circuitPlacements = circuitGenerator.variableGenerator.placementsCompatibleWithSubcircuits;
-  circuitGenerator.permutationGenerator = new PermutationGenerator(circuitGenerator);
-  return circuitGenerator;
-}
-
-export class CircuitGenerator {
-  public pathToWrite?: string;
-  // public subcircuitIndicesByName: Map<SubcircuitNames, SubcircuitIndicesByNameEntry> = new Map()
-  public variableGenerator: VariableGenerator;
-  public permutationGenerator: PermutationGenerator | undefined = undefined;
-  public synthesizer: SynthesizerInterface;
-  public readonly subcircuitLibrary: ResolvedSubcircuitLibrary;
-  public EVMPlacements: Placements;
-  public circuitPlacements: Placements | undefined = undefined;
-  public subcircuitWasmBuffers: any[];
-
-  constructor(synthesizer: SynthesizerInterface, subcircuitWasmBuffers: any[]) {
-    this.synthesizer = synthesizer;
-    this.subcircuitLibrary = synthesizer.subcircuitLibrary;
-    this.EVMPlacements = this.synthesizer.placements;
-    this.variableGenerator = new VariableGenerator(this);
-    this.subcircuitWasmBuffers = subcircuitWasmBuffers;
-  }
-
-  public getArtifacts(): CircuitArtifacts {
-    if (
-      this.variableGenerator.placementVariables === undefined ||
-      this.variableGenerator.publicInstance === undefined ||
-      this.variableGenerator.publicInstanceDescription === undefined ||
-      this.permutationGenerator?.permutation === undefined
-    ) {
-      throw new Error('Circuit artifacts are not generated yet.');
+export const extractPublicProjection = (
+  placementVariables: PlacementVariables,
+  synthesizer: SynthesizerInterface,
+): Readonly<{
+  publicInstance: PublicInstance;
+  publicInstanceDescription: PublicInstanceDescription;
+}> => {
+  const { setupParams, subcircuitInfo } = synthesizer.subcircuitLibrary.data;
+  const infoById = new Map(subcircuitInfo.map(info => [info.id, info]));
+  const phaseValues = new Map<string, `0x${string}`[]>();
+  const phaseDescriptions = new Map<string, string[]>();
+  for (const phase of setupParams.publicWirePhases) {
+    if (phaseValues.has(phase.name)) throw new Error(`Public phase ${phase.name} is duplicated`);
+    const values: `0x${string}`[] = [];
+    const descriptions: string[] = [];
+    for (const subcircuitId of phase.subcircuitIds) {
+      const info = infoById.get(subcircuitId);
+      if (info === undefined || info.publicPhase !== phase.name || info.Public_idx[1] === 0) {
+        throw new Error(`Public phase ${phase.name} has invalid subcircuit ${subcircuitId}`);
+      }
+      const placements = placementVariables.filter(entry => entry.subcircuitId === subcircuitId);
+      if (placements.length !== 1) {
+        throw new Error(`Public subcircuit ${subcircuitId} must have exactly one runtime placement`);
+      }
+      const placement = placements[0]!;
+      const [start, count] = info.Public_idx;
+      for (let localWire = start; localWire < start + count; localWire++) {
+        const value = placement.variables[localWire];
+        const description = placement.instanceList[localWire];
+        if (value === undefined || description === undefined) {
+          throw new Error('Public wire metadata does not resolve to a placement variable');
+        }
+        values.push(addHexPrefix(value));
+        descriptions.push(description);
+      }
     }
-
-    return {
-      placementVariables: this.variableGenerator.placementVariables,
-      publicInstance: this.variableGenerator.publicInstance,
-      publicInstanceDescription: this.variableGenerator.publicInstanceDescription,
-      permutation: this.permutationGenerator.permutation,
-    };
+    phaseValues.set(phase.name, values);
+    phaseDescriptions.set(phase.name, descriptions);
   }
+  const requiredPhaseNames = ['user-output', 'user-input', 'block-input', 'function-input'] as const;
+  if (
+    phaseValues.size !== requiredPhaseNames.length
+    || requiredPhaseNames.some(name => !phaseValues.has(name))
+  ) {
+    throw new Error('Public phase metadata does not match the synthesizer output contract');
+  }
+  const valuesFor = (name: typeof requiredPhaseNames[number]) => phaseValues.get(name)!;
+  const descriptionsFor = (name: typeof requiredPhaseNames[number]) => phaseDescriptions.get(name)!;
+  const freePublicCount = setupParams.publicWirePhases
+    .filter(phase => phase.region === 'free')
+    .reduce(
+      (count, phase) =>
+        count + valuesFor(phase.name as typeof requiredPhaseNames[number]).length,
+      0,
+    );
+  const freePublicCapacity = 2 ** Math.ceil(Math.log2(Math.max(1, freePublicCount)));
+  const freePublicPadding = freePublicCapacity - freePublicCount;
+  return {
+    publicInstance: {
+      a_pub_user: [...valuesFor('user-output'), ...valuesFor('user-input')],
+      a_pub_block: [
+        ...valuesFor('block-input'),
+        ...Array<`0x${string}`>(freePublicPadding).fill('0x00'),
+      ],
+      a_pub_function: valuesFor('function-input'),
+    },
+    publicInstanceDescription: {
+      a_pub_user_description: [
+        ...descriptionsFor('user-output'),
+        ...descriptionsFor('user-input'),
+      ],
+      a_pub_block_description: [
+        ...descriptionsFor('block-input'),
+        ...Array<string>(freePublicPadding).fill(''),
+      ],
+      a_pub_function_description: descriptionsFor('function-input'),
+    },
+  };
+};
 
-  // public async writeCircuit(
-  //   pathToWrite: string,
-  //   // writeToFS: boolean = true,
-  // ): Promise<Permutation> {
-  //   this.pathToWrite = pathToWrite;
-  //   const placementRefactor = new VariableGenerator(this);
-  //   const refactoriedPlacements = placementRefactor.refactor();
-  //   const permutation = new Permutation(refactoriedPlacements, _path);
-  //   permutation.placementVariables = await permutation.outputPlacementVariables(
-  //     refactoriedPlacements,
-  //     _path,
-  //   );
-  //   permutation.outputPermutation(_path);
-  //   return permutation;
-  // }
-
-  // const Instance = {
-  //         a_pub,
-  //       };
-
-  //       const placementVariablesJson = `${JSON.stringify(placementVariables, null, 2)}`;
-  //       const instanceJson = `${JSON.stringify(Instance, null, 2)}`;
-  //       const filePath1 =
-  //         _path === undefined
-  //           ? path.resolve(
-  //               appRootPath.path,
-  //               'examples/outputs/placementVariables.json',
-  //             )
-  //           : path.resolve(_path!, 'placementVariables.json');
-  //       const filePath2 =
-  //         _path === undefined
-  //           ? path.resolve(appRootPath.path, 'examples/outputs/instance.json')
-  //           : path.resolve(_path!, 'instance.json');
-  //       const files = [placementVariablesJson, instanceJson];
-  //       const filePaths = [filePath1, filePath2];
-  //       for (const [idx, path_i] of filePaths.entries()) {
-  //         const dir = path.dirname(path_i);
-  //         if (!fs.existsSync(dir)) {
-  //           fs.mkdirSync(dir, { recursive: true });
-  //         }
-  //         try {
-  //           fs.writeFileSync(path_i, files[idx], 'utf-8');
-  //           console.log(`Synthesizer: Success in writing '${path_i}'.`);
-  //         } catch (error) {
-  //           throw new Error(`Synthesizer: Failure in writing '${path_i}'.`);
-  //         }
-  //       }
-  //       return placementVariables;
-
-  // outputPermutation(_path?: string) {
-  //     this._validatePermutation();
-  //     const jsonContent = `${JSON.stringify(this.permutation, null, 2)}`;
-  //     const filePath =
-  //       _path === undefined
-  //         ? path.resolve(appRootPath.path, 'examples/outputs/permutation.json')
-  //         : path.resolve(_path!, 'permutation.json');
-  //     const dir = path.dirname(filePath);
-  //     if (!fs.existsSync(dir)) {
-  //       fs.mkdirSync(dir, { recursive: true });
-  //     }
-  //     try {
-  //       fs.writeFileSync(filePath, jsonContent, 'utf-8');
-  //       console.log(
-  //         `Synthesizer: Permutation rule is generated in '${filePath}'.`,
-  //       );
-  //     } catch (error) {
-  //       throw new Error(`Synthesizer: Failure in writing "permutation.json".`);
-  //     }
-  //   }
+export async function createCircuitGenerator(synthesizer: SynthesizerInterface): Promise<CircuitGenerationResult> {
+  const variableGeneration = await new VariableGenerator(
+    synthesizer,
+    synthesizer.subcircuitLibrary,
+  ).generate();
+  const publicProjection = extractPublicProjection(
+    variableGeneration.placementVariables,
+    synthesizer,
+  );
+  const permutation = new PermutationGenerator(
+    variableGeneration.circuitPlacements,
+    variableGeneration.placementVariables,
+    synthesizer.subcircuitLibrary,
+  ).permutation;
+  const selector = derivePlacementSelector(
+    variableGeneration.circuitPlacements,
+    variableGeneration.placementVariables,
+    synthesizer.subcircuitLibrary,
+  );
+  return {
+    placements: variableGeneration.circuitPlacements,
+    placementVariables: variableGeneration.placementVariables,
+    selector,
+    ...publicProjection,
+    permutation,
+  };
 }

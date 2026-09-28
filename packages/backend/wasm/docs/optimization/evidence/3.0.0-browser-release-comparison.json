@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Browser proof-time comparison for the 3.0.0 release notes.",
+  "workload": {
+    "name": "private-state transferNotes1To2",
+    "description": "Transfers one private note into two output notes."
+  },
+  "host": {
+    "cpu": "Apple M4 Pro",
+    "logicalCpus": 14,
+    "memoryBytes": 51539607552,
+    "os": "macOS 26.5.2 (25F84)",
+    "architecture": "arm64"
+  },
+  "toolchain": {
+    "node": "24.20.0",
+    "npm": "11.19.0",
+    "chromium": "149.0.7827.55",
+    "bundle": "ES2022, esbuild minified"
+  },
+  "baseline": {
+    "release": "2.1.5",
+    "sourceRevision": "d491aa434",
+    "package": "@tokamak-zk-evm/snark-browser-compat@2.1.5",
+    "integrity": "sha512-TE9YsgtoRTZbCfbCJ8zLkVS5XGcr49yAIZrAQWCI9jtJAVWJzMsFbvM9LY4p6uoGflPIktYGBKbMZ5P/A++BbQ==",
+    "inputAndCrs": "The published package's compatible transferNotes1To2 inputs and public CRS.",
+    "sampleIsolation": "A fresh browser page for each first-proof sample in one headless Chromium invocation.",
+    "samples": [
+      { "sample": 1, "proveMilliseconds": 126973.10000002384, "proofBytes": 2328, "matchingBrowserVerifierAccepted": true },
+      { "sample": 2, "proveMilliseconds": 127191.19999992847, "proofBytes": 2328, "matchingBrowserVerifierAccepted": true },
+      { "sample": 3, "proveMilliseconds": 126405.69999992847, "proofBytes": 2328, "matchingBrowserVerifierAccepted": true },
+      { "sample": 4, "proveMilliseconds": 126295.79999995232, "proofBytes": 2328, "matchingBrowserVerifierAccepted": true },
+      { "sample": 5, "proveMilliseconds": 126718.60000002384, "proofBytes": 2328, "matchingBrowserVerifierAccepted": true }
+    ],
+    "meanSeconds": 126.71688,
+    "sampleStandardDeviationSeconds": 0.375757
+  },
+  "candidate": {
+    "sourceRevision": "01199f7efd8bc02d2303309de897e2da4c7b6d7d",
+    "inputAndCrs": {
+      "status": "Local development artifacts from the current end-to-end run; they are performance inputs, not a release CRS.",
+      "synthesizerSha256": {
+        "instance": "cc287240f32fdeb9764565156cb60c2e453394e51d1fc1d59e59e7a444bd89f7",
+        "permutation": "5493647b1817eb95a00901a23d6b24ee5077aa8affa5d4de87c75681fe413125",
+        "placementVariables": "750d0dd659c0f416109b3aff5f5bf5472a0ae07819686ba271fb5604e9de9bf9",
+        "selector": "09f767b839919b82b9c67f48ab486be7d1892ca10e0ba8171a12c9fef619b528"
+      },
+      "crsProvenance": "sha256:e80eacbefdf9b9946203645391c27532afe1e540ade9cf94b3b06e1c5d1f85af"
+    },
+    "sampleIsolation": "A new headless Chromium browser instance and a fresh minified ES2022 bundle for each first-proof sample.",
+    "samples": [
+      { "sample": 1, "proveMilliseconds": 18301.700000047684, "proofBytes": 1184, "matchingBrowserVerifierAccepted": true, "nativeReleaseVerifierAccepted": true },
+      { "sample": 2, "proveMilliseconds": 18421.62000000477, "proofBytes": 1184, "matchingBrowserVerifierAccepted": true, "nativeReleaseVerifierAccepted": true },
+      { "sample": 3, "proveMilliseconds": 18545.149999976157, "proofBytes": 1184, "matchingBrowserVerifierAccepted": true, "nativeReleaseVerifierAccepted": true },
+      { "sample": 4, "proveMilliseconds": 19486.110000014307, "proofBytes": 1184, "matchingBrowserVerifierAccepted": true, "nativeReleaseVerifierAccepted": true },
+      { "sample": 5, "proveMilliseconds": 19304.03499996662, "proofBytes": 1184, "matchingBrowserVerifierAccepted": true, "nativeReleaseVerifierAccepted": true }
+    ],
+    "meanSeconds": 18.811723,
+    "sampleStandardDeviationSeconds": 0.543262
+  },
+  "derived": {
+    "absoluteDecreaseSeconds": 107.905157,
+    "percentageDecrease": 85.154525,
+    "speedup": 6.736059
+  },
+  "limits": [
+    "The timer begins immediately before prove and excludes installation, preprocess, verification, browser startup, and artifact loading.",
+    "The baseline is the immutable published package; the unpublished candidate is a source bundle using local development inputs and CRS. This is performance evidence, not release admission evidence.",
+    "The baseline retains fresh pages in one browser process while the candidate uses a fresh browser process. The measured timer excludes that process startup, but the isolation difference remains part of the experiment record.",
+    "These observations are for one host and workload and are not portable performance guarantees."
+  ]
+}

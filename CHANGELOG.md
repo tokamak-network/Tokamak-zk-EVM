@@ -6,7 +6,395 @@ The repository uses a synchronized release version for the CLI, subcircuit libra
 
 The format is based on Keep a Changelog.
 
-## Unreleased
+Release-entry dates are the dates on which version-bump pull requests are prepared offline and may differ from GitHub pull-request creation, merge, and npm publication dates.
+
+## [3.0.1] - 2026-09-27
+
+### Compatibility
+
+- The subcircuit library retains the 3.0.0 circuit artifacts. Their CRS source
+  digest is unchanged, so this patch continues to use the existing 3.0 CRS.
+
+### Added
+
+- MPC operators can verify a phase-2 contribution transcript independently
+  before finalizing CRS. The command reads the recorded library version and
+  does not create keys or publish artifacts.
+
+### Fixed
+
+- The CLI now recognizes the public Google Drive listing format during
+  `--install`. Previously, a valid hexadecimal escape in the listing could
+  prevent discovery of the CRS before installation began.
+- The standalone Node Synthesizer command now starts from its published
+  package and writes outputs in the invoking project. Its CommonJS build
+  previously failed before reading transaction inputs.
+
+### Documentation
+
+- The CLI and Synthesizer guides now use the supported private-state note
+  transfer example instead of the retired L2 state-channel example.
+
+## [3.0.0] - 2026-09-23
+
+### Protocol Changes
+
+- The proof statement now separates transaction input, block context, static
+  EVM input, committed log output, initial storage reads, and final storage
+  writes. This replaces the former generic public-input and public-output
+  boundary and makes each value's protocol role explicit.
+- Transaction authorization now uses the signed channel transaction index as
+  the public transaction identity instead of the Ethereum account nonce. The
+  verified transaction origin, target contract, and function selector are
+  bound to the EVM execution represented by the proof.
+- Storage membership and root transitions are no longer proved inside the EVM
+  circuit. The Tokamak zk-EVM proof exposes the first read and final committed
+  write for each accessed storage location, while the surrounding bridge or
+  orchestration protocol verifies the separate storage proof and binds the two
+  proof statements together.
+- Proof output now represents committed execution only. Logs from reverted
+  child calls are excluded, and a reverted or exceptionally halted top-level
+  transaction does not produce a synthesizable transaction proof.
+- Supported contract calls must retain one fixed EVM execution and circuit
+  topology throughout the application's accepted input and state domain. Use
+  the
+  [Synthesizer transaction-support guide](./packages/frontend/synthesizer/README.md#transaction-support)
+  and its topology matrix before relying on a contract function.
+
+### Compatibility and Migration
+
+- Upgrade the CLI, subcircuit library, Node and Web Synthesizers,
+  browser-compatible SNARK package, native backend, and CRS as one synchronized
+  compatibility set. The `2.1.5` circuit artifacts, generated metadata, browser
+  binaries, and CRS are not compatible with the 3.0.0 release line.
+- Regenerate transaction snapshots with `tokamak-l2js` `0.2.0`, rebuild the
+  subcircuit library artifacts, generate a matching CRS, and run
+  `tokamak-cli --install` again after upgrading. Do not combine artifacts or
+  packages from the two release lines.
+- Integrations that read `instance.json` or describe public inputs must use the
+  generated public-section and logical-interface metadata from this release.
+  The former `bufferPubIn` and `bufferPubOut` positions are no longer valid.
+- Node Synthesizer callers must replace the exported `CircuitGenerator` class
+  or `createCircuitGenerator(synthesizer, wasmBuffers)` call with
+  `await createCircuitGenerator(synthesizer)`. The factory no longer accepts
+  WASM buffers and returns a `CircuitGenerationResult` containing placements
+  and circuit artifacts directly.
+- Native trusted setup now emits `tau_sequence.rkyv`, `prover_keys.rkyv`,
+  `preprocess_keys.rkyv`, and `verifier_keys.rkyv` instead of one monolithic
+  CRS archive. Prove combines the reusable tau sequence with prover-only keys;
+  preprocess consumes its dedicated preprocess keys; and online verification
+  uses verifier-only keys. The JSON CRS projection and monolithic browser CRS
+  binaries are retired; browser integrations convert the four-file directory
+  into the existing manifest-plus-chunk interface.
+
+### High-Level Implementation Summary
+
+#### Compatibility Improvements
+
+- Producers now publish versioned logical-interface, public-section, binary
+  artifact, and provenance contracts. Consumers validate those contracts and
+  the synchronized package identities before synthesis, proving, or
+  verification.
+- Every package that consumes TokamakL2JS now uses exactly version `0.2.0`, and
+  the signature circuit derives its private-message shape from that version's
+  transaction specification.
+
+#### Implementation Policy Maintenance
+
+- Development builds consume local circuit output, while production builds
+  consume the synchronized published library. Optimization settings do not
+  change the selected artifact origin.
+- Release and maintainer-side subcircuit-library builds require Circom `2.2.3`.
+- Production CRS artifacts require canonical provenance and matching artifact
+  hashes. Runtime and CRS updates are staged before activation so a failed
+  update preserves the previous working generation.
+- This repository maintains its publication-document candidates under explicit
+  `publication` paths. Tonigma-docs independently decides which candidates to
+  index; package READMEs remain package entry points.
+
+#### Bug Fixes
+
+- Corrected full-width arithmetic, shift, address, storage, and byte-sized
+  memory behavior across the circuit library and Synthesizer.
+- Corrected nested-call calldata ownership, dynamic memory views, committed-log
+  rollback, storage read/write tracking, and failed top-level transaction
+  handling.
+- Corrected transaction-signature composition and canonical point handling so
+  the verified identity and call target are routed consistently into EVM
+  execution.
+
+#### Validation Logic Strengthening
+
+- Strengthened arithmetic, exponentiation, division, comparison, shift, and
+  signature constraints and expanded composition-level topology checks.
+- Native and browser runtimes now reject malformed or incompatible scalars,
+  points, proofs, CRS data, generated metadata, and binary artifacts at their
+  input boundaries.
+- Release checks now validate packaged runtimes, dependency identities,
+  producer contracts, CRS provenance, and representative native/browser proof
+  interoperability before publication.
+
+### Historical Pre-Normalized Circuit Snapshot
+
+The values below are retained as a pre-normalized development snapshot; they
+do not describe the current protocol. The current 3.0.0 library uses
+`n = 1024`, `m = 2048`, `m_b = 512`, `t = 64`, and `s = 256`. Its active
+domains are `n × s` for constraints and `m_b × s` for connections; the retired
+aggregate interface-width and global-wire layout are not part of the current
+protocol.
+
+| Generated catalog metric | `2.1.5` | Pre-normalized candidate | Change |
+| --- | ---: | ---: | ---: |
+| Compiled and declared subcircuit types (`s_D`) | 14 | 44 | +30 (+214.3%) |
+| Sum of constraints across one instance of every distinct type | 24,275 | 23,667 | -608 (-2.5%) |
+| Sum of R1CS wires across one instance of every distinct type | 25,893 | 23,762 | -2,131 (-8.2%) |
+| Largest single-subcircuit constraint count | 3,936 | 1,024 | -2,912 (-74.0%) |
+| Maximum placements (`s_max`) | 256 | 256 | Unchanged |
+| Setup constraint-domain parameter (`n`) | 4,096 | 1,024 | -3,072 (-75.0%) |
+| Total generated matrix dimension (`m_D`) | 26,591 | 24,079 | -2,512 (-9.4%) |
+| Total generated wire-domain boundary (`l_D`) | 4,824 | 1,420 | -3,404 (-70.6%) |
+| Constraint grid size (`n × s_max`) | 1,048,576 | 262,144 | -786,432 (-75.0%) |
+
+The public-wire boundaries and declared static buffer capacities changed as
+follows. Capacities are physical field wires, not logical record counts.
+
+| Boundary or capacity | `2.1.5` | Current | Change |
+| --- | ---: | ---: | ---: |
+| Free public-wire boundary (`l_free`) | 128 | 256 | +128 (+100.0%) |
+| User-output boundary (`l_user_out`) | 65 | 130 | +65 (+100.0%) |
+| User-input boundary (`l_user`) | 85 | 134 | +49 (+57.6%) |
+| Final public boundary (`l`) | 728 | 396 | -332 (-45.6%) |
+| Legacy public-output buffer capacity (`nPubOut`) | 65 wires | Removed | Removed |
+| Legacy public-input buffer capacity (`nPubIn`) | 20 wires | Removed | Removed |
+| Transaction input capacity (`nTxIn`) | Not separate | 4 wires | Added |
+| Block input capacity | 24 wires | 24 wires | Unchanged |
+| Fixed EVM input capacity (`nEVMIn`) | 600 wires | 140 wires | -460 (-76.7%) |
+| Private input capacity (`nPrvIn`) | 1,060 wires | 50 wires | -1,010 (-95.3%) |
+| Committed log capacity (`nLogOut`) | Not present | 50 wires | Added |
+| Initial storage-read capacity (`nStorageLoad`) | Not present | 50 wires | Added |
+| Final storage-write capacity (`nStorageStore`) | Not present | 30 wires | Added |
+
+The pre-normalized candidate's named public buffers account for 298 non-padding wires within the
+396-wire public boundary. The remaining 98 wires are free-boundary layout
+padding. In `2.1.5`, the named public buffers accounted for 709 of 728 public
+wires, leaving 19 padding wires.
+
+Each storage record contains three 256-bit values—address, key, and value—and
+therefore occupies six field wires. The 50-wire initial-read buffer supports
+eight complete records plus two padding wires; the 30-wire final-write buffer
+supports five complete records. The 50-wire log buffer holds at most 25
+256-bit topic or data elements. A log uses a variable number of those elements,
+so this is not a 25-log capacity.
+
+The pre-normalized candidate's public sections end at `l_log_out = 50`,
+`l_storage_store = 80`, `l_storage_load = 130`, `l_tx_in = 134`,
+`l_block_in = 158`, and `l_evm_in = 396`. The current signature circuit uses
+`nPrivateMessageInputs = 29`, `nPoseidonInputs = 2`, and a Poseidon batch size
+of `nPoseidonBatch = 4`; the message-input count is obtained from the
+synchronized TokamakL2JS specification. The former Merkle depth of 36
+(`2^36` leaves), accumulation batch of 32, Jubjub exponentiation batch of 128,
+and EVM exponentiation batch of 32 were removed rather than replaced by new
+capacity parameters.
+
+### Proof Generation Comparison
+
+The private-state dapp's `transferNotes1To2` operation was used for the
+release-line browser comparison. It transfers one private note into two output
+notes. Timers cover `prove` only: installation, preprocessing, verification,
+loading, and browser startup are excluded. Each reported browser proof was
+accepted by its matching browser verifier; every current-candidate proof was
+also accepted by the native release verifier.
+
+| Execution path | Published `2.1.5` | Current 3.0 candidate | Absolute decrease | Decrease | Speedup |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Browser WASM, minified ES2022 bundle | 126.717 s | 18.812 s | 107.905 s | 85.2% | 6.74x |
+| Native Rust, Cargo release profile | No verified 2.1.5 baseline | Not reported | — | — | — |
+
+The browser rows are five-sample means on an Apple M4 Pro with Node 24.20.0,
+npm 11.19.0, and Chromium 149.0.7827.55. The 2.1.5 row uses the immutable
+published `@tokamak-zk-evm/snark-browser-compat@2.1.5` package. The current
+candidate uses the same workload with its matching local development inputs
+and CRS; it is performance evidence, not release-admission evidence.
+
+A quantitative Rust comparison is intentionally omitted. Neither the exact
+2.1.5 source revision nor its published CLI preserves an immutable Cargo lock
+or release binary, so an unlocked rebuild would not identify the released
+native dependency graph. The former comparison against a non-release branch
+has been removed rather than presented as a 2.1.5 baseline.
+
+The observed browser improvement is consistent with the documented reductions
+in circuit size and interface boundaries. It does not assign every saved second
+to an individual implementation change. Full samples, package identity,
+input/CRS identities, method, and limitations are in the
+[browser release-comparison evidence](./packages/backend/wasm/docs/optimization/evidence/3.0.0-browser-release-comparison.json).
+
+### Subcircuit Library
+
+- Rebuilt the generated catalog around the revised transaction, EVM, memory,
+  log, and storage boundaries. The package now publishes the logical wire
+  interfaces and buffer directions consumed by downstream packages.
+- Removed in-circuit Merkle-tree membership and root-transition circuits,
+  obsolete public-buffer layouts, and superseded operation and signature
+  wrappers. Storage proof verification is now an external protocol
+  responsibility.
+- Pinned `tokamak-l2js` to `0.2.0` and regenerated the 44-type optimized
+  catalog. Every generated type is at or below 1,024 constraints.
+
+### Synthesizer Packages
+
+- Node and Web now consume the library's published interfaces, buffer
+  directions, and exact `tokamak-l2js` `0.2.0` transaction contract. They
+  reject incompatible library artifacts before synthesis.
+- Updated circuit generation for the revised transaction signature, EVM
+  operations, memory views, committed logs, and public storage records.
+- Removed the public `CircuitGenerator` class export. Use the one-argument
+  `createCircuitGenerator()` factory and its direct `CircuitGenerationResult`
+  as described in the migration section.
+- Consolidated validation around maintained private-state topology scenarios
+  and removed obsolete runtime, Merkle, duplicate-memory, and stale ERC20
+  development paths.
+
+### CLI
+
+- The CLI now installs and runs only a backend runtime whose package, library,
+  and compatibility identities match the installed CLI release line.
+- Added `tokamak-cli --doctor` to check the installed runtime and report the
+  identities of its `preprocess`, `prove`, and `verify` binaries.
+- Native, Docker, CRS, preprocess, prove, and verify updates are staged before
+  activation. A failed operation preserves the previous working runtime or
+  output generation, and Linux can use the installed native fallback when its
+  Docker runtime is unavailable.
+- Improved backend diagnostics and recovery guidance while keeping
+  machine-readable backend results internal to the CLI integration.
+- Release checks now validate the packaged backend runtime and its contracts
+  before the CLI is published.
+
+### Native Backend and CRS Operations
+
+- Backend builds now distinguish local development circuit output from the
+  matching published production snapshot.
+- Final CRS artifacts carry canonical provenance covering backend
+  compatibility, library identity and origin, and final artifact hashes.
+  Development setup output remains usable locally but is not accepted as a
+  production CRS artifact.
+- CRS generation, publication preparation, and activation use staged
+  generations and preserve the previous active CRS on failure.
+- Native preprocess, prove, and verify now reject malformed frontend scalars,
+  points, and proof artifacts at their input boundary and return actionable
+  workflow errors instead of continuing with invalid decoded data.
+
+### Browser-Compatible SNARK
+
+- Browser development builds use local library output; production builds use
+  the synchronized published snapshot. Both require an explicit final CRS
+  source and matching provenance during generation.
+- `convertCrs()` now requires the matching canonical provenance document as its
+  second argument and validates it before producing named prover, preprocess,
+  and verifier CRS binaries.
+- Browser converters and runtimes now use the producer-defined binary artifact
+  contract for CRS, instance, witness, permutation, preprocess, and proof
+  inputs. Malformed or mismatched binary artifacts are rejected before proving
+  or verification.
+- Release fixtures validate browser preprocessing against native output and
+  verify both native-generated and browser-generated proofs with the matching
+  CRS.
+
+### Release and Documentation Policy
+
+- Shared version and compatibility contracts now govern the CLI, subcircuit
+  library, both Synthesizers, browser-compatible SNARK package, native backend,
+  and CRS release inputs.
+- Package release checks verify dependency versions, generated contract
+  freshness, source boundaries, and required runtime artifacts.
+- External technical publications now live under package-specific
+  `publication` paths; package READMEs and documentation indexes point to the
+  maintained locations.
+
+## [2.1.5] - 2026-07-31
+
+### Compatibility and Upgrade Notes
+
+- Released the CLI, subcircuit library, synthesizer packages,
+  browser-compatible SNARK package, and native backend as version `2.1.5`.
+- This package-metadata patch does not change public APIs, input schemas,
+  proving algorithms, verification semantics, or the binary format version.
+  Existing `2.1` CRS artifacts remain compatible, so applications do not need
+  a new trusted setup or CRS download.
+- Existing `2.1.4` installations continue to work. Applications adopting
+  `2.1.5` should upgrade the synchronized packages together.
+
+### CLI
+
+- Updated the npm package homepage and issue links to the active GitHub
+  publication repository.
+
+### Package Discovery and Support
+
+- Applied the same homepage and issue-link update to the subcircuit library,
+  Node and Web Synthesizers, and browser-compatible SNARK package.
+- Added `JehyukJang` to every npm package's search metadata while retaining the
+  existing Tokamak Network discovery terms.
+
+## [2.1.4] - 2026-07-31
+
+### Compatibility and Upgrade Notes
+
+- Released the CLI, subcircuit library, synthesizer packages,
+  browser-compatible SNARK package, and native backend as version `2.1.4`.
+  Applications that use more than one Tokamak zk-EVM package should upgrade
+  them together.
+- Kept compatibility with the existing `2.1` backend CRS. This release does
+  not require a new trusted setup or CRS download.
+- Preserved the native proof inputs, proof format, and verification semantics.
+
+### CLI
+
+- Added `tokamak-cli --install --include-prerequisite` for users who want the
+  CLI to detect and install missing native prerequisites on Ubuntu 20.04,
+  Ubuntu 22.04, or macOS.
+- The prerequisite flow shows the planned host changes and requires explicit
+  confirmation before installation. It is unavailable with `--docker`.
+- Fixed repeated macOS installations incorrectly reporting Homebrew-provided
+  CMake or `pkg-config` as missing.
+- Existing CLI commands and uninstall behavior are unchanged.
+
+### Browser-Compatible SNARK (WASM Backend)
+
+- `convertProverCrs()` has been replaced by `convertCrs()`. Update converter
+  calls to read the returned `proverCrs`, `preprocessCrs`, and `verifierCrs`
+  properties.
+- `convertInstance()` now requires `a_pub_function` and includes it as a
+  separate function-instance section. Regenerate instance binaries created
+  with version `2.1.3` before using them with version `2.1.4`.
+- `inspectBinary()` no longer accepts `includeSectionData` and no longer
+  returns section contents as `dataHex`. Applications that need section bytes
+  must retain the original binary and use the reported offsets and lengths.
+- Added browser preprocessing with an independent installation lifecycle and
+  explicit permutation, instance, and preprocess CRS inputs.
+- Added complete Vite examples for preprocessing, proving, and verification,
+  plus Webpack guidance for CRS conversion.
+- Tuned the browser preprocessing default introduced in this release. On the
+  Apple M4 Pro reference system, its three-run Chromium mean decreased from
+  `11.017 s` to `10.942 s` (`0.7%` faster). Every measured output matched the
+  native backend and passed browser verification. This result is a reference
+  measurement, not a performance guarantee for other systems.
+
+### Native Backend
+
+- Five-run benchmarks measured the following end-to-end first-proof
+  improvements from optimizations included in this release. Tests used an
+  Apple M4 Pro CPU backend and an NVIDIA A10 CUDA backend:
+
+  | Measured change | CPU mean | CUDA mean |
+  | --- | ---: | ---: |
+  | Reduced final proof construction work | `39.998 s` → `38.332 s` (`4.2%` faster) | `23.878 s` → `23.683 s` (`0.8%` faster) |
+  | Removed a repeated proof calculation | `38.465 s` → `37.157 s` (`3.4%` faster) | `24.760 s` → `23.758 s` (`4.0%` faster) |
+  | Shared work across related evaluations | `37.805 s` → `37.123 s` (`1.8%` faster) | `23.944 s` → `23.778 s` (`0.7%` faster) |
+  | Reused decoded CRS data during the first proof | `37.869 s` → `37.147 s` (`1.9%` faster) | `24.920 s` → `23.914 s` (`4.0%` faster) |
+
+- These separately measured improvements are not additive. All measured paths
+  used the same release fixture and preserved the supported proof protocol,
+  proof output, and verifier behavior.
 
 ## [2.1.3] - 2026-07-27
 

@@ -3,8 +3,6 @@ include "../../functions/arithmetic.circom";
 include "../128bit/arithmetic.circom";
 include "circomlib/circuits/comparators.circom";
 include "arithmetic_safe.circom";
-// include "circomlib/circuits/gates.circom";
-
 // Each input and output is an 256-bit integer represented by two 128-bit LE limbs; e.g.) in1[0]: lower 128 bits, in1[1]: upper 128 bits
 // Each template here becomes safe only if well-formness of the input and output is guaranteed.
 template Add256_unsafe() {
@@ -18,9 +16,11 @@ template Add256_unsafe() {
 
     // Check the correctness of out[0] and low_add_carry
     in1[0] + in2[0] === out[0] + low_add_carry * FIELD_SIZE;
+    low_add_carry * (low_add_carry - 1) === 0;
 
     // Check the correctenss of out[1] and up_add_carry
     in1[1] + in2[1] + low_add_carry === out[1] + carry * FIELD_SIZE;
+    carry * (carry - 1) === 0;
 }
 
 template Sub256_unsafe() {
@@ -90,6 +90,78 @@ template Mul256_unsafe() {
     out[0] <== l;
     carry[1] <== w + y;
     carry[0] <== z;
+}
+
+// Multiplies two canonical 256-bit words represented as four 64-bit words and
+// returns the product modulo 2^256. The caller must constrain every input word
+// to 64 bits and the selected output limbs to 128 bits.
+template Mul256TruncatedFrom64_unsafe() {
+    var BASE64 = 1 << 64;
+    var BASE128 = 1 << 128;
+
+    signal input in1[4], in2[4];
+    signal output out[2];
+
+    signal product[4][4];
+    for (var i = 0; i < 4; i++) {
+        for (var j = 0; j < 4; j++) {
+            if (i + j < 4) {
+                product[i][j] <== in1[i] * in2[j];
+            } else {
+                product[i][j] <== 0;
+            }
+        }
+    }
+
+    signal rawLow <== product[0][0]
+        + BASE64 * (product[0][1] + product[1][0]);
+    signal carryLow <-- rawLow \ BASE128;
+    out[0] <-- rawLow % BASE128;
+    signal carryLowBits[65] <== Num2Bits(65)(carryLow);
+    rawLow === out[0] + carryLow * BASE128;
+
+    signal rawHigh <== carryLow
+        + product[0][2] + product[1][1] + product[2][0]
+        + BASE64 * (
+            product[0][3] + product[1][2]
+            + product[2][1] + product[3][0]
+        );
+    signal carryHigh <-- rawHigh \ BASE128;
+    out[1] <-- rawHigh % BASE128;
+    signal carryHighBits[66] <== Num2Bits(66)(carryHigh);
+    rawHigh === out[1] + carryHigh * BASE128;
+}
+
+// Squares one canonical 256-bit word represented as four 64-bit words and
+// returns the result modulo 2^256. The caller must constrain every input word
+// to 64 bits and both output limbs to 128 bits.
+template Square256TruncatedFrom64_unsafe() {
+    var BASE64 = 1 << 64;
+    var BASE128 = 1 << 128;
+
+    signal input in[4];
+    signal output out[2];
+
+    signal square00 <== in[0] * in[0];
+    signal product01 <== in[0] * in[1];
+    signal product02 <== in[0] * in[2];
+    signal square11 <== in[1] * in[1];
+    signal product03 <== in[0] * in[3];
+    signal product12 <== in[1] * in[2];
+
+    signal rawLow <== square00 + BASE64 * (2 * product01);
+    signal carryLow <-- rawLow \ BASE128;
+    out[0] <-- rawLow % BASE128;
+    signal carryLowBits[65] <== Num2Bits(65)(carryLow);
+    rawLow === out[0] + carryLow * BASE128;
+
+    signal rawHigh <== carryLow
+        + 2 * product02 + square11
+        + BASE64 * (2 * product03 + 2 * product12);
+    signal carryHigh <-- rawHigh \ BASE128;
+    out[1] <-- rawHigh % BASE128;
+    signal carryHighBits[66] <== Num2Bits(66)(carryHigh);
+    rawHigh === out[1] + carryHigh * BASE128;
 }
 
 template Not256_unsafe() {

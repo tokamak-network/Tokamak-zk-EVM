@@ -1,0 +1,9 @@
+{
+  "command": "npx tsx test/checks/univariate/check-permutation-batching.ts",
+  "elements": 262144,
+  "explicitMappings": 32768,
+  "warmup": "Equality calls excluded; five alternating pairs. Both timings exclude unchanged admission and IFFT; assertions are outside timing.",
+  "controlMs": [111.692875,116.364250,107.805708,108.086292,106.863667],
+  "candidateMs": [14.420209,13.620334,13.509292,13.319541,14.030041],
+  "correctness": "Real permutation helper evaluation/coefficient parity for N=1,2,16,64,262144; identity/inactive slots; duplicate source/target, inactive mapping and invalid coordinate rejection."
+}

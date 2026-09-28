@@ -1,15 +1,9 @@
 #!/usr/bin/env node
 import fs from 'fs/promises';
 import path from 'path';
-import { spawn } from 'child_process';
-import { fileURLToPath } from 'url';
+import { createPrivateStateAnvilFixture, runInheritedCommand } from './private-state-anvil-fixture.ts';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 const packageRoot = path.resolve(process.cwd());
-const repoRoot = path.resolve(packageRoot, '..', '..', '..', '..', '..');
-const privateStateAppDir = path.resolve(repoRoot, 'apps', 'private-state');
-const outputDir = path.resolve(packageRoot, 'tests', 'configs', 'private-state-transfer');
 const participantCount = 4;
 const senderIndexes = [0, 1, 2, 3];
 const defaultInputCount = 1;
@@ -23,6 +17,7 @@ const isSupportedTransferArity = (inputCount: number, outputCount: number) =>
 type ParsedArgs = {
   inputCount: number;
   outputCount: number;
+  outputDir?: string;
 };
 
 const parseArgs = (): ParsedArgs => {
@@ -40,17 +35,20 @@ const parseArgs = (): ParsedArgs => {
         throw new Error(`Missing value for ${current}`);
       }
       index += 1;
-      return Number(next);
+      return next;
     };
 
     switch (current) {
       case '--inputs':
       case '-i':
-        parsed.inputCount = consumeValue();
+        parsed.inputCount = Number(consumeValue());
         break;
       case '--outputs':
       case '-m':
-        parsed.outputCount = consumeValue();
+        parsed.outputCount = Number(consumeValue());
+        break;
+      case '--output-dir':
+        parsed.outputDir = consumeValue();
         break;
       default:
         throw new Error(`Unknown argument: ${current}`);
@@ -60,43 +58,30 @@ const parseArgs = (): ParsedArgs => {
   return parsed;
 };
 
-const runCommand = (command: string, args: string[]) =>
-  new Promise<void>((resolve, reject) => {
-    const child = spawn(command, args, { stdio: 'inherit' });
-    child.on('error', reject);
-    child.on('close', (code) => {
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`${command} exited with code ${code ?? 'unknown'}`));
-      }
-    });
-  });
-
-const buildOutputPath = (inputCount: number, outputCount: number, senderIndex: number) =>
+const buildOutputPath = (outputDir: string, inputCount: number, outputCount: number, senderIndex: number) =>
   path.join(
     outputDir,
     `config-anvil-private-state-transfer-n${inputCount}-m${outputCount}-p${participantCount}-s${senderIndex}.json`,
   );
 
 const main = async () => {
-  const { inputCount, outputCount } = parseArgs();
+  const { inputCount, outputCount, outputDir: requestedOutputDir } = parseArgs();
   if (!isSupportedTransferArity(inputCount, outputCount)) {
     throw new Error('private-state transfer prep only supports N<=4 for To1, N<=3 for To2, and only 1->3 for To3');
   }
-  await fs.rm(outputDir, { recursive: true, force: true });
+  if (requestedOutputDir === undefined) {
+    throw new Error('--output-dir is required for a private-state topology matrix');
+  }
+  const outputDir = path.resolve(requestedOutputDir);
+  const fixture = await createPrivateStateAnvilFixture(packageRoot, `transfer-n${inputCount}-m${outputCount}`);
   await fs.mkdir(outputDir, { recursive: true });
 
-  await runCommand('make', ['-C', privateStateAppDir, 'anvil-stop']);
-  await runCommand('make', ['-C', privateStateAppDir, 'anvil-start']);
-  await runCommand('make', ['-C', privateStateAppDir, 'anvil-bootstrap']);
-
   for (const senderIndex of senderIndexes) {
-    const outputPath = buildOutputPath(inputCount, outputCount, senderIndex);
+    const outputPath = buildOutputPath(outputDir, inputCount, outputCount, senderIndex);
     console.log(
       `[private-state-transfer-config] inputs=${inputCount} outputs=${outputCount} sender=${senderIndex} output=${outputPath}`,
     );
-    await runCommand('tsx', [
+    await runInheritedCommand('tsx', [
       '--tsconfig',
       path.resolve(packageRoot, 'tsconfig.dev.json'),
       path.resolve(packageRoot, 'scripts', 'generate-private-state-transfer-config.ts'),
@@ -110,7 +95,11 @@ const main = async () => {
       String(participantCount),
       '--sender',
       String(senderIndex),
-    ]);
+      '--deployment-manifest',
+      fixture.deploymentManifestPath,
+      '--storage-layout',
+      fixture.storageLayoutPath,
+    ], packageRoot);
   }
 };
 

@@ -1,0 +1,10 @@
+{
+  "command": "npx tsx test/checks/univariate/check-short-convolution.ts",
+  "elements": 262144,
+  "warmup": "Equality calls excluded; five alternating pairs per width, assertions outside timing.",
+  "cases": [
+    {"width": 2, "controlMs": [8.989792, 9.875416, 9.083125, 9.051250, 17.156917], "candidateMs": [7.075667, 7.092333, 7.229500, 6.598416, 11.588292]},
+    {"width": 4, "controlMs": [17.468000, 21.791958, 15.669542, 16.039291, 15.880292], "candidateMs": [12.815917, 12.792792, 12.133958, 12.771875, 12.615375]}
+  ],
+  "correctness": "N=1,2,13,63,64,65,4097,262144; widths 1..4; zero/sparse/nonzero masks; reverse operands; shard halos; empty and oversized input rejection."
+}

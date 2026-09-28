@@ -1,0 +1,10 @@
+{
+  "inputs": [
+    { "name": "selector", "logicalType": { "kind": "uint", "bits": 32 } },
+    { "name": "indexOrShift", "logicalType": { "kind": "uint", "bits": 256 } },
+    { "name": "value", "logicalType": { "kind": "uint", "bits": 256 } }
+  ],
+  "outputs": [
+    { "name": "result", "logicalType": { "kind": "uint", "bits": 256 } }
+  ]
+}

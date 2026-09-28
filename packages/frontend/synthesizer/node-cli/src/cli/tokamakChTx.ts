@@ -3,7 +3,6 @@ import { synthesizeFromSnapshotInput } from '../../../core/src/app.ts';
 import type { BlockInfo } from '../../../core/src/synthesizer.ts';
 import { writeSynthesisOutputJson } from '../io/jsonWriter.ts';
 import { installedSubcircuitLibrary } from '../subcircuit/installedLibrary.ts';
-import { loadSubcircuitWasm } from '../subcircuit/wasmLoader.ts';
 import { readJson } from './utils/node.ts';
 
 export interface TokamakChannelTxFiles {
@@ -22,7 +21,7 @@ export async function runTokamakChannelTxFromFiles(
   outputDir?: string,
   options: TokamakChannelTxOptions = {},
 ): Promise<void> {
-  console.log('🔄 Executing L2 State Channel Transfer...');
+  console.log('🔄 Executing Tokamak L2 transaction...');
   console.log('');
 
   const previousState = readJson<StateSnapshot>(files.previousState);
@@ -40,7 +39,6 @@ export async function runTokamakChannelTxFromFiles(
     blockInfo,
     contractCodes,
     subcircuitLibrary: installedSubcircuitLibrary,
-    wasmBuffers: loadSubcircuitWasm(),
   });
 
   writeSynthesisOutputJson(output, outputDir, {

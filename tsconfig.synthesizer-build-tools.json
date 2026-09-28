@@ -1,0 +1,21 @@
+{
+  "extends": "./config/monorepo-js/tsconfig.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "declaration": false,
+    "declarationMap": false,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": true,
+    "target": "ES2022",
+    "types": ["node"]
+  },
+  "include": [
+    "scripts/check-synthesizer-build-tools.mjs",
+    "scripts/version-contract.mjs",
+    "packages/frontend/synthesizer/scripts/build-metadata.mjs",
+    "packages/frontend/synthesizer/node-cli/scripts/build-package.mjs",
+    "packages/frontend/synthesizer/web-app/scripts/build-package.mjs"
+  ]
+}

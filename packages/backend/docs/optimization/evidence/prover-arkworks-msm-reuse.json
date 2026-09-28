@@ -1,0 +1,1797 @@
+{
+  "measuredAt": "2026-09-11 14:20:35 UTC",
+  "sourceBase": "0cf8a4e41b27bb09cf138f90b61f388dc5f127ed",
+  "profile": "cargo build --locked --release -p prove --features timing --example msm_reuse_benchmark",
+  "host": "Apple M4 Pro",
+  "logicalCpus": 14,
+  "rustc": "1.95.0 (59807616e 2026-04-14) (Homebrew)",
+  "arkworksVersion": "0.5.0",
+  "benchmarkSource": "packages/backend/rust/prove/examples/msm_reuse_benchmark.rs",
+  "benchmarkSourceSha256": "ca456bb58ab8ab9c0576d1a0e950085d58f394cf214883c48f8c98232d512ff1",
+  "binary": "/tmp/tokamak-prover-p12-GTrRdE/target/release/examples/msm_reuse_benchmark",
+  "binarySha256": "1072580802be5e63cb23d7fee7d2ce29305eed4f6ad207c7427d36f04c11aabc",
+  "tauFile": "/tmp/tokamak-setup-compute-mZ3UVZ/accepted-1/tau_sequence.rkyv",
+  "tauSha256": "0731717d278651ef0e0df83a1ad9b097eb111a06346d34c0d2153d196487cd9e",
+  "cases": [
+    [
+      "xi",
+      1024,
+      3,
+      3
+    ],
+    [
+      "xi",
+      262146,
+      3,
+      3
+    ],
+    [
+      "ordinary",
+      262149,
+      4,
+      3
+    ]
+  ],
+  "seed": "0x746f6b616d616b",
+  "method": "One discarded warmup per variant, then three trials in rotating variant order. Cases and MSM calls run sequentially, Rayon default 14 threads. No simultaneous task-owned benchmark/build; normal desktop apps not controlled. Factors 1,2,4 crossed with stock arkworks and test-only unsigned bounded-window Pippenger. Actual CRS bases, seeded distinct random scalar vectors with 0,1,-1 edge scalars. Same scalars across variants/trials.",
+  "timed": "Precompute includes allocation, copying the original bases, repeated doubling and batch normalization. MSM includes scalar conversion/splitting, bucket computation and affine output. Total starts before precompute and ends after sequential MSM results are collected; equality assertions and table destruction are outside timing.",
+  "excluded": "CRS I/O/decoding, input scalar generation and reference correctness oracle. Not whole-prover timing, captured protocol scalars, merged multi-source commitments, proof verification, E2E, CUDA or a long-lived cross-proof cache experiment.",
+  "correctness": "All outputs equal stock arkworks. Separate edge tests cover zero, one, minus one, random scalars, infinity and duplicate bases for all factors and both kernels.",
+  "conclusion": "No production adoption: every precompute candidate loses at the tested 3/4-use workloads. Stock factor 2 reduces warm per-MSM time by about 11% at large counts but not enough to repay precompute. Estimated 27/29 uses to repay is extrapolation, not measured long-lived workload. No claim against all other precomputation algorithms.",
+  "summary": [
+    {
+      "key": "xi/1024/stock/1",
+      "n": 3,
+      "reuse": 3,
+      "meanPrecompute": 1.4e-8,
+      "meanMsm": 0.001686,
+      "meanTotal": 0.005058597333333334,
+      "rangeTotal": [
+        0.005011042,
+        0.005114
+      ]
+    },
+    {
+      "key": "xi/1024/bounded/1",
+      "n": 3,
+      "reuse": 3,
+      "meanPrecompute": 2.8e-8,
+      "meanMsm": 0.0018566203333333334,
+      "meanTotal": 0.005570236333333333,
+      "rangeTotal": [
+        0.005114125,
+        0.006077375
+      ]
+    },
+    {
+      "key": "xi/1024/stock/2",
+      "n": 3,
+      "reuse": 3,
+      "meanPrecompute": 0.003013042,
+      "meanMsm": 0.0018494119999999997,
+      "meanTotal": 0.008561930333333334,
+      "rangeTotal": [
+        0.008356375,
+        0.008700083
+      ]
+    },
+    {
+      "key": "xi/1024/bounded/2",
+      "n": 3,
+      "reuse": 3,
+      "meanPrecompute": 0.0029803750000000004,
+      "meanMsm": 0.0019142130000000003,
+      "meanTotal": 0.008723666666666666,
+      "rangeTotal": [
+        0.008491708,
+        0.009102
+      ]
+    },
+    {
+      "key": "xi/1024/stock/4",
+      "n": 3,
+      "reuse": 3,
+      "meanPrecompute": 0.004950389,
+      "meanMsm": 0.0021149212222222225,
+      "meanTotal": 0.011295861333333332,
+      "rangeTotal": [
+        0.011140917,
+        0.011462583
+      ]
+    },
+    {
+      "key": "xi/1024/bounded/4",
+      "n": 3,
+      "reuse": 3,
+      "meanPrecompute": 0.005008916333333334,
+      "meanMsm": 0.0020511112222222224,
+      "meanTotal": 0.011163125000000001,
+      "rangeTotal": [
+        0.011084542,
+        0.011225375
+      ]
+    },
+    {
+      "key": "xi/262146/stock/1",
+      "n": 3,
+      "reuse": 3,
+      "meanPrecompute": 2.8e-8,
+      "meanMsm": 0.22934764355555556,
+      "meanTotal": 0.6880448056666667,
+      "rangeTotal": [
+        0.6698265,
+        0.71583725
+      ]
+    },
+    {
+      "key": "xi/262146/bounded/1",
+      "n": 3,
+      "reuse": 3,
+      "meanPrecompute": 2.7333333333333337e-8,
+      "meanMsm": 0.24683404633333333,
+      "meanTotal": 0.7405039163333332,
+      "rangeTotal": [
+        0.729252916,
+        0.751761375
+      ]
+    },
+    {
+      "key": "xi/262146/stock/2",
+      "n": 3,
+      "reuse": 3,
+      "meanPrecompute": 0.6791960553333333,
+      "meanMsm": 0.20412475944444447,
+      "meanTotal": 1.2915721806666667,
+      "rangeTotal": [
+        1.276613542,
+        1.3076945
+      ]
+    },
+    {
+      "key": "xi/262146/bounded/2",
+      "n": 3,
+      "reuse": 3,
+      "meanPrecompute": 0.6711977080000001,
+      "meanMsm": 0.22681248622222222,
+      "meanTotal": 1.3516374163333333,
+      "rangeTotal": [
+        1.3483237909999999,
+        1.354408833
+      ]
+    },
+    {
+      "key": "xi/262146/stock/4",
+      "n": 3,
+      "reuse": 3,
+      "meanPrecompute": 1.0273507499999999,
+      "meanMsm": 0.4112879305555555,
+      "meanTotal": 2.2612165,
+      "rangeTotal": [
+        2.25366475,
+        2.269670708
+      ]
+    },
+    {
+      "key": "xi/262146/bounded/4",
+      "n": 3,
+      "reuse": 3,
+      "meanPrecompute": 1.0207427636666668,
+      "meanMsm": 0.44793599077777774,
+      "meanTotal": 2.3645525833333334,
+      "rangeTotal": [
+        2.358792792,
+        2.3706232910000002
+      ]
+    },
+    {
+      "key": "ordinary/262149/stock/1",
+      "n": 3,
+      "reuse": 4,
+      "meanPrecompute": 1.3666666666666668e-8,
+      "meanMsm": 0.22510843050000007,
+      "meanTotal": 0.9004355140000001,
+      "rangeTotal": [
+        0.886818458,
+        0.917087459
+      ]
+    },
+    {
+      "key": "ordinary/262149/bounded/1",
+      "n": 3,
+      "reuse": 4,
+      "meanPrecompute": 1.4e-8,
+      "meanMsm": 0.25757130208333334,
+      "meanTotal": 1.030287139,
+      "rangeTotal": [
+        0.987308459,
+        1.110354208
+      ]
+    },
+    {
+      "key": "ordinary/262149/stock/2",
+      "n": 3,
+      "reuse": 4,
+      "meanPrecompute": 0.6926150416666667,
+      "meanMsm": 0.20047501375,
+      "meanTotal": 1.4945170836666666,
+      "rangeTotal": [
+        1.466287625,
+        1.529751084
+      ]
+    },
+    {
+      "key": "ordinary/262149/bounded/2",
+      "n": 3,
+      "reuse": 4,
+      "meanPrecompute": 0.678228458,
+      "meanMsm": 0.21979055216666665,
+      "meanTotal": 1.5573932773333334,
+      "rangeTotal": [
+        1.533352041,
+        1.586163875
+      ]
+    },
+    {
+      "key": "ordinary/262149/stock/4",
+      "n": 3,
+      "reuse": 4,
+      "meanPrecompute": 1.0785901666666666,
+      "meanMsm": 0.4182739686666666,
+      "meanTotal": 2.7516875693333334,
+      "rangeTotal": [
+        2.6940948750000002,
+        2.8515886249999998
+      ]
+    },
+    {
+      "key": "ordinary/262149/bounded/4",
+      "n": 3,
+      "reuse": 4,
+      "meanPrecompute": 1.026720292,
+      "meanMsm": 0.44706602425,
+      "meanTotal": 2.8149874726666666,
+      "rangeTotal": [
+        2.795163209,
+        2.833982709
+      ]
+    }
+  ],
+  "rows": [
+    {
+      "allPointsEqual": true,
+      "bits": 255,
+      "count": 1024,
+      "edgeCasesPassed": true,
+      "factor": 1,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.001692584,
+        0.001753875,
+        0.001770541
+      ],
+      "precomputeSeconds": 4.2e-8,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 0,
+      "totalSeconds": 0.00521775,
+      "trial": 0,
+      "warmup": true
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 255,
+      "count": 1024,
+      "edgeCasesPassed": true,
+      "factor": 1,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.002099625,
+        0.0018905,
+        0.001622625
+      ],
+      "precomputeSeconds": 0,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 0,
+      "totalSeconds": 0.00561325,
+      "trial": 0,
+      "warmup": true
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 128,
+      "count": 1024,
+      "edgeCasesPassed": true,
+      "factor": 2,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.001992792,
+        0.001937291,
+        0.001866333
+      ],
+      "precomputeSeconds": 0.003271125,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 212992,
+      "totalSeconds": 0.009068584,
+      "trial": 0,
+      "warmup": true
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 128,
+      "count": 1024,
+      "edgeCasesPassed": true,
+      "factor": 2,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.002000375,
+        0.001776833,
+        0.001974416
+      ],
+      "precomputeSeconds": 0.00300175,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 212992,
+      "totalSeconds": 0.008754208,
+      "trial": 0,
+      "warmup": true
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 64,
+      "count": 1024,
+      "edgeCasesPassed": true,
+      "factor": 4,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.002127125,
+        0.002266667,
+        0.002208916
+      ],
+      "precomputeSeconds": 0.004979833,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 425984,
+      "totalSeconds": 0.011583208,
+      "trial": 0,
+      "warmup": true
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 64,
+      "count": 1024,
+      "edgeCasesPassed": true,
+      "factor": 4,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.001999583,
+        0.002049542,
+        0.002027583
+      ],
+      "precomputeSeconds": 0.004902583,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 425984,
+      "totalSeconds": 0.010980125,
+      "trial": 0,
+      "warmup": true
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 255,
+      "count": 1024,
+      "edgeCasesPassed": true,
+      "factor": 1,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.002090084,
+        0.001877292,
+        0.002109708
+      ],
+      "precomputeSeconds": 4.2e-8,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 0,
+      "totalSeconds": 0.006077375,
+      "trial": 1,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 128,
+      "count": 1024,
+      "edgeCasesPassed": true,
+      "factor": 2,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.001868875,
+        0.001738875,
+        0.002071959
+      ],
+      "precomputeSeconds": 0.00301975,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 212992,
+      "totalSeconds": 0.008700083,
+      "trial": 1,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 128,
+      "count": 1024,
+      "edgeCasesPassed": true,
+      "factor": 2,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.001934125,
+        0.001807375,
+        0.001996125
+      ],
+      "precomputeSeconds": 0.002838917,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 212992,
+      "totalSeconds": 0.008577292,
+      "trial": 1,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 64,
+      "count": 1024,
+      "edgeCasesPassed": true,
+      "factor": 4,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.002155667,
+        0.00213875,
+        0.002141291
+      ],
+      "precomputeSeconds": 0.004847792,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 425984,
+      "totalSeconds": 0.011284084,
+      "trial": 1,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 64,
+      "count": 1024,
+      "edgeCasesPassed": true,
+      "factor": 4,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.002036042,
+        0.002076167,
+        0.002030583
+      ],
+      "precomputeSeconds": 0.005081541,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 425984,
+      "totalSeconds": 0.011225375,
+      "trial": 1,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 255,
+      "count": 1024,
+      "edgeCasesPassed": true,
+      "factor": 1,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.001902292,
+        0.001527708,
+        0.001580208
+      ],
+      "precomputeSeconds": 4.2e-8,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 0,
+      "totalSeconds": 0.005011042,
+      "trial": 1,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 128,
+      "count": 1024,
+      "edgeCasesPassed": true,
+      "factor": 2,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.001895208,
+        0.00180575,
+        0.001817917
+      ],
+      "precomputeSeconds": 0.003109792,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 212992,
+      "totalSeconds": 0.008629333,
+      "trial": 2,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 128,
+      "count": 1024,
+      "edgeCasesPassed": true,
+      "factor": 2,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.001916125,
+        0.001770208,
+        0.001794834
+      ],
+      "precomputeSeconds": 0.00300975,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 212992,
+      "totalSeconds": 0.008491708,
+      "trial": 2,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 64,
+      "count": 1024,
+      "edgeCasesPassed": true,
+      "factor": 4,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.0020295,
+        0.0021365,
+        0.002067708
+      ],
+      "precomputeSeconds": 0.0049065,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 425984,
+      "totalSeconds": 0.011140917,
+      "trial": 2,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 64,
+      "count": 1024,
+      "edgeCasesPassed": true,
+      "factor": 4,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.002013667,
+        0.002078667,
+        0.002154291
+      ],
+      "precomputeSeconds": 0.004931875,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 425984,
+      "totalSeconds": 0.011179458,
+      "trial": 2,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 255,
+      "count": 1024,
+      "edgeCasesPassed": true,
+      "factor": 1,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.001614833,
+        0.001856542,
+        0.001578875
+      ],
+      "precomputeSeconds": 0,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 0,
+      "totalSeconds": 0.00505075,
+      "trial": 2,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 255,
+      "count": 1024,
+      "edgeCasesPassed": true,
+      "factor": 1,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.001805791,
+        0.001664917,
+        0.001642916
+      ],
+      "precomputeSeconds": 4.2e-8,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 0,
+      "totalSeconds": 0.005114125,
+      "trial": 2,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 128,
+      "count": 1024,
+      "edgeCasesPassed": true,
+      "factor": 2,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.001882833,
+        0.002156375,
+        0.001969917
+      ],
+      "precomputeSeconds": 0.003092458,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 212992,
+      "totalSeconds": 0.009102,
+      "trial": 3,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 64,
+      "count": 1024,
+      "edgeCasesPassed": true,
+      "factor": 4,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.002003917,
+        0.002239958,
+        0.002121
+      ],
+      "precomputeSeconds": 0.005096875,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 425984,
+      "totalSeconds": 0.011462583,
+      "trial": 3,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 64,
+      "count": 1024,
+      "edgeCasesPassed": true,
+      "factor": 4,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.001925709,
+        0.001991333,
+        0.002153542
+      ],
+      "precomputeSeconds": 0.005013333,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 425984,
+      "totalSeconds": 0.011084542,
+      "trial": 3,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 255,
+      "count": 1024,
+      "edgeCasesPassed": true,
+      "factor": 1,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.001751791,
+        0.001756792,
+        0.001604959
+      ],
+      "precomputeSeconds": 0,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 0,
+      "totalSeconds": 0.005114,
+      "trial": 3,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 255,
+      "count": 1024,
+      "edgeCasesPassed": true,
+      "factor": 1,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.00189825,
+        0.002005291,
+        0.001615334
+      ],
+      "precomputeSeconds": 0,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 0,
+      "totalSeconds": 0.005519209,
+      "trial": 3,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 128,
+      "count": 1024,
+      "edgeCasesPassed": true,
+      "factor": 2,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.001704166,
+        0.001828208,
+        0.00191375
+      ],
+      "precomputeSeconds": 0.002909584,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 212992,
+      "totalSeconds": 0.008356375,
+      "trial": 3,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 255,
+      "count": 262146,
+      "edgeCasesPassed": true,
+      "factor": 1,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.228135625,
+        0.213107541,
+        0.21402425
+      ],
+      "precomputeSeconds": 4.2e-8,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 0,
+      "totalSeconds": 0.655274542,
+      "trial": 0,
+      "warmup": true
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 255,
+      "count": 262146,
+      "edgeCasesPassed": true,
+      "factor": 1,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.244219583,
+        0.242727167,
+        0.245258916
+      ],
+      "precomputeSeconds": 0,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 0,
+      "totalSeconds": 0.732206917,
+      "trial": 0,
+      "warmup": true
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 128,
+      "count": 262146,
+      "edgeCasesPassed": true,
+      "factor": 2,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.205459833,
+        0.201818208,
+        0.197973417
+      ],
+      "precomputeSeconds": 0.690768542,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 54526368,
+      "totalSeconds": 1.296021625,
+      "trial": 0,
+      "warmup": true
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 128,
+      "count": 262146,
+      "edgeCasesPassed": true,
+      "factor": 2,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.226690958,
+        0.23755675,
+        0.223882583
+      ],
+      "precomputeSeconds": 0.669258875,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 54526368,
+      "totalSeconds": 1.357390875,
+      "trial": 0,
+      "warmup": true
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 64,
+      "count": 262146,
+      "edgeCasesPassed": true,
+      "factor": 4,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.416595667,
+        0.411338125,
+        0.406627709
+      ],
+      "precomputeSeconds": 1.044468792,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 109052736,
+      "totalSeconds": 2.279031667,
+      "trial": 0,
+      "warmup": true
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 64,
+      "count": 262146,
+      "edgeCasesPassed": true,
+      "factor": 4,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.445181083,
+        0.453011166,
+        0.441421833
+      ],
+      "precomputeSeconds": 1.01228525,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 109052736,
+      "totalSeconds": 2.3519087499999998,
+      "trial": 0,
+      "warmup": true
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 255,
+      "count": 262146,
+      "edgeCasesPassed": true,
+      "factor": 1,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.236845042,
+        0.246922458,
+        0.245483583
+      ],
+      "precomputeSeconds": 4.1e-8,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 0,
+      "totalSeconds": 0.729252916,
+      "trial": 1,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 128,
+      "count": 262146,
+      "edgeCasesPassed": true,
+      "factor": 2,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.203882917,
+        0.201586917,
+        0.201302792
+      ],
+      "precomputeSeconds": 0.700919916,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 54526368,
+      "totalSeconds": 1.3076945,
+      "trial": 1,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 128,
+      "count": 262146,
+      "edgeCasesPassed": true,
+      "factor": 2,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.225110375,
+        0.226543292,
+        0.227423
+      ],
+      "precomputeSeconds": 0.669245083,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 54526368,
+      "totalSeconds": 1.3483237909999999,
+      "trial": 1,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 64,
+      "count": 262146,
+      "edgeCasesPassed": true,
+      "factor": 4,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.407731875,
+        0.410059834,
+        0.41322975
+      ],
+      "precomputeSeconds": 1.038647333,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 109052736,
+      "totalSeconds": 2.269670708,
+      "trial": 1,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 64,
+      "count": 262146,
+      "edgeCasesPassed": true,
+      "factor": 4,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.448627625,
+        0.452562208,
+        0.448571417
+      ],
+      "precomputeSeconds": 1.020860416,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 109052736,
+      "totalSeconds": 2.3706232910000002,
+      "trial": 1,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 255,
+      "count": 262146,
+      "edgeCasesPassed": true,
+      "factor": 1,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.224215167,
+        0.222017375,
+        0.223592334
+      ],
+      "precomputeSeconds": 4.2e-8,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 0,
+      "totalSeconds": 0.6698265,
+      "trial": 1,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 128,
+      "count": 262146,
+      "edgeCasesPassed": true,
+      "factor": 2,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.201973209,
+        0.198890042,
+        0.222593875
+      ],
+      "precomputeSeconds": 0.666949625,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 54526368,
+      "totalSeconds": 1.2904085,
+      "trial": 2,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 128,
+      "count": 262146,
+      "edgeCasesPassed": true,
+      "factor": 2,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.226059292,
+        0.226778792,
+        0.224142459
+      ],
+      "precomputeSeconds": 0.675196833,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 54526368,
+      "totalSeconds": 1.352179625,
+      "trial": 2,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 64,
+      "count": 262146,
+      "edgeCasesPassed": true,
+      "factor": 4,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.409536542,
+        0.411864375,
+        0.411478333
+      ],
+      "precomputeSeconds": 1.027432875,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 109052736,
+      "totalSeconds": 2.260314042,
+      "trial": 2,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 64,
+      "count": 262146,
+      "edgeCasesPassed": true,
+      "factor": 4,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.447926208,
+        0.44771275,
+        0.444424959
+      ],
+      "precomputeSeconds": 1.024175625,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 109052736,
+      "totalSeconds": 2.364241667,
+      "trial": 2,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 255,
+      "count": 262146,
+      "edgeCasesPassed": true,
+      "factor": 1,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.224561042,
+        0.240914333,
+        0.21299325
+      ],
+      "precomputeSeconds": 0,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 0,
+      "totalSeconds": 0.678470667,
+      "trial": 2,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 255,
+      "count": 262146,
+      "edgeCasesPassed": true,
+      "factor": 1,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.248251959,
+        0.266238625,
+        0.237268958
+      ],
+      "precomputeSeconds": 4.1e-8,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 0,
+      "totalSeconds": 0.751761375,
+      "trial": 2,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 128,
+      "count": 262146,
+      "edgeCasesPassed": true,
+      "factor": 2,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.222310083,
+        0.23766875,
+        0.225276333
+      ],
+      "precomputeSeconds": 0.669151208,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 54526368,
+      "totalSeconds": 1.354408833,
+      "trial": 3,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 64,
+      "count": 262146,
+      "edgeCasesPassed": true,
+      "factor": 4,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.411136208,
+        0.413655083,
+        0.412899375
+      ],
+      "precomputeSeconds": 1.015972042,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 109052736,
+      "totalSeconds": 2.25366475,
+      "trial": 3,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 64,
+      "count": 262146,
+      "edgeCasesPassed": true,
+      "factor": 4,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.442072792,
+        0.453541125,
+        0.445984833
+      ],
+      "precomputeSeconds": 1.01719225,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 109052736,
+      "totalSeconds": 2.358792792,
+      "trial": 3,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 255,
+      "count": 262146,
+      "edgeCasesPassed": true,
+      "factor": 1,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.24909875,
+        0.241436541,
+        0.2253
+      ],
+      "precomputeSeconds": 4.2e-8,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 0,
+      "totalSeconds": 0.71583725,
+      "trial": 3,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 255,
+      "count": 262146,
+      "edgeCasesPassed": true,
+      "factor": 1,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.246241,
+        0.244892959,
+        0.249361833
+      ],
+      "precomputeSeconds": 0,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 0,
+      "totalSeconds": 0.740497458,
+      "trial": 3,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 128,
+      "count": 262146,
+      "edgeCasesPassed": true,
+      "factor": 2,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.200241708,
+        0.202862583,
+        0.203788792
+      ],
+      "precomputeSeconds": 0.669718625,
+      "rayonThreads": 14,
+      "reuse": 3,
+      "source": "xi",
+      "tableBytes": 54526368,
+      "totalSeconds": 1.276613542,
+      "trial": 3,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 255,
+      "count": 262149,
+      "edgeCasesPassed": true,
+      "factor": 1,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.223055792,
+        0.224440875,
+        0.226058625,
+        0.212654292
+      ],
+      "precomputeSeconds": 0,
+      "rayonThreads": 14,
+      "reuse": 4,
+      "source": "ordinary",
+      "tableBytes": 0,
+      "totalSeconds": 0.886210375,
+      "trial": 0,
+      "warmup": true
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 255,
+      "count": 262149,
+      "edgeCasesPassed": true,
+      "factor": 1,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.252436917,
+        0.2478665,
+        0.247661584,
+        0.247053708
+      ],
+      "precomputeSeconds": 0,
+      "rayonThreads": 14,
+      "reuse": 4,
+      "source": "ordinary",
+      "tableBytes": 0,
+      "totalSeconds": 0.995019459,
+      "trial": 0,
+      "warmup": true
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 128,
+      "count": 262149,
+      "edgeCasesPassed": true,
+      "factor": 2,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.2004945,
+        0.198616792,
+        0.2032215,
+        0.199316791
+      ],
+      "precomputeSeconds": 0.661615167,
+      "rayonThreads": 14,
+      "reuse": 4,
+      "source": "ordinary",
+      "tableBytes": 54526992,
+      "totalSeconds": 1.4632660419999999,
+      "trial": 0,
+      "warmup": true
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 128,
+      "count": 262149,
+      "edgeCasesPassed": true,
+      "factor": 2,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.218619459,
+        0.219124792,
+        0.222349834,
+        0.220228709
+      ],
+      "precomputeSeconds": 0.672673542,
+      "rayonThreads": 14,
+      "reuse": 4,
+      "source": "ordinary",
+      "tableBytes": 54526992,
+      "totalSeconds": 1.5529975,
+      "trial": 0,
+      "warmup": true
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 64,
+      "count": 262149,
+      "edgeCasesPassed": true,
+      "factor": 4,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.430175208,
+        0.409114875,
+        0.406579416,
+        0.4081085
+      ],
+      "precomputeSeconds": 1.011645917,
+      "rayonThreads": 14,
+      "reuse": 4,
+      "source": "ordinary",
+      "tableBytes": 109053984,
+      "totalSeconds": 2.6656259589999998,
+      "trial": 0,
+      "warmup": true
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 64,
+      "count": 262149,
+      "edgeCasesPassed": true,
+      "factor": 4,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.444770542,
+        0.444196375,
+        0.448573084,
+        0.448805708
+      ],
+      "precomputeSeconds": 1.027539291,
+      "rayonThreads": 14,
+      "reuse": 4,
+      "source": "ordinary",
+      "tableBytes": 109053984,
+      "totalSeconds": 2.813896625,
+      "trial": 0,
+      "warmup": true
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 255,
+      "count": 262149,
+      "edgeCasesPassed": true,
+      "factor": 1,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.254277667,
+        0.249338291,
+        0.2393835,
+        0.250197375
+      ],
+      "precomputeSeconds": 0,
+      "rayonThreads": 14,
+      "reuse": 4,
+      "source": "ordinary",
+      "tableBytes": 0,
+      "totalSeconds": 0.99319875,
+      "trial": 1,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 128,
+      "count": 262149,
+      "edgeCasesPassed": true,
+      "factor": 2,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.194742208,
+        0.214568667,
+        0.197700541,
+        0.195840333
+      ],
+      "precomputeSeconds": 0.726897125,
+      "rayonThreads": 14,
+      "reuse": 4,
+      "source": "ordinary",
+      "tableBytes": 54526992,
+      "totalSeconds": 1.529751084,
+      "trial": 1,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 128,
+      "count": 262149,
+      "edgeCasesPassed": true,
+      "factor": 2,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.221480292,
+        0.217930667,
+        0.219341875,
+        0.214195875
+      ],
+      "precomputeSeconds": 0.660398666,
+      "rayonThreads": 14,
+      "reuse": 4,
+      "source": "ordinary",
+      "tableBytes": 54526992,
+      "totalSeconds": 1.533352041,
+      "trial": 1,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 64,
+      "count": 262149,
+      "edgeCasesPassed": true,
+      "factor": 4,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.425637542,
+        0.431896125,
+        0.433234542,
+        0.417384041
+      ],
+      "precomputeSeconds": 1.143434708,
+      "rayonThreads": 14,
+      "reuse": 4,
+      "source": "ordinary",
+      "tableBytes": 109053984,
+      "totalSeconds": 2.8515886249999998,
+      "trial": 1,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 64,
+      "count": 262149,
+      "edgeCasesPassed": true,
+      "factor": 4,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.446917458,
+        0.450719125,
+        0.446345417,
+        0.445323166
+      ],
+      "precomputeSeconds": 1.026508667,
+      "rayonThreads": 14,
+      "reuse": 4,
+      "source": "ordinary",
+      "tableBytes": 109053984,
+      "totalSeconds": 2.8158165,
+      "trial": 1,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 255,
+      "count": 262149,
+      "edgeCasesPassed": true,
+      "factor": 1,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.218430959,
+        0.22009575,
+        0.225143292,
+        0.2337285
+      ],
+      "precomputeSeconds": 4.1e-8,
+      "rayonThreads": 14,
+      "reuse": 4,
+      "source": "ordinary",
+      "tableBytes": 0,
+      "totalSeconds": 0.897400625,
+      "trial": 1,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 128,
+      "count": 262149,
+      "edgeCasesPassed": true,
+      "factor": 2,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.201448583,
+        0.201654916,
+        0.204898333,
+        0.20301575
+      ],
+      "precomputeSeconds": 0.676493,
+      "rayonThreads": 14,
+      "reuse": 4,
+      "source": "ordinary",
+      "tableBytes": 54526992,
+      "totalSeconds": 1.487512542,
+      "trial": 2,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 128,
+      "count": 262149,
+      "edgeCasesPassed": true,
+      "factor": 2,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.226761792,
+        0.223368667,
+        0.221811333,
+        0.224617292
+      ],
+      "precomputeSeconds": 0.689602833,
+      "rayonThreads": 14,
+      "reuse": 4,
+      "source": "ordinary",
+      "tableBytes": 54526992,
+      "totalSeconds": 1.586163875,
+      "trial": 2,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 64,
+      "count": 262149,
+      "edgeCasesPassed": true,
+      "factor": 4,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.418424042,
+        0.413601834,
+        0.4211175,
+        0.413380083
+      ],
+      "precomputeSeconds": 1.02756975,
+      "rayonThreads": 14,
+      "reuse": 4,
+      "source": "ordinary",
+      "tableBytes": 109053984,
+      "totalSeconds": 2.6940948750000002,
+      "trial": 2,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 64,
+      "count": 262149,
+      "edgeCasesPassed": true,
+      "factor": 4,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.444066792,
+        0.447603708,
+        0.449349375,
+        0.455595792
+      ],
+      "precomputeSeconds": 1.037365125,
+      "rayonThreads": 14,
+      "reuse": 4,
+      "source": "ordinary",
+      "tableBytes": 109053984,
+      "totalSeconds": 2.833982709,
+      "trial": 2,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 255,
+      "count": 262149,
+      "edgeCasesPassed": true,
+      "factor": 1,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.218733,
+        0.222036583,
+        0.25231625,
+        0.224000208
+      ],
+      "precomputeSeconds": 0,
+      "rayonThreads": 14,
+      "reuse": 4,
+      "source": "ordinary",
+      "tableBytes": 0,
+      "totalSeconds": 0.917087459,
+      "trial": 2,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 255,
+      "count": 262149,
+      "edgeCasesPassed": true,
+      "factor": 1,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.262369,
+        0.248736125,
+        0.318039041,
+        0.281208292
+      ],
+      "precomputeSeconds": 0,
+      "rayonThreads": 14,
+      "reuse": 4,
+      "source": "ordinary",
+      "tableBytes": 0,
+      "totalSeconds": 1.110354208,
+      "trial": 2,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 128,
+      "count": 262149,
+      "edgeCasesPassed": true,
+      "factor": 2,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.218620917,
+        0.218108666,
+        0.217709875,
+        0.213539375
+      ],
+      "precomputeSeconds": 0.684683875,
+      "rayonThreads": 14,
+      "reuse": 4,
+      "source": "ordinary",
+      "tableBytes": 54526992,
+      "totalSeconds": 1.552663916,
+      "trial": 3,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 64,
+      "count": 262149,
+      "edgeCasesPassed": true,
+      "factor": 4,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.415777166,
+        0.408625583,
+        0.405886791,
+        0.414322375
+      ],
+      "precomputeSeconds": 1.064766042,
+      "rayonThreads": 14,
+      "reuse": 4,
+      "source": "ordinary",
+      "tableBytes": 109053984,
+      "totalSeconds": 2.709379208,
+      "trial": 3,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 64,
+      "count": 262149,
+      "edgeCasesPassed": true,
+      "factor": 4,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.444005833,
+        0.44269875,
+        0.449540583,
+        0.442626292
+      ],
+      "precomputeSeconds": 1.016287084,
+      "rayonThreads": 14,
+      "reuse": 4,
+      "source": "ordinary",
+      "tableBytes": 109053984,
+      "totalSeconds": 2.795163209,
+      "trial": 3,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 255,
+      "count": 262149,
+      "edgeCasesPassed": true,
+      "factor": 1,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.231536542,
+        0.217229333,
+        0.221394666,
+        0.216656083
+      ],
+      "precomputeSeconds": 0,
+      "rayonThreads": 14,
+      "reuse": 4,
+      "source": "ordinary",
+      "tableBytes": 0,
+      "totalSeconds": 0.886818458,
+      "trial": 3,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 255,
+      "count": 262149,
+      "edgeCasesPassed": true,
+      "factor": 1,
+      "kernel": "bounded",
+      "msmSeconds": [
+        0.2444,
+        0.240969292,
+        0.25882875,
+        0.243108292
+      ],
+      "precomputeSeconds": 4.2e-8,
+      "rayonThreads": 14,
+      "reuse": 4,
+      "source": "ordinary",
+      "tableBytes": 0,
+      "totalSeconds": 0.987308459,
+      "trial": 3,
+      "warmup": false
+    },
+    {
+      "allPointsEqual": true,
+      "bits": 128,
+      "count": 262149,
+      "edgeCasesPassed": true,
+      "factor": 2,
+      "kernel": "stock",
+      "msmSeconds": [
+        0.200232875,
+        0.1943855,
+        0.1976315,
+        0.199580959
+      ],
+      "precomputeSeconds": 0.674455,
+      "rayonThreads": 14,
+      "reuse": 4,
+      "source": "ordinary",
+      "tableBytes": 54526992,
+      "totalSeconds": 1.466287625,
+      "trial": 3,
+      "warmup": false
+    }
+  ]
+}

@@ -1,3 +1,11 @@
+const path = require("node:path");
+
+function resolveCircomIncludeRoot(packageRoot) {
+  return path.dirname(path.dirname(require.resolve("circomlib/package.json", {
+    paths: [packageRoot],
+  })));
+}
+
 function construct256BitInteger(parts) {
     // Ensure the input array has exactly two elements
     if (parts.length !== 2) {
@@ -183,7 +191,8 @@ function construct256BitInteger(parts) {
     sar256BitInteger,
     signedLessThan256BitInteger,
     getByte,
-    signExtend,
-    signedDivide,
-    signedMod
-  };
+  signExtend,
+  signedDivide,
+  signedMod,
+  resolveCircomIncludeRoot,
+};

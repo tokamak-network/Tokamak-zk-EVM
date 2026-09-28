@@ -10,14 +10,23 @@ RUN apt-get update && apt-get install -y \
     bash \
     build-essential \
     ca-certificates \
-    clang \
     cmake \
     curl \
     git \
-    libclang-dev \
+    gnupg \
+    ninja-build \
     pkg-config \
+    software-properties-common \
     tar \
     unzip \
+    wget \
+    && wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - \
+    && add-apt-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy main" \
+    && apt-get update && apt-get install -y \
+    clang \
+    libclang-dev \
+    lld \
+    lldb \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
@@ -37,13 +46,16 @@ COPY package.json ./
 RUN npm install --omit=dev --ignore-scripts
 
 COPY dist ./dist
-COPY scripts ./scripts
 COPY manifests ./manifests
 COPY vendor ./vendor
 
 RUN test -f dist/cli.js \
+    && test -f dist/prepare-runtime.js \
     && test -f manifests/icicle-v3.8.0.json \
+    && test -f manifests/cmake-v3.27.4.json \
     && test -f vendor/backend/Cargo.toml \
+    && test -f vendor/backend/cli-vendor-product.json \
+    && test -f vendor/backend/versioning/compatibility.rs \
     && chmod -R a+rwx /opt/tokamak-cli
 
 ENTRYPOINT ["node", "/opt/tokamak-cli/dist/cli.js"]

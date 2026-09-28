@@ -1,13 +1,6 @@
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { readFileSync } from 'node:fs';
-import {
-  installedSubcircuitLibraryData,
-} from './installedLibrary.ts';
-import type {
-  SubcircuitInfo,
-  SubcircuitLibraryProvider,
-} from '../../../core/src/subcircuit.ts';
 
 function getBaseURL(): URL {
   if (typeof window !== "undefined") {
@@ -43,31 +36,4 @@ export async function loadSubcircuitWasmBuffer(subcircuitId: number): Promise<Ar
     throw new Error(`Error while reading subcircuit${subcircuitId}.wasm`);
   }
   return Uint8Array.from(buffer).buffer;
-}
-
-export const nodeSubcircuitLibraryProvider: SubcircuitLibraryProvider = {
-  async getData() {
-    return installedSubcircuitLibraryData;
-  },
-  async loadWasm(subcircuitId: number) {
-    return loadSubcircuitWasmBuffer(subcircuitId);
-  },
-};
-
-export function loadSubcircuitWasm(
-  subcircuitInfo: SubcircuitInfo = installedSubcircuitLibraryData.subcircuitInfo,
-): any[] {
-  const witnessCalculatorbuffers: any[] = [];
-  for (const subcircuit of subcircuitInfo) {
-    const id = subcircuit.id;
-    let buffer;
-    const targetWasmPath = path.resolve(wasmDir, `subcircuit${id}.wasm`);
-    try {
-        buffer = readFileSync(targetWasmPath);
-    } catch (err) {
-        throw new Error(`Error while reading subcircuit${id}.wasm`);
-    }
-    witnessCalculatorbuffers[id] = buffer;
-  }
-  return witnessCalculatorbuffers
 }

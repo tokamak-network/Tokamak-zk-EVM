@@ -11,17 +11,7 @@ function x5_f(x) {
 
 // Poseidon255 permutation as a pure function over vars.
 function _Poseidon255_2(inVals) {
-    // For binary
     var nInputs = 2;
-    // var N_P_ARRAY[16] = [
-    //     56, 56, 56, 56,
-    //     57, 57, 57, 57,
-    //     57, 57, 57, 57,
-    //     57, 57, 57, 57
-    // ];
-
-    // var t = nInputs + 1;
-    // var N_P = N_P_ARRAY[nInputs - 1];
     var t = 3;
     var N_P = 56;
     var N_F = 8;

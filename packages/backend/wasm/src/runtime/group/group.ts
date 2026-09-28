@@ -1,0 +1,263 @@
+import type { FfGroup, FfThreadManager } from "../curve/curve.js";
+import { signedG1Msm } from "./signed-msm.js";
+import { concatBytes } from "../bytes.js";
+import { formatHex, parseCanonicalHex } from "../field/field-encoding.js";
+import type { FieldElement, FieldRuntime } from "../field/field-runtime.js";
+
+export type G1Point = Uint8Array;
+
+export type G2Point = Uint8Array;
+
+export const G1_AFFINE_BYTES = 96;
+
+export interface AffinePointJson {
+  readonly x: string;
+  readonly y: string;
+}
+export interface G1Runtime {
+  readonly zero: G1Point;
+  readonly generator: G1Point;
+  parseAffine(value: unknown): G1Point;
+  formatAffine(value: G1Point): AffinePointJson;
+  assertValid(value: Uint8Array): void;
+  toAffine(value: G1Point): G1Point;
+  add(left: G1Point, right: G1Point): G1Point;
+  sub(left: G1Point, right: G1Point): G1Point;
+  neg(value: G1Point): G1Point;
+  eq(left: G1Point, right: G1Point): boolean;
+  isZero(value: G1Point): boolean;
+  mulScalar(point: G1Point, scalar: FieldElement): G1Point;
+  mulAffineScalar(point: G1Point, scalar: FieldElement): G1Point;
+  msmAffine(bases: readonly G1Point[], scalars: readonly FieldElement[]): Promise<G1Point>;
+  msmAffineRaw(bases: Uint8Array, scalars: Uint8Array): Promise<G1Point>;
+}
+export interface G2Runtime {
+  readonly zero: G2Point;
+  readonly generator: G2Point;
+  parseAffine(value: unknown): G2Point;
+  formatAffine(value: G2Point): AffinePointJson;
+  assertValid(value: Uint8Array): void;
+  toAffine(value: G2Point): G2Point;
+  add(left: G2Point, right: G2Point): G2Point;
+  sub(left: G2Point, right: G2Point): G2Point;
+  neg(value: G2Point): G2Point;
+  eq(left: G2Point, right: G2Point): boolean;
+  isZero(value: G2Point): boolean;
+  mulScalar(point: G2Point, scalar: FieldElement): G2Point;
+  msmAffineRaw(bases: Uint8Array, rawScalars: Uint8Array): Promise<G2Point>;
+}
+export function createG1Runtime(group: FfGroup, scalarField: FieldRuntime, tm: FfThreadManager): G1Runtime {
+  return {
+    zero: group.zeroAffine,
+    generator: group.oneAffine,
+    parseAffine(value) {
+      const point = parseAffineJson(value);
+      const x = parseCanonicalHex(point.x);
+      const y = parseCanonicalHex(point.y);
+      if(x === 0n && y === 0n) {
+        return group.zeroAffine;
+      }
+      return group.fromObject([x, y, 1n]);
+    },
+    formatAffine(value) {
+      if(group.isZero(value)) {
+        return {
+          x: formatHex(0n, G1_COORDINATE_BYTES),
+          y: formatHex(0n, G1_COORDINATE_BYTES),
+        };
+      }
+      const [x, y] = group.toObject(group.toAffine(value)) as [
+        bigint,
+        bigint,
+        bigint
+      ];
+      return {
+        x: formatHex(x, G1_COORDINATE_BYTES),
+        y: formatHex(y, G1_COORDINATE_BYTES),
+      };
+    },
+    assertValid(value) {
+      // The identity belongs to the subgroup. ffjavascript's affine scalar
+      // multiplication does not preserve its identity encoding.
+      if(group.isZero(value))
+        return;
+      if(!group.isValid(value) || !group.isZero(group.timesScalar(value, SCALAR_MODULUS))) {
+        throw new Error("Artifact point is not in the prime-order subgroup.");
+      }
+    },
+    toAffine(value) {
+      return group.toAffine(value);
+    },
+    add(left, right) {
+      return group.add(left, right);
+    },
+    sub(left, right) {
+      return group.add(left, group.neg(right));
+    },
+    neg(value) {
+      return group.neg(value);
+    },
+    eq(left, right) {
+      return group.eq(left, right);
+    },
+    isZero(value) {
+      return group.isZero(value);
+    },
+    mulScalar(point, scalar) {
+      return group.timesFr(point, scalar);
+    },
+    mulAffineScalar(point, scalar) {
+      assertG1AffinePoint(point, "G1 affine scalar multiplication point");
+      return group.timesFr(point, scalar);
+    },
+    async msmAffine(bases, scalars) {
+      if(bases.length !== scalars.length) {
+        throw new Error("MSM bases and scalars must have the same length.");
+      }
+      for(let index = 0; index < bases.length; index += 1) {
+        assertG1AffinePoint(bases[index], `G1 MSM base ${index}`);
+      }
+      const rawScalars = scalars.map((scalar) => scalarField.toRawLittleEndian(scalar));
+      return signedG1Msm(group, tm, concatBytes(bases), concatBytes(rawScalars));
+    },
+    async msmAffineRaw(bases, scalars) {
+      if(bases.byteLength % G1_AFFINE_BYTES !== 0) {
+        throw new Error("G1 MSM base buffer must contain whole affine G1 points.");
+      }
+      const count = bases.byteLength / G1_AFFINE_BYTES;
+      if(scalars.byteLength !== count * SCALAR_RAW_BYTES) {
+        throw new Error("G1 MSM scalar buffer length does not match the base count.");
+      }
+      return signedG1Msm(group, tm, bases, scalars);
+    },
+  };
+}
+export function createG2Runtime(group: FfGroup): G2Runtime {
+  return {
+    async msmAffineRaw(bases, scalars) {
+      if(bases.length % 192 !== 0 || scalars.length !== bases.length / 192 * 32)
+        throw new Error("G2 MSM length mismatch.");
+      return bases.length === 0 ? group.zeroAffine : group.multiExpAffine(bases, scalars);
+    },
+    zero: group.zeroAffine,
+    generator: group.oneAffine,
+    parseAffine(value) {
+      const point = parseAffineJson(value);
+      const x = parseG2Coordinate(point.x);
+      const y = parseG2Coordinate(point.y);
+      if(x[0] === 0n && x[1] === 0n && y[0] === 0n && y[1] === 0n) {
+        return group.zeroAffine;
+      }
+      return group.fromObject([x, y, [1n, 0n]]);
+    },
+    formatAffine(value) {
+      if(group.isZero(value)) {
+        return {
+          x: formatHex(0n, G2_COORDINATE_BYTES),
+          y: formatHex(0n, G2_COORDINATE_BYTES),
+        };
+      }
+      const [x, y] = group.toObject(group.toAffine(value)) as [
+        [
+          bigint,
+          bigint
+        ],
+        [
+          bigint,
+          bigint
+        ],
+        [
+          bigint,
+          bigint
+        ]
+      ];
+      return {
+        x: formatG2Coordinate(x),
+        y: formatG2Coordinate(y),
+      };
+    },
+    assertValid(value) {
+      // The identity belongs to the subgroup. ffjavascript's affine scalar
+      // multiplication does not preserve its identity encoding.
+      if(group.isZero(value))
+        return;
+      if(!group.isValid(value) || !group.isZero(group.timesScalar(value, SCALAR_MODULUS))) {
+        throw new Error("Artifact point is not in the prime-order subgroup.");
+      }
+    },
+    toAffine(value) {
+      return group.toAffine(value);
+    },
+    add(left, right) {
+      return group.add(left, right);
+    },
+    sub(left, right) {
+      return group.add(left, group.neg(right));
+    },
+    neg(value) {
+      return group.neg(value);
+    },
+    eq(left, right) {
+      return group.eq(left, right);
+    },
+    isZero(value) {
+      return group.isZero(value);
+    },
+    mulScalar(point, scalar) {
+      return group.timesFr(point, scalar);
+    },
+  };
+}
+const SCALAR_MODULUS = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001n;
+
+const G1_COORDINATE_BYTES = G1_AFFINE_BYTES / 2;
+const FQ_COORDINATE_BYTES = 48;
+const G2_COORDINATE_BYTES = FQ_COORDINATE_BYTES * 2;
+const SCALAR_RAW_BYTES = 32;
+
+function assertG1AffinePoint(point: G1Point, label: string): void {
+  if (point.byteLength !== G1_AFFINE_BYTES) {
+    throw new Error(`${label} must be a ${G1_AFFINE_BYTES}-byte affine G1 point.`);
+  }
+}
+
+function parseAffineJson(value: unknown): AffinePointJson {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error("Expected an affine point object.");
+  }
+
+  const record = value as Record<string, unknown>;
+
+  if (typeof record.x !== "string" || typeof record.y !== "string") {
+    throw new Error("Expected affine point x and y hexadecimal strings.");
+  }
+
+  return {
+    x: record.x,
+    y: record.y,
+  };
+}
+
+function parseG2Coordinate(value: string): [bigint, bigint] {
+  if (!/^0x[0-9a-fA-F]+$/.test(value)) {
+    throw new Error("Expected a 0x-prefixed G2 coordinate.");
+  }
+
+  const body = value.slice(2).padStart(G2_COORDINATE_BYTES * 2, "0");
+
+  if (body.length > G2_COORDINATE_BYTES * 2) {
+    throw new Error("G2 coordinate does not fit in 96 bytes.");
+  }
+
+  const first = BigInt(`0x${body.slice(0, FQ_COORDINATE_BYTES * 2)}`);
+  const second = BigInt(`0x${body.slice(FQ_COORDINATE_BYTES * 2)}`);
+
+  // Native G2serde prints the extension coordinate as c1 || c0, while
+  // ffjavascript represents Fq2 as [c0, c1].
+  return [second, first];
+}
+
+function formatG2Coordinate(value: [bigint, bigint]): string {
+  const [c0, c1] = value;
+  return `0x${formatHex(c1, FQ_COORDINATE_BYTES).slice(2)}${formatHex(c0, FQ_COORDINATE_BYTES).slice(2)}`;
+}

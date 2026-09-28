@@ -9,9 +9,14 @@ import type {
   ChannelStateConfig,
   ChannelStorageConfig,
 } from 'tokamak-l2js';
-import { deriveL2KeysFromSignature, fromEdwardsToAddress, poseidon } from 'tokamak-l2js';
+import {
+  deriveL2KeysFromSignature,
+  fromEdwardsToAddress,
+  parseChannelId,
+  poseidon,
+} from 'tokamak-l2js';
 export const DEFAULT_EXAMPLE_NOTE_RECEIVE_CHANNEL_NAME = 'private-state-example-channel';
-const DEFAULT_CHANNEL_ID = 4;
+const DEFAULT_CHANNEL_ID = '4';
 const BLS12_381_SCALAR_FIELD_MODULUS =
   BigInt('0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001');
 const JUBJUB_ORDER = jubjub.CURVE.n;
@@ -49,8 +54,7 @@ export type MintExampleParticipant = ChannelParticipantConfig & {
 export type PrivateStateMintConfig = Omit<ChannelStateConfig, 'participants'> & {
   network: 'mainnet' | 'sepolia' | 'anvil';
   participants: MintExampleParticipant[];
-  channelId?: number;
-  txNonce: number;
+  channelTransactionIndex: number;
   calldata: `0x${string}`;
   senderIndex: number;
   noteOwnerIndex: number;
@@ -182,7 +186,7 @@ const buildNoteReceiveTypedData = ({
   account,
 }: {
   chainId: bigint | number;
-  channelId: bigint | number;
+  channelId: bigint | string;
   channelName: string;
   account: `0x${string}`;
 }) => ({
@@ -215,7 +219,7 @@ export const deriveNoteReceiveKeyMaterial = async ({
     ): Promise<string>;
   };
   chainId: bigint | number;
-  channelId: bigint | number;
+  channelId: bigint | string;
   channelName: string;
   account: `0x${string}`;
 }) => {
@@ -358,7 +362,7 @@ const buildDeterministicMintEncryptedNoteValue = ({
   value: bigint;
   seed: `0x${string}`;
   network: ExampleNetwork;
-  channelId: number;
+  channelId: string;
 }): [`0x${string}`, `0x${string}`, `0x${string}`] => {
   const ephemeralPrivateScalar = deriveDeterministicEphemeralScalar(seed);
   const nonce = ethers.dataSlice(seed, 0, 12) as `0x${string}`;
@@ -480,11 +484,12 @@ const assertFunctionConfig = (value: unknown, label: string): ChannelFunctionCon
 };
 
 type ParsedBasePrivateStateConfig = {
+  channelId: string;
   network: ExampleNetwork;
   storageConfigs: ChannelStorageConfig[];
   callCodeAddresses: `0x${string}`[];
   blockNumber: number;
-  txNonce: number;
+  channelTransactionIndex: number;
   calldata: `0x${string}`;
   senderIndex: number;
   function: ChannelFunctionConfig;
@@ -492,25 +497,37 @@ type ParsedBasePrivateStateConfig = {
 
 const parseBasePrivateStateConfig = (
   configRaw: Record<string, unknown>,
-): ParsedBasePrivateStateConfig => ({
-  network: parseNetwork(configRaw.network, 'network'),
-  storageConfigs: assertStorageConfigs(configRaw.storageConfigs, 'storageConfigs'),
-  callCodeAddresses: assertStringArray(configRaw.callCodeAddresses, 'callCodeAddresses').map(
-    (entry) => parseHexString(entry, 'callCodeAddresses'),
-  ),
-  blockNumber: parseNumberValue(configRaw.blockNumber, 'blockNumber'),
-  txNonce: parseNumberValue(configRaw.txNonce, 'txNonce'),
-  calldata: parseHexString(configRaw.calldata, 'calldata'),
-  senderIndex: parseNumberValue(configRaw.senderIndex, 'senderIndex'),
-  function: assertFunctionConfig(configRaw.function, 'function'),
-});
+): ParsedBasePrivateStateConfig => {
+  const channelId = configRaw.channelId === undefined
+    ? DEFAULT_CHANNEL_ID
+    : configRaw.channelId;
+  if (typeof channelId !== 'string') {
+    throw new Error('channelId must be a canonical unsigned decimal string');
+  }
+  parseChannelId(channelId);
+
+  return {
+    channelId,
+    network: parseNetwork(configRaw.network, 'network'),
+    storageConfigs: assertStorageConfigs(configRaw.storageConfigs, 'storageConfigs'),
+    callCodeAddresses: assertStringArray(configRaw.callCodeAddresses, 'callCodeAddresses').map(
+      (entry) => parseHexString(entry, 'callCodeAddresses'),
+    ),
+    blockNumber: parseNumberValue(configRaw.blockNumber, 'blockNumber'),
+    channelTransactionIndex: parseNumberValue(configRaw.channelTransactionIndex, 'channelTransactionIndex'),
+    calldata: parseHexString(configRaw.calldata, 'calldata'),
+    senderIndex: parseNumberValue(configRaw.senderIndex, 'senderIndex'),
+    function: assertFunctionConfig(configRaw.function, 'function'),
+  };
+};
 
 const toPrivateStateStateManagerChannelConfig = (
   config: Pick<
     ChannelStateConfig,
-    'network' | 'participants' | 'storageConfigs' | 'callCodeAddresses' | 'blockNumber'
+    'channelId' | 'network' | 'participants' | 'storageConfigs' | 'callCodeAddresses' | 'blockNumber'
   >,
 ): ChannelStateConfig => ({
+  channelId: config.channelId,
   network: config.network,
   participants: config.participants,
   storageConfigs: config.storageConfigs,
@@ -545,9 +562,6 @@ export const loadPrivateStateMintConfig = async (
 
   return {
     ...baseConfig,
-    channelId: configRaw.channelId === undefined
-      ? DEFAULT_CHANNEL_ID
-      : parseNumberValue(configRaw.channelId, 'channelId'),
     participants,
     noteOwnerIndex: parseNumberValue(configRaw.noteOwnerIndex, 'noteOwnerIndex'),
     outputCount,
@@ -625,7 +639,7 @@ export const buildPrivateStateMintCalldata = (
       value: BigInt(value),
       seed: config.noteSalts[index],
       network: config.network,
-      channelId: config.channelId ?? DEFAULT_CHANNEL_ID,
+      channelId: config.channelId,
     }),
   }));
   const encoded = mintInterface.encodeFunctionData(functionName, [outputs]);
@@ -644,7 +658,7 @@ export type PrivateStateNote = {
 
 export type PrivateStateRedeemConfig = ChannelStateConfig & {
   network: ExampleNetwork;
-  txNonce: number;
+  channelTransactionIndex: number;
   calldata: `0x${string}`;
   senderIndex: number;
   receiverIndex: number;
@@ -774,7 +788,7 @@ export type PrivateStateTransferOutput = {
 
 export type PrivateStateTransferConfig = ChannelStateConfig & {
   network: ExampleNetwork;
-  txNonce: number;
+  channelTransactionIndex: number;
   calldata: `0x${string}`;
   senderIndex: number;
   functionName: string;

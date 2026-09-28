@@ -1,0 +1,69 @@
+{
+  "arch": "aarch64",
+  "rayonThreads": 14,
+  "retainedRounds": 5,
+  "samples": [
+    {
+      "proofs": 1024,
+      "round": 1,
+      "seconds": 0.039295875,
+      "variant": "serial-sample-parallel-proof"
+    },
+    {
+      "proofs": 1024,
+      "round": 1,
+      "seconds": 0.159572166,
+      "variant": "serial"
+    },
+    {
+      "proofs": 1024,
+      "round": 2,
+      "seconds": 0.158863292,
+      "variant": "serial"
+    },
+    {
+      "proofs": 1024,
+      "round": 2,
+      "seconds": 0.039595875,
+      "variant": "serial-sample-parallel-proof"
+    },
+    {
+      "proofs": 1024,
+      "round": 3,
+      "seconds": 0.039327625,
+      "variant": "serial-sample-parallel-proof"
+    },
+    {
+      "proofs": 1024,
+      "round": 3,
+      "seconds": 0.157852458,
+      "variant": "serial"
+    },
+    {
+      "proofs": 1024,
+      "round": 4,
+      "seconds": 0.160128583,
+      "variant": "serial"
+    },
+    {
+      "proofs": 1024,
+      "round": 4,
+      "seconds": 0.039481292,
+      "variant": "serial-sample-parallel-proof"
+    },
+    {
+      "proofs": 1024,
+      "round": 5,
+      "seconds": 0.039356333,
+      "variant": "serial-sample-parallel-proof"
+    },
+    {
+      "proofs": 1024,
+      "round": 5,
+      "seconds": 0.159452666,
+      "variant": "serial"
+    }
+  ],
+  "scope": "synthetic CPU kernels, not native E2E or live MPC",
+  "warmupRounds": 1
+}

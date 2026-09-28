@@ -1,0 +1,19 @@
+{
+  "inputs": [
+    { "name": "randomizerX", "logicalType": { "kind": "bls12-381-fr" } },
+    { "name": "randomizerY", "logicalType": { "kind": "bls12-381-fr" } },
+    { "name": "publicKeyX", "logicalType": { "kind": "bls12-381-fr" } },
+    { "name": "publicKeyY", "logicalType": { "kind": "bls12-381-fr" } },
+    { "name": "transactionContractAddress", "logicalType": { "kind": "uint", "bits": 160 } },
+    { "name": "functionSelector", "logicalType": { "kind": "uint", "bits": 32 } },
+    { "name": "identityX", "logicalType": { "kind": "bls12-381-fr" } },
+    { "name": "identityY", "logicalType": { "kind": "bls12-381-fr" } }
+  ],
+  "outputs": [
+    { "name": "functionSelector", "logicalType": { "kind": "uint", "bits": 256 } },
+    { "name": "verifiedContractAddress", "logicalType": { "kind": "uint", "bits": 256 } },
+    { "name": "runtimeTableCoordinate", "length": 8, "logicalType": { "kind": "bls12-381-fr" } },
+    { "name": "randomizerCofactorCoordinate", "length": 4, "logicalType": { "kind": "bls12-381-fr" } },
+    { "name": "publicKeyHash", "logicalType": { "kind": "bls12-381-fr" } }
+  ]
+}

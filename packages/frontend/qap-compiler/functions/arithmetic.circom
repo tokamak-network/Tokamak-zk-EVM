@@ -12,31 +12,6 @@ function _add256 (a, b) {
 
 function _sub256 (a, b) {
     var FIELD_SIZE = 1 << 128;
-    // var borrow_low;
-    // var c[2] = [0, 0];
-    // if (a[0] < b[0]) {
-    //     borrow_low = 1;
-    //     var minusb0 = FIELD_SIZE - b[0];
-    //     c[0] = a[0] + minusb0; 
-    // } else {
-    //     borrow_low = 0;
-    //     c[0] = a[0] - b[0];
-    // }
-    // var upper_a_new;
-    // if (a[1] < borrow_low) {
-    //     var minusBorrow = FIELD_SIZE - borrow_low;
-    //     upper_a_new = a[1] + minusBorrow;
-    // } else {
-    //     upper_a_new = a[1] - borrow_low;
-    // }
-
-    // if (upper_a_new < b[1]) {
-    //     var minusb1 = FIELD_SIZE - b[1];
-    //     c[1] = upper_a_new + minusb1;
-    // } else {    
-    //     c[1] = upper_a_new - b[1];
-    // }
-
     var c_unwrapped[2];
     var borrow = 0;
     if (a[0] < b[0]) {

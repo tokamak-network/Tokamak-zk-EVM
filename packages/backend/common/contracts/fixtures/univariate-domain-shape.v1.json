@@ -1,0 +1,86 @@
+{
+  "contractVersion": 1,
+  "cases": [
+    {
+      "name": "non-power-of-two-catalog",
+      "setup": {
+        "n": 2,
+        "m": 2,
+        "m_b": 2,
+        "t": 4,
+        "s": 2,
+        "publicWirePhases": []
+      },
+      "expected": {
+        "t": 4,
+        "N_A": 4,
+        "N_C": 4,
+        "N_S": 8,
+        "N_G": 4,
+        "N_union": 4,
+        "D": 8,
+        "P": 12,
+        "K": 7,
+        "h": 6,
+        "S": 13,
+        "arithmeticIndex": 3,
+        "connectionIndex": 3,
+        "selectionIndex": 7
+      }
+    },
+    {
+      "name": "power-of-two-catalog-is-strictly-padded",
+      "setup": {
+        "n": 2,
+        "m": 2,
+        "m_b": 2,
+        "t": 8,
+        "s": 2,
+        "publicWirePhases": []
+      },
+      "expected": {
+        "t": 8,
+        "N_A": 4,
+        "N_C": 4,
+        "N_S": 16,
+        "N_G": 4,
+        "N_union": 4,
+        "D": 8,
+        "P": 20,
+        "K": 15,
+        "h": 6,
+        "S": 21,
+        "arithmeticIndex": 3,
+        "connectionIndex": 3,
+        "selectionIndex": 15
+      }
+    },
+    {
+      "name": "current-library",
+      "setup": {
+        "n": 1024,
+        "m": 2048,
+        "m_b": 512,
+        "t": 64,
+        "s": 256,
+        "publicWirePhases": []
+      },
+      "expected": {
+        "t": 64,
+        "N_A": 262144,
+        "N_C": 131072,
+        "N_S": 16384,
+        "N_G": 131072,
+        "N_union": 262144,
+        "D": 262148,
+        "P": 524291,
+        "K": 262146,
+        "h": 262146,
+        "S": 524292,
+        "arithmeticIndex": 262143,
+        "connectionIndex": 131071,
+        "selectionIndex": 16383
+      }
+    }
+  ]
+}

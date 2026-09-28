@@ -1,4 +1,4 @@
-export async function builder(code: any, options: any = {}): Promise<any> {
+export async function builder(code: any): Promise<any> {
   let wasmModule: any;
   try {
     wasmModule = await WebAssembly.compile(code);
@@ -9,8 +9,6 @@ export async function builder(code: any, options: any = {}): Promise<any> {
     );
     throw new Error(err);
   }
-
-  let wc: any;
 
   let errStr = '';
   let msgStr = '';
@@ -61,18 +59,7 @@ export async function builder(code: any, options: any = {}): Promise<any> {
     },
   });
 
-  const sanityCheck = options;
-  //        options &&
-  //        (
-  //            options.sanityCheck ||
-  //            options.logGetSignal ||
-  //            options.logSetSignal ||
-  //            options.logStartComponent ||
-  //            options.logFinishComponent
-  //        );
-
-  wc = new WitnessCalculator(instance, sanityCheck);
-  return wc;
+  return new WitnessCalculator(instance);
 
   function getMessage(): string {
     var message = '';
@@ -103,16 +90,13 @@ export async function builder(code: any, options: any = {}): Promise<any> {
 
 class WitnessCalculator {
   instance: any;
-  version: number;
   n32: number;
   prime: bigint;
   witnessSize: number;
-  sanityCheck: any;
 
-  constructor(instance: any, sanityCheck: any) {
+  constructor(instance: any) {
     this.instance = instance;
 
-    this.version = this.instance.exports.getVersion();
     this.n32 = this.instance.exports.getFieldNumLen32();
 
     this.instance.exports.getRawPrime();
@@ -124,16 +108,11 @@ class WitnessCalculator {
 
     this.witnessSize = this.instance.exports.getWitnessSize();
 
-    this.sanityCheck = sanityCheck;
   }
 
-  circom_version(): number {
-    return this.instance.exports.getVersion();
-  }
-
-  async _doCalculateWitness(input_orig: any, sanityCheck: any): Promise<void> {
+  async _doCalculateWitness(input_orig: any): Promise<void> {
     //input is assumed to be a map from signals to arrays of bigints
-    this.instance.exports.init(this.sanityCheck || sanityCheck ? 1 : 0);
+    this.instance.exports.init(0);
     let prefix = '';
     var input: any = new Object();
     //console.log("Input: ", input_orig);
@@ -177,9 +156,9 @@ class WitnessCalculator {
     }
   }
 
-  async calculateWitness(input: any, sanityCheck: any): Promise<any[]> {
+  async calculateWitness(input: any): Promise<any[]> {
     const w: any[] = [];
-    await this._doCalculateWitness(input, sanityCheck);
+    await this._doCalculateWitness(input);
 
     for (let i = 0; i < this.witnessSize; i++) {
       this.instance.exports.getWitness(i);
@@ -193,86 +172,6 @@ class WitnessCalculator {
     return w;
   }
 
-  async calculateBinWitness(input: any, sanityCheck: any): Promise<Uint8Array> {
-    const buff32 = new Uint32Array(this.witnessSize * this.n32);
-    const buff = new Uint8Array(buff32.buffer);
-    await this._doCalculateWitness(input, sanityCheck);
-
-    for (let i = 0; i < this.witnessSize; i++) {
-      this.instance.exports.getWitness(i);
-      const pos = i * this.n32;
-      for (let j = 0; j < this.n32; j++) {
-        buff32[pos + j] = this.instance.exports.readSharedRWMemory(j);
-      }
-    }
-
-    return buff;
-  }
-
-  async calculateWTNSBin(input: any, sanityCheck: any): Promise<Uint8Array> {
-    const buff32 = new Uint32Array(this.witnessSize * this.n32 + this.n32 + 11);
-    const buff = new Uint8Array(buff32.buffer);
-    await this._doCalculateWitness(input, sanityCheck);
-
-    //"wtns"
-    buff[0] = 'w'.charCodeAt(0);
-    buff[1] = 't'.charCodeAt(0);
-    buff[2] = 'n'.charCodeAt(0);
-    buff[3] = 's'.charCodeAt(0);
-
-    //version 2
-    buff32[1] = 2;
-
-    //number of sections: 2
-    buff32[2] = 2;
-
-    //id section 1
-    buff32[3] = 1;
-
-    const n8 = this.n32 * 4;
-    //id section 1 length in 64bytes
-    const idSection1length = 8 + n8;
-    const idSection1lengthHex = idSection1length.toString(16);
-    buff32[4] = parseInt(idSection1lengthHex.slice(0, 8), 16);
-    buff32[5] = parseInt(idSection1lengthHex.slice(8, 16), 16);
-
-    //this.n32
-    buff32[6] = n8;
-
-    //prime number
-    this.instance.exports.getRawPrime();
-
-    var pos = 7;
-    for (let j = 0; j < this.n32; j++) {
-      buff32[pos + j] = this.instance.exports.readSharedRWMemory(j);
-    }
-    pos += this.n32;
-
-    // witness size
-    buff32[pos] = this.witnessSize;
-    pos++;
-
-    //id section 2
-    buff32[pos] = 2;
-    pos++;
-
-    // section 2 length
-    const idSection2length = n8 * this.witnessSize;
-    const idSection2lengthHex = idSection2length.toString(16);
-    buff32[pos] = parseInt(idSection2lengthHex.slice(0, 8), 16);
-    buff32[pos + 1] = parseInt(idSection2lengthHex.slice(8, 16), 16);
-
-    pos += 2;
-    for (let i = 0; i < this.witnessSize; i++) {
-      this.instance.exports.getWitness(i);
-      for (let j = 0; j < this.n32; j++) {
-        buff32[pos + j] = this.instance.exports.readSharedRWMemory(j);
-      }
-      pos += this.n32;
-    }
-
-    return buff;
-  }
 }
 
 function qualify_input_list(prefix: string, input: any, input1: any): void {

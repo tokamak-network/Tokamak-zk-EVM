@@ -1,0 +1,12 @@
+{
+  "date": "2026-09-14",
+  "command": "npx tsx test/checks/univariate/check-copy-boundary.ts",
+  "n": 262144,
+  "unit": "ms",
+  "warmup": "One scalar and one batched result excluded before measured pairs",
+  "control": [153.231916, 169.725250, 143.617542, 143.861417, 141.138375],
+  "candidate": [36.488292, 30.925417, 32.585000, 31.753000, 31.700125],
+  "coefficientEquality": true,
+  "smallMaskedConstantAndInvalidBoundaryTests": true,
+  "scope": "Node WASM unit operation, not browser whole-prover timing"
+}

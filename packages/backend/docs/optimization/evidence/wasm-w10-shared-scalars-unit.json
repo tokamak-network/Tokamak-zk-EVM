@@ -1,0 +1,12 @@
+{
+  "date": "2026-09-14",
+  "command": "npx tsx test/checks/univariate/check-shared-msm-scalars.ts",
+  "elements": 262144,
+  "unit": "ms",
+  "warmup": "One call per path excluded; equality checks outside timed intervals",
+  "controlSamples": [5.851708, 5.810500, 5.275875, 5.339917, 5.541208],
+  "candidateSamples": [2.377584, 3.164166, 2.533875, 2.168709, 2.216375],
+  "scope": "Node WASM Montgomery conversion only: twice versus once. No concurrent browser timing.",
+  "checks": ["two separate commitments equal separate stock calls", "zero and nonzero scalar vectors", "empty vectors", "chunk tails", "opposite base points", "invalid capacities and chunk size"],
+  "excludedDiagnostic": "An earlier test invocation overlapped the excluded browser warmup and timed an equality assertion; none of its timing values are used here."
+}

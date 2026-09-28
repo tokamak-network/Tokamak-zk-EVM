@@ -18,82 +18,39 @@ template poseidonTokamak(N) {
    H.out === out[0] + out[1] * FIELD_SIZE;
 }
 
-template poseidonTokamakByMode(N) {
+template poseidonTokamakByMode(N, M) {
     assert(N == 2);
+    assert(M > 0);
+    assert(M <= 128);
     signal input selector;
-    signal input in[7][2];
+    signal input in[M + 1][2];
     signal output out[2];
 
-    component first = poseidonTokamak(2);
-    first.in[0] <== in[0];
-    first.in[1] <== in[1];
+    component hashes[M];
+    component selectorMatches[M];
+    signal chain[M + 1][2];
+    signal selectorSum[M + 1];
+    signal selectedOutput[M + 1][2];
 
-    component second = poseidonTokamak(2);
-    second.in[0] <== first.out;
-    second.in[1] <== in[2];
+    chain[0] <== in[0];
+    selectorSum[0] <== 0;
+    selectedOutput[0] <== [0, 0];
 
-    component third = poseidonTokamak(2);
-    third.in[0] <== second.out;
-    third.in[1] <== in[3];
+    for (var i = 0; i < M; i++) {
+        hashes[i] = poseidonTokamak(N);
+        hashes[i].in[0] <== chain[i];
+        hashes[i].in[1] <== in[i + 1];
+        chain[i + 1] <== hashes[i].out;
 
-    component fourth = poseidonTokamak(2);
-    fourth.in[0] <== third.out;
-    fourth.in[1] <== in[4];
+        selectorMatches[i] = IsEqual();
+        selectorMatches[i].in[0] <== selector;
+        selectorMatches[i].in[1] <== 2 ** i;
 
-    component fifth = poseidonTokamak(2);
-    fifth.in[0] <== fourth.out;
-    fifth.in[1] <== in[5];
+        selectorSum[i + 1] <== selectorSum[i] + selectorMatches[i].out;
+        selectedOutput[i + 1][0] <== selectedOutput[i][0] + selectorMatches[i].out * chain[i + 1][0];
+        selectedOutput[i + 1][1] <== selectedOutput[i][1] + selectorMatches[i].out * chain[i + 1][1];
+    }
 
-    component sixth = poseidonTokamak(2);
-    sixth.in[0] <== fifth.out;
-    sixth.in[1] <== in[6];
-
-    component eq1 = IsEqual();
-    eq1.in[0] <== selector;
-    eq1.in[1] <== 1;
-
-    component eq2 = IsEqual();
-    eq2.in[0] <== selector;
-    eq2.in[1] <== 2;
-
-    component eq3 = IsEqual();
-    eq3.in[0] <== selector;
-    eq3.in[1] <== 4;
-
-    component eq4 = IsEqual();
-    eq4.in[0] <== selector;
-    eq4.in[1] <== 8;
-
-    component eq5 = IsEqual();
-    eq5.in[0] <== selector;
-    eq5.in[1] <== 16;
-
-    component eq6 = IsEqual();
-    eq6.in[0] <== selector;
-    eq6.in[1] <== 32;
-
-    signal s1 <== eq1.out;
-    signal s2 <== eq2.out;
-    signal s3 <== eq3.out;
-    signal s4 <== eq4.out;
-    signal s5 <== eq5.out;
-    signal s6 <== eq6.out;
-    signal selectorCheck <== s1 + s2 + s3 + s4 + s5 + s6;
-    selectorCheck === 1;
-
-    signal out0Step0 <== s1 * first.out[0];
-    signal out0Step1 <== out0Step0 + s2 * second.out[0];
-    signal out0Step2 <== out0Step1 + s3 * third.out[0];
-    signal out0Step3 <== out0Step2 + s4 * fourth.out[0];
-    signal out0Step4 <== out0Step3 + s5 * fifth.out[0];
-    signal out0Step5 <== out0Step4 + s6 * sixth.out[0];
-    out[0] <== out0Step5;
-
-    signal out1Step0 <== s1 * first.out[1];
-    signal out1Step1 <== out1Step0 + s2 * second.out[1];
-    signal out1Step2 <== out1Step1 + s3 * third.out[1];
-    signal out1Step3 <== out1Step2 + s4 * fourth.out[1];
-    signal out1Step4 <== out1Step3 + s5 * fifth.out[1];
-    signal out1Step5 <== out1Step4 + s6 * sixth.out[1];
-    out[1] <== out1Step5;
+    selectorSum[M] === 1;
+    out <== selectedOutput[M];
 }

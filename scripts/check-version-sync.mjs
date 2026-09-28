@@ -3,8 +3,30 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  compatibilityFromPackageVersion,
+  parseCompatibleBackendVersion,
+  parsePackageVersion,
+} from './version-contract.mjs';
+import {
+  BACKEND_CARGO_LOCK,
+  BACKEND_WORKSPACE_MANIFEST,
+  BACKEND_WORKSPACE_PACKAGE_NAMES,
+  LOCKFILE_DEPENDENCY_TARGETS,
+  LOCKFILE_PACKAGE_VERSION_TARGETS,
+  SOURCE_PACKAGE_VERSION_TARGETS,
+  SYNCHRONIZED_DEPENDENCY_TARGETS,
+  VERSION_CONSTANT_TARGETS,
+} from './version-targets.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const sourceOnly = process.argv.slice(2).includes('--source-only');
+const prePublication = process.argv.slice(2).includes('--pre-publication');
+
+if (sourceOnly && prePublication) {
+  console.error('[version-check] --source-only and --pre-publication are mutually exclusive.');
+  process.exit(1);
+}
 
 function fail(message) {
   console.error(`[version-check] ${message}`);
@@ -24,19 +46,19 @@ function fileExists(relativePath) {
 }
 
 function getBackendWorkspaceVersion() {
-  const manifest = readText('packages/backend/Cargo.toml');
+  const manifest = readText(BACKEND_WORKSPACE_MANIFEST);
   const match = /\[workspace\.package\][\s\S]*?\nversion\s*=\s*"([^"]+)"/u.exec(manifest);
   return match?.[1] ?? null;
 }
 
 function getCargoLockPackageVersions() {
-  if (!fileExists('packages/backend/Cargo.lock')) {
+  if (!fileExists(BACKEND_CARGO_LOCK)) {
     return new Map();
   }
 
-  const workspacePackages = new Set(['libs', 'mpc-setup', 'preprocess', 'prove', 'trusted-setup', 'verify']);
+  const workspacePackages = new Set(BACKEND_WORKSPACE_PACKAGE_NAMES);
   const versions = new Map();
-  const lockfile = readText('packages/backend/Cargo.lock');
+  const lockfile = readText(BACKEND_CARGO_LOCK);
 
   for (const block of lockfile.matchAll(/\[\[package\]\]\n([\s\S]*?)(?=\n\[\[package\]\]|\s*$)/gu)) {
     const name = /^name = "([^"]+)"/mu.exec(block[1])?.[1];
@@ -51,20 +73,15 @@ function getCargoLockPackageVersions() {
 
 const rootManifest = readJson('package.json');
 const expectedVersion = rootManifest.version;
-const strictSemverPattern = /^\d+\.\d+\.\d+$/u;
+let expectedCompatibleBackendVersion = null;
 
-if (!strictSemverPattern.test(expectedVersion)) {
-  fail(`Root package.json version must be strict semver, got '${expectedVersion}'.`);
+try {
+  expectedCompatibleBackendVersion = compatibilityFromPackageVersion(expectedVersion);
+} catch (error) {
+  fail(`Root package.json version ${error.message}`);
 }
 
-const packageTargets = [
-  'packages/cli/package.json',
-  'packages/backend-wasm/package.json',
-  'packages/backend-wasm/tools/rkyv-decoder-wasm/package.json',
-  'packages/frontend/qap-compiler/package.json',
-  'packages/frontend/synthesizer/node-cli/package.json',
-  'packages/frontend/synthesizer/web-app/package.json',
-];
+const packageTargets = SOURCE_PACKAGE_VERSION_TARGETS.filter(relativePath => relativePath !== 'package.json');
 
 for (const relativePath of packageTargets) {
   if (!fileExists(relativePath)) {
@@ -76,16 +93,11 @@ for (const relativePath of packageTargets) {
   }
 }
 
-const dependencyTargets = [
-  ['packages/cli/package.json', '@tokamak-zk-evm/synthesizer-node', `^${expectedVersion}`],
-  [
-    'packages/backend-wasm/package.json',
-    '@tokamak-zk-evm/subcircuit-library',
-    expectedVersion,
-  ],
-  ['packages/frontend/synthesizer/node-cli/package.json', '@tokamak-zk-evm/subcircuit-library', `^${expectedVersion}`],
-  ['packages/frontend/synthesizer/web-app/package.json', '@tokamak-zk-evm/subcircuit-library', `^${expectedVersion}`],
-];
+const dependencyTargets = SYNCHRONIZED_DEPENDENCY_TARGETS.map(([relativePath, dependencyName]) => [
+  relativePath,
+  dependencyName,
+  expectedVersion,
+]);
 
 for (const [relativePath, dependencyName, expectedRange] of dependencyTargets) {
   const manifest = readJson(relativePath);
@@ -95,63 +107,61 @@ for (const [relativePath, dependencyName, expectedRange] of dependencyTargets) {
   }
 }
 
-const lockfileTargets = [
-  ['package-lock.json', '', expectedVersion],
-  ['package-lock.json', 'packages/cli', expectedVersion],
-  ['package-lock.json', 'packages/frontend/qap-compiler', expectedVersion],
-  ['package-lock.json', 'packages/frontend/synthesizer/node-cli', expectedVersion],
-  ['package-lock.json', 'packages/frontend/synthesizer/web-app', expectedVersion],
-  ['packages/backend-wasm/package-lock.json', '', expectedVersion],
-  ['packages/frontend/qap-compiler/package-lock.json', '', expectedVersion],
-  ['packages/frontend/synthesizer/package-lock.json', 'node-cli', expectedVersion],
-  ['packages/frontend/synthesizer/package-lock.json', 'web-app', expectedVersion],
-  ['packages/frontend/synthesizer/node-cli/package-lock.json', '', expectedVersion],
-  ['packages/frontend/synthesizer/web-app/package-lock.json', '', expectedVersion],
-];
+const lockfileTargets = LOCKFILE_PACKAGE_VERSION_TARGETS.map(([relativePath, packageKey]) => [
+  relativePath,
+  packageKey,
+  expectedVersion,
+]);
 
-for (const [relativePath, packageKey, expectedPackageVersion] of lockfileTargets) {
-  if (!fileExists(relativePath)) {
-    continue;
+if (!sourceOnly) {
+  for (const [relativePath, packageKey, expectedPackageVersion] of lockfileTargets) {
+    if (!fileExists(relativePath)) {
+      continue;
+    }
+    const lockfile = readJson(relativePath);
+    const packageEntry = lockfile.packages?.[packageKey];
+    const actualVersion = packageKey === '' ? (packageEntry?.version ?? lockfile.version) : packageEntry?.version;
+    if (actualVersion !== expectedPackageVersion) {
+      fail(
+        `${relativePath} package entry '${packageKey}' is '${actualVersion}', expected '${expectedPackageVersion}'.`,
+      );
+    }
   }
-  const lockfile = readJson(relativePath);
-  const packageEntry = lockfile.packages?.[packageKey];
-  const actualVersion = packageKey === '' ? (packageEntry?.version ?? lockfile.version) : packageEntry?.version;
-  if (actualVersion !== expectedPackageVersion) {
-    fail(`${relativePath} package entry '${packageKey}' is '${actualVersion}', expected '${expectedPackageVersion}'.`);
+
+  const backendWasmPackageLock = readJson('packages/backend/wasm/package-lock.json');
+  for (const [relativePath, packageKey, dependencyName] of LOCKFILE_DEPENDENCY_TARGETS) {
+    if (!fileExists(relativePath)) continue;
+    const lockfile = readJson(relativePath);
+    const actualRange = lockfile.packages?.[packageKey]?.dependencies?.[dependencyName];
+    if (actualRange !== expectedVersion) {
+      fail(
+        `${relativePath} package entry '${packageKey}' dependency ${dependencyName} is '${actualRange}', expected '${expectedVersion}'.`,
+      );
+    }
+  }
+
+  if (!prePublication) {
+    const backendWasmResolvedSubcircuitVersion =
+      backendWasmPackageLock.packages?.['node_modules/@tokamak-zk-evm/subcircuit-library']?.version;
+    if (backendWasmResolvedSubcircuitVersion !== expectedVersion) {
+      fail(
+        `packages/backend/wasm/package-lock.json resolved @tokamak-zk-evm/subcircuit-library is '${backendWasmResolvedSubcircuitVersion ?? 'missing'}', expected '${expectedVersion}'.`,
+      );
+    }
   }
 }
 
-const backendWasmPackageLock = readJson('packages/backend-wasm/package-lock.json');
-const backendWasmLockDependency =
-  backendWasmPackageLock.packages?.['']?.dependencies?.['@tokamak-zk-evm/subcircuit-library'];
-if (backendWasmLockDependency !== expectedVersion) {
-  fail(
-    `packages/backend-wasm/package-lock.json dependency @tokamak-zk-evm/subcircuit-library is '${backendWasmLockDependency}', expected '${expectedVersion}'.`,
-  );
-}
-
-const backendWasmVersionModule = readText('packages/backend-wasm/src/version.ts');
-const backendWasmVersionMatch =
-  /BACKEND_WASM_PACKAGE_VERSION\s*=\s*"([^"]+)"/u.exec(backendWasmVersionModule);
-if (backendWasmVersionMatch?.[1] !== expectedVersion) {
-  fail(
-    `packages/backend-wasm/src/version.ts package version is '${backendWasmVersionMatch?.[1] ?? 'missing'}', expected '${expectedVersion}'.`,
-  );
-}
-
-const backendWasmGeneratedModule = readText(
-  'packages/backend-wasm/src/prover/generated/subcircuit-library.generated.ts',
-);
-for (const constantName of ['NATIVE_BACKEND_VERSION', 'SUBCIRCUIT_LIBRARY_PACKAGE_VERSION']) {
-  const match = new RegExp(`${constantName}\\s*=\\s*"([^"]+)"`, 'u').exec(
-    backendWasmGeneratedModule,
-  );
+for (const [relativePath, constantName] of VERSION_CONSTANT_TARGETS) {
+  const moduleContents = readText(relativePath);
+  const match = new RegExp(`${constantName}\\s*=\\s*"([^"]+)"`, 'u').exec(moduleContents);
   if (match?.[1] !== expectedVersion) {
-    fail(
-      `packages/backend-wasm generated ${constantName} is '${match?.[1] ?? 'missing'}', expected '${expectedVersion}'.`,
-    );
+    fail(`${relativePath} ${constantName} is '${match?.[1] ?? 'missing'}', expected '${expectedVersion}'.`);
   }
 }
+
+// backend-wasm active generated inputs are ignored, mode-specific build
+// products. Its build and generated-input checks own their version validation;
+// the repository source policy must remain valid in a fresh checkout.
 
 const backendVersion = getBackendWorkspaceVersion();
 if (backendVersion !== expectedVersion) {
@@ -160,33 +170,32 @@ if (backendVersion !== expectedVersion) {
 
 const cliManifest = readJson('packages/cli/package.json');
 const compatibleBackendVersion = cliManifest.tokamakZkEvm?.compatibleBackendVersion;
-const compatibleVersionPattern = /^(\d+)\.(\d+)$/u;
-const expectedCompatibleBackendVersion = expectedVersion.split('.').slice(0, 2).join('.');
 
-if (!compatibleVersionPattern.test(String(compatibleBackendVersion ?? ''))) {
-  fail(
-    `packages/cli/package.json tokamakZkEvm.compatibleBackendVersion must be strict MAJOR.MINOR, got '${compatibleBackendVersion}'.`,
-  );
-} else if (compatibleBackendVersion !== expectedCompatibleBackendVersion) {
+try {
+  parseCompatibleBackendVersion(compatibleBackendVersion);
+} catch (error) {
+  fail(`packages/cli/package.json tokamakZkEvm.compatibleBackendVersion ${error.message}`);
+}
+if (compatibleBackendVersion !== expectedCompatibleBackendVersion) {
   fail(
     `packages/cli/package.json tokamakZkEvm.compatibleBackendVersion is '${compatibleBackendVersion}', expected '${expectedCompatibleBackendVersion}' from package version '${expectedVersion}'.`,
   );
 }
 
-for (const [name, version] of getCargoLockPackageVersions()) {
-  if (version !== expectedVersion) {
-    fail(`packages/backend/Cargo.lock package ${name} is '${version}', expected '${expectedVersion}'.`);
+if (!sourceOnly) {
+  if (!fileExists(BACKEND_CARGO_LOCK)) {
+    fail(`${BACKEND_CARGO_LOCK} is missing.`);
   }
-}
-
-if (!fileExists('CHANGELOG.md')) {
-  fail('Root CHANGELOG.md is missing.');
-} else {
-  const changelog = readText('CHANGELOG.md');
-  if (
-    !new RegExp(`^## \\[${expectedVersion.replaceAll('.', '\\.')}\\] - \\d{4}-\\d{2}-\\d{2}$`, 'mu').test(changelog)
-  ) {
-    fail(`Root CHANGELOG.md must contain a release entry for ${expectedVersion}.`);
+  const cargoLockPackageVersions = getCargoLockPackageVersions();
+  for (const name of BACKEND_WORKSPACE_PACKAGE_NAMES) {
+    if (!cargoLockPackageVersions.has(name)) {
+      fail(`${BACKEND_CARGO_LOCK} is missing workspace package ${name}.`);
+    }
+  }
+  for (const [name, version] of cargoLockPackageVersions) {
+    if (version !== expectedVersion) {
+      fail(`packages/backend/Cargo.lock package ${name} is '${version}', expected '${expectedVersion}'.`);
+    }
   }
 }
 
@@ -194,4 +203,10 @@ if (process.exitCode) {
   process.exit();
 }
 
-console.log(`[version-check] Repository release version is synchronized at ${expectedVersion}.`);
+console.log(
+  sourceOnly
+    ? `[version-check] Source version is synchronized at ${expectedVersion}; lockfiles and generated artifacts are intentionally excluded.`
+    : prePublication
+      ? `[version-check] Pre-publication source and declared lock versions are synchronized at ${expectedVersion}; the unpublished production snapshot is intentionally excluded.`
+      : `[version-check] Repository release version is synchronized at ${expectedVersion}.`,
+);

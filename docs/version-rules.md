@@ -1,349 +1,121 @@
-# Tokamak zk-EVM Version Rules
+# Tokamak zk-EVM Version and Release Rules
 
-Tokamak zk-EVM has multiple versioned surfaces. They intentionally do not all use the same precision.
+This document is for repository maintainers and the GitHub, npm, and Google
+Drive release authorities. It defines the release boundary; it is not a user
+installation guide.
 
-The consumer-facing entry point is the npm package `@tokamak-zk-evm/cli`. Its `packages/cli/package.json` manifest is
-the source of truth for the backend compatibility version used by CLI installs, backend release metadata, and public CRS
-selection.
+## Versioned elements
 
-## Versioned Elements
+The public npm packages use one synchronized `MAJOR.MINOR.PATCH` version:
 
-### Repository Packages
+- `@tokamak-zk-evm/subcircuit-library`;
+- `@tokamak-zk-evm/synthesizer-node`;
+- `@tokamak-zk-evm/synthesizer-web`;
+- `@tokamak-zk-evm/cli`; and
+- `@tokamak-zk-evm/snark-browser-compat`.
 
-The repository packages use the full release version:
+The root `package.json` is authoritative for that version and the backend Rust
+workspace inherits it. The Rust backend is installed or built by the CLI; it
+is not a standalone npm or crates.io release.
 
-```text
-MAJOR.MINOR.PATCH
-```
+`packages/backend/wasm` intentionally resolves the exact published
+`@tokamak-zk-evm/subcircuit-library` version from npm. It is outside the root
+workspace so that its tracked lock records the registry tarball and SHA-512
+integrity that a published consumer will receive.
 
-The synchronized package version applies to:
+The CLI manifest also declares a canonical `compatibleBackendVersion` of
+`MAJOR.MINOR`. Package versions, backend metadata, and CRS provenance must
+normalize to that same compatibility class. A patch release can reuse a CRS
+only when this class and the source digest are unchanged.
 
-- The root `package.json`.
-- `packages/cli/package.json`.
-- `packages/frontend/qap-compiler/package.json`.
-- `packages/frontend/qap-compiler/dist/package.json`.
-- `packages/frontend/synthesizer/node-cli/package.json`.
-- `packages/frontend/synthesizer/web-app/package.json`.
-- `packages/backend-wasm/package.json`.
-- `packages/backend-wasm/tools/rkyv-decoder-wasm/package.json`.
-- `packages/backend-wasm/src/version.ts`.
-- `packages/backend/Cargo.toml` workspace package version.
-- Backend workspace packages such as `libs`, `mpc-setup`, `preprocess`, `prove`, `trusted-setup`, and `verify`.
+## CRS identity and layout
 
-This version changes for every published release, including patch-only changes that do not change the circuit or CRS.
+The source digest is a SHA-256 framed digest of the CRS-relevant subcircuit
+files, encoded as `sha256:<64 lowercase hexadecimal characters>`. The inputs
+are the sorted package-relative paths and contents of the rendered constants,
+R1CS, WASM, JSON, frontend configuration, setup parameters, and subcircuit
+information. Package metadata, changelogs, witness helpers, and diagnostic
+output are excluded. No FNV digest or legacy fallback is a compatibility
+identity.
 
-`packages/backend-wasm` remains outside the root npm workspace intentionally. Its build must resolve the exact
-synchronized `@tokamak-zk-evm/subcircuit-library` version from npm after that package has been published, rather than
-substituting the qap-compiler source workspace. Root version tooling still updates and validates the package explicitly.
-
-### CLI Compatibility Version
-
-`packages/cli/package.json` stores the canonical compatibility version:
-
-```json
-{
-  "tokamakZkEvm": {
-    "compatibleBackendVersion": "MAJOR.MINOR"
-  }
-}
-```
-
-This value must be strict canonical `MAJOR.MINOR`. It must equal the `MAJOR.MINOR` prefix of the CLI package version and
-the backend workspace package version.
-
-For example, package version `2.0.14` must declare:
-
-```json
-{
-  "tokamakZkEvm": {
-    "compatibleBackendVersion": "2.0"
-  }
-}
-```
-
-The compatibility version must not include a patch component. A package patch release must continue to use the same
-compatibility version when the circuit, proving setup, and CRS remain valid.
-
-### Backend CRS
-
-The public backend CRS uses only the compatibility version:
+The public Filecoin-backed CRS is identified by `MAJOR.MINOR` and is stored in
+Google Drive as:
 
 ```text
-MAJOR.MINOR
+<root>/tau_sequence/<sha256 of tau_sequence.rkyv>.rkyv
+<root>/MAJOR.MINOR/prover_keys.rkyv
+<root>/MAJOR.MINOR/preprocess_keys.rkyv
+<root>/MAJOR.MINOR/verifier_keys.rkyv
+<root>/MAJOR.MINOR/crs_provenance.json
 ```
 
-The CRS version identifies the proving setup compatibility class. It must not include a patch component in newly
-published CRS provenance or archive names.
-
-New CRS archives must be named:
-
-```text
-tokamak-backend-crs-vMAJOR.MINOR-YYYYMMDDTHHMMSSZ.zip
-```
-
-New `crs_provenance.json` files must store:
-
-```json
-{
-  "backend_version": "MAJOR.MINOR"
-}
-```
-
-CRS archives whose names or provenance use `MAJOR.MINOR.PATCH` are invalid under this version model. Legacy CRS archive
-compatibility and migration are intentionally not supported by this rule set.
-
-## Compatibility Rule
-
-Compatibility between CLI, backend binaries, and CRS is checked by canonical `MAJOR.MINOR`.
-
-Examples:
-
-- CLI package `2.0.14`, backend package `2.0.14`, and CRS `2.0` are compatible.
-- CLI package `2.0.15`, backend package `2.0.15`, and CRS `2.0` are compatible when the subcircuit source digest also
-  matches.
-- CLI package `2.1.0`, backend package `2.1.0`, and CRS `2.0` are incompatible.
-- CLI package `2.0.14` and CRS `2.0.14` are invalid because CRS versions must not include a patch component.
-
-Package versions are strict `MAJOR.MINOR.PATCH`. Tooling derives their `MAJOR.MINOR` compatibility prefix. CRS archive
-names, CRS provenance, and `compatibleBackendVersion` fields must already be canonical `MAJOR.MINOR`.
-
-## Subcircuit Compatibility
-
-Subcircuit package versions are not sufficient to prove CRS compatibility.
-
-Backend build metadata records the subcircuit library `sourceDigest`. This digest identifies only the subcircuit files
-that affect CRS compatibility. A patch release may reuse the same CRS when the backend binaries and the CRS metadata
-report the same subcircuit `sourceDigest`.
-
-The source digest input set is intentionally narrow. It includes exactly these qap-compiler package paths:
-
-```text
-subcircuits/circom/constants.circom
-subcircuits/library/r1cs/*
-subcircuits/library/wasm/*
-subcircuits/library/json/*
-subcircuits/library/frontendCfg.json
-subcircuits/library/globalWireList.json
-subcircuits/library/setupParams.json
-subcircuits/library/subcircuitInfo.json
-```
-
-The source digest must not include package metadata, changelogs, generated witness helper JavaScript files, diagnostic
-`info` output, or other files that do not change the CRS-relevant circuit artifacts.
-
-The required rule is:
-
-```text
-CRS build-metadata-mpc-setup.json dependencies.subcircuitLibrary.sourceDigest
-  ==
-backend build-metadata-{preprocess,prove,verify}.json dependencies.subcircuitLibrary.sourceDigest
-```
-
-Within a fixed `MAJOR.MINOR` compatibility line, this `sourceDigest` equality is the only CRS reuse condition that may
-change across patch releases. For example, a CRS whose provenance and metadata use compatibility version `2.0` is reusable
-by package versions `2.0.x` only when each installed backend binary reports the same `sourceDigest` as the CRS metadata.
-If the digest changes, the existing CRS must not be reused for that package release.
-
-The subcircuit package version may be useful diagnostic metadata, but CRS compatibility is decided by the digest and the
-backend compatibility version.
-
-## Increment Rules
-
-### Patch Version
-
-Increment `PATCH` when the package release changes but the circuit, CRS, and verification semantics remain valid.
-
-Patch-only changes include:
-
-- CLI bug fixes.
-- Download, cache, Google Drive selection, or install orchestration fixes.
-- Documentation changes.
-- Error message changes.
-- Packaging or release tooling changes.
-- Backend runtime fixes that do not change proof inputs, constraints, subcircuit output, metadata semantics required by
-  verification, the proving key, or the verification key.
-
-Patch-only changes must not require a new MPC setup or a new CRS upload. The release keeps the same
-`tokamakZkEvm.compatibleBackendVersion`.
-
-### Minor Version
-
-Increment `MINOR` when the backend proving setup compatibility class changes.
-
-Minor changes include:
-
-- Any change to Circom templates or rendered subcircuit contents.
-- Any change to public signals, public input ordering, private input interpretation, witness generation semantics, or
-  proof verification semantics.
-- Any change that modifies the R1CS, proving key, verification key, or trusted setup output.
-- Any change in setup tooling, compiler behavior, or dependency behavior that can produce different CRS artifacts for
-  the same logical package.
-- Any change to CRS provenance or build metadata semantics required by proof generation or verification.
-
-A minor change requires:
-
-- A package version bump to the new `MAJOR.MINOR.0` line.
-- An update to `packages/cli/package.json tokamakZkEvm.compatibleBackendVersion`.
-- A new dusk-backed MPC setup.
-- A new public CRS archive named with the new `MAJOR.MINOR`.
-
-### Major Version
-
-Increment `MAJOR` when the proof system, backend package interface, security model, or operational compatibility changes
-in a way that cannot be represented as a minor proving setup update.
-
-Major changes include:
-
-- Incompatible proof protocol changes.
-- Incompatible CLI or backend runtime contract changes.
-- Protocol migrations that require coordinated application or infrastructure handling.
-- Security model changes that invalidate existing operational assumptions.
-
-A major release requires an explicit migration plan before publishing artifacts.
-
-## Build Metadata
-
-Every release backend binary that embeds or consumes the subcircuit library must emit build metadata next to the built
-binary. The metadata must include:
-
-```json
-{
-  "packageName": "prove",
-  "packageVersion": "MAJOR.MINOR.PATCH",
-  "compatibleBackendVersion": "MAJOR.MINOR",
-  "dependencies": {
-    "subcircuitLibrary": {
-      "packageName": "@tokamak-zk-evm/subcircuit-library",
-      "buildVersion": "MAJOR.MINOR.PATCH",
-      "declaredRange": "latest",
-      "runtimeMode": "bundled",
-      "sourceDigest": "..."
-    }
-  }
-}
-```
-
-For `mpc-setup`, local setup builds use the local qap-compiler output and record the local subcircuit package version and
-source digest. Non-`mpc-setup` backend packages continue to resolve the published npm `@tokamak-zk-evm/subcircuit-library`
-package for release builds.
-
-Metadata validation must fail when:
-
-- `compatibleBackendVersion` is missing.
-- `compatibleBackendVersion` is not strict `MAJOR.MINOR`.
-- `compatibleBackendVersion` does not equal the CLI manifest compatibility version.
-- `packageVersion` is not strict `MAJOR.MINOR.PATCH`.
-- `packageVersion` does not normalize to the same `MAJOR.MINOR`.
-- `dependencies.subcircuitLibrary.sourceDigest` is missing.
-
-## CLI Install Compatibility Checks
-
-`tokamak-cli --install` uses the installed CLI package's `tokamakZkEvm.compatibleBackendVersion` to select the public CRS.
-
-The install flow must:
-
-1. Read `packages/cli/package.json` from the installed package.
-2. Validate that `tokamakZkEvm.compatibleBackendVersion` is canonical `MAJOR.MINOR`.
-3. Validate that the CLI package version normalizes to the same `MAJOR.MINOR`.
-4. Select only Google Drive CRS archive names matching `tokamak-backend-crs-vMAJOR.MINOR-YYYYMMDDTHHMMSSZ.zip`.
-5. Download the latest matching archive by timestamp.
-6. Validate `crs_provenance.json backend_version`.
-7. Validate CRS artifact hashes from `crs_provenance.json`.
-8. Validate `build-metadata-mpc-setup.json compatibleBackendVersion`.
-9. Validate `build-metadata-mpc-setup.json packageVersion` after normalizing to `MAJOR.MINOR`.
-10. Validate that each built backend binary metadata file reports the same compatible backend version.
-11. Validate that each built backend binary metadata file reports a package version whose `MAJOR.MINOR` matches the CRS.
-12. Validate that each built backend binary metadata file has the same subcircuit source digest as the CRS metadata.
-
-The Google Drive file name and file ID are not trusted by themselves. Selection is complete only after the downloaded
-archive's embedded provenance, metadata, and hashes pass validation.
-
-## Publish CI Checks
-
-The publish workflow must check the latest public CRS archive for the current CLI compatibility version before publishing
-the CLI package or building the browser-compatible SNARK package.
-
-The CRS check must:
-
-- Read `packages/cli/package.json tokamakZkEvm.compatibleBackendVersion`.
-- Ensure the value is canonical `MAJOR.MINOR`.
-- Ensure the value equals the CLI package `MAJOR.MINOR`.
-- Ensure the value equals the backend workspace package `MAJOR.MINOR`.
-- Search Google Drive only for `tokamak-backend-crs-vMAJOR.MINOR-YYYYMMDDTHHMMSSZ.zip`.
-- Select the latest matching archive by timestamp.
-- Download that single selected archive.
-- Validate `crs_provenance.json backend_version`.
-- Validate `build-metadata-mpc-setup.json compatibleBackendVersion`.
-- Validate `build-metadata-mpc-setup.json packageVersion` after normalizing to `MAJOR.MINOR`.
-- Validate `build-metadata-mpc-setup.json dependencies.subcircuitLibrary.sourceDigest`.
-- Validate CRS artifact hashes against provenance.
-- Export the validated `sigma_verify.json` as a workflow artifact for the browser-compatible SNARK build.
-
-The browser-compatible SNARK release build must:
-
-- run only after the public CRS check succeeds;
-- regenerate its embedded verifier CRS from the exported, validated `sigma_verify.json`;
-- resolve the exact synchronized `@tokamak-zk-evm/subcircuit-library` version from npm;
-- build and validate the converter Worker without bundling `ffjavascript`, `wasmbuilder`, or `wasmcurves`;
-- pack and validate one `@tokamak-zk-evm/snark-browser-compat` tarball; and
-- skip automated publication while the package does not yet exist on npm, requiring the first publication to be
-  performed manually from the verified release tarball.
-
-After the first manual publication, maintainers must configure npm Trusted Publisher for
-`.github/workflows/publish-tokamak-zk-evm.yml`. Later synchronized releases may then publish the verified tarball through
-the same workflow.
-
-The check must not download every candidate archive in the Drive folder. It must first narrow candidates by strict file
-name and then download only the latest matching archive.
-
-## Operational Playbooks
-
-### Patch-Only Release
-
-Use this flow when the subcircuit source digest and CRS remain valid:
-
-1. Bump all synchronized package versions by `PATCH`.
-2. Keep `packages/cli/package.json tokamakZkEvm.compatibleBackendVersion` unchanged.
-3. Do not run a new dusk-backed MPC setup.
-4. Do not upload a new CRS archive.
-5. Publish npm packages.
-6. Confirm install CI validates the existing CRS `MAJOR.MINOR` against the new package `MAJOR.MINOR.PATCH`.
-
-### Minor Release
-
-Use this flow when CRS compatibility changes:
-
-1. Bump all synchronized package versions to the new `MAJOR.MINOR.0` line.
-2. Update `packages/cli/package.json tokamakZkEvm.compatibleBackendVersion` to the new `MAJOR.MINOR`.
-3. Run dusk-backed MPC setup.
-4. Confirm `crs_provenance.json backend_version` is the new `MAJOR.MINOR`.
-5. Confirm `build-metadata-mpc-setup.json compatibleBackendVersion` is the new `MAJOR.MINOR`.
-6. Upload a CRS archive named `tokamak-backend-crs-vMAJOR.MINOR-YYYYMMDDTHHMMSSZ.zip`.
-7. Publish npm packages only after the public CRS is available and CI can validate it.
-
-### Major Release
-
-Use this flow when compatibility changes are larger than a minor setup update:
-
-1. Write a migration plan before publishing artifacts.
-2. Bump all synchronized package versions to the new `MAJOR.0.0` line.
-3. Update `packages/cli/package.json tokamakZkEvm.compatibleBackendVersion` to the new `MAJOR.0`.
-4. Generate and upload new CRS artifacts.
-5. Publish packages only after install and post-publish compatibility checks pass.
-
-## Invalid States
-
-The following states are invalid:
-
-- `packages/cli/package.json tokamakZkEvm.compatibleBackendVersion` is missing.
-- The CLI compatibility version includes a patch component.
-- The CLI compatibility version differs from the CLI package `MAJOR.MINOR`.
-- The backend workspace package `MAJOR.MINOR` differs from the CLI compatibility version.
-- A new CRS archive name includes a patch component.
-- `crs_provenance.json backend_version` includes a patch component.
-- CLI install accepts or silently falls back to a CRS archive whose compatibility version does not match the installed
-  CLI package compatibility version.
-- Backend build metadata lacks `compatibleBackendVersion`.
-- Backend and CRS metadata report different subcircuit source digests.
-- The browser-compatible SNARK package version, generated package version, native backend version, or exact
-  subcircuit-library dependency differs from the synchronized repository release version.
+The compatibility directory contains the three role-key files and provenance.
+Provenance names the digest-addressed shared tau and records the SHA-256 of the
+tau and role-key payloads. Readers resolve exactly one compatibility directory,
+reject duplicate required objects, download provenance first, then fetch only
+the named tau and role-key files. Additional directory objects are ignored.
+ZIP archives, timestamp selection, combined sigma files, and legacy archive
+names are not release authorities.
+
+CRS reuse requires both the compatibility class and equality of the source
+digest in CRS provenance and all backend build metadata. A changed circuit,
+public input contract, proving or verification semantics, setup output, or
+CRS-required metadata needs a new compatibility class and CRS. A package-only
+change can use a patch version only when those identities remain unchanged.
+
+## Candidate and merge rule
+
+One `dev` to `main` pull request carries all release source changes. Its
+Changelog date is the local calendar date on which the release PR is drafted
+offline. That record may differ from both the npm publication date and the
+GitHub merge date.
+
+When a new version needs a subcircuit library, the npm owner builds and
+publishes it locally before the release PR is merged. The Google Drive folder
+owner then uploads a compatible CRS locally. The browser production lock must
+record the exact npm tarball and integrity. The PR `Source build` check builds
+the candidate and confirms that the published library and public CRS are
+available and compatible. A later Circom rebuild is not used as a byte-for-byte
+identity test for the immutable npm tarball.
+
+## Publication from main
+
+Each push to `main`, whether from a PR merge or a direct push, runs
+`.github/workflows/publish-tokamak-zk-evm.yml` from that commit. The workflow
+builds the four dependent packages from merged source, checks the published
+subcircuit library and compatible CRS, and tests the candidate Node/CLI and
+Web/browser-backend package pairs through complete proof workflows. Publication
+starts only after both tests pass, then publishes missing exact versions in
+dependency order. The CRS is downloaded and hash-checked through read-only
+Drive access; Actions never uploads it or publishes the foundation package.
+
+The publishing job uses npm Trusted Publishing. For each dependent package,
+an absent exact version is published, an identical version is skipped, and a
+different or indeterminate registry result stops the run. It also stops before
+publishing if `main` has moved beyond the run's commit. Rerun a failed workflow
+only when previously published versions still match the package tarballs built
+from the current `main` source. There is no separate release dispatch, frozen
+PR identity, or mutable release-state file.
+
+`main` can temporarily lead npm publication while this workflow runs. A release
+is complete only when the main-push workflow succeeds and the expected npm
+versions are public. A failed run requires correction or a safe retry; it never
+authorizes republishing an immutable version with changed contents.
+
+## Operational constraints
+
+- `tokamak-l2js` remains exactly `0.2.0` in manifests and tracked locks.
+- The CLI must fail before runtime work when synchronized `3.x.y` packages are
+  mixed with `2.x.y` packages.
+- Release checks use Node.js `24.20.0`, npm `11.19.0`, Rust `1.95.0`, Circom
+  `2.2.3`, and committed locks.
+- Only a verified npm `E404` establishes that an exact version is absent.
+  Authentication, authorization, malformed metadata, network errors, or an
+  existing non-identical tarball stop admission.
+- Tokens, OAuth material, private keys, service-account files, and npm
+  authentication material remain untracked. GitHub authority is
+  `JehyukJang`, npm authority is `jehyuk`, and Drive mutation authority belongs
+  to the folder owner.
+- The Filecoin-backed phase-2 operational limitation may be described only as
+  an implementation fact until the deferred security-boundary research
+  supports a security claim.

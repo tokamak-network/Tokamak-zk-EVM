@@ -65,8 +65,6 @@ node-cli/
 ```text
 examples/
 ├── config-runner.ts
-├── erc20Transfers/
-├── L2StateChannel/
 └── privateState/
 ```
 

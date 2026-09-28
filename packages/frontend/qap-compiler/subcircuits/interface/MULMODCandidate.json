@@ -1,0 +1,11 @@
+{
+  "inputs": [
+    { "name": "quotientLow", "logicalType": { "kind": "uint", "bits": 256 } },
+    { "name": "quotientHigh", "logicalType": { "kind": "uint", "bits": 256 } },
+    { "name": "remainder", "logicalType": { "kind": "uint", "bits": 256 } }
+  ],
+  "outputs": [
+    { "name": "quotientWord", "length": 8, "logicalType": { "kind": "uint", "bits": 64 } },
+    { "name": "remainderWord", "length": 4, "logicalType": { "kind": "uint", "bits": 64 } }
+  ]
+}

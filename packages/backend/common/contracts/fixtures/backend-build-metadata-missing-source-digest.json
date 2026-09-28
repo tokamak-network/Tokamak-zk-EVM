@@ -1,0 +1,13 @@
+{
+  "dependencies": {
+    "subcircuitLibrary": {
+      "buildVersion": "2.1.5",
+      "declaredRange": "2.1.5",
+      "packageName": "@tokamak-zk-evm/subcircuit-library",
+      "runtimeMode": "bundled"
+    }
+  },
+  "packageName": "prove",
+  "packageVersion": "2.1.5",
+  "compatibleBackendVersion": "2.1"
+}

@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "variants": {
+    "mint": [
+      {
+        "label": "baseline",
+        "senderIndex": 0,
+        "noteOwnerIndex": 0,
+        "amount": "6000000000000000000",
+        "extraBalanceAccounts": [],
+        "channelTransactionIndex": 1,
+        "hostOrdering": "canonical"
+      },
+      {
+        "label": "calldata",
+        "senderIndex": 1,
+        "noteOwnerIndex": 1,
+        "amount": "12000000000000000000",
+        "extraBalanceAccounts": [],
+        "channelTransactionIndex": 2,
+        "hostOrdering": "canonical"
+      },
+      {
+        "label": "state",
+        "senderIndex": 2,
+        "noteOwnerIndex": 2,
+        "amount": "18000000000000000000",
+        "extraBalanceAccounts": [0, 1],
+        "channelTransactionIndex": 3,
+        "hostOrdering": "canonical"
+      },
+      {
+        "label": "ordering",
+        "senderIndex": 3,
+        "noteOwnerIndex": 3,
+        "amount": "24000000000000000000",
+        "extraBalanceAccounts": [0, 1, 2],
+        "channelTransactionIndex": 4,
+        "hostOrdering": "reverse"
+      }
+    ],
+    "transfer": [
+      {
+        "label": "baseline",
+        "senderIndex": 0,
+        "amount": "6000000000000000000",
+        "extraCommitments": 0,
+        "saltLabel": "baseline",
+        "channelTransactionIndex": 1,
+        "hostOrdering": "canonical"
+      },
+      {
+        "label": "calldata",
+        "senderIndex": 1,
+        "amount": "12000000000000000000",
+        "extraCommitments": 0,
+        "saltLabel": "calldata",
+        "channelTransactionIndex": 2,
+        "hostOrdering": "canonical"
+      },
+      {
+        "label": "state",
+        "senderIndex": 2,
+        "amount": "18000000000000000000",
+        "extraCommitments": 2,
+        "saltLabel": "state",
+        "channelTransactionIndex": 3,
+        "hostOrdering": "canonical"
+      },
+      {
+        "label": "ordering",
+        "senderIndex": 3,
+        "amount": "24000000000000000000",
+        "extraCommitments": 3,
+        "saltLabel": "ordering",
+        "channelTransactionIndex": 4,
+        "hostOrdering": "reverse"
+      }
+    ],
+    "redeem": [
+      {
+        "label": "baseline",
+        "senderIndex": 0,
+        "receiverIndex": 1,
+        "amount": "6000000000000000000",
+        "extraBalanceAccounts": [],
+        "extraCommitments": 0,
+        "channelTransactionIndex": 1,
+        "hostOrdering": "canonical"
+      },
+      {
+        "label": "calldata",
+        "senderIndex": 1,
+        "receiverIndex": 2,
+        "amount": "12000000000000000000",
+        "extraBalanceAccounts": [],
+        "extraCommitments": 0,
+        "channelTransactionIndex": 2,
+        "hostOrdering": "canonical"
+      },
+      {
+        "label": "state",
+        "senderIndex": 2,
+        "receiverIndex": 3,
+        "amount": "18000000000000000000",
+        "extraBalanceAccounts": [0, 1],
+        "extraCommitments": 2,
+        "channelTransactionIndex": 3,
+        "hostOrdering": "canonical"
+      },
+      {
+        "label": "ordering",
+        "senderIndex": 3,
+        "receiverIndex": 0,
+        "amount": "24000000000000000000",
+        "extraBalanceAccounts": [0, 1, 2],
+        "extraCommitments": 3,
+        "channelTransactionIndex": 4,
+        "hostOrdering": "reverse"
+      }
+    ]
+  }
+}

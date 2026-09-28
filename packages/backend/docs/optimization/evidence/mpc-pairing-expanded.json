@@ -1,0 +1,289 @@
+{
+  "arch": "aarch64",
+  "rayonThreads": 14,
+  "retainedRounds": 5,
+  "samples": [
+    {
+      "points": 4096,
+      "preparationSeconds": 0,
+      "round": 1,
+      "seconds": 0.315425083,
+      "variant": "product"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0.070168209,
+      "round": 1,
+      "seconds": 0.51477875,
+      "variant": "prepared-two"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0.068886584,
+      "round": 1,
+      "seconds": 0.39848425,
+      "variant": "prepared-product"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 4.2e-8,
+      "round": 1,
+      "seconds": 0.528019042,
+      "variant": "two-pairings"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0.070288,
+      "round": 2,
+      "seconds": 0.523496375,
+      "variant": "prepared-two"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0.070729583,
+      "round": 2,
+      "seconds": 0.328588125,
+      "variant": "prepared-product"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0,
+      "round": 2,
+      "seconds": 0.490992875,
+      "variant": "two-pairings"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0,
+      "round": 2,
+      "seconds": 0.336590916,
+      "variant": "product"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0.069390334,
+      "round": 3,
+      "seconds": 0.336033792,
+      "variant": "prepared-product"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0,
+      "round": 3,
+      "seconds": 0.549552209,
+      "variant": "two-pairings"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0,
+      "round": 3,
+      "seconds": 0.3556025,
+      "variant": "product"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0.069774542,
+      "round": 3,
+      "seconds": 0.533123,
+      "variant": "prepared-two"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0,
+      "round": 4,
+      "seconds": 0.545637916,
+      "variant": "two-pairings"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 4.2e-8,
+      "round": 4,
+      "seconds": 0.3229535,
+      "variant": "product"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0.068894,
+      "round": 4,
+      "seconds": 0.519651916,
+      "variant": "prepared-two"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0.06855875,
+      "round": 4,
+      "seconds": 0.328199541,
+      "variant": "prepared-product"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 4.1e-8,
+      "round": 5,
+      "seconds": 0.325338041,
+      "variant": "product"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0.068252875,
+      "round": 5,
+      "seconds": 0.529707875,
+      "variant": "prepared-two"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 0.068771834,
+      "round": 5,
+      "seconds": 0.333082625,
+      "variant": "prepared-product"
+    },
+    {
+      "points": 4096,
+      "preparationSeconds": 4.2e-8,
+      "round": 5,
+      "seconds": 0.521910958,
+      "variant": "two-pairings"
+    },
+    {
+      "points": 32768,
+      "preparationSeconds": 4.2e-8,
+      "round": 1,
+      "seconds": 2.782128792,
+      "variant": "product"
+    },
+    {
+      "points": 32768,
+      "preparationSeconds": 0.072411458,
+      "round": 1,
+      "seconds": 4.044440958,
+      "variant": "prepared-two"
+    },
+    {
+      "points": 32768,
+      "preparationSeconds": 0.068944459,
+      "round": 1,
+      "seconds": 2.347714542,
+      "variant": "prepared-product"
+    },
+    {
+      "points": 32768,
+      "preparationSeconds": 0,
+      "round": 1,
+      "seconds": 4.467428,
+      "variant": "two-pairings"
+    },
+    {
+      "points": 32768,
+      "preparationSeconds": 0.069304291,
+      "round": 2,
+      "seconds": 4.3235782910000005,
+      "variant": "prepared-two"
+    },
+    {
+      "points": 32768,
+      "preparationSeconds": 0.070884917,
+      "round": 2,
+      "seconds": 2.27585425,
+      "variant": "prepared-product"
+    },
+    {
+      "points": 32768,
+      "preparationSeconds": 4.2e-8,
+      "round": 2,
+      "seconds": 4.24721025,
+      "variant": "two-pairings"
+    },
+    {
+      "points": 32768,
+      "preparationSeconds": 0,
+      "round": 2,
+      "seconds": 3.028071375,
+      "variant": "product"
+    },
+    {
+      "points": 32768,
+      "preparationSeconds": 0.068696167,
+      "round": 3,
+      "seconds": 2.277150167,
+      "variant": "prepared-product"
+    },
+    {
+      "points": 32768,
+      "preparationSeconds": 0,
+      "round": 3,
+      "seconds": 4.150029875,
+      "variant": "two-pairings"
+    },
+    {
+      "points": 32768,
+      "preparationSeconds": 0,
+      "round": 3,
+      "seconds": 2.633867458,
+      "variant": "product"
+    },
+    {
+      "points": 32768,
+      "preparationSeconds": 0.068935667,
+      "round": 3,
+      "seconds": 3.7611420840000003,
+      "variant": "prepared-two"
+    },
+    {
+      "points": 32768,
+      "preparationSeconds": 0,
+      "round": 4,
+      "seconds": 4.102457417,
+      "variant": "two-pairings"
+    },
+    {
+      "points": 32768,
+      "preparationSeconds": 4.2e-8,
+      "round": 4,
+      "seconds": 2.577942709,
+      "variant": "product"
+    },
+    {
+      "points": 32768,
+      "preparationSeconds": 0.069344333,
+      "round": 4,
+      "seconds": 3.723178208,
+      "variant": "prepared-two"
+    },
+    {
+      "points": 32768,
+      "preparationSeconds": 0.068561416,
+      "round": 4,
+      "seconds": 2.223266541,
+      "variant": "prepared-product"
+    },
+    {
+      "points": 32768,
+      "preparationSeconds": 0,
+      "round": 5,
+      "seconds": 2.582393542,
+      "variant": "product"
+    },
+    {
+      "points": 32768,
+      "preparationSeconds": 0.068334458,
+      "round": 5,
+      "seconds": 3.754545958,
+      "variant": "prepared-two"
+    },
+    {
+      "points": 32768,
+      "preparationSeconds": 0.067941042,
+      "round": 5,
+      "seconds": 2.219814042,
+      "variant": "prepared-product"
+    },
+    {
+      "points": 32768,
+      "preparationSeconds": 4.2e-8,
+      "round": 5,
+      "seconds": 4.082496167,
+      "variant": "two-pairings"
+    }
+  ],
+  "scope": "synthetic CPU kernels, not native E2E or live MPC",
+  "warmupRounds": 1
+}

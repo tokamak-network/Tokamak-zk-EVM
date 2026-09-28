@@ -1,0 +1,177 @@
+{
+  "fileName": "crs_provenance.json",
+  "schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "documentKind",
+      "protocolSchemaId",
+      "generationMethod",
+      "releaseEligible",
+      "generatedAtUtc",
+      "compatibleBackendVersion",
+      "subcircuitLibrary",
+      "artifacts",
+      "phase1SourceProvenance",
+      "ceremonyProtocolVersion",
+      "ceremonyTranscriptSha256",
+      "phase2ContributionCount"
+    ],
+    "properties": {
+      "documentKind": {
+        "const": "crs"
+      },
+      "protocolSchemaId": {
+        "const": "tokamak-zk-evm-univariate"
+      },
+      "generationMethod": {
+        "enum": [
+          "trustedSetup",
+          "mpc"
+        ]
+      },
+      "releaseEligible": {
+        "type": "boolean"
+      },
+      "generatedAtUtc": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "compatibleBackendVersion": {
+        "type": "string",
+        "pattern": "^[0-9]+\\.[0-9]+$"
+      },
+      "subcircuitLibrary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "packageName",
+          "packageVersion",
+          "origin",
+          "sourceDigest"
+        ],
+        "properties": {
+          "packageName": {
+            "type": "string",
+            "minLength": 1
+          },
+          "packageVersion": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+          },
+          "origin": {
+            "enum": [
+              "npmSnapshot",
+              "localQapCompiler"
+            ]
+          },
+          "sourceDigest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          }
+        }
+      },
+      "artifacts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tau_sequence.rkyv",
+          "prover_keys.rkyv",
+          "preprocess_keys.rkyv",
+          "verifier_keys.rkyv"
+        ],
+        "properties": {
+          "tau_sequence.rkyv": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "prover_keys.rkyv": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "preprocess_keys.rkyv": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "verifier_keys.rkyv": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      },
+      "phase1SourceProvenance": {
+        "oneOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "filecoin"
+            ],
+            "properties": {
+              "filecoin": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "sourceUrl",
+                  "sourceBlake2b512"
+                ],
+                "properties": {
+                  "sourceUrl": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "sourceBlake2b512": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{128}$"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ceremonyProtocolVersion": {
+        "oneOf": [
+          {
+            "type": "null"
+          },
+          {
+            "const": "tokamak-filecoin-phase2"
+          }
+        ]
+      },
+      "ceremonyTranscriptSha256": {
+        "oneOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        ]
+      },
+      "phase2ContributionCount": {
+        "oneOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "integer",
+            "minimum": 1
+          }
+        ]
+      }
+    }
+  },
+  "rootFiles": [
+    "tau_sequence.rkyv",
+    "prover_keys.rkyv",
+    "preprocess_keys.rkyv",
+    "verifier_keys.rkyv",
+    "crs_provenance.json"
+  ]
+}

@@ -16,10 +16,21 @@ Primary outputs are selected by default. Supplementary outputs are selected only
   - Running WASM subcircuit witnesses from the resolved subcircuit library to validate outputs.
 - Contains `subcircuitId`, `variables` array, and `instanceList` descriptions for each placement.
 
+## selector.json
+- Capacity-length placement selector for the univariate proving protocol.
+- Entry `i` is the subcircuit ID placed at index `i`; `-1` denotes an
+  inactive capacity slot.
+- Derived from the same final normalized placements as `placementVariables.json`.
+- The public-buffer prefix is checked against the resolved normalized-library
+  metadata: public buffer `b` must occupy placement `b` exactly once. This is
+  the intentional CRS-compression invariant, not a definition of a placement
+  phase.
+
 ## instance.json
 - Public/private instance split derived from `placementVariables`.
 - `a_pub_user`, `a_pub_block`, and `a_pub_function` segments follow the resolved setup parameters from the shared subcircuit library context.
-- Values are hex strings aligned with the global wire list.
+- Values are hex strings ordered by the normalized library's declared public
+  phases and their public-wire ranges.
 
 ## instance_description.json
 - Mirrors `instance.json` but contains human-readable descriptions for each public wire, pulled from `instanceList` data.
@@ -46,5 +57,6 @@ Primary outputs are selected by default. Supplementary outputs are selected only
 
 ## supplement/message_code_addresses.json
 - Distinct message code addresses observed during execution.
-- Emitted from `synthesizer.messageCodeAddresses`.
+- Emitted from the `ContextManager`-owned transaction-wide code-address
+  snapshot.
 - Supplementary output.

@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-09-20",
+  "protocol": "current normalized univariate compact weighted CRS",
+  "compactWeightedRows": 1295,
+  "denseWeightedRows": 2048,
+  "weightedPointsPerFamily": 331520,
+  "convertedSectionPointCounts": {
+    "crs.s0": 1048583,
+    "crs.sxi": 524292,
+    "crs.spsi": 524292,
+    "crs.tau-g2": 524292,
+    "crs.psi-g2": 1,
+    "crs.weighted": 331520,
+    "crs.weighted-shifted": 331520,
+    "crs.free-public-queries": 158,
+    "crs.nonpublic-queries": 6006784,
+    "crs.mask-u": 2,
+    "crs.mask-v": 2,
+    "crs.mask-w": 2,
+    "crs.mask-b": 2,
+    "crs.mask-selection": 1,
+    "crs.preprocess-sc": 131072,
+    "crs.preprocess-selection": 16129,
+    "crs.fixed-public-queries": 140,
+    "crs.g1-handles": 3,
+    "crs.g2": 4
+  },
+  "artifacts": {
+    "tau_sequence.rkyv": 301992400,
+    "prover_keys.rkyv": 640319248,
+    "preprocess_keys.rkyv": 15693216,
+    "verifier_keys.rkyv": 1104,
+    "crs_provenance.json": 984,
+    "totalBytes": 958006952
+  },
+  "trustedSetupSeconds": [11.263746, 11.15445, 11.399835],
+  "nativeCpuProveSeconds": [3.46475825, 3.439798375, 3.445103584],
+  "chromium": {
+    "proveMilliseconds": [17671.515, 17860.415, 18044.025],
+    "preprocessMilliseconds": [2532.71, 2573.105, 2586.18],
+    "verifyMilliseconds": [25.465, 25.955, 27.205]
+  },
+  "qualification": {
+    "nativeTrustedSetupPreprocessProveVerify": true,
+    "compactWasmChromiumPreprocessProveVerify": true,
+    "nativeProofWasmVerification": true,
+    "tamperedProofEvaluationPreprocessAndPublicInputRejected": true,
+    "syntheticMpcArtifactsMatchProvenance": true,
+    "syntheticMpcNativePreprocessProveVerify": true
+  }
+}

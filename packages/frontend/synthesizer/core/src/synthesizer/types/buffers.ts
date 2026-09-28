@@ -1,23 +1,50 @@
-import { DEFAULT_SOURCE_BIT_SIZE } from '../params/constants.ts';
-import type { DataPtDescription } from './index.ts'
-import { FUNCTION_INPUT_LENGTH } from 'tokamak-l2js';
-import { BUFFER_LIST, ReservedBuffer } from '../../subcircuit/configuredTypes.ts';
+import {
+  BLS12_381_FR_DATA_PT_TYPE,
+  BIT_DATA_PT_TYPE,
+  type DataPtDescription,
+  type DataPtType,
+  JUBJUB_SCALAR_DATA_PT_TYPE,
+  UINT160_DATA_PT_TYPE,
+  UINT256_DATA_PT_TYPE,
+  UINT32_DATA_PT_TYPE,
+} from './dataStructure.ts'
+import {
+  BUFFER_LIST,
+  ReservedBuffer,
+  type TransactionInputVariable,
+} from '../../subcircuit/configuredTypes.ts';
 
-const PUBLIC_OUT_VARIABLES_STATIC = [
+const LOG_OUT_VARIABLES_STATIC = [
   // Nothing
 ] as const
-const PUBLIC_OUT_VARIABLES_DYNAMIC = [
+const LOG_OUT_VARIABLES_DYNAMIC = [
   'LOG_TOPIC',
   'LOG_VALUE',
-  'RES_MERKLE_ROOT',
 ] as const
-const PUBLIC_IN_VARIABLES_STATIC = [
+const STORAGE_STORE_VARIABLES_STATIC = [
+  // Nothing
+] as const
+const STORAGE_STORE_VARIABLES_DYNAMIC = [
+  'SSTORE_ADDRESS',
+  'SSTORE_KEY',
+  'SSTORE_VALUE',
+] as const
+const TX_IN_VARIABLES_STATIC = [
   'EDDSA_SIGNATURE',  // For debugging. Can be moved to PRIVATE_IN buffer
   'CONTRACT_ADDRESS',    
   'FUNCTION_SELECTOR',   
+  'CHANNEL_TX_INDEX',
 ] as const
-const PUBLIC_IN_VARIABLES_DYNAMIC = [
-  'INI_MERKLE_ROOT',
+const TX_IN_VARIABLES_DYNAMIC = [
+  // Nothing
+] as const
+const STORAGE_LOAD_VARIABLES_STATIC = [
+  // Nothing
+] as const
+const STORAGE_LOAD_VARIABLES_DYNAMIC = [
+  'SLOAD_ADDRESS',
+  'SLOAD_KEY',
+  'SLOAD_VALUE',
 ] as const
 const BLOCK_IN_VARIABLES_STATIC = [
   'COINBASE',
@@ -292,67 +319,48 @@ const BLOCK_IN_VARIABLES_DYNAMIC = [
 const EVM_IN_VARIABLES_STATIC = [
   'CIRCOM_CONST_ONE',
   'CIRCOM_CONST_ZERO',
-  'ADDRESS_MASK',
+  'BIT_CONST_ONE',
+  'BIT_CONST_ZERO',
+  'UINT32_CONST_ZERO',
+  'UINT32_POW2_0',
+  'UINT32_POW2_1',
+  'UINT32_POW2_2',
+  'UINT32_POW2_3',
+  'UINT32_POW2_4',
+  'UINT32_POW2_5',
+  'UINT32_POW2_6',
+  'EVM_CONST_ONE',
+  'EVM_CONST_ZERO',
   'JUBJUB_BASE_X',
   'JUBJUB_BASE_Y',
   'JUBJUB_POI_X',
   'JUBJUB_POI_Y',
-  'TREE_SIZE',
 ] as const
 const EVM_IN_VARIABLES_DYNAMIC = [
   // Nothing
 ] as const
 
 const PRIVATE_IN_VARIABLES_STATIC = [
-  'TRANSACTION_NONCE',
   'EDDSA_PUBLIC_KEY_X',
   'EDDSA_PUBLIC_KEY_Y',
-  'TRANSACTION_INPUT0',
-  'TRANSACTION_INPUT1',
-  'TRANSACTION_INPUT2',
-  'TRANSACTION_INPUT3',
-  'TRANSACTION_INPUT4',
-  'TRANSACTION_INPUT5',
-  'TRANSACTION_INPUT6',
-  'TRANSACTION_INPUT7',
-  'TRANSACTION_INPUT8',
-  'TRANSACTION_INPUT9',
-  'TRANSACTION_INPUT10',
-  'TRANSACTION_INPUT11',
-  'TRANSACTION_INPUT12',
-  'TRANSACTION_INPUT13',
-  'TRANSACTION_INPUT14',
-  'TRANSACTION_INPUT15',
-  'TRANSACTION_INPUT16',
-  'TRANSACTION_INPUT17',
-  'TRANSACTION_INPUT18',
-  'TRANSACTION_INPUT19',
-  'TRANSACTION_INPUT20',
-  'TRANSACTION_INPUT21',
-  'TRANSACTION_INPUT22',
-  'TRANSACTION_INPUT23',
-  'TRANSACTION_INPUT24',
-  'TRANSACTION_INPUT25',
-  'TRANSACTION_INPUT26',
-  'TRANSACTION_INPUT27',
-  'TRANSACTION_INPUT28',
   'EDDSA_RANDOMIZER_X',
   'EDDSA_RANDOMIZER_Y',
 ] as const
 const PRIVATE_IN_VARIABLES_DYNAMIC = [
-  // 'IN_MT_INDEX',
-  // 'IN_MPT_KEY',
   'STORAGE_READ',
-  'INTER_MERKLE_ROOT',
-  'MERKLE_PROOF',
 ] as const
-
-type PublicOutVariable = 
-  | (typeof PUBLIC_OUT_VARIABLES_STATIC)[number]
-  | (typeof PUBLIC_OUT_VARIABLES_DYNAMIC)[number]
-type PublicInVariable =
-  | (typeof PUBLIC_IN_VARIABLES_STATIC)[number]
-  | (typeof PUBLIC_IN_VARIABLES_DYNAMIC)[number]
+type LogOutVariable =
+  | (typeof LOG_OUT_VARIABLES_STATIC)[number]
+  | (typeof LOG_OUT_VARIABLES_DYNAMIC)[number]
+type StorageStoreVariable =
+  | (typeof STORAGE_STORE_VARIABLES_STATIC)[number]
+  | (typeof STORAGE_STORE_VARIABLES_DYNAMIC)[number]
+type TxInVariable =
+  | (typeof TX_IN_VARIABLES_STATIC)[number]
+  | (typeof TX_IN_VARIABLES_DYNAMIC)[number]
+type StorageLoadVariable =
+  | (typeof STORAGE_LOAD_VARIABLES_STATIC)[number]
+  | (typeof STORAGE_LOAD_VARIABLES_DYNAMIC)[number]
 type BlockInVariable =
   | (typeof BLOCK_IN_VARIABLES_STATIC)[number]
   | (typeof BLOCK_IN_VARIABLES_DYNAMIC)[number]
@@ -362,18 +370,25 @@ type EVMInVariable =
 type PrivateInVariable =
   | (typeof PRIVATE_IN_VARIABLES_STATIC)[number]
   | (typeof PRIVATE_IN_VARIABLES_DYNAMIC)[number]
+  | TransactionInputVariable
 export type ReservedVariable =
-  | PublicOutVariable
-  | PublicInVariable
+  | LogOutVariable
+  | StorageStoreVariable
+  | TxInVariable
+  | StorageLoadVariable
   | BlockInVariable
   | EVMInVariable
   | PrivateInVariable
 
 const _VARIABLES: string[] = [
-  ...PUBLIC_OUT_VARIABLES_STATIC,
-  ...PUBLIC_OUT_VARIABLES_DYNAMIC,
-  ...PUBLIC_IN_VARIABLES_STATIC,
-  ...PUBLIC_IN_VARIABLES_DYNAMIC,
+  ...LOG_OUT_VARIABLES_STATIC,
+  ...LOG_OUT_VARIABLES_DYNAMIC,
+  ...STORAGE_STORE_VARIABLES_STATIC,
+  ...STORAGE_STORE_VARIABLES_DYNAMIC,
+  ...TX_IN_VARIABLES_STATIC,
+  ...TX_IN_VARIABLES_DYNAMIC,
+  ...STORAGE_LOAD_VARIABLES_STATIC,
+  ...STORAGE_LOAD_VARIABLES_DYNAMIC,
   ...BLOCK_IN_VARIABLES_STATIC,
   ...BLOCK_IN_VARIABLES_DYNAMIC,
   ...EVM_IN_VARIABLES_STATIC,
@@ -395,22 +410,32 @@ const __buildIncompleteDescription = (
   for (const varName of FULL_VARIABLES) {
     m[varName] = {
       source: BUFFER_LIST.findIndex(name => name === bufferName),
-      sourceBitSize: DEFAULT_SOURCE_BIT_SIZE,
-      wireIndex: STATIC_VARIABLES.findIndex(staticName => staticName === varName)
+      wireIndex: STATIC_VARIABLES.findIndex(staticName => staticName === varName),
+      dataPtType: UINT256_DATA_PT_TYPE,
     }
   }
   return m as unknown
 }
-const _PUBLIC_OUT_DESCRIPTION_INCOMPLETE = __buildIncompleteDescription(
-  PUBLIC_OUT_VARIABLES_STATIC,
-  PUBLIC_OUT_VARIABLES_DYNAMIC,
-  'PUBLIC_OUT',
-) as Record<PublicOutVariable, DataPtDescription>;
-const _PUBLIC_IN_DESCRIPTION_INCOMPLETE = __buildIncompleteDescription(
-  PUBLIC_IN_VARIABLES_STATIC,
-  PUBLIC_IN_VARIABLES_DYNAMIC,
-  'PUBLIC_IN',
-) as Record<PublicInVariable, DataPtDescription>;
+const _LOG_OUT_DESCRIPTION_INCOMPLETE = __buildIncompleteDescription(
+  LOG_OUT_VARIABLES_STATIC,
+  LOG_OUT_VARIABLES_DYNAMIC,
+  'LOG_OUT',
+) as Record<LogOutVariable, DataPtDescription>;
+const _STORAGE_STORE_DESCRIPTION_INCOMPLETE = __buildIncompleteDescription(
+  STORAGE_STORE_VARIABLES_STATIC,
+  STORAGE_STORE_VARIABLES_DYNAMIC,
+  'STORAGE_STORE',
+) as Record<StorageStoreVariable, DataPtDescription>;
+const _TX_IN_DESCRIPTION_INCOMPLETE = __buildIncompleteDescription(
+  TX_IN_VARIABLES_STATIC,
+  TX_IN_VARIABLES_DYNAMIC,
+  'TX_IN',
+) as Record<TxInVariable, DataPtDescription>;
+const _STORAGE_LOAD_DESCRIPTION_INCOMPLETE = __buildIncompleteDescription(
+  STORAGE_LOAD_VARIABLES_STATIC,
+  STORAGE_LOAD_VARIABLES_DYNAMIC,
+  'STORAGE_LOAD',
+) as Record<StorageLoadVariable, DataPtDescription>;
 const _BLOCK_IN_DESCRIPTION_INCOMPLETE = __buildIncompleteDescription(
   BLOCK_IN_VARIABLES_STATIC,
   BLOCK_IN_VARIABLES_DYNAMIC,
@@ -427,31 +452,47 @@ const _PRIVATE_IN_DESCRIPTION_INCOMPLETE = __buildIncompleteDescription(
   'PRIVATE_IN',
 ) as Record<PrivateInVariable, DataPtDescription>;
 
-const VARIABLE_DESCRIPTION_INCOMPLETE: Record<ReservedVariable, DataPtDescription> = {
-  ..._PUBLIC_OUT_DESCRIPTION_INCOMPLETE,
-  ..._PUBLIC_IN_DESCRIPTION_INCOMPLETE,
+type StaticReservedVariable = Exclude<ReservedVariable, TransactionInputVariable>
+
+const VARIABLE_DESCRIPTION_INCOMPLETE: Record<StaticReservedVariable, DataPtDescription> = {
+  ..._LOG_OUT_DESCRIPTION_INCOMPLETE,
+  ..._STORAGE_STORE_DESCRIPTION_INCOMPLETE,
+  ..._TX_IN_DESCRIPTION_INCOMPLETE,
+  ..._STORAGE_LOAD_DESCRIPTION_INCOMPLETE,
   ..._BLOCK_IN_DESCRIPTION_INCOMPLETE,
   ..._EVM_IN_DESCRIPTION_INCOMPLETE,
   ..._PRIVATE_IN_DESCRIPTION_INCOMPLETE,
 }
 
+const __setDataPtType = (
+  varName: StaticReservedVariable,
+  dataPtType: DataPtType,
+): void => {
+  VARIABLE_DESCRIPTION_INCOMPLETE[varName] = {
+    ...VARIABLE_DESCRIPTION_INCOMPLETE[varName],
+    dataPtType,
+  }
+}
+
 VARIABLE_DESCRIPTION_INCOMPLETE.LOG_TOPIC.extDest = `Log topic`;
 VARIABLE_DESCRIPTION_INCOMPLETE.LOG_VALUE.extDest = `Log value`;
-
-VARIABLE_DESCRIPTION_INCOMPLETE.RES_MERKLE_ROOT.extDest = `Resulting Merkle tree root hash`;
-VARIABLE_DESCRIPTION_INCOMPLETE.RES_MERKLE_ROOT.sourceBitSize = 255;
-
-VARIABLE_DESCRIPTION_INCOMPLETE.INI_MERKLE_ROOT.extSource = `Initial Merkle tree root hash`;
-VARIABLE_DESCRIPTION_INCOMPLETE.INI_MERKLE_ROOT.sourceBitSize = 255;
-
-VARIABLE_DESCRIPTION_INCOMPLETE.INTER_MERKLE_ROOT.extSource = `Intermediate Merkle tree root hash`;
-VARIABLE_DESCRIPTION_INCOMPLETE.INTER_MERKLE_ROOT.sourceBitSize = 255;
+VARIABLE_DESCRIPTION_INCOMPLETE.SSTORE_ADDRESS.extDest = `Final storage write address`;
+__setDataPtType('SSTORE_ADDRESS', UINT256_DATA_PT_TYPE)
+VARIABLE_DESCRIPTION_INCOMPLETE.SSTORE_KEY.extDest = `Final storage write key`;
+VARIABLE_DESCRIPTION_INCOMPLETE.SSTORE_VALUE.extDest = `Final storage write value`;
 
 VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_SIGNATURE.extSource = `EdDSA signature of transaction`;
-VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_SIGNATURE.sourceBitSize = 255;
+__setDataPtType('EDDSA_SIGNATURE', JUBJUB_SCALAR_DATA_PT_TYPE)
 
 VARIABLE_DESCRIPTION_INCOMPLETE.CONTRACT_ADDRESS.extSource = `Contract address to call`;
+__setDataPtType('CONTRACT_ADDRESS', UINT160_DATA_PT_TYPE)
 VARIABLE_DESCRIPTION_INCOMPLETE.FUNCTION_SELECTOR.extSource = `Selector for a function to call`;
+__setDataPtType('FUNCTION_SELECTOR', UINT32_DATA_PT_TYPE)
+VARIABLE_DESCRIPTION_INCOMPLETE.SLOAD_ADDRESS.extDest = `Initial storage read address`;
+__setDataPtType('SLOAD_ADDRESS', UINT256_DATA_PT_TYPE)
+VARIABLE_DESCRIPTION_INCOMPLETE.SLOAD_KEY.extDest = `Initial storage read key`;
+VARIABLE_DESCRIPTION_INCOMPLETE.SLOAD_VALUE.extDest = `Initial storage read value`;
+VARIABLE_DESCRIPTION_INCOMPLETE.STORAGE_READ.extSource = `Initial storage read value`;
 VARIABLE_DESCRIPTION_INCOMPLETE.COINBASE.extSource = `COINBASE`;
 VARIABLE_DESCRIPTION_INCOMPLETE.TIMESTAMP.extSource = `TIMESTAMP`;
 VARIABLE_DESCRIPTION_INCOMPLETE.NUMBER.extSource = `NUMBER`;
@@ -461,7 +502,7 @@ VARIABLE_DESCRIPTION_INCOMPLETE.CHAINID.extSource = `CHAINID`;
 VARIABLE_DESCRIPTION_INCOMPLETE.SELFBALANCE.extSource = `SELFBALANCE`;
 VARIABLE_DESCRIPTION_INCOMPLETE.BASEFEE.extSource = `BASEFEE`;
 for (let i = 1; i <= 256; i++) {
-  const varName = `BLOCKHASH_${i}` as ReservedVariable
+  const varName = `BLOCKHASH_${i}` as StaticReservedVariable
   if ( BLOCK_IN_VARIABLES_STATIC.findIndex(staticVarName => staticVarName === varName) < 0 ) {
     throw new Error(`${varName} is not a ReservedVariable`)
   }
@@ -469,58 +510,60 @@ for (let i = 1; i <= 256; i++) {
 }
 
 VARIABLE_DESCRIPTION_INCOMPLETE.CIRCOM_CONST_ONE.extSource = 'Arbitrary constant',
-VARIABLE_DESCRIPTION_INCOMPLETE.CIRCOM_CONST_ONE.sourceBitSize = 1;
+__setDataPtType('CIRCOM_CONST_ONE', BLS12_381_FR_DATA_PT_TYPE)
 
 VARIABLE_DESCRIPTION_INCOMPLETE.CIRCOM_CONST_ZERO.extSource = 'Arbitrary constant',
-VARIABLE_DESCRIPTION_INCOMPLETE.CIRCOM_CONST_ZERO.sourceBitSize = 1;
+__setDataPtType('CIRCOM_CONST_ZERO', BLS12_381_FR_DATA_PT_TYPE)
 
-VARIABLE_DESCRIPTION_INCOMPLETE.ADDRESS_MASK.extSource = `Masker for Ethereum address (20 bytes)`;
-VARIABLE_DESCRIPTION_INCOMPLETE.ADDRESS_MASK.sourceBitSize = 160;
+VARIABLE_DESCRIPTION_INCOMPLETE.BIT_CONST_ONE.extSource = 'One-bit constant one',
+__setDataPtType('BIT_CONST_ONE', BIT_DATA_PT_TYPE)
+
+VARIABLE_DESCRIPTION_INCOMPLETE.BIT_CONST_ZERO.extSource = 'One-bit constant zero',
+__setDataPtType('BIT_CONST_ZERO', BIT_DATA_PT_TYPE)
+
+VARIABLE_DESCRIPTION_INCOMPLETE.UINT32_CONST_ZERO.extSource = 'Zero uint32 value',
+__setDataPtType('UINT32_CONST_ZERO', UINT32_DATA_PT_TYPE)
+
+for (let exponent = 0; exponent <= 6; exponent++) {
+  const varName = `UINT32_POW2_${exponent}` as StaticReservedVariable
+  VARIABLE_DESCRIPTION_INCOMPLETE[varName].extSource = `Uint32 power of two: 2^${exponent}`
+  __setDataPtType(varName, UINT32_DATA_PT_TYPE)
+}
+
+VARIABLE_DESCRIPTION_INCOMPLETE.EVM_CONST_ONE.extSource = 'One EVM word',
+__setDataPtType('EVM_CONST_ONE', UINT256_DATA_PT_TYPE)
+
+VARIABLE_DESCRIPTION_INCOMPLETE.EVM_CONST_ZERO.extSource = 'Zero EVM word',
+__setDataPtType('EVM_CONST_ZERO', UINT256_DATA_PT_TYPE)
 
 VARIABLE_DESCRIPTION_INCOMPLETE.JUBJUB_BASE_X.extSource = `Base point of Jubjub curve (x coordinate)`;
-VARIABLE_DESCRIPTION_INCOMPLETE.JUBJUB_BASE_X.sourceBitSize = 255;
+__setDataPtType('JUBJUB_BASE_X', BLS12_381_FR_DATA_PT_TYPE)
 
 VARIABLE_DESCRIPTION_INCOMPLETE.JUBJUB_BASE_Y.extSource = `Base point of Jubjub curve (y coordinate)`;
-VARIABLE_DESCRIPTION_INCOMPLETE.JUBJUB_BASE_Y.sourceBitSize = 255;
+__setDataPtType('JUBJUB_BASE_Y', BLS12_381_FR_DATA_PT_TYPE)
 
 VARIABLE_DESCRIPTION_INCOMPLETE.JUBJUB_POI_X.extSource = `Point at infinity of Jubjub curve (x coordinate)`;
-VARIABLE_DESCRIPTION_INCOMPLETE.JUBJUB_POI_X.sourceBitSize = 255;
+__setDataPtType('JUBJUB_POI_X', BLS12_381_FR_DATA_PT_TYPE)
 
 VARIABLE_DESCRIPTION_INCOMPLETE.JUBJUB_POI_Y.extSource = `Point at infinity of Jubjub curve (y coordinate)`;
-VARIABLE_DESCRIPTION_INCOMPLETE.JUBJUB_POI_Y.sourceBitSize = 255;
+__setDataPtType('JUBJUB_POI_Y', BLS12_381_FR_DATA_PT_TYPE)
 
-VARIABLE_DESCRIPTION_INCOMPLETE.TREE_SIZE.extSource = `The number of leaves in each Merkle tree, specified by TokamakL2JS`;
-
-VARIABLE_DESCRIPTION_INCOMPLETE.TRANSACTION_NONCE.extSource = `Transaction nonce`;
-VARIABLE_DESCRIPTION_INCOMPLETE.TRANSACTION_NONCE.sourceBitSize = 255;
+VARIABLE_DESCRIPTION_INCOMPLETE.CHANNEL_TX_INDEX.extSource = `Signed channel transaction index`;
+__setDataPtType('CHANNEL_TX_INDEX', BLS12_381_FR_DATA_PT_TYPE)
 
 VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_PUBLIC_KEY_X.extSource = `EdDSA public key of caller (x coordinate)`;
-VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_PUBLIC_KEY_X.sourceBitSize = 255;
+__setDataPtType('EDDSA_PUBLIC_KEY_X', BLS12_381_FR_DATA_PT_TYPE)
 
 VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_PUBLIC_KEY_Y.extSource = `EdDSA public key of caller (y coordinate)`;
-VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_PUBLIC_KEY_Y.sourceBitSize = 255;
-for (let i = 0; i < FUNCTION_INPUT_LENGTH; i++) {
-  const varName = `TRANSACTION_INPUT${i}` as ReservedVariable
-  if ( PRIVATE_IN_VARIABLES_STATIC.findIndex(staticVarName => staticVarName === varName) < 0 ) {
-    throw new Error(`${varName} is not a ReservedVariable`)
-  }
-  VARIABLE_DESCRIPTION_INCOMPLETE[varName].extSource = `The ${i}-th input to the selected function`;
-  VARIABLE_DESCRIPTION_INCOMPLETE[varName].sourceBitSize = 255;
-}
+__setDataPtType('EDDSA_PUBLIC_KEY_Y', BLS12_381_FR_DATA_PT_TYPE)
 VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_RANDOMIZER_X.extSource = `EdDSA randomizer (x coordinate)`;
-VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_RANDOMIZER_X.sourceBitSize = 255;
+__setDataPtType('EDDSA_RANDOMIZER_X', BLS12_381_FR_DATA_PT_TYPE)
 
 VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_RANDOMIZER_Y.extSource = `EdDSA randomizer (y coordinate)`;
-VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_RANDOMIZER_Y.sourceBitSize = 255;
-
-VARIABLE_DESCRIPTION_INCOMPLETE.STORAGE_READ.extSource = `Storage read (restricted to 255-bit word)`;
-VARIABLE_DESCRIPTION_INCOMPLETE.STORAGE_READ.sourceBitSize = 255;
-
-VARIABLE_DESCRIPTION_INCOMPLETE.MERKLE_PROOF.extSource = `Merkle proof component`;
-VARIABLE_DESCRIPTION_INCOMPLETE.MERKLE_PROOF.sourceBitSize = 255;
+__setDataPtType('EDDSA_RANDOMIZER_Y', BLS12_381_FR_DATA_PT_TYPE)
 
 for (const _varName of _VARIABLES) {
-  const varName = _varName as ReservedVariable
+  const varName = _varName as StaticReservedVariable
   if (
     VARIABLE_DESCRIPTION_INCOMPLETE[varName].extDest === undefined && 
     VARIABLE_DESCRIPTION_INCOMPLETE[varName].extSource === undefined
@@ -530,3 +573,34 @@ for (const _varName of _VARIABLES) {
 }
 
 export const VARIABLE_DESCRIPTION = VARIABLE_DESCRIPTION_INCOMPLETE
+
+export const getReservedVariableDescription = (
+  variable: ReservedVariable,
+  numberOfPrivateMessageInputs: number,
+): DataPtDescription => {
+  const transactionInputMatch = /^TRANSACTION_INPUT(\d+)$/.exec(variable)
+  if (transactionInputMatch !== null) {
+    const inputIndex = Number(transactionInputMatch[1])
+    if (!Number.isSafeInteger(inputIndex) || inputIndex < 0 || inputIndex >= numberOfPrivateMessageInputs) {
+      throw new Error(`Synthesizer: ${variable} is outside the configured private transaction-input range`)
+    }
+    return {
+      source: BUFFER_LIST.indexOf('PRIVATE_IN'),
+      wireIndex: 2 + inputIndex,
+      dataPtType: BLS12_381_FR_DATA_PT_TYPE,
+      extSource: `The ${inputIndex}-th input to the selected function`,
+    }
+  }
+  if (variable === 'EDDSA_RANDOMIZER_X' || variable === 'EDDSA_RANDOMIZER_Y') {
+    const description = VARIABLE_DESCRIPTION[variable]
+    return {
+      ...description,
+      wireIndex: numberOfPrivateMessageInputs + (variable === 'EDDSA_RANDOMIZER_X' ? 2 : 3),
+    }
+  }
+  const description = VARIABLE_DESCRIPTION[variable as StaticReservedVariable]
+  if (description === undefined) {
+    throw new Error(`Synthesizer: unknown reserved variable ${variable}`)
+  }
+  return description
+}

@@ -1,0 +1,31 @@
+{
+  "compatibleBackendVersions": [
+    { "input": "0.0", "canonical": "0.0" },
+    { "input": "2.1", "canonical": "2.1" },
+    { "input": "18446744073709551615.0", "canonical": "18446744073709551615.0" },
+    { "input": "18446744073709551616.0" },
+    { "input": "02.1" },
+    { "input": "2.01" },
+    { "input": "2.1.0" },
+    { "input": "2" },
+    { "input": "2." },
+    { "input": " 2.1" },
+    { "input": "2.1 " },
+    { "input": "2.a" }
+  ],
+  "packageVersions": [
+    { "input": "0.0.0", "compatibility": "0.0" },
+    { "input": "2.1.5", "compatibility": "2.1" },
+    { "input": "2.1.0", "compatibility": "2.1" },
+    { "input": "18446744073709551615.0.0", "compatibility": "18446744073709551615.0" },
+    { "input": "18446744073709551616.0.0" },
+    { "input": "02.1.5" },
+    { "input": "2.01.5" },
+    { "input": "2.1.05" },
+    { "input": "2.1" },
+    { "input": "2.1.5.0" },
+    { "input": "2..5" },
+    { "input": "2.1.x" },
+    { "input": "2.1.5-rc.1" }
+  ]
+}

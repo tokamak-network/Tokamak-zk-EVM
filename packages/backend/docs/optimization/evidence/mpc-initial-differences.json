@@ -1,0 +1,324 @@
+{
+  "arch": "aarch64",
+  "rayonThreads": 14,
+  "retainedRounds": 5,
+  "samples": [
+    {
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.00199375,
+      "uses": 1,
+      "variant": "batch"
+    },
+    {
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.002250708,
+      "uses": 1,
+      "variant": "cached-batch"
+    },
+    {
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.019572041,
+      "uses": 1,
+      "variant": "individual"
+    },
+    {
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.002088416,
+      "uses": 1,
+      "variant": "cached-batch"
+    },
+    {
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.033342125,
+      "uses": 1,
+      "variant": "individual"
+    },
+    {
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.002898125,
+      "uses": 1,
+      "variant": "batch"
+    },
+    {
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.020197417,
+      "uses": 1,
+      "variant": "individual"
+    },
+    {
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.002018292,
+      "uses": 1,
+      "variant": "batch"
+    },
+    {
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.002073125,
+      "uses": 1,
+      "variant": "cached-batch"
+    },
+    {
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.002292708,
+      "uses": 1,
+      "variant": "batch"
+    },
+    {
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.002256125,
+      "uses": 1,
+      "variant": "cached-batch"
+    },
+    {
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.022311917,
+      "uses": 1,
+      "variant": "individual"
+    },
+    {
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.002669041,
+      "uses": 1,
+      "variant": "cached-batch"
+    },
+    {
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.020880584,
+      "uses": 1,
+      "variant": "individual"
+    },
+    {
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.002817667,
+      "uses": 1,
+      "variant": "batch"
+    },
+    {
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.004470166,
+      "uses": 2,
+      "variant": "batch"
+    },
+    {
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.00222075,
+      "uses": 2,
+      "variant": "cached-batch"
+    },
+    {
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.038046542,
+      "uses": 2,
+      "variant": "individual"
+    },
+    {
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.002200625,
+      "uses": 2,
+      "variant": "cached-batch"
+    },
+    {
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.038212958,
+      "uses": 2,
+      "variant": "individual"
+    },
+    {
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.003784791,
+      "uses": 2,
+      "variant": "batch"
+    },
+    {
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.037831542,
+      "uses": 2,
+      "variant": "individual"
+    },
+    {
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.004141791,
+      "uses": 2,
+      "variant": "batch"
+    },
+    {
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.002158542,
+      "uses": 2,
+      "variant": "cached-batch"
+    },
+    {
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.003994125,
+      "uses": 2,
+      "variant": "batch"
+    },
+    {
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.002352458,
+      "uses": 2,
+      "variant": "cached-batch"
+    },
+    {
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.0423075,
+      "uses": 2,
+      "variant": "individual"
+    },
+    {
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.00304975,
+      "uses": 2,
+      "variant": "cached-batch"
+    },
+    {
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.041994291,
+      "uses": 2,
+      "variant": "individual"
+    },
+    {
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.004198417,
+      "uses": 2,
+      "variant": "batch"
+    },
+    {
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.008055916,
+      "uses": 4,
+      "variant": "batch"
+    },
+    {
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.002299708,
+      "uses": 4,
+      "variant": "cached-batch"
+    },
+    {
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.077773834,
+      "uses": 4,
+      "variant": "individual"
+    },
+    {
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.0023115,
+      "uses": 4,
+      "variant": "cached-batch"
+    },
+    {
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.079031709,
+      "uses": 4,
+      "variant": "individual"
+    },
+    {
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.009114625,
+      "uses": 4,
+      "variant": "batch"
+    },
+    {
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.076302792,
+      "uses": 4,
+      "variant": "individual"
+    },
+    {
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.007935917,
+      "uses": 4,
+      "variant": "batch"
+    },
+    {
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.002310833,
+      "uses": 4,
+      "variant": "cached-batch"
+    },
+    {
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.008052959,
+      "uses": 4,
+      "variant": "batch"
+    },
+    {
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.002231709,
+      "uses": 4,
+      "variant": "cached-batch"
+    },
+    {
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.075902541,
+      "uses": 4,
+      "variant": "individual"
+    },
+    {
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.010367834,
+      "uses": 4,
+      "variant": "cached-batch"
+    },
+    {
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.088546958,
+      "uses": 4,
+      "variant": "individual"
+    },
+    {
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.007997541,
+      "uses": 4,
+      "variant": "batch"
+    }
+  ],
+  "scope": "synthetic CPU kernels, not native E2E or live MPC",
+  "warmupRounds": 1
+}

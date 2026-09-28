@@ -1,0 +1,49 @@
+[package]
+name = "prove"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+authors = { workspace = true }
+repository = { workspace = true }
+homepage = { workspace = true }
+
+[dependencies]
+icicle-runtime = { workspace = true }
+icicle-core = { workspace = true }
+icicle-bls12-381 = { workspace = true }
+libs = { workspace = true, default-features = false }
+memmap2 = { workspace = true }
+rkyv = { workspace = true, features = ["alloc", "bytecheck", "validation"] }
+clap = { workspace = true }
+thiserror = { workspace = true }
+serde_json = { workspace = true }
+backend-univariate-crs-interface = { workspace = true }
+backend-interface = { workspace = true }
+ark-bls12-381 = { workspace = true }
+ark-ec = { workspace = true, features = ["parallel"] }
+ark-ff = { workspace = true, features = ["parallel"] }
+ark-poly = { version = "0.5.0", features = ["parallel"] }
+rayon = { workspace = true }
+rand = { workspace = true }
+hex = { workspace = true }
+
+[build-dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[features]
+default = ["local-development-subcircuit-library"]
+testing-mode = []
+timing = ["libs/timing"]
+development-crs-bypass = ["libs/development-crs-bypass"]
+local-development-subcircuit-library = ["libs/local-development-subcircuit-library"]
+production-npm-subcircuit-library = ["libs/production-npm-subcircuit-library"]
+
+[[test]]
+name = "timing"
+path = "optimization/tests/timing.rs"

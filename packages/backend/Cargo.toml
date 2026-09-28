@@ -1,16 +1,20 @@
 [workspace]
+resolver = "2"
 members = [
-    "libs",
-    "setup/trusted-setup",
-    "setup/mpc-setup",
-    "prove",
-    "verify-rust",
-    "preprocess"
+    "common/interface",
+    "common/interface/univariate-crs",
+    "rust/libs",
+    "rust/setup/trusted-setup",
+    "rust/setup/mpc-setup",
+    "rust/prove",
+    "rust/verify",
+    "rust/preprocess",
+    "wasm/tools/univariate-crs-chunker",
 ]
 
 [workspace.package]
 edition = "2021"
-version = "2.1.3"
+version = "3.0.1"
 license = "MIT OR Apache-2.0"
 authors = ["Tokamak Network"]
 repository = "https://github.com/tokamak-network/tokamak-zk-evm"
@@ -19,24 +23,25 @@ homepage = "https://github.com/tokamak-network/tokamak-zk-evm"
 [workspace.dependencies]
 icicle-runtime = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.8.0", package = "icicle-runtime" }
 icicle-core = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.8.0", package = "icicle-core" }
-icicle-hash = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.8.0", package = "icicle-hash" }
 icicle-bls12-381 = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.8.0", package = "icicle-bls12-381"}
 ark-bls12-381 = "0.5.0"
 ark-ec = "0.5.0"
 ark-ff = "0.5.0"
-libs = { path = "libs" }
-prove = { path = "prove" }
-verify = { path = "verify-rust" }
-preprocess = { path = "preprocess" }
+libs = { path = "rust/libs", default-features = false }
+prove = { path = "rust/prove" }
+verify = { path = "rust/verify" }
+preprocess = { path = "rust/preprocess" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-byteorder = "1.4"
-num-bigint = "0.4"
-num-traits = "0.2"
+sha2 = "0.10"
 rayon = "1.7"
 rand = "0.8"
 bincode = "1.3"
 hex = "0.4"
 memmap2 = "0.9"
-rkyv = { version = "0.7", features = ["alloc", "bytecheck", "validation"] }
+rkyv = { version = "=0.7.46", features = ["alloc", "bytecheck", "validation"] }
+backend-interface = { path = "common/interface" }
+backend-univariate-crs-interface = { path = "common/interface/univariate-crs" }
 clap = { version = "4.4", features = ["derive"] }
+thiserror = "2.0.12"
+chrono = "0.4"

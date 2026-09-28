@@ -1,0 +1,18 @@
+{
+  "date": "2026-09-14",
+  "command": "npx tsx test/checks/univariate/check-signed-msm.ts",
+  "workers": 14,
+  "unit": "ms",
+  "warmup": "Each control and candidate called for equality before five measured pairs per width",
+  "scope": "Node WASM, including signed recoding, allocation, transfer and reduction; known base pool, not browser whole-prover timing",
+  "samples": [
+    {"points":4097,"width":8,"control":[17.122459,16.161375,16.384750,16.457417,17.164541],"signed":[15.847541,14.898292,15.261958,15.525792,15.614750]},
+    {"points":4097,"width":9,"control":[17.330792,16.888209,16.444958,17.169417,17.355208],"signed":[14.939208,14.402625,14.578584,14.583458,14.440625]},
+    {"points":4097,"width":10,"control":[16.287083,16.482667,18.947750,16.685708,17.730667],"signed":[14.901875,16.278750,15.870750,14.691458,15.829792]},
+    {"points":262144,"width":12,"control":[721.730917,727.414042,691.169042,753.329167,719.246125],"signed":[689.555250,681.882250,683.118417,734.760250,732.422833]},
+    {"points":262144,"width":13,"control":[742.946583,800.189417,700.253375,718.291208,714.613167],"signed":[758.457375,655.489125,671.145209,668.053333,668.746500]},
+    {"points":262144,"width":14,"control":[708.983458,725.786917,737.230708,723.966208,723.959709],"signed":[677.916958,679.138666,694.934500,677.095167,669.661625]}
+  ],
+  "checks": ["exact integer reconstruction across 256-bit window boundaries", "final carry", "zero/one/r-1/full-width scalars", "stock MSM and known generator-sum equality", "identity, duplicate and negated bases", "zero-scalar and inverse-scalar cancellation", "point counts 0,1,2,3,31,32,33,257,4097,262144", "external chunk fusion regression"],
+  "failedDevelopmentAttempt": "An initial nested command-array encoding emitted an unreachable instruction; corrected before equality tests and all recorded samples. No production prover run used that kernel."
+}

@@ -1,0 +1,207 @@
+diff --git a/packages/backend/rust/prove/src/univariate.rs b/packages/backend/rust/prove/src/univariate.rs
+index bf402079f..fd48da04c 100644
+--- a/packages/backend/rust/prove/src/univariate.rs
++++ b/packages/backend/rust/prove/src/univariate.rs
+@@ -101,0 +102 @@ pub fn prove<E: Engine>(
++    let mut commitment_cache = E::MsmCache::default();
+@@ -129,0 +131 @@ pub fn prove<E: Engine>(
++        &mut commitment_cache,
+@@ -137,0 +140 @@ pub fn prove<E: Engine>(
++        &mut commitment_cache,
+@@ -151,0 +155 @@ pub fn prove<E: Engine>(
++                &mut commitment_cache,
+@@ -155,0 +160 @@ pub fn prove<E: Engine>(
++                &mut commitment_cache,
+@@ -168,0 +174 @@ pub fn prove<E: Engine>(
++        &mut commitment_cache,
+@@ -199 +205,5 @@ pub fn prove<E: Engine>(
+-    let c_r = commit_sum::<E>("C_R", &[(&crs.tau.s0_g1, &E::coefficients(&r), 0)])?;
++    let c_r = commit_sum::<E>(
++        &mut commitment_cache,
++        "C_R",
++        &[(&crs.tau.s0_g1, &E::coefficients(&r), 0)],
++    )?;
+@@ -206 +216,5 @@ pub fn prove<E: Engine>(
+-    let c_q = commit_sum::<E>("C_Q", &[(&crs.tau.s0_g1, &E::coefficients(&q), 0)])?;
++    let c_q = commit_sum::<E>(
++        &mut commitment_cache,
++        "C_Q",
++        &[(&crs.tau.s0_g1, &E::coefficients(&q), 0)],
++    )?;
+@@ -238,0 +253 @@ pub fn prove<E: Engine>(
++                &mut commitment_cache,
+@@ -246,0 +262 @@ pub fn prove<E: Engine>(
++                &mut commitment_cache,
+@@ -296 +312,10 @@ fn point_message(label: &str, points: &[[u8; 96]]) -> Vec<u8> {
+-fn commit_sum<E: Engine>(
++fn commit_sum<'a, E: Engine>(
++    cache: &mut E::MsmCache<'a>,
++    label: &'static str,
++    terms: &[(&'a [UnivariateG1Rkyv], &[E::F], usize)],
++) -> Result<[u8; 96], UnivariateProverError> {
++    #[cfg(feature = "timing")]
++    let _span = crate::timing::SpanGuard::new("univariate.commit", label, vec![]);
++    E::commit(cache, label, terms)
++}
++fn commit_uncached<E: Engine>(
+diff --git a/packages/backend/rust/prove/src/univariate/engine.rs b/packages/backend/rust/prove/src/univariate/engine.rs
+index 709a8df4b..d61f43bd4 100644
+--- a/packages/backend/rust/prove/src/univariate/engine.rs
++++ b/packages/backend/rust/prove/src/univariate/engine.rs
+@@ -7 +7 @@ use libs::univariate_field::ProtocolField;
+-pub trait Engine {
++pub trait Engine: Sized {
+@@ -9,0 +10,8 @@ pub trait Engine {
++    type MsmCache<'a>: Default;
++    fn commit<'a>(
++        _cache: &mut Self::MsmCache<'a>,
++        label: &'static str,
++        terms: &[(&'a [UnivariateG1Rkyv], &[Self::F], usize)],
++    ) -> Result<[u8; 96], UnivariateProverError> {
++        super::commit_uncached::<Self>(label, terms)
++    }
+@@ -38,0 +47,36 @@ pub struct Icicle;
++#[derive(Default)]
++pub struct CpuMsmCache<'a> {
++    ranges: Vec<(&'a [UnivariateG1Rkyv], usize, Vec<ark_bls12_381::G1Affine>)>,
++}
++
++fn decode_cpu(bases: &[UnivariateG1Rkyv]) -> Vec<ark_bls12_381::G1Affine> {
++    use ark_bls12_381::{Fq, G1Affine};
++    use ark_ff::PrimeField;
++    use rayon::prelude::*;
++    bases
++        .par_iter()
++        .map(|p| {
++            if p.x == [0; 48] && p.y == [0; 48] {
++                G1Affine::identity()
++            } else {
++                G1Affine::new_unchecked(
++                    Fq::from_le_bytes_mod_order(&p.x),
++                    Fq::from_le_bytes_mod_order(&p.y),
++                )
++            }
++        })
++        .collect()
++}
++
++fn cpu_msm_bytes(points: &[ark_bls12_381::G1Affine], scalars: &[ark_bls12_381::Fr]) -> [u8; 96] {
++    use ark_ec::AffineRepr;
++    use ark_ff::{BigInteger, PrimeField};
++    let p = super::msm_kernel::msm(points, scalars);
++    let mut bytes = [0; 96];
++    if !p.is_zero() {
++        bytes[..48].copy_from_slice(&p.x.into_bigint().to_bytes_le());
++        bytes[48..].copy_from_slice(&p.y.into_bigint().to_bytes_le());
++    }
++    bytes
++}
++
+@@ -41,0 +86,58 @@ impl Engine for Cpu {
++    type MsmCache<'a> = CpuMsmCache<'a>;
++    fn commit<'a>(
++        cache: &mut Self::MsmCache<'a>,
++        label: &'static str,
++        terms: &[(&'a [UnivariateG1Rkyv], &[Self::F], usize)],
++    ) -> Result<[u8; 96], UnivariateProverError> {
++        let mut points = Vec::new();
++        let mut scalars = Vec::new();
++        #[cfg(feature = "timing")]
++        let prepare =
++            crate::timing::SpanGuard::new("univariate.commit.prepare_cached", label, vec![]);
++        for (source, values, offset) in terms {
++            let end = offset
++                .checked_add(values.len())
++                .ok_or("MSM exponent overflow".to_owned())?;
++            let records = source
++                .get(*offset..end)
++                .ok_or("polynomial exceeds CRS powers".to_owned())?;
++            if values.iter().any(|v| *v == Self::F::zero()) {
++                let mut selected = Vec::new();
++                for (p, s) in records.iter().zip(*values) {
++                    if *s != Self::F::zero() {
++                        selected.push(*p);
++                        scalars.push(*s);
++                    }
++                }
++                points.extend(decode_cpu(&selected));
++            } else {
++                if let Some((_, start, decoded)) =
++                    cache.ranges.iter().find(|(stored, start, decoded)| {
++                        std::ptr::eq(stored.as_ptr(), source.as_ptr())
++                            && stored.len() == source.len()
++                            && *start <= *offset
++                            && *start + decoded.len() >= end
++                    })
++                {
++                    points.extend_from_slice(&decoded[offset - start..end - start]);
++                } else {
++                    let decoded = decode_cpu(records);
++                    points.extend_from_slice(&decoded);
++                    cache.ranges.push((source, *offset, decoded));
++                }
++                scalars.extend_from_slice(values);
++            }
++        }
++        #[cfg(feature = "timing")]
++        drop(prepare);
++        #[cfg(feature = "timing")]
++        let _msm = crate::timing::SpanGuard::new(
++            "univariate.msm",
++            "msm",
++            vec![crate::timing::SizeInfo {
++                label: "bases",
++                dims: vec![points.len()],
++            }],
++        );
++        Ok(cpu_msm_bytes(&points, &scalars))
++    }
+@@ -184,0 +287 @@ impl Engine for Icicle {
++    type MsmCache<'a> = ();
+diff --git a/packages/backend/rust/prove/src/univariate/optimization_tests.rs b/packages/backend/rust/prove/src/univariate/optimization_tests.rs
+index 346eb7072..ee6f8f299 100644
+--- a/packages/backend/rust/prove/src/univariate/optimization_tests.rs
++++ b/packages/backend/rust/prove/src/univariate/optimization_tests.rs
+@@ -168,0 +169,42 @@ fn zero_filter_preserves_msm_and_rejects_length_mismatch() {
++#[test]
++fn cached_commitment_ranges_match_uncached_commitments() {
++    use ark_bls12_381::{Fr, G1Affine};
++    use ark_ec::{AffineRepr, CurveGroup};
++    use ark_ff::{BigInteger, PrimeField};
++    let records: Vec<_> = (0..64)
++        .map(|i| {
++            let p = G1Affine::generator()
++                .mul_bigint(Fr::from_usize(i + 1).into_bigint())
++                .into_affine();
++            UnivariateG1Rkyv {
++                x: p.x.into_bigint().to_bytes_le().try_into().unwrap(),
++                y: p.y.into_bigint().to_bytes_le().try_into().unwrap(),
++            }
++        })
++        .collect();
++    let other: Vec<_> = records.iter().rev().copied().collect();
++    let mut cache = engine::CpuMsmCache::default();
++    for (start, end) in [(0, 32), (0, 31), (16, 48), (32, 64), (1, 8), (0, 0)] {
++        for sparse in [false, true] {
++            let values: Vec<_> = (start..end)
++                .map(|i| {
++                    if sparse && i % 2 == 0 {
++                        Fr::zero()
++                    } else {
++                        Fr::from_usize(i + 9)
++                    }
++                })
++                .collect();
++            for source in [&records, &other] {
++                let terms = [(source.as_slice(), values.as_slice(), start)];
++                assert_eq!(
++                    Cpu::commit(&mut cache, "test", &terms).unwrap(),
++                    commit_uncached::<Cpu>("test", &terms).unwrap()
++                );
++            }
++        }
++    }
++    assert!(Cpu::commit(&mut cache, "test", &[(&records, &[Fr::one(); 2], 63)]).is_err());
++    assert!(Cpu::commit(&mut cache, "test", &[(&records, &[Fr::one()], usize::MAX)]).is_err());
++}
++

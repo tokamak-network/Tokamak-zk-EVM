@@ -1,0 +1,33 @@
+{
+  "fileNamePattern": "build-metadata-{backendPackageName}.json",
+  "backendPackageNames": ["preprocess", "prove", "verify"],
+  "schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["dependencies", "packageName", "packageVersion", "compatibleBackendVersion"],
+    "properties": {
+      "dependencies": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["subcircuitLibrary"],
+        "properties": {
+          "subcircuitLibrary": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["buildVersion", "declaredRange", "packageName", "runtimeMode", "sourceDigest"],
+            "properties": {
+              "buildVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+              "declaredRange": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+              "packageName": { "const": "@tokamak-zk-evm/subcircuit-library" },
+              "runtimeMode": { "const": "bundled" },
+              "sourceDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+            }
+          }
+        }
+      },
+      "packageName": { "enum": ["preprocess", "prove", "verify"] },
+      "packageVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+      "compatibleBackendVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" }
+    }
+  }
+}

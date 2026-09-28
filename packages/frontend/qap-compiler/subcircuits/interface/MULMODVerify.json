@@ -1,0 +1,12 @@
+{
+  "inputs": [
+    { "name": "lhsWord", "length": 4, "logicalType": { "kind": "uint", "bits": 64 } },
+    { "name": "rhsWord", "length": 4, "logicalType": { "kind": "uint", "bits": 64 } },
+    { "name": "modulusWord", "length": 4, "logicalType": { "kind": "uint", "bits": 64 } },
+    { "name": "quotientWord", "length": 8, "logicalType": { "kind": "uint", "bits": 64 } },
+    { "name": "remainderWord", "length": 4, "logicalType": { "kind": "uint", "bits": 64 } }
+  ],
+  "outputs": [
+    { "name": "result", "logicalType": { "kind": "uint", "bits": 256 } }
+  ]
+}

@@ -1,0 +1,149 @@
+{
+  "arch": "aarch64",
+  "rayonThreads": 14,
+  "retainedRounds": 5,
+  "samples": [
+    {
+      "family": "initialize-add",
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.002430167,
+      "variant": "batch"
+    },
+    {
+      "family": "initialize-add",
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.0197665,
+      "variant": "individual"
+    },
+    {
+      "family": "initialize-add",
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.019729916,
+      "variant": "individual"
+    },
+    {
+      "family": "initialize-add",
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.002155459,
+      "variant": "batch"
+    },
+    {
+      "family": "initialize-add",
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.002050291,
+      "variant": "batch"
+    },
+    {
+      "family": "initialize-add",
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.019819417,
+      "variant": "individual"
+    },
+    {
+      "family": "initialize-add",
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.019909083,
+      "variant": "individual"
+    },
+    {
+      "family": "initialize-add",
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.002107042,
+      "variant": "batch"
+    },
+    {
+      "family": "initialize-add",
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.002128333,
+      "variant": "batch"
+    },
+    {
+      "family": "initialize-add",
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.022583084,
+      "variant": "individual"
+    },
+    {
+      "family": "weighted-scale",
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.281710167,
+      "variant": "batch"
+    },
+    {
+      "family": "weighted-scale",
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.300308916,
+      "variant": "individual"
+    },
+    {
+      "family": "weighted-scale",
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.300880209,
+      "variant": "individual"
+    },
+    {
+      "family": "weighted-scale",
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.297130375,
+      "variant": "batch"
+    },
+    {
+      "family": "weighted-scale",
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.281306042,
+      "variant": "batch"
+    },
+    {
+      "family": "weighted-scale",
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.301666417,
+      "variant": "individual"
+    },
+    {
+      "family": "weighted-scale",
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.300500042,
+      "variant": "individual"
+    },
+    {
+      "family": "weighted-scale",
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.282593333,
+      "variant": "batch"
+    },
+    {
+      "family": "weighted-scale",
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.298720459,
+      "variant": "batch"
+    },
+    {
+      "family": "weighted-scale",
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.332425708,
+      "variant": "individual"
+    }
+  ],
+  "scope": "synthetic CPU kernels, not native E2E or live MPC",
+  "warmupRounds": 1
+}

@@ -1,0 +1,24 @@
+{
+  "documentKind": "crs",
+  "releaseEligible": false,
+  "generatedAtUtc": "2026-08-24T00:00:00Z",
+  "compatibleBackendVersion": "2.1",
+  "subcircuitLibrary": {
+    "packageName": "@tokamak-zk-evm/subcircuit-library",
+    "packageVersion": "2.1.5",
+    "origin": "localQapCompiler",
+    "sourceDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+  },
+  "phase1SourceProvenance": "unsupported",
+  "ceremonyProtocolVersion": "tokamak-filecoin-phase2",
+  "ceremonyTranscriptSha256": "6666666666666666666666666666666666666666666666666666666666666666",
+  "phase2ContributionCount": 1,
+  "protocolSchemaId": "tokamak-zk-evm-univariate",
+  "generationMethod": "mpc",
+  "artifacts": {
+    "prover_keys.rkyv": "7afc09d6cb52ac887cc570bc14c82bb8431f955992f57700cb82583e2b34d035",
+    "preprocess_keys.rkyv": "0b9e88f13bc7936a9014dc986b5c0a9e47e5dda5ed88a4e12bd7fc048e8907af",
+    "verifier_keys.rkyv": "56c2e6635d084af4952ef94fb6277f4e1fc18e7f6b98e60c56c818032b37b528",
+    "tau_sequence.rkyv": "1f37693270d466368ca2bd1e92b7f66101c315a695a20aa8d475e33bf33ac748"
+  }
+}

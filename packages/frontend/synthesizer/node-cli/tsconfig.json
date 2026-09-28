@@ -15,6 +15,6 @@
     "composite": true,
     "preserveSymlinks": true
   },
-  "include": ["src/**/*", "scripts/**/*", "../examples/privateState/utils.ts", "../scripts/**/*", "../core/src/**/*"],
+  "include": ["src/**/*", "../core/src/**/*"],
   "exclude": ["node_modules", "dist"]
 }

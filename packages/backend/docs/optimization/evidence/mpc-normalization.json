@@ -1,0 +1,129 @@
+{
+  "arch": "aarch64",
+  "rayonThreads": 14,
+  "retainedRounds": 5,
+  "samples": [
+    {
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.004959042,
+      "variant": "batch"
+    },
+    {
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.000862167,
+      "variant": "chunk-1024"
+    },
+    {
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.000855208,
+      "variant": "chunk-4096"
+    },
+    {
+      "points": 32768,
+      "round": 1,
+      "seconds": 0.018793875,
+      "variant": "individual"
+    },
+    {
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.000915333,
+      "variant": "chunk-1024"
+    },
+    {
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.000847084,
+      "variant": "chunk-4096"
+    },
+    {
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.018896167,
+      "variant": "individual"
+    },
+    {
+      "points": 32768,
+      "round": 2,
+      "seconds": 0.004961709,
+      "variant": "batch"
+    },
+    {
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.000925292,
+      "variant": "chunk-4096"
+    },
+    {
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.019272417,
+      "variant": "individual"
+    },
+    {
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.005066041,
+      "variant": "batch"
+    },
+    {
+      "points": 32768,
+      "round": 3,
+      "seconds": 0.000919833,
+      "variant": "chunk-1024"
+    },
+    {
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.018571875,
+      "variant": "individual"
+    },
+    {
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.0050215,
+      "variant": "batch"
+    },
+    {
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.00090475,
+      "variant": "chunk-1024"
+    },
+    {
+      "points": 32768,
+      "round": 4,
+      "seconds": 0.0008535,
+      "variant": "chunk-4096"
+    },
+    {
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.004986542,
+      "variant": "batch"
+    },
+    {
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.000864375,
+      "variant": "chunk-1024"
+    },
+    {
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.000799875,
+      "variant": "chunk-4096"
+    },
+    {
+      "points": 32768,
+      "round": 5,
+      "seconds": 0.018809041,
+      "variant": "individual"
+    }
+  ],
+  "scope": "synthetic CPU kernels, not native E2E or live MPC",
+  "warmupRounds": 1
+}

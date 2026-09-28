@@ -1,0 +1,13 @@
+{
+  "date": "2026-09-14",
+  "command": "npx tsx test/checks/univariate/check-copy-recurrence.ts",
+  "n": 262144,
+  "unit": "ms",
+  "control": "JS operand construction with existing batch inverse and ordered recurrence",
+  "candidate": "Worker-batched operand construction with the same inverse and recurrence",
+  "warmup": "One call per path excluded before measured pairs",
+  "controlSamples": [426.062625, 408.673042, 392.604084, 391.013917, 394.297666],
+  "candidateSamples": [92.941334, 81.090917, 80.352542, 78.417042, 81.157000],
+  "checks": ["complete vector equality", "scalar recurrence oracle on small domains", "uneven operand ranges", "zero, one and negative beta", "zero denominator at first, middle and final positions", "cycle closure", "empty and mismatched buffers"],
+  "scope": "Node WASM unit operation, not browser whole-prover timing"
+}

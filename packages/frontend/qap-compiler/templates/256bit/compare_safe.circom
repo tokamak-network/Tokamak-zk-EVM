@@ -18,20 +18,6 @@ template LessThan256 () {
     out <== eq_out * lt_lower_out + temp;
 }
 
-// template LIsEqual256 () {
-//     signal input in1[2], in2[2]; // 256-bit integers consisting of two 128-bit integers; in[0]: lower, in[1]: upper
-//     signal output out;
-//     signal eq_128 <== IsEqual()([((2**128) - 1),in2[0]]);
-//     signal lt_lower_out <== LessThan(128)([in1[0], in2[0] + 1 - eq_128]);
-//     signal lt_upper_out <== LessThan(128)([in1[1], in2[1] + eq_128]);
-//     signal eq_out <== IsEqual()([in1[1], in2[1] + eq_128]);
-//     signal not_out <== NOT()(eq_out);
-
-//     signal temp <== not_out * lt_upper_out;
-
-//     out <== eq_out * lt_lower_out + temp;
-// }
-
 template GreaterThan256 () {
     // 256-bit integers consisting of two 128-bit integers; in[0]: lower, in[1]: upper
     signal input in1[2], in2[2];
@@ -98,11 +84,16 @@ template IsEqual256() {
     out <== eq_lower_out * eq_upper_out;
 }
 
-template CheckBus() {
+template CheckBus128() {
+    signal input in;
+
+    signal in_range <== LessEqThan(128)([in, (1<<128) - 1]);
+    in_range === 1;
+}
+
+template CheckBus256() {
     signal input in[2];
 
-    signal in0_range <== LessEqThan(128)([in[0], (1<<128) - 1]);
-    signal in1_range <== LessEqThan(128)([in[1], (1<<128) - 1]);
-    signal res <== in0_range * in1_range;
-    res === 1;
+    CheckBus128()(in[0]);
+    CheckBus128()(in[1]);
 }

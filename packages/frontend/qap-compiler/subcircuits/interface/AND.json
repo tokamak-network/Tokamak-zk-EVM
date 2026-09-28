@@ -1,0 +1,9 @@
+{
+  "inputs": [
+    { "name": "lhs", "logicalType": { "kind": "uint", "bits": 256 } },
+    { "name": "rhs", "logicalType": { "kind": "uint", "bits": 256 } }
+  ],
+  "outputs": [
+    { "name": "result", "logicalType": { "kind": "uint", "bits": 256 } }
+  ]
+}

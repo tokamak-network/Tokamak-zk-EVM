@@ -141,21 +141,6 @@ template jubjubExp(N) {
     _G_next <== splitJubjubInto128()(G_next);
 }
 
-// template EdDsaInputCheck() {
-//     signal input R[2], A[2], s;
-
-//     var CONSTS[3] = jubjubconst();
-//     var n = CONSTS[2];
-
-//     jubjubCheck()(R);
-//     jubjubCheck()(A);
-//     // Make sure that s is 252-bit.
-//     Num2Bits(252)(s);
-//     // Make sure that s is less than n
-//     signal lt <== LessThan(252)([s, n]);
-//     lt === 1;
-// }
-
 // Input is an 255-bit integer represented by two 128-bit LE limbs; e.g.) in1[0]: lower 128 bits, in1[1]: upper 128 bits
 template safeDecToJubjubBit() {
     signal input in;
@@ -192,14 +177,6 @@ template prepareEdDsaScalars() {
     e_bit_LSB <== safeDecToJubjubBit()(e);
 }
 
-// template BeginJubjubExp(){
-//     signal input s, G_init[2];
-//     signal output P_next[2], G_next[2];
-
-//     signal s_safe_bit[252] <== convertToJubjubField()(s);
-
-// }
-
 template edDsaVerify() {
     // Each input is Jubjub point as Affine form.
     // Each 255-bit coordinate is split into 128-bits
@@ -216,16 +193,3 @@ template edDsaVerify() {
     SG[0] === RHS[0];
     SG[1] === RHS[1];
 }
-
-// template Poseidon4ToJubjub() {
-//     signal input in[4];
-//     signal output out;
-//     var CONST[3] = jubjubconst();
-//     var n = CONST[2];
-//     signal outFr <== Poseidon255(4)(in);
-//     out <-- outFr % n;
-//     signal quo <-- outFr \ n;
-//     outFr === quo * n + out;
-//     signal flag <== LessThan(252)([out, n]);
-//     flag === 1;
-// }

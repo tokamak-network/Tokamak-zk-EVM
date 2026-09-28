@@ -1,0 +1,8 @@
+{
+  "inputs": [
+    { "name": "value", "length": 2, "logicalType": { "kind": "bls12-381-fr" } }
+  ],
+  "outputs": [
+    { "name": "evmWord", "length": 2, "logicalType": { "kind": "uint", "bits": 256 } }
+  ]
+}

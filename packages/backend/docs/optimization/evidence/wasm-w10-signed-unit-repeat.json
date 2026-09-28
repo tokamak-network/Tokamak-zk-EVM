@@ -1,0 +1,20 @@
+{
+  "date": "2026-09-14",
+  "command": "npx tsx test/checks/univariate/check-signed-msm.ts",
+  "workers": 14,
+  "unit": "ms",
+  "warmup": "Each control and candidate called for equality before five measured pairs per width",
+  "scope": "Node WASM; repeat after bounded point-chunk integration and expanded carry/boundary checks. All recoding and delivery costs included.",
+  "samples": [
+    {"points":4097,"width":8,"control":[16.678000,16.101458,16.225209,16.025667,16.197917],"signed":[15.799208,14.912417,14.656500,14.647583,14.899792]},
+    {"points":4097,"width":9,"control":[16.215792,16.382042,16.166541,16.931500,15.868000],"signed":[14.331625,14.393958,13.665208,14.170458,14.773417]},
+    {"points":4097,"width":10,"control":[21.066417,16.799416,17.902708,17.234666,17.275250],"signed":[15.081292,15.194541,15.748875,15.271959,15.199583]},
+    {"points":262144,"width":12,"control":[664.990250,700.351459,712.370333,702.862750,711.877375],"signed":[665.177333,661.771417,656.281208,656.871125,659.885625]},
+    {"points":262144,"width":13,"control":[711.855250,709.087583,684.126459,710.771625,697.685291],"signed":[649.539542,650.610125,656.838125,661.091917,659.228458]},
+    {"points":262144,"width":14,"control":[703.253625,711.223791,710.875000,715.115000,724.362584],"signed":[658.033333,655.786458,658.375125,663.319542,668.233541]}
+  ],
+  "nativeOracle": {
+    "command": "DYLD_LIBRARY_PATH=../external-lib/mac/lib npx tsx test/checks/univariate/check-native-parity.ts /tmp/tokamak-p8-parity-final-UPwis5",
+    "result": "Exact complete proof bytes equal the existing native scalar oracle for n2, n8 and singleton; all verify true. Existing keys reused, not regenerated."
+  }
+}

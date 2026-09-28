@@ -1,0 +1,190 @@
+{
+  "owner": "backend",
+  "schemaId": "tokamak-zk-evm-univariate-crs-chunks",
+  "sourceSchemaId": "tokamak-zk-evm-univariate",
+  "manifestFileName": "univariate-crs-manifest.json",
+  "digest": "sha256",
+  "sections": [
+    {
+      "label": "crs.s0",
+      "encoding": "ffjs-g1-affine-96",
+      "elementByteLength": 96
+    },
+    {
+      "label": "crs.sxi",
+      "encoding": "ffjs-g1-affine-96",
+      "elementByteLength": 96
+    },
+    {
+      "label": "crs.spsi",
+      "encoding": "ffjs-g1-affine-96",
+      "elementByteLength": 96
+    },
+    {
+      "label": "crs.tau-g2",
+      "encoding": "ffjs-g2-affine-192",
+      "elementByteLength": 192
+    },
+    {
+      "label": "crs.psi-g2",
+      "encoding": "ffjs-g2-affine-192",
+      "elementByteLength": 192,
+      "elementCount": 1
+    },
+    {
+      "label": "crs.weighted",
+      "encoding": "ffjs-g1-affine-96",
+      "elementByteLength": 96
+    },
+    {
+      "label": "crs.weighted-shifted",
+      "encoding": "ffjs-g1-affine-96",
+      "elementByteLength": 96
+    },
+    {
+      "label": "crs.free-public-queries",
+      "encoding": "ffjs-g1-affine-96",
+      "elementByteLength": 96
+    },
+    {
+      "label": "crs.nonpublic-queries",
+      "encoding": "ffjs-g1-affine-96",
+      "elementByteLength": 96
+    },
+    {
+      "label": "crs.mask-u",
+      "encoding": "ffjs-g1-affine-96",
+      "elementByteLength": 96,
+      "elementCount": 2
+    },
+    {
+      "label": "crs.mask-v",
+      "encoding": "ffjs-g1-affine-96",
+      "elementByteLength": 96,
+      "elementCount": 2
+    },
+    {
+      "label": "crs.mask-w",
+      "encoding": "ffjs-g1-affine-96",
+      "elementByteLength": 96,
+      "elementCount": 2
+    },
+    {
+      "label": "crs.mask-b",
+      "encoding": "ffjs-g1-affine-96",
+      "elementByteLength": 96,
+      "elementCount": 2
+    },
+    {
+      "label": "crs.mask-selection",
+      "encoding": "ffjs-g1-affine-96",
+      "elementByteLength": 96,
+      "elementCount": 1
+    },
+    {
+      "label": "crs.preprocess-sc",
+      "encoding": "ffjs-g1-affine-96",
+      "elementByteLength": 96
+    },
+    {
+      "label": "crs.preprocess-selection",
+      "encoding": "ffjs-g2-affine-192",
+      "elementByteLength": 192
+    },
+    {
+      "label": "crs.fixed-public-queries",
+      "encoding": "ffjs-g1-affine-96",
+      "elementByteLength": 96
+    },
+    {
+      "label": "crs.g1-handles",
+      "encoding": "ffjs-g1-affine-96",
+      "elementByteLength": 96,
+      "elementCount": 3,
+      "points": [
+        "one",
+        "xi",
+        "psi"
+      ]
+    },
+    {
+      "label": "crs.g2",
+      "encoding": "ffjs-g2-affine-192",
+      "elementByteLength": 192,
+      "elementCount": 4,
+      "points": [
+        "one",
+        "tau",
+        "tau_k",
+        "delta"
+      ]
+    }
+  ],
+  "roles": {
+    "preprocess": [
+      "crs.preprocess-sc",
+      "crs.preprocess-selection",
+      "crs.fixed-public-queries"
+    ],
+    "prover": [
+      "crs.s0",
+      "crs.sxi",
+      "crs.spsi",
+      "crs.weighted",
+      "crs.weighted-shifted",
+      "crs.free-public-queries",
+      "crs.nonpublic-queries",
+      "crs.mask-u",
+      "crs.mask-v",
+      "crs.mask-w",
+      "crs.mask-b",
+      "crs.mask-selection"
+    ],
+    "verifier": [
+      "crs.g1-handles",
+      "crs.g2"
+    ]
+  },
+  "payloads": {
+    "tau_sequence.rkyv": [
+      "crs.s0",
+      "crs.sxi",
+      "crs.spsi",
+      "crs.tau-g2",
+      "crs.psi-g2"
+    ],
+    "prover_keys.rkyv": [
+      "crs.weighted",
+      "crs.weighted-shifted",
+      "crs.free-public-queries",
+      "crs.nonpublic-queries",
+      "crs.mask-u",
+      "crs.mask-v",
+      "crs.mask-w",
+      "crs.mask-b",
+      "crs.mask-selection"
+    ],
+    "preprocess_keys.rkyv": [
+      "crs.preprocess-sc",
+      "crs.preprocess-selection",
+      "crs.fixed-public-queries"
+    ],
+    "verifier_keys.rkyv": [
+      "crs.g1-handles",
+      "crs.g2"
+    ]
+  },
+  "order": {
+    "crs.s0": "tau^a, a=0..2*P",
+    "crs.sxi": "xi*tau^a, a=0..P",
+    "crs.spsi": "psi*tau^a, a=0..P",
+    "crs.tau-g2": "tau^a, a=0..P",
+    "crs.weighted": "r_j*tau^a, j in [0,max_k b_k) then [m_b,m_b+max_k r_k), then a=0..s-1",
+    "crs.weighted-shifted": "r_j*tau^(K+a), j in [0,max_k b_k) then [m_b,m_b+max_k r_k), then a=0..s-1",
+    "crs.preprocess-sc": "tau^a, a=0..N_C-1",
+    "crs.preprocess-selection": "tau^(h+a), a=0..s*(t-1)",
+    "crs.free-public-queries": "delta^-1*(Q_(k,k,j)+M_r), real mapped public wires in the derived free-public order",
+    "crs.fixed-public-queries": "Q_(k,k,j), real mapped public wires in the derived fixed-public order; no delta^-1 alias",
+    "crs.nonpublic-queries": "delta^-1*Q_(i,k,j), lexicographic placement, compiled subcircuit, retained normalized local wire; retain real bus/internal wires, omit public and producer-declared padding wires"
+  }
+}

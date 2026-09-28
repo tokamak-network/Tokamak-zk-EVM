@@ -1,0 +1,36 @@
+{
+  "documentKind": "finalMpcCrs",
+  "releaseEligible": true,
+  "generatedAtUtc": "2026-08-24T00:00:00Z",
+  "compatibleBackendVersion": "2.1",
+  "subcircuitLibrary": {
+    "packageName": "@tokamak-zk-evm/subcircuit-library",
+    "packageVersion": "2.1.5",
+    "origin": "npmSnapshot",
+    "sourceDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+  },
+  "phase1SourceProvenance": {
+    "RetiredSource": {
+      "sourceUrl": "https://example.invalid/retired.response",
+      "sourceSizeBytes": 1024,
+      "rawEncoding": "retired-groth16-raw",
+      "pinnedContribution": "0015",
+      "pinnedReadmeUrl": "https://example.invalid/README.md",
+      "pinnedDriveFileId": "example-drive-file-id",
+      "expectedSourceSha256": "4444444444444444444444444444444444444444444444444444444444444444",
+      "actualSourceSha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "autoDownloaded": true,
+      "downloadedContribution": "0015",
+      "downloadedReadmeUrl": "https://example.invalid/README.md",
+      "downloadedDriveFileId": "example-drive-file-id",
+      "maxG1ExpUsed": 1024,
+      "maxG2ExpUsed": 64,
+      "transcriptConsistencyVerified": true
+    }
+  },
+  "ceremonyProtocolVersion": "tokamak-filecoin-phase2",
+  "ceremonyTranscriptSha256": "6666666666666666666666666666666666666666666666666666666666666666",
+  "combinedSigmaSha256": "7afc09d6cb52ac887cc570bc14c82bb8431f955992f57700cb82583e2b34d035",
+  "sigmaPreprocessSha256": "0b9e88f13bc7936a9014dc986b5c0a9e47e5dda5ed88a4e12bd7fc048e8907af",
+  "sigmaVerifySha256": "56c2e6635d084af4952ef94fb6277f4e1fc18e7f6b98e60c56c818032b37b528"
+}

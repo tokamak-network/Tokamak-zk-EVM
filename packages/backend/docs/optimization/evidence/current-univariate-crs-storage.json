@@ -1,0 +1,733 @@
+{
+  "date": "2026-09-11",
+  "referenceCommit": "f276370fc",
+  "build": "cargo --release; compilation excluded",
+  "runtime": "ICICLE 3.8.0 CPU",
+  "host": {
+    "cpu": "Apple M4 Pro",
+    "logicalCores": 14,
+    "ramBytes": 51539607552
+  },
+  "input": "local QAP compiler library; n=m=1024,m_I=1024,s=256,t=64,s_D=44,m_D=45056,l=396,l_free=256",
+  "randomness": "fixed development trapdoor and generators in all setup runs",
+  "runs": [
+    {
+      "name": "dense-1",
+      "wallSeconds": 373.12,
+      "generationSeconds": 365.329267,
+      "serializationAndActivationSeconds": 7.163915,
+      "peakRssBytes": 4445208576,
+      "files": {
+        "tau_sequence.rkyv": {
+          "bytes": 301992400,
+          "sha256": "0731717d278651ef0e0df83a1ad9b097eb111a06346d34c0d2153d196487cd9e"
+        },
+        "prover_keys.rkyv": {
+          "bytes": 1653636880,
+          "sha256": "04580c1b2ebd431aa349d49b6c2351e900b0c880404e25e54ac36d920140cd0e"
+        },
+        "preprocess_keys.rkyv": {
+          "bytes": 28276128,
+          "sha256": "1c90ab2e5dc78fdaa79bd172cc504e5780c9f9a3f1f3b1212c2df8623105da84"
+        },
+        "verifier_keys.rkyv": {
+          "bytes": 1104,
+          "sha256": "353a403bf8f3c9b75db8c49750d35ab736d48f905c09078d9f46c33fd0d9e2b8"
+        }
+      },
+      "payloadBytes": 1983906512,
+      "provenanceBytes": 769,
+      "sourceDigest": "sha256:e2d425690aa68524ffa46a755d0a1eab7419d202f44a16805852c5dbfbdb0c92",
+      "exitCode": 0
+    },
+    {
+      "name": "dense-2",
+      "wallSeconds": 372.89,
+      "generationSeconds": 365.627038,
+      "serializationAndActivationSeconds": 6.554886,
+      "peakRssBytes": 4443570176,
+      "files": {
+        "tau_sequence.rkyv": {
+          "bytes": 301992400,
+          "sha256": "0731717d278651ef0e0df83a1ad9b097eb111a06346d34c0d2153d196487cd9e"
+        },
+        "prover_keys.rkyv": {
+          "bytes": 1653636880,
+          "sha256": "04580c1b2ebd431aa349d49b6c2351e900b0c880404e25e54ac36d920140cd0e"
+        },
+        "preprocess_keys.rkyv": {
+          "bytes": 28276128,
+          "sha256": "1c90ab2e5dc78fdaa79bd172cc504e5780c9f9a3f1f3b1212c2df8623105da84"
+        },
+        "verifier_keys.rkyv": {
+          "bytes": 1104,
+          "sha256": "353a403bf8f3c9b75db8c49750d35ab736d48f905c09078d9f46c33fd0d9e2b8"
+        }
+      },
+      "payloadBytes": 1983906512,
+      "provenanceBytes": 769,
+      "sourceDigest": "sha256:e2d425690aa68524ffa46a755d0a1eab7419d202f44a16805852c5dbfbdb0c92",
+      "exitCode": 0
+    },
+    {
+      "name": "placeholder-1",
+      "wallSeconds": 234.15,
+      "generationSeconds": 229.445735,
+      "serializationAndActivationSeconds": 4.137735,
+      "peakRssBytes": 4444700672,
+      "files": {
+        "tau_sequence.rkyv": {
+          "bytes": 301992400,
+          "sha256": "0731717d278651ef0e0df83a1ad9b097eb111a06346d34c0d2153d196487cd9e"
+        },
+        "prover_keys.rkyv": {
+          "bytes": 1653636880,
+          "sha256": "e9ca64deccc44f3aa819e3a1478843be92027d73b8e925e6c2c22b1e7ee50113"
+        },
+        "preprocess_keys.rkyv": {
+          "bytes": 28276128,
+          "sha256": "1c90ab2e5dc78fdaa79bd172cc504e5780c9f9a3f1f3b1212c2df8623105da84"
+        },
+        "verifier_keys.rkyv": {
+          "bytes": 1104,
+          "sha256": "353a403bf8f3c9b75db8c49750d35ab736d48f905c09078d9f46c33fd0d9e2b8"
+        }
+      },
+      "payloadBytes": 1983906512,
+      "provenanceBytes": 769,
+      "sourceDigest": "sha256:e2d425690aa68524ffa46a755d0a1eab7419d202f44a16805852c5dbfbdb0c92",
+      "exitCode": 0
+    },
+    {
+      "name": "omission-1",
+      "wallSeconds": 217.79,
+      "generationSeconds": 215.622344,
+      "serializationAndActivationSeconds": 1.637317,
+      "peakRssBytes": 2249703424,
+      "files": {
+        "tau_sequence.rkyv": {
+          "bytes": 301992400,
+          "sha256": "0731717d278651ef0e0df83a1ad9b097eb111a06346d34c0d2153d196487cd9e"
+        },
+        "prover_keys.rkyv": {
+          "bytes": 626999056,
+          "sha256": "0cc80ab2a193dd70d4468c68b930b9b3f855fc19e8a12e8d83fa086978d5b2e5"
+        },
+        "preprocess_keys.rkyv": {
+          "bytes": 28276128,
+          "sha256": "1c90ab2e5dc78fdaa79bd172cc504e5780c9f9a3f1f3b1212c2df8623105da84"
+        },
+        "verifier_keys.rkyv": {
+          "bytes": 1104,
+          "sha256": "353a403bf8f3c9b75db8c49750d35ab736d48f905c09078d9f46c33fd0d9e2b8"
+        }
+      },
+      "payloadBytes": 957268688,
+      "provenanceBytes": 769,
+      "sourceDigest": "sha256:e2d425690aa68524ffa46a755d0a1eab7419d202f44a16805852c5dbfbdb0c92",
+      "exitCode": 0
+    },
+    {
+      "name": "omission-2",
+      "wallSeconds": 222.36,
+      "generationSeconds": 220.551072,
+      "serializationAndActivationSeconds": 1.614915,
+      "peakRssBytes": 2401566720,
+      "files": {
+        "tau_sequence.rkyv": {
+          "bytes": 301992400,
+          "sha256": "0731717d278651ef0e0df83a1ad9b097eb111a06346d34c0d2153d196487cd9e"
+        },
+        "prover_keys.rkyv": {
+          "bytes": 626999056,
+          "sha256": "0cc80ab2a193dd70d4468c68b930b9b3f855fc19e8a12e8d83fa086978d5b2e5"
+        },
+        "preprocess_keys.rkyv": {
+          "bytes": 28276128,
+          "sha256": "1c90ab2e5dc78fdaa79bd172cc504e5780c9f9a3f1f3b1212c2df8623105da84"
+        },
+        "verifier_keys.rkyv": {
+          "bytes": 1104,
+          "sha256": "353a403bf8f3c9b75db8c49750d35ab736d48f905c09078d9f46c33fd0d9e2b8"
+        }
+      },
+      "payloadBytes": 957268688,
+      "provenanceBytes": 769,
+      "sourceDigest": "sha256:e2d425690aa68524ffa46a755d0a1eab7419d202f44a16805852c5dbfbdb0c92",
+      "exitCode": 0
+    }
+  ],
+  "experiments": [
+    {
+      "experiment": "comparison-30",
+      "files": [
+        {
+          "bytes": 576651264,
+          "file": "a.bin",
+          "projectionWriteSeconds": 0.977676208
+        },
+        {
+          "bytes": 1603289088,
+          "file": "b.bin",
+          "projectionWriteSeconds": 2.730614291
+        }
+      ],
+      "workloads": [
+        {
+          "mode": "full",
+          "selectedPoints": 153659,
+          "alternatingTrials": 30,
+          "firstTouch": {
+            "a": {
+              "prepareMs": 5.873833,
+              "msmMs": 27.275125
+            },
+            "b": {
+              "prepareMs": 2.0760829999999997,
+              "msmMs": 15.574
+            }
+          },
+          "warm": {
+            "a": {
+              "prepareMs": {
+                "median": 0.394166,
+                "min": 0.321833,
+                "max": 0.531833
+              },
+              "msmMs": {
+                "median": 12.527584,
+                "min": 12.010958,
+                "max": 14.140375
+              },
+              "totalMs": {
+                "median": 12.923834,
+                "min": 12.350541,
+                "max": 14.6045
+              }
+            },
+            "b": {
+              "prepareMs": {
+                "median": 0.40025,
+                "min": 0.335833,
+                "max": 0.6005
+              },
+              "msmMs": {
+                "median": 12.508040999999999,
+                "min": 11.884,
+                "max": 14.149000000000001
+              },
+              "totalMs": {
+                "median": 12.929875,
+                "min": 12.263708000000001,
+                "max": 14.56625
+              }
+            }
+          },
+          "rangeReads": []
+        },
+        {
+          "mode": "partial",
+          "selectedPoints": 76187,
+          "alternatingTrials": 30,
+          "firstTouch": {
+            "a": {
+              "prepareMs": 0.536709,
+              "msmMs": 7.385917
+            },
+            "b": {
+              "prepareMs": 0.20149999999999998,
+              "msmMs": 6.767625
+            }
+          },
+          "warm": {
+            "a": {
+              "prepareMs": {
+                "median": 0.20350000000000001,
+                "min": 0.13262500000000002,
+                "max": 0.30624999999999997
+              },
+              "msmMs": {
+                "median": 6.924375,
+                "min": 6.741042,
+                "max": 7.555667000000001
+              },
+              "totalMs": {
+                "median": 7.124208,
+                "min": 6.9156249999999995,
+                "max": 7.751583000000001
+              }
+            },
+            "b": {
+              "prepareMs": {
+                "median": 0.19766599999999998,
+                "min": 0.165,
+                "max": 0.27125
+              },
+              "msmMs": {
+                "median": 6.958083,
+                "min": 6.740334,
+                "max": 7.475875
+              },
+              "totalMs": {
+                "median": 7.174542000000001,
+                "min": 6.961417,
+                "max": 7.735625000000001
+              }
+            }
+          },
+          "rangeReads": []
+        },
+        {
+          "mode": "empty",
+          "selectedPoints": 0,
+          "alternatingTrials": 30,
+          "firstTouch": {
+            "a": {
+              "prepareMs": 0.000041,
+              "msmMs": 0.000167
+            },
+            "b": {
+              "prepareMs": 0.000042,
+              "msmMs": 0.000125
+            }
+          },
+          "warm": {
+            "a": {
+              "prepareMs": {
+                "median": 0,
+                "min": 0,
+                "max": 0.000042
+              },
+              "msmMs": {
+                "median": 0.000125,
+                "min": 0.000083,
+                "max": 0.000125
+              },
+              "totalMs": {
+                "median": 0.000125,
+                "min": 0.000083,
+                "max": 0.000167
+              }
+            },
+            "b": {
+              "prepareMs": {
+                "median": 0,
+                "min": 0,
+                "max": 0.000042
+              },
+              "msmMs": {
+                "median": 0.000125,
+                "min": 0.000083,
+                "max": 0.000125
+              },
+              "totalMs": {
+                "median": 0.000125,
+                "min": 0.000083,
+                "max": 0.000167
+              }
+            }
+          },
+          "rangeReads": []
+        }
+      ]
+    },
+    {
+      "experiment": "comparison-io",
+      "files": [
+        {
+          "bytes": 576651264,
+          "file": "a.bin",
+          "projectionWriteSeconds": 0.981971959
+        },
+        {
+          "bytes": 1603289088,
+          "file": "b.bin",
+          "projectionWriteSeconds": 1.120515167
+        }
+      ],
+      "workloads": [
+        {
+          "mode": "full",
+          "selectedPoints": 153659,
+          "alternatingTrials": 30,
+          "firstTouch": {
+            "a": {
+              "prepareMs": 2.892083,
+              "msmMs": 19.732584
+            },
+            "b": {
+              "prepareMs": 1.7515,
+              "msmMs": 13.924000000000001
+            }
+          },
+          "warm": {
+            "a": {
+              "prepareMs": {
+                "median": 0.431708,
+                "min": 0.365,
+                "max": 0.559625
+              },
+              "msmMs": {
+                "median": 12.554958,
+                "min": 11.991458,
+                "max": 14.076500000000001
+              },
+              "totalMs": {
+                "median": 12.978959,
+                "min": 12.457165999999999,
+                "max": 14.490750000000002
+              }
+            },
+            "b": {
+              "prepareMs": {
+                "median": 0.4555,
+                "min": 0.360041,
+                "max": 0.558667
+              },
+              "msmMs": {
+                "median": 12.606917000000001,
+                "min": 11.698375,
+                "max": 22.726166
+              },
+              "totalMs": {
+                "median": 13.078875,
+                "min": 12.166333,
+                "max": 23.203791
+              }
+            }
+          },
+          "rangeReads": [
+            {
+              "uncached": true,
+              "trials": 6,
+              "aMs": {
+                "median": 1.2964579999999999,
+                "min": 0.964125,
+                "max": 1.561333
+              },
+              "bMs": {
+                "median": 1.444833,
+                "min": 1.021459,
+                "max": 1.7536660000000002
+              }
+            },
+            {
+              "uncached": false,
+              "trials": 6,
+              "aMs": {
+                "median": 1.3317290000000002,
+                "min": 0.892083,
+                "max": 1.46075
+              },
+              "bMs": {
+                "median": 1.2495625000000001,
+                "min": 1.014291,
+                "max": 1.370125
+              }
+            }
+          ]
+        },
+        {
+          "mode": "partial",
+          "selectedPoints": 76187,
+          "alternatingTrials": 30,
+          "firstTouch": {
+            "a": {
+              "prepareMs": 0.657708,
+              "msmMs": 6.643333
+            },
+            "b": {
+              "prepareMs": 0.261125,
+              "msmMs": 6.877583
+            }
+          },
+          "warm": {
+            "a": {
+              "prepareMs": {
+                "median": 0.20033299999999998,
+                "min": 0.153375,
+                "max": 0.255708
+              },
+              "msmMs": {
+                "median": 7.184958,
+                "min": 6.547708999999999,
+                "max": 7.734291
+              },
+              "totalMs": {
+                "median": 7.389125,
+                "min": 6.723291999999999,
+                "max": 7.945667
+              }
+            },
+            "b": {
+              "prepareMs": {
+                "median": 0.206792,
+                "min": 0.16579100000000002,
+                "max": 0.301458
+              },
+              "msmMs": {
+                "median": 7.042375,
+                "min": 6.793208,
+                "max": 7.796667
+              },
+              "totalMs": {
+                "median": 7.257333,
+                "min": 7.000375,
+                "max": 7.973833
+              }
+            }
+          },
+          "rangeReads": [
+            {
+              "uncached": true,
+              "trials": 6,
+              "aMs": {
+                "median": 0.5446040000000001,
+                "min": 0.448333,
+                "max": 0.698375
+              },
+              "bMs": {
+                "median": 0.5483955,
+                "min": 0.41562499999999997,
+                "max": 0.93275
+              }
+            },
+            {
+              "uncached": false,
+              "trials": 6,
+              "aMs": {
+                "median": 0.42620800000000003,
+                "min": 0.364333,
+                "max": 0.635833
+              },
+              "bMs": {
+                "median": 0.47202049999999995,
+                "min": 0.367459,
+                "max": 0.662334
+              }
+            }
+          ]
+        },
+        {
+          "mode": "empty",
+          "selectedPoints": 0,
+          "alternatingTrials": 30,
+          "firstTouch": {
+            "a": {
+              "prepareMs": 0.000292,
+              "msmMs": 0.001666
+            },
+            "b": {
+              "prepareMs": 0.000042,
+              "msmMs": 0.000167
+            }
+          },
+          "warm": {
+            "a": {
+              "prepareMs": {
+                "median": 0.000041,
+                "min": 0,
+                "max": 0.000042
+              },
+              "msmMs": {
+                "median": 0.000125,
+                "min": 0.000083,
+                "max": 0.00020800000000000001
+              },
+              "totalMs": {
+                "median": 0.000166,
+                "min": 0.000083,
+                "max": 0.00020800000000000001
+              }
+            },
+            "b": {
+              "prepareMs": {
+                "median": 0,
+                "min": 0,
+                "max": 0.000042
+              },
+              "msmMs": {
+                "median": 0.000125,
+                "min": 0.000083,
+                "max": 0.000125
+              },
+              "totalMs": {
+                "median": 0.000125,
+                "min": 0.000083,
+                "max": 0.000167
+              }
+            }
+          },
+          "rangeReads": [
+            {
+              "uncached": true,
+              "trials": 6,
+              "aMs": {
+                "median": 0.000021,
+                "min": 0,
+                "max": 0.000042
+              },
+              "bMs": {
+                "median": 0.0000205,
+                "min": 0,
+                "max": 0.000042
+              }
+            },
+            {
+              "uncached": false,
+              "trials": 6,
+              "aMs": {
+                "median": 0,
+                "min": 0,
+                "max": 0.000042
+              },
+              "bMs": {
+                "median": 0,
+                "min": 0,
+                "max": 0.000042
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "otherProverSectionsEqual": true,
+    "placeholders": false,
+    "residual": {
+      "fixed_public_queries": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 140
+      },
+      "free_public_queries": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 158
+      },
+      "mask_b": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 2
+      },
+      "mask_selection": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 1
+      },
+      "mask_u": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 2
+      },
+      "mask_v": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 2
+      },
+      "mask_w": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 2
+      },
+      "nonpublic_queries": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 6006784
+      },
+      "psi_g2": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 1
+      },
+      "s0_g1": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 1048583
+      },
+      "sc_g1": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 262144
+      },
+      "selection_g2": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 16129
+      },
+      "spsi_g1": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 524292
+      },
+      "sxi_g1": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 524292
+      },
+      "tau_powers_g2": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 524292
+      },
+      "verifier_g1": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 3
+      },
+      "verifier_g2": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 4
+      },
+      "weighted_g1": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 262144
+      },
+      "weighted_shifted_g1": {
+        "identities": 0,
+        "longestRun": 0,
+        "points": 262144
+      }
+    },
+    "retainedPointsEqual": 6006784
+  },
+  "lz4": {
+    "rawBytes": 576651264,
+    "encodedBytes": 576653479,
+    "command": "lz4 -q -B6 a.bin a.lz4",
+    "adopted": false
+  },
+  "validation": {
+    "allFourDigestsVerified": true,
+    "unchangedOtherRoleFiles": true,
+    "repeatOutputsIdentical": true,
+    "completeProofE2E": false,
+    "tests": {
+      "archiveInterface": {
+        "passed": 3
+      },
+      "setupAlgebra": {
+        "passed": 1
+      },
+      "setupCommand": {
+        "passed": 4
+      },
+      "relationSuite": {
+        "passed": 3,
+        "failed": 3,
+        "reason": "Existing fixtures with l_free=0 fail DomainNotPowerOfTwo before reaching relation/compression code; univariate_relation.rs and univariate_crs.rs unchanged from f276370fc."
+      },
+      "generatedContracts": "passed",
+      "contractClosure": "passed",
+      "wasmTypecheck": "passed"
+    }
+  },
+  "limitations": [
+    "Selected-binding microbenchmarks, not complete prove timings.",
+    "First-touch is not a purged cold-cache test. F_NOCACHE requests uncached reads only on the benchmark handle; it does not prove physical-disk coldness.",
+    "No CUDA measurement. Native/WASM current-protocol E2E and consumer integration remain P4-P8."
+  ]
+}

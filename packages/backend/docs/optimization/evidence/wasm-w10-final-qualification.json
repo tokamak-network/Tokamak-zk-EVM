@@ -1,0 +1,56 @@
+{
+  "date": "2026-09-14",
+  "candidateSource": "f8dc5c0fb",
+  "fixture": "/tmp/tokamak-p8-trusted-e2e-9jQ5E1",
+  "freshSetupPerformed": false,
+  "native": {
+    "binaries": "Existing matched target/release/preprocess, prove and verify",
+    "device": "cpu",
+    "preprocessSeconds": 0.399046,
+    "proveSeconds": 3.904,
+    "verified": true,
+    "preprocessMatchesReferenceBytes": true,
+    "timingScope": "One qualification invocation, not a comparative performance benchmark"
+  },
+  "wasmNodeCross": {
+    "nativeProofAccepted": true,
+    "preprocessMatchesNativeBytes": true,
+    "wasmProofAcceptedByWasm": true,
+    "wasmProofAcceptedByNative": true,
+    "rejectedTamperedProofPoints": 10,
+    "rejectedTamperedEvaluations": 7,
+    "rejectedTamperedPreprocessOperands": 3,
+    "changedPublicInputRejected": true,
+    "malformedEncodingsRejected": ["truncated", "trailing byte", "noncanonical scalar", "off-curve point"]
+  },
+  "nativeOracle": {
+    "fixtures": ["n2", "n8", "singleton"],
+    "exactProofBytes": true,
+    "verification": true,
+    "deterministicMasks": "Test-only oracle, no production randomness change"
+  },
+  "passedChecks": [
+    "npm run univariate:optimization:check (including signed MSM, copy coset and selection cofactors)",
+    "npx tsc -p tsconfig.json --pretty false --noEmit",
+    "npm run typecheck:scripts",
+    "npm run contracts:check",
+    "check-univariate-polynomial.ts",
+    "check-univariate-relation.ts",
+    "check-univariate-transcript.ts (six challenge rounds and root orientation)",
+    "check-univariate-preprocess.ts",
+    "check-univariate-crs-conversion.ts (default/off and explicit/on digest policy, malformed inputs)",
+    "check-crs-offline.ts",
+    "check-preprocess-public-api.ts",
+    "check-field-buffer-ops.ts",
+    "check-layering.ts"
+  ],
+  "preExistingFailedAggregateCheck": {
+    "command": "npm run typecheck:development",
+    "exitCode": 1,
+    "error": "Invalid padded library dimensions.",
+    "location": "wasm/test/checks/generate/check-subcircuit-library-input.ts:53",
+    "cause": "Fixture m_D=48, m=8 and s_D=1 violates the existing m_D=m*s_D check.",
+    "unchangedSinceW10Baseline": true,
+    "scope": "Not fixed by W10; does not constitute a clean aggregate development check"
+  }
+}

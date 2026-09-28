@@ -35,12 +35,12 @@ type StorageConfigEntry = {
 
 type PrivateStateMintConfig = {
   network: 'anvil';
-  channelId?: number;
+  channelId: string;
   participants: ParticipantEntry[];
   storageConfigs: StorageConfigEntry[];
   callCodeAddresses: `0x${string}`[];
   blockNumber: number;
-  txNonce: number;
+  channelTransactionIndex: number;
   calldata: `0x${string}`;
   senderIndex: number;
   noteOwnerIndex: number;
@@ -67,14 +67,20 @@ const packageRoot = path.resolve(__dirname, '..');
 const scriptsEnvPath = path.resolve(__dirname, '.env');
 const packageEnvPath = path.resolve(packageRoot, '.env');
 const defaultOutputPath = path.resolve(packageRoot, 'scripts', 'private-state-mint-config.json');
-const deploymentManifestPath = path.resolve(packageRoot, 'scripts', 'deployment', 'private-state', 'deployment.31337.latest.json');
+const defaultDeploymentManifestPath = path.resolve(
+  packageRoot,
+  'scripts',
+  'deployment',
+  'private-state',
+  'deployment.31337.latest.json',
+);
 const DEFAULT_ANVIL_RPC_URL = 'http://127.0.0.1:8545';
 const DEFAULT_ANVIL_MNEMONIC = 'test test test test test test test test test test test junk';
 const DEFAULT_PARTICIPANT_COUNT = 4;
 const DEFAULT_NOTE_VALUE = 1n * 10n ** 18n;
 const DEFAULT_NOTE_OWNER_INDEX = -1;
-const DEFAULT_L2_TX_NONCE = 0;
-const DEFAULT_CHANNEL_ID = 4;
+const DEFAULT_CHANNEL_TRANSACTION_INDEX = 0;
+const DEFAULT_CHANNEL_ID = '4';
 
 const applyEnvFileIfPresent = (targetPath: string) => {
   try {
@@ -89,7 +95,10 @@ const applyEnvFileIfPresent = (targetPath: string) => {
         continue;
       }
       const key = line.slice(0, separatorIndex).trim();
-      const value = line.slice(separatorIndex + 1).trim().replace(/^['"]|['"]$/gu, '');
+      const value = line
+        .slice(separatorIndex + 1)
+        .trim()
+        .replace(/^['"]|['"]$/gu, '');
       if (!(key in process.env)) {
         process.env[key] = value;
       }
@@ -108,18 +117,22 @@ type ParsedArgs = {
   output?: string;
   participants: number;
   sender: number;
+  channelTransactionIndex: number;
   noteOwner: number;
   outputs: 1 | 2 | 3 | 4 | 5 | 6;
   extraBalanceAccounts: number[];
   rpcUrl?: string;
   mnemonic?: string;
   amount?: string;
+  deploymentManifestPath?: string;
+  storageLayoutPath?: string;
 };
 
 const parseArgs = (): ParsedArgs => {
   const args: ParsedArgs = {
     participants: DEFAULT_PARTICIPANT_COUNT,
     sender: 0,
+    channelTransactionIndex: DEFAULT_CHANNEL_TRANSACTION_INDEX,
     noteOwner: DEFAULT_NOTE_OWNER_INDEX,
     outputs: 1,
     extraBalanceAccounts: [],
@@ -154,13 +167,23 @@ const parseArgs = (): ParsedArgs => {
       case '-s':
         args.sender = parseInteger(consumeValue(current), 'sender');
         break;
+      case '--channel-transaction-index':
+        args.channelTransactionIndex = parseInteger(consumeValue(current), 'channel-transaction-index');
+        break;
       case '--note-owner':
         args.noteOwner = parseInteger(consumeValue(current), 'note-owner');
         break;
       case '--outputs':
       case '-m': {
         const outputCount = parseInteger(consumeValue(current), 'outputs');
-        if (outputCount !== 1 && outputCount !== 2 && outputCount !== 3 && outputCount !== 4 && outputCount !== 5 && outputCount !== 6) {
+        if (
+          outputCount !== 1 &&
+          outputCount !== 2 &&
+          outputCount !== 3 &&
+          outputCount !== 4 &&
+          outputCount !== 5 &&
+          outputCount !== 6
+        ) {
           throw new Error('outputs must be 1, 2, 3, 4, 5, or 6');
         }
         args.outputs = outputCount;
@@ -168,9 +191,10 @@ const parseArgs = (): ParsedArgs => {
       }
       case '--extra-balance-accounts': {
         const rawValue = consumeValue(current);
-        args.extraBalanceAccounts = rawValue.length === 0
-          ? []
-          : rawValue.split(',').map((value) => parseInteger(value.trim(), 'extra-balance-accounts'));
+        args.extraBalanceAccounts =
+          rawValue.length === 0
+            ? []
+            : rawValue.split(',').map(value => parseInteger(value.trim(), 'extra-balance-accounts'));
         break;
       }
       case '--rpc-url':
@@ -182,6 +206,12 @@ const parseArgs = (): ParsedArgs => {
       case '--amount':
       case '-a':
         args.amount = consumeValue(current);
+        break;
+      case '--deployment-manifest':
+        args.deploymentManifestPath = consumeValue(current);
+        break;
+      case '--storage-layout':
+        args.storageLayoutPath = consumeValue(current);
         break;
       default:
         throw new Error(`Unknown argument: ${current}`);
@@ -216,11 +246,7 @@ const parseAmount = (value: unknown): bigint => {
 const buildParticipants = async (mnemonic: string, participantCount: number): Promise<ParticipantEntry[]> => {
   const participants: ParticipantEntry[] = [];
   for (let index = 0; index < participantCount; index += 1) {
-    const wallet = ethers.HDNodeWallet.fromPhrase(
-      mnemonic,
-      undefined,
-      `m/44'/60'/0'/0/${index}`,
-    );
+    const wallet = ethers.HDNodeWallet.fromPhrase(mnemonic, undefined, `m/44'/60'/0'/0/${index}`);
     const noteReceive = await deriveNoteReceiveKeyMaterial({
       signer: wallet,
       chainId: 31337,
@@ -243,19 +269,19 @@ const writeConfig = async (targetPath: string, config: PrivateStateMintConfig) =
   await fs.writeFile(targetPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
 };
 
-const loadDeploymentManifest = async (): Promise<DeploymentManifest> => {
-  const contents = await fs.readFile(deploymentManifestPath, 'utf8');
+const loadDeploymentManifest = async (manifestPath: string): Promise<DeploymentManifest> => {
+  const contents = await fs.readFile(manifestPath, 'utf8');
   return JSON.parse(contents) as DeploymentManifest;
 };
 
-const ensurePrivateStateBootstrap = async () => {
+const ensurePrivateStateBootstrap = async (manifestPath: string) => {
   try {
-    await fs.access(deploymentManifestPath);
+    await fs.access(manifestPath);
   } catch {
     throw new Error(
       [
         'Missing private-state deployment manifest for anvil.',
-        `Expected: ${deploymentManifestPath}`,
+        `Expected: ${manifestPath}`,
         'Refresh the mirrored private-state deployment artifacts before running this script.',
       ].join('\n'),
     );
@@ -264,29 +290,35 @@ const ensurePrivateStateBootstrap = async () => {
 
 const main = async () => {
   const args = parseArgs();
-  const outputPath = args.output
-    ? path.resolve(process.cwd(), String(args.output))
-    : defaultOutputPath;
+  const deploymentManifestPath = args.deploymentManifestPath ?? defaultDeploymentManifestPath;
+  const storageLayoutPath = args.storageLayoutPath;
+  const outputPath = args.output ? path.resolve(process.cwd(), String(args.output)) : defaultOutputPath;
   const participantCount = args.participants;
   const senderIndex = args.sender;
+  const channelTransactionIndex = args.channelTransactionIndex;
   const rawNoteOwnerIndex = args.noteOwner;
   const noteOwnerIndex = rawNoteOwnerIndex === DEFAULT_NOTE_OWNER_INDEX ? senderIndex : rawNoteOwnerIndex;
   const outputCount = args.outputs;
   const extraBalanceAccounts = args.extraBalanceAccounts;
   const outputNoteValue = parseAmount(args.amount);
   const totalNoteValue = outputNoteValue * BigInt(outputCount);
-  const rpcUrl = typeof args.rpcUrl === 'string' && args.rpcUrl.trim().length > 0
-    ? args.rpcUrl.trim()
-    : process.env.ANVIL_RPC_URL?.trim() || DEFAULT_ANVIL_RPC_URL;
-  const mnemonic = typeof args.mnemonic === 'string' && args.mnemonic.trim().length > 0
-    ? args.mnemonic.trim()
-    : process.env.APPS_ANVIL_MNEMONIC?.trim() || DEFAULT_ANVIL_MNEMONIC;
+  const rpcUrl =
+    typeof args.rpcUrl === 'string' && args.rpcUrl.trim().length > 0
+      ? args.rpcUrl.trim()
+      : process.env.ANVIL_RPC_URL?.trim() || DEFAULT_ANVIL_RPC_URL;
+  const mnemonic =
+    typeof args.mnemonic === 'string' && args.mnemonic.trim().length > 0
+      ? args.mnemonic.trim()
+      : process.env.APPS_ANVIL_MNEMONIC?.trim() || DEFAULT_ANVIL_MNEMONIC;
 
   if (participantCount < 2) {
     throw new Error('participants must be >= 2');
   }
   if (senderIndex < 0 || senderIndex >= participantCount) {
     throw new Error(`sender must be between 0 and ${participantCount - 1}`);
+  }
+  if (channelTransactionIndex < 0) {
+    throw new Error('channel-transaction-index must be non-negative');
   }
   if (noteOwnerIndex < 0 || noteOwnerIndex >= participantCount) {
     throw new Error(`note-owner must be between 0 and ${participantCount - 1}`);
@@ -300,9 +332,9 @@ const main = async () => {
     }
   }
 
-  await ensurePrivateStateBootstrap();
-  const manifest = await loadDeploymentManifest();
-  const storageLayoutManifest = await loadPrivateStateStorageLayoutManifest();
+  await ensurePrivateStateBootstrap(deploymentManifestPath);
+  const manifest = await loadDeploymentManifest(deploymentManifestPath);
+  const storageLayoutManifest = await loadPrivateStateStorageLayoutManifest(storageLayoutPath);
   const managedStorageAddresses = getPrivateStateManagedStorageAddresses(storageLayoutManifest);
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const baseParticipants = await buildParticipants(mnemonic, participantCount);
@@ -332,9 +364,10 @@ const main = async () => {
     throw new Error(`Failed to resolve ${functionName} selector`);
   }
 
-  const noteValues = Array.from({ length: outputCount }, () =>
-    ethers.toBeHex(outputNoteValue) as `0x${string}`,
-  ) as [`0x${string}`, ...`0x${string}`[]];
+  const noteValues = Array.from({ length: outputCount }, () => ethers.toBeHex(outputNoteValue) as `0x${string}`) as [
+    `0x${string}`,
+    ...`0x${string}`[],
+  ];
   const noteSalts = Array.from({ length: outputCount }, (_, index) =>
     deriveReplayPrivateStateFieldValue(
       `private-state-mint-sender-${senderIndex}-owner-${noteOwnerIndex}-output-${index}`,
@@ -347,7 +380,7 @@ const main = async () => {
       storageConfigs: [],
       callCodeAddresses: [],
       blockNumber: 0,
-      txNonce: DEFAULT_L2_TX_NONCE,
+      channelTransactionIndex,
       calldata: '0x',
       senderIndex,
       noteOwnerIndex,
@@ -386,16 +419,15 @@ const main = async () => {
   const config: PrivateStateMintConfig = {
     network: 'anvil',
     participants,
-    storageConfigs: managedStorageAddresses.map((address) => ({
+    storageConfigs: managedStorageAddresses.map(address => ({
       address,
       userStorageSlots: [],
-      preAllocatedKeys: address.toLowerCase() === manifest.contracts.l2AccountingVault.toLowerCase()
-        ? liquidBalanceStorageKeys
-        : [],
+      preAllocatedKeys:
+        address.toLowerCase() === manifest.contracts.l2AccountingVault.toLowerCase() ? liquidBalanceStorageKeys : [],
     })),
     callCodeAddresses: managedStorageAddresses,
     blockNumber,
-    txNonce: DEFAULT_L2_TX_NONCE,
+    channelTransactionIndex,
     calldata,
     senderIndex,
     noteOwnerIndex,
@@ -413,7 +445,7 @@ const main = async () => {
   console.log(`Saved private-state mint config to ${outputPath}`);
 };
 
-void main().catch((err) => {
+void main().catch(err => {
   console.error(err);
   process.exit(1);
 });

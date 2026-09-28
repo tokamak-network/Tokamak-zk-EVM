@@ -1,0 +1,12 @@
+{
+  "inputs": [
+    { "name": "publicKeyX", "logicalType": { "kind": "bls12-381-fr" } },
+    { "name": "publicKeyY", "logicalType": { "kind": "bls12-381-fr" } },
+    { "name": "previousChallengeHash", "logicalType": { "kind": "bls12-381-fr" } },
+    { "name": "tailWord", "logicalType": { "kind": "bls12-381-fr" } }
+  ],
+  "outputs": [
+    { "name": "publicKeyHash", "logicalType": { "kind": "bls12-381-fr" } },
+    { "name": "challengeHash", "logicalType": { "kind": "bls12-381-fr" } }
+  ]
+}

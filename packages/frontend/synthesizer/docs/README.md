@@ -1,27 +1,24 @@
-# Documentation
+# Synthesizer documentation
 
-This directory contains the maintainer-facing documentation for the synthesizer workspace.
+Maintainer references for the shared runtime and its Node and Web adapters.
 
-## Canonical Maintainer Entry Points
+## Start here
 
-- [Maintainer Guide](./maintainer-guide.md): release workflow, versioning rules, documentation policy, and secondary-reference handling.
-- [Architecture](./architecture.md): package boundaries, shared runtime responsibilities, and adapter flow.
+| Need                                          | Document                                  |
+| --------------------------------------------- | ----------------------------------------- |
+| Release, versioning, and documentation policy | [Maintainer guide](./maintainer-guide.md) |
+| Package boundaries and adapter flow           | [Architecture](./architecture.md)         |
 
-## Secondary Reference Documents
+## Reference by topic
 
-- [Introduction](./introduction.md)
-- [Execution Flow](./execution-flow.md)
-- [Output Files](./output-files.md)
-- [Dual-Target Packaging](./dual-target-packaging.md)
-- [Repository Structure](./repository-structure.md)
-- [Terminology](./terminology.md)
-- [Class Structure](./class-structure.md)
-- [Data Structure](./data-structure.md)
-- [Transaction Flow](./transaction-flow.md)
-- [Opcodes](./opcodes.md)
-- [Code Examples](./code-examples.md)
+| Topic                     | Documents                                                                                                                                    |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Concepts and structure    | [Introduction](./introduction.md), [terminology](./terminology.md), [repository structure](./repository-structure.md)                        |
+| Runtime data model        | [Class structure](./class-structure.md), [data structure](./data-structure.md)                                                               |
+| Execution                 | [Execution flow](./execution-flow.md), [transaction flow](./transaction-flow.md), [opcodes](./opcodes.md), [output files](./output-files.md) |
+| Packaging and integration | [Dual-target packaging](./dual-target-packaging.md), [code examples](./code-examples.md)                                                     |
 
-## Consumer Entry Points
+## Consumer documentation
 
 - [Workspace README](../README.md)
 - [Node package README](../node-cli/README.md)

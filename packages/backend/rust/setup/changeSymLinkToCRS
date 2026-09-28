@@ -1,0 +1,178 @@
+#!/usr/bin/env node
+"use strict";
+
+const fs = require("node:fs");
+const path = require("node:path");
+const readline = require("node:readline");
+
+const setupDirectory = __dirname;
+const outputDirectory = path.join(setupDirectory, "output");
+const generationsDirectory = path.join(outputDirectory, "generations");
+const activeLink = path.join(outputDirectory, "crs");
+const requiredFiles = [
+  "crs_provenance.json",
+  "tau_sequence.rkyv",
+  "prover_keys.rkyv",
+  "preprocess_keys.rkyv",
+  "verifier_keys.rkyv",
+];
+
+function lstatOrNull(filePath) {
+  try {
+    return fs.lstatSync(filePath);
+  } catch (error) {
+    if (error.code === "ENOENT") return null;
+    throw error;
+  }
+}
+
+function readGeneration(entry) {
+  const generationPath = path.join(generationsDirectory, entry.name);
+  try {
+    const provenancePath = path.join(generationPath, "crs_provenance.json");
+    const provenance = JSON.parse(fs.readFileSync(provenancePath, "utf8"));
+    for (const filename of requiredFiles) {
+      if (!fs.statSync(path.join(generationPath, filename)).isFile()) return null;
+    }
+    if (!provenance || typeof provenance !== "object") return null;
+    const library = provenance.subcircuitLibrary ?? {};
+    return {
+      name: entry.name,
+      path: generationPath,
+      generatedAt: provenance.generatedAtUtc ?? "unknown date",
+      method: provenance.generationMethod ?? "unknown method",
+      libraryVersion: library.packageVersion ?? "unknown library version",
+      origin: library.origin ?? "unknown origin",
+      releaseStatus:
+        typeof provenance.releaseEligible === "boolean"
+          ? provenance.releaseEligible
+            ? "release-eligible"
+            : "development-only"
+          : "unknown eligibility",
+    };
+  } catch (error) {
+    if (["ENOENT", "ENOTDIR", "SyntaxError"].includes(error.code ?? error.name)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+function discoverGenerations() {
+  const outputStat = lstatOrNull(outputDirectory);
+  if (!outputStat?.isDirectory() || outputStat.isSymbolicLink()) {
+    throw new Error(`Expected a real output directory at ${outputDirectory}`);
+  }
+  const generationsStat = lstatOrNull(generationsDirectory);
+  if (!generationsStat?.isDirectory() || generationsStat.isSymbolicLink()) {
+    throw new Error(`Expected a generations directory at ${generationsDirectory}`);
+  }
+  return fs
+    .readdirSync(generationsDirectory, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map(readGeneration)
+    .filter(Boolean)
+    .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function currentTarget() {
+  const linkStat = lstatOrNull(activeLink);
+  if (linkStat && !linkStat.isSymbolicLink()) {
+    throw new Error(`Refusing to replace non-symlink CRS path: ${activeLink}`);
+  }
+  if (!linkStat) return null;
+  return path.resolve(outputDirectory, fs.readlinkSync(activeLink));
+}
+
+function activate(generation) {
+  if (!fs.statSync(generation.path).isDirectory()) {
+    throw new Error(`Selected generation is no longer available: ${generation.name}`);
+  }
+  const temporaryLink = path.join(outputDirectory, `.crs.next-${process.pid}`);
+  if (lstatOrNull(temporaryLink)) {
+    throw new Error(`Temporary link already exists: ${temporaryLink}`);
+  }
+  const relativeTarget = path.relative(outputDirectory, generation.path);
+  try {
+    fs.symlinkSync(relativeTarget, temporaryLink);
+    fs.renameSync(temporaryLink, activeLink);
+  } catch (error) {
+    if (lstatOrNull(temporaryLink)) fs.unlinkSync(temporaryLink);
+    throw error;
+  }
+}
+
+function render(generations, selectedIndex, activeTarget) {
+  process.stdout.write("\u001b[2J\u001b[H");
+  console.log("Select a CRS generation to activate (↑/↓, Enter; Esc or q cancels)\n");
+  for (let index = 0; index < generations.length; index += 1) {
+    const generation = generations[index];
+    const marker = index === selectedIndex ? ">" : " ";
+    const active = generation.path === activeTarget ? " [active]" : "";
+    console.log(
+      `${marker} ${generation.name}${active} | ${generation.method} | library ${generation.libraryVersion} (${generation.origin}) | ${generation.releaseStatus} | ${generation.generatedAt}`,
+    );
+  }
+}
+
+function main() {
+  if (!process.stdin.isTTY || typeof process.stdin.setRawMode !== "function") {
+    throw new Error("Run this script from an interactive terminal.");
+  }
+  const generations = discoverGenerations();
+  if (generations.length === 0) {
+    throw new Error(`No complete CRS generations found in ${generationsDirectory}`);
+  }
+  const active = currentTarget();
+  let selectedIndex = Math.max(
+    0,
+    generations.findIndex((generation) => generation.path === active),
+  );
+
+  readline.emitKeypressEvents(process.stdin);
+  process.stdin.setRawMode(true);
+  process.stdin.resume();
+
+  const finish = (message, exitCode = 0) => {
+    process.stdin.removeListener("keypress", onKeypress);
+    process.stdin.setRawMode(false);
+    process.stdin.pause();
+    process.stdout.write("\n");
+    if (message) console.log(message);
+    process.exitCode = exitCode;
+  };
+
+  const onKeypress = (_input, key = {}) => {
+    if (key.ctrl && key.name === "c") {
+      finish("Cancelled.");
+      return;
+    }
+    if (key.name === "up") {
+      selectedIndex = (selectedIndex - 1 + generations.length) % generations.length;
+      render(generations, selectedIndex, active);
+    } else if (key.name === "down") {
+      selectedIndex = (selectedIndex + 1) % generations.length;
+      render(generations, selectedIndex, active);
+    } else if (key.name === "escape" || key.name === "q") {
+      finish("Cancelled.");
+    } else if (key.name === "return" || key.name === "enter") {
+      try {
+        const selected = generations[selectedIndex];
+        activate(selected);
+        finish(`Active CRS: output/crs -> generations/${selected.name}`);
+      } catch (error) {
+        finish(`Could not activate CRS: ${error.message}`, 1);
+      }
+    }
+  };
+
+  process.stdin.on("keypress", onKeypress);
+  render(generations, selectedIndex, active);
+}
+
+try {
+  main();
+} catch (error) {
+  console.error(`Could not change CRS link: ${error.message}`);
+  process.exitCode = 1;
+}

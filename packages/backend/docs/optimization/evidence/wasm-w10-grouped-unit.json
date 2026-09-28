@@ -1,0 +1,13 @@
+{
+  "date": "2026-09-14",
+  "command": "npx tsx test/checks/univariate/check-grouped-msm.ts",
+  "points": 262144,
+  "workers": 14,
+  "unit": "ms",
+  "warmup": "One call per path excluded",
+  "controlSamples": [725.120625, 710.620791, 731.649250, 703.683209, 719.547875],
+  "candidateSamples": [730.625416, 723.584625, 739.946125, 736.538417, 740.674250],
+  "candidate": "Group unsigned windows into available-concurrency tasks with unchanged window widths",
+  "scope": "Node WASM unit operation; small pool of known generator multiples, not browser CRS MSM timing",
+  "checks": ["stock MSM equality", "known generator-multiple sum", "zero/one/r-1/random full-width scalars", "identity, duplicate and negated bases", "point counts 0,1,2,3,15,16,17,257,1023,1024,1025,4097,262144", "group limits 1,3,7 for small inputs", "malformed lengths"]
+}

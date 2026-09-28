@@ -1,0 +1,7 @@
+{
+  "domainSize":262144,
+  "scope":"Copy base-product difference; two alternating Node field-runtime pairs including worker boundaries",
+  "controlMs":[861.710708,879.121292],
+  "candidateMs":[572.708542,581.827791],
+  "correctness":"Exact coefficient equality at domains 1, 2, 8, 32 and 262144; invalid degree bounds and noncanonical copy root rejected."
+}

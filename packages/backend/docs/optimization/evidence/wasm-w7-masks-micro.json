@@ -1,0 +1,9 @@
+{
+  "domainSize":262144,
+  "scope":"Node field runtime; full masked generic products versus exact expanded mask terms, preparation and worker transfers included",
+  "results":[
+    {"operation":"arithmetic quotient","controlMs":[1094.513125,1071.883208],"candidateMs":[530.563417,521.845959]},
+    {"operation":"copy product quotient","controlMs":[1948.702125,1931.025416],"candidateMs":[995.081875,997.538084]}
+  ],
+  "correctness":"Exact coefficient equality; zero/nonzero masks; independent arithmetic/copy domains 1/2, 8/32, 64/16; both paths reject nonzero remainder."
+}

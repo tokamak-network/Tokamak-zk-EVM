@@ -1,42 +1,25 @@
-import { bigIntToBytes, concatBytes, EthereumJSErrorWithoutCode, setLengthLeft } from '@ethereumjs/util'
-import type { DataAliasInfos, DataPt, MemoryPtEntry, MemoryPts } from '../types/index.ts'
-
-/**
- * Key differences between Memory and MemoryPt classes
- *
- * 1. Data Structure
- *    - Memory: Uint8Array (continuous byte array)
- *    - MemoryPt: Map<number, { memOffset, containerSize, dataPt }> (memory pointer map)
- *
- * 2. Storage Method
- *    - Memory: Directly stores actual byte values in continuous memory
- *    - MemoryPt: Manages data location and size information through pointers
- *
- * 3. Read/Write Operations
- *    - Memory: Direct read/write to actual memory
- *    - MemoryPt:
- *      - Write: Creates new data pointers and manages overlapping regions
- *      - Read: Returns data alias information through getDataAlias
- *
- * 4. Purpose
- *    - Memory: Memory manipulation during actual EVM execution
- *    - MemoryPt: Memory tracking and analysis for symbolic execution
- *
- * 5. Characteristics
- *    - Memory: Continuous memory space, simple byte manipulation
- *    - MemoryPt:
- *      - Timestamp-based data management
- *      - Memory region conflict detection
- *      - Data alias information generation
- */
+import { bigIntToBytes, setLengthLeft } from '@ethereumjs/util'
+import type { DataAliasGeometries, DataAliasGeometryEntry, DataPt, MemoryPtEntry, MemoryPts } from '../types/index.ts'
 
 export class MemoryPt {
-  _storePt: TMemoryPt
+  private _storePt: MemoryEntriesByTimestamp
   private _timeStamp: number
+  private _byteLength: number
 
   constructor() {
     this._storePt = new Map()
     this._timeStamp = 0
+    this._byteLength = 0
+  }
+
+  private _observeMemoryRange(offset: number, byteSize: number): void {
+    if (byteSize === 0) {
+      return
+    }
+    const endOffsetExclusive = offset + byteSize
+    if (endOffsetExclusive > this._byteLength) {
+      this._byteLength = endOffsetExclusive
+    }
   }
 
   static simulateMemoryPt (memoryPts: MemoryPts): MemoryPt {
@@ -74,8 +57,8 @@ export class MemoryPt {
       return this.viewMemory(offset, byteSize)
     }
 
-    // if setLengthLeft(bigIntToBytes(dataPt.value), 32).length !== size) throw new Error('Invalid value size')
-    // if (offset + size > this._storePt.length) throw new Error('Value exceeds memory capacity')
+    this._observeMemoryRange(offset, byteSize)
+
     this._memPtCleanUp(offset, byteSize)
     this._storePt.set(this._timeStamp++, {
       memByteOffset: offset,
@@ -119,57 +102,35 @@ export class MemoryPt {
    * @param length - Number of bytes to read
    * @returns {returnMemroyPts}
    */
-  read(offset: number, length: number, avoidCopy?: boolean): MemoryPts {
+  read(offset: number, length: number): MemoryPts {
+    this._observeMemoryRange(offset, length)
     const dataFragments = this._viewMemoryConflict(offset, length)
     const returnMemoryPts: MemoryPts = []
     if (dataFragments.size > 0) {
       const sortedKeys = Array.from(dataFragments.keys()).sort((a, b) => a - b)
       sortedKeys.forEach((key) => {
-        if (avoidCopy === true) {
-          returnMemoryPts.push(this._storePt.get(key)!)
-        } else {
-          const target = this._storePt.get(key)!
-          const copy: MemoryPtEntry = {
-            memByteOffset: target.memByteOffset,
-            containerByteSize: target.containerByteSize,
-            dataPt: target.dataPt,
-          }
-          returnMemoryPts.push(copy)
+        const target = this._storePt.get(key)!
+        const copy: MemoryPtEntry = {
+          memByteOffset: target.memByteOffset,
+          containerByteSize: target.containerByteSize,
+          dataPt: target.dataPt,
         }
+        returnMemoryPts.push(copy)
       })
     }
     return returnMemoryPts
   }
 
   /**
-     * read is not used for MemoryPt manipulation. Instead, "getDataAlias" is used.
-     * Reads a slice of memory from `offset` till `offset + size` as a `Uint8Array`.
-     * It fills up the difference between memory's length and `offset + size` with zeros.
-     * @param offset - Starting memory position
-     * @param size - How many bytes to read
-     * @param avoidCopy - Avoid memory copy if possible for performance reasons (optional)
-    
-    read(offset: number, size: number): Uint8Array {
-        const loaded = this._storePt.subarray(offset, offset + size)
-        if (avoidCopy === true) {
-        return loaded
-        }
-        const returnBytes = new Uint8Array(size)
-        // Copy the stored "buffer" from memory into the return Uint8Array
-        returnBytes.set(loaded)
-
-        return returnBytes
-    }
-    */
-
-  /**
-   * Returns data transformation information for a specific memory range. Used when moving data from Memory to Stack.
+   * Returns fully derived alias geometry for a specific memory range.
+   * The context layer materializes the returned geometry into composition operands.
    * @param offset - Starting memory position to read
    * @param size - Number of bytes to read
-   * @returns {DataAliasInfos}
+   * @returns Byte geometry used to materialize MemoryViewStep inputs.
    */
-  getDataAlias(offset: number, size: number): DataAliasInfos {
-    const dataAliasInfos: DataAliasInfos = []
+  getDataAlias(offset: number, size: number): DataAliasGeometries {
+    this._observeMemoryRange(offset, size)
+    const dataAliasInfos: DataAliasGeometryEntry[] = []
     const dataFragments = this._viewMemoryConflict(offset, size)
 
     const sortedTimeStamps = Array.from(dataFragments.keys()).sort((a, b) => a - b)
@@ -178,44 +139,44 @@ export class MemoryPt {
       const dataEndOffset =
         this._storePt.get(timeStamp)!.memByteOffset + this._storePt.get(timeStamp)!.containerByteSize - 1
       const viewEndOffset = offset + size - 1
+      const dataPt = this._storePt.get(timeStamp)!.dataPt
+      const shift = (viewEndOffset - dataEndOffset) * 8
+      if (!Number.isInteger(shift) || shift % 8 !== 0 || Math.abs(shift) > 31 * 8) {
+        throw new Error('MemoryPt: memory-view shift must be a byte-aligned value from -248 to 248.')
+      }
+      const masker = this._generateMasker(offset, size, _value.validRange)
+      const ownershipMask = this._createOwnershipMask(masker)
       dataAliasInfos.push({
-        dataPt: this._storePt.get(timeStamp)!.dataPt,
-        // shift is positive for SHL, negative for SHR
-        shift: (viewEndOffset - dataEndOffset) * 8,
-        masker: this._generateMasker(offset, size, _value.validRange),
+        dataPt,
+        shiftMagnitude: Math.abs(shift) / 8,
+        direction: shift < 0 ? 1 : 0,
+        ownershipMask,
       })
     }
     return dataAliasInfos
   }
 
   viewMemory(offset: number, length: number): Uint8Array {
-    const BIAS = 0x100000 // Any large number
     const memoryPts = this.read(offset, length)
-    const simMem = new Memory()
+    const view = new Uint8Array(length)
     for (const memoryPtEntry of memoryPts) {
       const containerOffset = memoryPtEntry.memByteOffset
       const containerSize = memoryPtEntry.containerByteSize
-      const buf = setLengthLeft(bigIntToBytes(memoryPtEntry.dataPt.value), containerSize)
-      simMem.write(containerOffset + BIAS, containerSize, buf)
-
-      // // Find the offset where nonzero value starts
-      // const storedOffset = storedEndOffset - this._storePt.get(timeStamp)!.dataPt.sourceSize + 1
-      // // If data is in the range
-      // if (storedEndOffset >= offset && storedOffset <= endOffset) {
-      //   const _offset = this._storePt.get(timeStamp)!.memByteOffset // This data offset can be negative.
-      //   const _containerSize = this._storePt.get(timeStamp)!.containerByteSize
-      //   const _actualSize = this._storePt.get(timeStamp)!.dataPt.sourceSize
-      //   const value = this._storePt.get(timeStamp)!.dataPt.value
-      //   let valuePadded = setLengthLeft(bigIntToBytes(value), _actualSize)
-      //   if (_containerSize < _actualSize){
-      //     valuePadded = valuePadded.slice(0, _containerSize)
-      //   }
-      //   console.log(bytesToHex(valuePadded))
-      //   simMem.write(_offset + BIAS, Math.min(_containerSize, _actualSize), valuePadded)
-      // }
+      const buf = setLengthLeft(
+        bigIntToBytes(memoryPtEntry.dataPt.value),
+        containerSize,
+        { allowTruncate: true },
+      )
+      const startOffset = Math.max(offset, containerOffset)
+      const endOffset = Math.min(offset + length, containerOffset + containerSize)
+      if (startOffset < endOffset) {
+        view.set(
+          buf.subarray(startOffset - containerOffset, endOffset - containerOffset),
+          startOffset - offset,
+        )
+      }
     }
-
-    return simMem.read(offset + BIAS, length)
+    return view
   }
 
   /**
@@ -224,8 +185,8 @@ export class MemoryPt {
    * @param size - Number of bytes to read
    * @returns {DataFragments}
    */
-  private _viewMemoryConflict(offset: number, size: number): _DataFragments {
-    const dataFragments: _DataFragments = new Map()
+  private _viewMemoryConflict(offset: number, size: number): MemoryRangeFragments {
+    const dataFragments: MemoryRangeFragments = new Map()
     const endOffset = offset + size - 1
     if (!(endOffset >= offset)) {
       return dataFragments
@@ -273,52 +234,6 @@ export class MemoryPt {
     return dataFragments
   }
 
-  // private _viewMemoryConflict(offset: number, size: number): _DataFragments {
-  //   const dataFragments: _DataFragments = new Map()
-  //   const endOffset = offset + size - 1
-  //   const sortedTimeStamps = Array.from(this._storePt.keys()).sort((a, b) => a - b)
-
-  //   let i = 0
-  //   for (const timeStamp of sortedTimeStamps) {
-  //     const containerOffset = this._storePt.get(timeStamp)!.memByteOffset
-  //     const storedEndOffset = containerOffset + this._storePt.get(timeStamp)!.containerByteSize - 1
-  //     // Find the offset where nonzero value starts
-  //     const storedOffset = storedEndOffset - this._storePt.get(timeStamp)!.dataPt.sourceSize + 1
-  //     const sortedTimeStamps_firsts = sortedTimeStamps.slice(0, i)
-  //     // If data is in the range
-  //     if (storedEndOffset >= offset && storedOffset <= endOffset) {
-  //       const overlapStart = Math.max(offset, storedOffset)
-  //       const overlapEnd = Math.min(endOffset, storedEndOffset)
-  //       const thisDataOriginalRange = createRangeSet(storedOffset, storedEndOffset)
-  //       const thisDataValidRange = createRangeSet(overlapStart, overlapEnd)
-
-  //       dataFragments.set(timeStamp, {
-  //         originalRange: thisDataOriginalRange,
-  //         validRange: thisDataValidRange,
-  //       })
-  //       // Update previous data overlap ranges
-  //       for (const _timeStamp of sortedTimeStamps_firsts) {
-  //         if (dataFragments.has(_timeStamp)) {
-  //           const overwrittenRange = setMinus(
-  //             dataFragments.get(_timeStamp)!.validRange,
-  //             dataFragments.get(timeStamp)!.validRange,
-  //           )
-  //           if (overwrittenRange.size <= 0) {
-  //             dataFragments.delete(_timeStamp)
-  //           } else {
-  //             dataFragments.set(_timeStamp, {
-  //               originalRange: dataFragments.get(_timeStamp)!.originalRange,
-  //               validRange: overwrittenRange,
-  //             })
-  //           }
-  //         }
-  //       }
-  //     }
-  //     i++
-  //   }
-  //   return dataFragments
-  // }
-
   private _generateMasker(offset: number, size: number, validRange: Set<number>): string {
     const targetRange = createRangeSet(offset, offset + size - 1)
     for (const element of validRange) {
@@ -338,12 +253,30 @@ export class MemoryPt {
 
     return maskerString
   }
+
+  private _createOwnershipMask(masker: string): bigint {
+    if (!masker.startsWith('0x') || (masker.length - 2) % 2 !== 0) {
+      throw new Error('MemoryPt: memory ownership mask must contain whole bytes.')
+    }
+    let ownershipMask = 0n
+    const byteLength = (masker.length - 2) / 2
+    for (let byteIndex = 0; byteIndex < byteLength; byteIndex++) {
+      const byte = masker.slice(2 + byteIndex * 2, 4 + byteIndex * 2)
+      if (byte === 'FF') {
+        ownershipMask |= 1n << BigInt(byteLength - byteIndex - 1)
+      } else if (byte !== '00') {
+        throw new Error('MemoryPt: memory ownership mask must contain only FF or 00 bytes.')
+      }
+    }
+    return ownershipMask
+  }
+
 }
 
 /**
  * Map of memory information.
  */
-type TMemoryPt = Map<number, MemoryPtEntry>
+type MemoryEntriesByTimestamp = Map<number, MemoryPtEntry>
 
 /**
  * Map representing data fragment information.
@@ -351,7 +284,7 @@ type TMemoryPt = Map<number, MemoryPtEntry>
  * @property {Set<number>} originalRange - Original data range
  * @property {Set<number>} validRange - Valid data range
  */
-type _DataFragments = Map<number, { originalRange: Set<number>; validRange: Set<number> }>
+type MemoryRangeFragments = Map<number, { originalRange: Set<number>; validRange: Set<number> }>
 
 
 /**
@@ -382,86 +315,4 @@ const setMinus = (A: Set<number>, B: Set<number>): Set<number> => {
     }
   }
   return result
-}
-
-const ceil = (value: number, ceiling: number): number => {
-  const r = value % ceiling
-  if (r === 0) {
-    return value
-  } else {
-    return value + ceiling - r
-  }
-}
-
-const CONTAINER_SIZE = 8192
-
-/**
- * Memory implements a simple memory model
- * for the ethereum virtual machine.
- * Copied from @ethereumjs/evm
- */
-export class Memory {
-  _store: Uint8Array
-
-  constructor() {
-    this._store = new Uint8Array(CONTAINER_SIZE)
-  }
-
-  /**
-   * Extends the memory given an offset and size. Rounds extended
-   * memory to word-size.
-   */
-  extend(offset: number, size: number) {
-    if (size === 0) {
-      return
-    }
-
-    const newSize = ceil(offset + size, 32)
-    const sizeDiff = newSize - this._store.length
-    if (sizeDiff > 0) {
-      const expandBy = Math.ceil(sizeDiff / CONTAINER_SIZE) * CONTAINER_SIZE
-      this._store = concatBytes(this._store, new Uint8Array(expandBy))
-    }
-  }
-
-  /**
-   * Writes a byte array with length `size` to memory, starting from `offset`.
-   * @param offset - Starting position
-   * @param size - How many bytes to write
-   * @param value - Value
-   */
-  write(offset: number, size: number, value: Uint8Array) {
-    if (size === 0) {
-      return
-    }
-
-    this.extend(offset, size)
-
-    if (value.length !== size) throw EthereumJSErrorWithoutCode('Invalid value size')
-    if (offset + size > this._store.length)
-      throw EthereumJSErrorWithoutCode('Value exceeds memory capacity')
-
-    this._store.set(value, offset)
-  }
-
-  /**
-   * Reads a slice of memory from `offset` till `offset + size` as a `Uint8Array`.
-   * It fills up the difference between memory's length and `offset + size` with zeros.
-   * @param offset - Starting position
-   * @param size - How many bytes to read
-   * @param avoidCopy - Avoid memory copy if possible for performance reasons (optional)
-   */
-  read(offset: number, size: number, avoidCopy?: boolean): Uint8Array<ArrayBuffer> {
-    this.extend(offset, size)
-
-    const loaded = this._store.subarray(offset, offset + size) as Uint8Array<ArrayBuffer>
-    if (avoidCopy === true) {
-      return loaded
-    }
-    const returnBytes = new Uint8Array(size)
-    // Copy the stored "buffer" from memory into the return Uint8Array
-    returnBytes.set(loaded)
-
-    return returnBytes
-  }
 }

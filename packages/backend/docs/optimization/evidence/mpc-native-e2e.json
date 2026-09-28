@@ -1,0 +1,1131 @@
+{
+  "measuredSourceCommit": "c082122e4a8e73612f1ff0e535c2e1a214b5cf68",
+  "runDirectory": "/tmp/tokamak-mpc-native-e2e-optimized-BMRiqX",
+  "qualification": "synthetic-tau MPC finalization and native E2E only; no live Filecoin, independent-contributor, npm, Drive, WASM or CUDA qualification",
+  "samples": 1,
+  "crsProvenance": {
+    "documentKind": "crs",
+    "protocolSchemaId": "tokamak-zk-evm-univariate",
+    "generationMethod": "mpc",
+    "releaseEligible": false,
+    "generatedAtUtc": "2026-09-13T07:41:42.911067+00:00",
+    "compatibleBackendVersion": "2.1",
+    "subcircuitLibrary": {
+      "packageName": "@tokamak-zk-evm/subcircuit-library",
+      "packageVersion": "2.1.5",
+      "origin": "localQapCompiler",
+      "sourceDigest": "sha256:e2d425690aa68524ffa46a755d0a1eab7419d202f44a16805852c5dbfbdb0c92"
+    },
+    "phase1SourceProvenance": null,
+      "ceremonyProtocolVersion": "tokamak-filecoin-phase2",
+      "ceremonyTranscriptSha256": "721c2dbfbea4f3de95e9dfaf24c0d5e6fd6611b0cb03c5beaeea448844f47b64",
+      "phase2ContributionCount": 2,
+      "artifacts": {
+      "preprocess_keys.rkyv": "425d1388556c58268f8790181ff8e1b5239fbbfdec7d43a597f9d905eff282e9",
+      "prover_keys.rkyv": "0ab5af6bc805b930d05364e6dcf18658c55de86ebd02624d4dd9b764d82e7686",
+      "tau_sequence.rkyv": "3c729d434e2ddb56140fff70adb0a0f1c87c657bf38897e8c6434030e7314c5b",
+      "verifier_keys.rkyv": "72f57143dbee011b701284f137309cb38ae8468edf60c281b92fa4eb9bfad30f"
+    }
+  },
+  "setupParams": {
+    "l_log_out": 50,
+    "l_storage_store": 80,
+    "l_storage_load": 130,
+    "l_tx_in": 134,
+    "l_block_in": 158,
+    "l_evm_in": 396,
+    "l_free": 256,
+    "l_user_out": 130,
+    "l_user": 134,
+    "l": 396,
+    "l_D": 1420,
+    "m_D": 45056,
+    "n": 1024,
+    "m": 1024,
+    "t": 64,
+    "s_D": 44,
+    "s_max": 256
+  },
+  "artifacts": [
+    {
+      "path": "crs/crs_provenance.json",
+      "bytes": 1058,
+      "sha256": "18dbbddd797640c391acae5fd2c7208027ff55d169f1506fbe38d23a3af399b1"
+    },
+    {
+      "path": "crs/preprocess_keys.rkyv",
+      "bytes": 28276128,
+      "sha256": "425d1388556c58268f8790181ff8e1b5239fbbfdec7d43a597f9d905eff282e9"
+    },
+    {
+      "path": "crs/prover_keys.rkyv",
+      "bytes": 626999056,
+      "sha256": "0ab5af6bc805b930d05364e6dcf18658c55de86ebd02624d4dd9b764d82e7686"
+    },
+    {
+      "path": "crs/tau_sequence.rkyv",
+      "bytes": 301992400,
+      "sha256": "3c729d434e2ddb56140fff70adb0a0f1c87c657bf38897e8c6434030e7314c5b"
+    },
+    {
+      "path": "crs/verifier_keys.rkyv",
+      "bytes": 1104,
+      "sha256": "72f57143dbee011b701284f137309cb38ae8468edf60c281b92fa4eb9bfad30f"
+    },
+    {
+      "path": "inputs/synthesizer/instance.json",
+      "bytes": 6924,
+      "sha256": "cc287240f32fdeb9764565156cb60c2e453394e51d1fc1d59e59e7a444bd89f7"
+    },
+    {
+      "path": "inputs/synthesizer/permutation.json",
+      "bytes": 99828,
+      "sha256": "87166ed3a4146aa1cc6d037631abc91e6b4d401315fe37b642b0880917f9857c"
+    },
+    {
+      "path": "inputs/synthesizer/placementVariables.json",
+      "bytes": 3505572,
+      "sha256": "7019419d5e06096dc28e8d6d952f824310bd6350011d6798e11870c65b147ffe"
+    },
+    {
+      "path": "inputs/synthesizer/selector.json",
+      "bytes": 1532,
+      "sha256": "3e71f26da52e6e80bbbb22ee1b8208f8ddb80214e12f1a8a6ff0933456a8a88c"
+    },
+    {
+      "path": "inputs/placements.json",
+      "bytes": 349382,
+      "sha256": "500fdbd9dff3238b3e7a3b4ec3178aceb81ff0480f83102293c0e6bc8ae62d6e"
+    },
+    {
+      "path": "selector.original.json",
+      "bytes": 1924,
+      "sha256": "6d2fe8b6bbce138a59f18b8704aaad55db1e408a0647711a5927d7dc4053e0a8"
+    },
+    {
+      "path": "preprocess/univariate_verifier_preprocess.bin",
+      "bytes": 384,
+      "sha256": "1370b05bb9b45c0f118079680b3b970fe58fafcb07c0d4a6f9043ef0b3663a51"
+    },
+    {
+      "path": "prove/univariate_proof.bin",
+      "bytes": 1184,
+      "sha256": "a09e9c6cc9d0bfda466f9ace9afa267beac132d69f0ff745bfc52ba5b35dc8f6"
+    }
+  ],
+  "mpcTiming": [
+    {
+      "name": "lagrange_at",
+      "category": "setup",
+      "nanos": 164039542,
+      "sizes": [
+        {
+          "label": "count",
+          "dims": [
+            262144
+          ]
+        }
+      ]
+    },
+    {
+      "name": "lagrange_at",
+      "category": "setup",
+      "nanos": 163081875,
+      "sizes": [
+        {
+          "label": "count",
+          "dims": [
+            262144
+          ]
+        }
+      ]
+    },
+    {
+      "name": "lagrange_at",
+      "category": "setup",
+      "nanos": 10439333,
+      "sizes": [
+        {
+          "label": "count",
+          "dims": [
+            16384
+          ]
+        }
+      ]
+    },
+    {
+      "name": "lagrange_at",
+      "category": "setup",
+      "nanos": 211209,
+      "sizes": [
+        {
+          "label": "count",
+          "dims": [
+            256
+          ]
+        }
+      ]
+    },
+    {
+      "name": "nonpublic.scalar_labels",
+      "category": "setup",
+      "nanos": 214960000,
+      "sizes": []
+    },
+    {
+      "name": "public.scalar_labels",
+      "category": "setup",
+      "nanos": 849542,
+      "sizes": []
+    },
+    {
+      "name": "powers",
+      "category": "setup",
+      "nanos": 4729333,
+      "sizes": [
+        {
+          "label": "count",
+          "dims": [
+            1048583
+          ]
+        }
+      ]
+    },
+    {
+      "name": "encode_g1",
+      "category": "setup",
+      "nanos": 968214666,
+      "sizes": [
+        {
+          "label": "count",
+          "dims": [
+            1048583
+          ]
+        }
+      ]
+    },
+    {
+      "name": "encode_g1",
+      "category": "setup",
+      "nanos": 499366417,
+      "sizes": [
+        {
+          "label": "count",
+          "dims": [
+            524292
+          ]
+        }
+      ]
+    },
+    {
+      "name": "encode_g1",
+      "category": "setup",
+      "nanos": 498076250,
+      "sizes": [
+        {
+          "label": "count",
+          "dims": [
+            524292
+          ]
+        }
+      ]
+    },
+    {
+      "name": "encode_g2",
+      "category": "setup",
+      "nanos": 1381095334,
+      "sizes": [
+        {
+          "label": "count",
+          "dims": [
+            524292
+          ]
+        }
+      ]
+    },
+    {
+      "name": "encode_g2",
+      "category": "setup",
+      "nanos": 180167,
+      "sizes": [
+        {
+          "label": "count",
+          "dims": [
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "name": "encode_g1",
+      "category": "setup",
+      "nanos": 2114500,
+      "sizes": [
+        {
+          "label": "count",
+          "dims": [
+            140
+          ]
+        }
+      ]
+    },
+    {
+      "name": "encode_g2",
+      "category": "setup",
+      "nanos": 180834,
+      "sizes": [
+        {
+          "label": "count",
+          "dims": [
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "name": "encode_g1",
+      "category": "setup",
+      "nanos": 208237334,
+      "sizes": [
+        {
+          "label": "count",
+          "dims": [
+            262144
+          ]
+        }
+      ]
+    },
+    {
+      "name": "encode_g1",
+      "category": "setup",
+      "nanos": 242920375,
+      "sizes": [
+        {
+          "label": "count",
+          "dims": [
+            262144
+          ]
+        }
+      ]
+    },
+    {
+      "name": "encode_g1",
+      "category": "setup",
+      "nanos": 2166584,
+      "sizes": [
+        {
+          "label": "count",
+          "dims": [
+            158
+          ]
+        }
+      ]
+    },
+    {
+      "name": "encode_g1",
+      "category": "setup",
+      "nanos": 5529563625,
+      "sizes": [
+        {
+          "label": "count",
+          "dims": [
+            6006784
+          ]
+        }
+      ]
+    },
+    {
+      "name": "encode_g1",
+      "category": "setup",
+      "nanos": 198375,
+      "sizes": [
+        {
+          "label": "count",
+          "dims": [
+            2
+          ]
+        }
+      ]
+    },
+    {
+      "name": "encode_g1",
+      "category": "setup",
+      "nanos": 161417,
+      "sizes": [
+        {
+          "label": "count",
+          "dims": [
+            2
+          ]
+        }
+      ]
+    },
+    {
+      "name": "encode_g1",
+      "category": "setup",
+      "nanos": 164000,
+      "sizes": [
+        {
+          "label": "count",
+          "dims": [
+            2
+          ]
+        }
+      ]
+    },
+    {
+      "name": "encode_g1",
+      "category": "setup",
+      "nanos": 159209,
+      "sizes": [
+        {
+          "label": "count",
+          "dims": [
+            2
+          ]
+        }
+      ]
+    },
+    {
+      "name": "encode_g1",
+      "category": "setup",
+      "nanos": 138709,
+      "sizes": [
+        {
+          "label": "count",
+          "dims": [
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "name": "mpc.source_decode",
+      "category": "mpc",
+      "nanos": 3310158416,
+      "sizes": []
+    },
+    {
+      "name": "mpc.source_decode",
+      "category": "mpc",
+      "nanos": 1638506125,
+      "sizes": []
+    },
+    {
+      "name": "mpc.source_decode",
+      "category": "mpc",
+      "nanos": 1672345834,
+      "sizes": []
+    },
+    {
+      "name": "mpc.initialize",
+      "category": "mpc",
+      "nanos": 399888528500,
+      "sizes": []
+    },
+    {
+      "name": "mpc.serialize",
+      "category": "mpc",
+      "nanos": 107900666,
+      "sizes": []
+    },
+    {
+      "name": "mpc.update",
+      "category": "mpc",
+      "nanos": 94950504958,
+      "sizes": []
+    },
+    {
+      "name": "mpc.serialize",
+      "category": "mpc",
+      "nanos": 208206542,
+      "sizes": []
+    },
+    {
+      "name": "mpc.state_hash",
+      "category": "mpc",
+      "nanos": 2178810666,
+      "sizes": []
+    },
+    {
+      "name": "mpc.share_generation",
+      "category": "mpc",
+      "nanos": 110892000,
+      "sizes": []
+    },
+    {
+      "name": "mpc.decode",
+      "category": "mpc",
+      "nanos": 333941708,
+      "sizes": []
+    },
+    {
+      "name": "mpc.state_hash",
+      "category": "mpc",
+      "nanos": 2135990959,
+      "sizes": []
+    },
+    {
+      "name": "mpc.share_verification",
+      "category": "mpc",
+      "nanos": 261246208,
+      "sizes": []
+    },
+    {
+      "name": "mpc.point_admission",
+      "category": "mpc",
+      "nanos": 39345387333,
+      "sizes": []
+    },
+    {
+      "name": "mpc.state_equations",
+      "category": "mpc",
+      "nanos": 837063488625,
+      "sizes": []
+    },
+    {
+      "name": "mpc.verify_state",
+      "category": "mpc",
+      "nanos": 876408878625,
+      "sizes": []
+    },
+    {
+      "name": "mpc.predecessor_and_chain_hash",
+      "category": "mpc",
+      "nanos": 2183604458,
+      "sizes": []
+    },
+    {
+      "name": "mpc.verify_record",
+      "category": "mpc",
+      "nanos": 881323681584,
+      "sizes": []
+    },
+    {
+      "name": "mpc.contribute",
+      "category": "mpc",
+      "nanos": 978974848583,
+      "sizes": []
+    },
+    {
+      "name": "mpc.update",
+      "category": "mpc",
+      "nanos": 98462885416,
+      "sizes": []
+    },
+    {
+      "name": "mpc.serialize",
+      "category": "mpc",
+      "nanos": 134244125,
+      "sizes": []
+    },
+    {
+      "name": "mpc.state_hash",
+      "category": "mpc",
+      "nanos": 2126630792,
+      "sizes": []
+    },
+    {
+      "name": "mpc.share_generation",
+      "category": "mpc",
+      "nanos": 106725417,
+      "sizes": []
+    },
+    {
+      "name": "mpc.decode",
+      "category": "mpc",
+      "nanos": 152571083,
+      "sizes": []
+    },
+    {
+      "name": "mpc.state_hash",
+      "category": "mpc",
+      "nanos": 2154594500,
+      "sizes": []
+    },
+    {
+      "name": "mpc.share_verification",
+      "category": "mpc",
+      "nanos": 257272125,
+      "sizes": []
+    },
+    {
+      "name": "mpc.point_admission",
+      "category": "mpc",
+      "nanos": 38976107042,
+      "sizes": []
+    },
+    {
+      "name": "mpc.state_equations",
+      "category": "mpc",
+      "nanos": 845213148334,
+      "sizes": []
+    },
+    {
+      "name": "mpc.verify_state",
+      "category": "mpc",
+      "nanos": 884189261542,
+      "sizes": []
+    },
+    {
+      "name": "mpc.predecessor_and_chain_hash",
+      "category": "mpc",
+      "nanos": 2312883667,
+      "sizes": []
+    },
+    {
+      "name": "mpc.verify_record",
+      "category": "mpc",
+      "nanos": 889066592208,
+      "sizes": []
+    },
+    {
+      "name": "mpc.contribute",
+      "category": "mpc",
+      "nanos": 990023645875,
+      "sizes": []
+    },
+    {
+      "name": "mpc.final_projection",
+      "category": "mpc",
+      "nanos": 100647167,
+      "sizes": []
+    },
+    {
+      "name": "verifier_keys.rkyv.serialize",
+      "category": "setup",
+      "nanos": 12042,
+      "sizes": []
+    },
+    {
+      "name": "verifier_keys.rkyv.hash",
+      "category": "setup",
+      "nanos": 3750,
+      "sizes": []
+    },
+    {
+      "name": "verifier_keys.rkyv.write",
+      "category": "setup",
+      "nanos": 179166,
+      "sizes": []
+    },
+    {
+      "name": "preprocess_keys.rkyv.serialize",
+      "category": "setup",
+      "nanos": 5868625,
+      "sizes": []
+    },
+    {
+      "name": "preprocess_keys.rkyv.hash",
+      "category": "setup",
+      "nanos": 52412916,
+      "sizes": []
+    },
+    {
+      "name": "preprocess_keys.rkyv.write",
+      "category": "setup",
+      "nanos": 25540584,
+      "sizes": []
+    },
+    {
+      "name": "prover_keys.rkyv.serialize",
+      "category": "setup",
+      "nanos": 150778625,
+      "sizes": []
+    },
+    {
+      "name": "tau_sequence.rkyv.serialize",
+      "category": "setup",
+      "nanos": 194324959,
+      "sizes": []
+    },
+    {
+      "name": "tau_sequence.rkyv.hash",
+      "category": "setup",
+      "nanos": 554690292,
+      "sizes": []
+    },
+    {
+      "name": "tau_sequence.rkyv.write",
+      "category": "setup",
+      "nanos": 162872584,
+      "sizes": []
+    },
+    {
+      "name": "prover_keys.rkyv.hash",
+      "category": "setup",
+      "nanos": 1141130250,
+      "sizes": []
+    },
+    {
+      "name": "prover_keys.rkyv.write",
+      "category": "setup",
+      "nanos": 140222000,
+      "sizes": []
+    }
+  ],
+  "proveTiming": [
+    {
+      "name": "univariate.identity",
+      "category": "input",
+      "nanos": 231500,
+      "sizes": []
+    },
+    {
+      "name": "univariate.library",
+      "category": "input",
+      "nanos": 22312666,
+      "sizes": []
+    },
+    {
+      "name": "univariate.crs.read.tau",
+      "category": "input",
+      "nanos": 29440291,
+      "sizes": []
+    },
+    {
+      "name": "univariate.crs.decode.tau",
+      "category": "input",
+      "nanos": 32644667,
+      "sizes": []
+    },
+    {
+      "name": "univariate.crs.read.keys",
+      "category": "input",
+      "nanos": 54904375,
+      "sizes": []
+    },
+    {
+      "name": "univariate.crs.decode.keys",
+      "category": "input",
+      "nanos": 59895375,
+      "sizes": []
+    },
+    {
+      "name": "univariate.crs",
+      "category": "input",
+      "nanos": 176986583,
+      "sizes": []
+    },
+    {
+      "name": "univariate.fixture",
+      "category": "input",
+      "nanos": 30091917,
+      "sizes": []
+    },
+    {
+      "name": "univariate.maps",
+      "category": "prepare",
+      "nanos": 157562417,
+      "sizes": []
+    },
+    {
+      "name": "univariate.arithmetic",
+      "category": "prove",
+      "nanos": 115201500,
+      "sizes": []
+    },
+    {
+      "name": "univariate.commit.gather",
+      "category": "C_L",
+      "nanos": 2768625,
+      "sizes": []
+    },
+    {
+      "name": "univariate.commit.decode",
+      "category": "prepare",
+      "nanos": 12908125,
+      "sizes": []
+    },
+    {
+      "name": "univariate.msm",
+      "category": "msm",
+      "nanos": 387666125,
+      "sizes": [
+        {
+          "label": "bases",
+          "dims": [
+            524548
+          ]
+        }
+      ]
+    },
+    {
+      "name": "univariate.commit",
+      "category": "C_L",
+      "nanos": 403566750,
+      "sizes": []
+    },
+    {
+      "name": "univariate.commit.gather",
+      "category": "C_H",
+      "nanos": 1137709,
+      "sizes": []
+    },
+    {
+      "name": "univariate.commit.decode",
+      "category": "prepare",
+      "nanos": 12251792,
+      "sizes": []
+    },
+    {
+      "name": "univariate.msm",
+      "category": "msm",
+      "nanos": 392695083,
+      "sizes": [
+        {
+          "label": "bases",
+          "dims": [
+            524292
+          ]
+        }
+      ]
+    },
+    {
+      "name": "univariate.commit",
+      "category": "C_H",
+      "nanos": 406315000,
+      "sizes": []
+    },
+    {
+      "name": "univariate.commit.gather",
+      "category": "C_O",
+      "nanos": 1321542,
+      "sizes": []
+    },
+    {
+      "name": "univariate.commit.decode",
+      "category": "prepare",
+      "nanos": 1134083,
+      "sizes": []
+    },
+    {
+      "name": "univariate.msm",
+      "category": "msm",
+      "nanos": 21845875,
+      "sizes": [
+        {
+          "label": "bases",
+          "dims": [
+            35928
+          ]
+        }
+      ]
+    },
+    {
+      "name": "univariate.binding",
+      "category": "prove",
+      "nanos": 24870583,
+      "sizes": []
+    },
+    {
+      "name": "univariate.selection.interpolate",
+      "category": "polynomial",
+      "nanos": 40538417,
+      "sizes": []
+    },
+    {
+      "name": "univariate.commit.gather",
+      "category": "D_Q",
+      "nanos": 538375,
+      "sizes": []
+    },
+    {
+      "name": "univariate.commit.decode",
+      "category": "prepare",
+      "nanos": 6413542,
+      "sizes": []
+    },
+    {
+      "name": "univariate.msm",
+      "category": "msm",
+      "nanos": 198517209,
+      "sizes": [
+        {
+          "label": "bases",
+          "dims": [
+            261633
+          ]
+        }
+      ]
+    },
+    {
+      "name": "univariate.commit",
+      "category": "D_Q",
+      "nanos": 206349750,
+      "sizes": []
+    },
+    {
+      "name": "univariate.commit.gather",
+      "category": "D_QK",
+      "nanos": 617417,
+      "sizes": []
+    },
+    {
+      "name": "univariate.commit.decode",
+      "category": "prepare",
+      "nanos": 6346750,
+      "sizes": []
+    },
+    {
+      "name": "univariate.msm",
+      "category": "msm",
+      "nanos": 192178000,
+      "sizes": [
+        {
+          "label": "bases",
+          "dims": [
+            261633
+          ]
+        }
+      ]
+    },
+    {
+      "name": "univariate.commit",
+      "category": "D_QK",
+      "nanos": 199920333,
+      "sizes": []
+    },
+    {
+      "name": "univariate.selection",
+      "category": "prove",
+      "nanos": 446817834,
+      "sizes": []
+    },
+    {
+      "name": "univariate.commit.gather",
+      "category": "C_D",
+      "nanos": 1180375,
+      "sizes": []
+    },
+    {
+      "name": "univariate.commit.decode",
+      "category": "prepare",
+      "nanos": 12272958,
+      "sizes": []
+    },
+    {
+      "name": "univariate.msm",
+      "category": "msm",
+      "nanos": 388497000,
+      "sizes": [
+        {
+          "label": "bases",
+          "dims": [
+            524548
+          ]
+        }
+      ]
+    },
+    {
+      "name": "univariate.commit",
+      "category": "C_D",
+      "nanos": 402168542,
+      "sizes": []
+    },
+    {
+      "name": "univariate.copy.denominators",
+      "category": "copy",
+      "nanos": 8579041,
+      "sizes": []
+    },
+    {
+      "name": "univariate.copy.inversion",
+      "category": "copy",
+      "nanos": 1444750,
+      "sizes": []
+    },
+    {
+      "name": "univariate.copy.recurrence",
+      "category": "copy",
+      "nanos": 10794792,
+      "sizes": []
+    },
+    {
+      "name": "univariate.copy.interpolate",
+      "category": "copy",
+      "nanos": 11442583,
+      "sizes": []
+    },
+    {
+      "name": "univariate.copy.boundary",
+      "category": "copy",
+      "nanos": 2430167,
+      "sizes": []
+    },
+    {
+      "name": "univariate.copy.products",
+      "category": "copy",
+      "nanos": 229072708,
+      "sizes": []
+    },
+    {
+      "name": "univariate.copy",
+      "category": "prove",
+      "nanos": 266384250,
+      "sizes": []
+    },
+    {
+      "name": "univariate.commit.gather",
+      "category": "C_R",
+      "nanos": 558250,
+      "sizes": []
+    },
+    {
+      "name": "univariate.commit.decode",
+      "category": "prepare",
+      "nanos": 6344250,
+      "sizes": []
+    },
+    {
+      "name": "univariate.msm",
+      "category": "msm",
+      "nanos": 198713167,
+      "sizes": [
+        {
+          "label": "bases",
+          "dims": [
+            262148
+          ]
+        }
+      ]
+    },
+    {
+      "name": "univariate.commit",
+      "category": "C_R",
+      "nanos": 205721167,
+      "sizes": []
+    },
+    {
+      "name": "univariate.commit.gather",
+      "category": "C_Q",
+      "nanos": 538125,
+      "sizes": []
+    },
+    {
+      "name": "univariate.commit.decode",
+      "category": "prepare",
+      "nanos": 6212666,
+      "sizes": []
+    },
+    {
+      "name": "univariate.msm",
+      "category": "msm",
+      "nanos": 200770084,
+      "sizes": [
+        {
+          "label": "bases",
+          "dims": [
+            262149
+          ]
+        }
+      ]
+    },
+    {
+      "name": "univariate.commit",
+      "category": "C_Q",
+      "nanos": 207609500,
+      "sizes": []
+    },
+    {
+      "name": "univariate.commit.gather",
+      "category": "Pi_chi",
+      "nanos": 4471083,
+      "sizes": []
+    },
+    {
+      "name": "univariate.commit.decode",
+      "category": "prepare",
+      "nanos": 19330792,
+      "sizes": []
+    },
+    {
+      "name": "univariate.msm",
+      "category": "msm",
+      "nanos": 591007708,
+      "sizes": [
+        {
+          "label": "bases",
+          "dims": [
+            786438
+          ]
+        }
+      ]
+    },
+    {
+      "name": "univariate.commit",
+      "category": "Pi_chi",
+      "nanos": 615149542,
+      "sizes": []
+    },
+    {
+      "name": "univariate.commit.gather",
+      "category": "Pi_plus",
+      "nanos": 538417,
+      "sizes": []
+    },
+    {
+      "name": "univariate.commit.decode",
+      "category": "prepare",
+      "nanos": 6328875,
+      "sizes": []
+    },
+    {
+      "name": "univariate.msm",
+      "category": "msm",
+      "nanos": 199799875,
+      "sizes": [
+        {
+          "label": "bases",
+          "dims": [
+            262147
+          ]
+        }
+      ]
+    },
+    {
+      "name": "univariate.commit",
+      "category": "Pi_plus",
+      "nanos": 206756584,
+      "sizes": []
+    },
+    {
+      "name": "univariate.openings",
+      "category": "prove",
+      "nanos": 852269917,
+      "sizes": []
+    },
+    {
+      "name": "univariate.protocol",
+      "category": "prove",
+      "nanos": 3348863250,
+      "sizes": []
+    },
+    {
+      "name": "univariate.output",
+      "category": "output",
+      "nanos": 250709,
+      "sizes": []
+    },
+    {
+      "name": "univariate.total",
+      "category": "total",
+      "nanos": 3758159958,
+      "sizes": []
+    }
+  ],
+  "commands": {
+    "mpc": "MPC_TEST_OUTPUT=$run_root/crs /usr/bin/time -l cargo test --locked --offline --release -p mpc-setup --features timing --lib native_fixture::prepare_native_e2e_keys -- --ignored --exact --nocapture",
+    "native": "#!/usr/bin/env bash\nset -euo pipefail\n# Native consumer qualification only; run after successful MPC key preparation.\ncd /Users/jehyuk/repo/Tokamak-zk-EVM/packages/backend\nrun_root=/tmp/tokamak-mpc-native-e2e-optimized-BMRiqX\ncrs=\"$run_root/crs\"\nlibrary=\"$run_root/inputs/subcircuits/library\"\nfixture=\"$run_root/inputs/synthesizer\"\nfor name in tau_sequence.rkyv prover_keys.rkyv preprocess_keys.rkyv verifier_keys.rkyv crs_provenance.json; do\n  test -s \"$crs/$name\"\ndone\ncmp \"$library/setupParams.json\" ../frontend/qap-compiler/subcircuits/library/setupParams.json\nexport TOKAMAK_VERIFIER_KEYS=\"$crs/verifier_keys.rkyv\"\ncargo build --locked --offline --release -p preprocess --features local-development-subcircuit-library 2>&1 | tee \"$run_root/build-preprocess.log\"\n/usr/bin/time -l cargo run --locked --offline --release -p preprocess --features local-development-subcircuit-library -- \\\n  --subcircuit-library \"$library\" --keys \"$crs\" --synthesizer-stat \"$fixture\" \\\n  --device cpu --output \"$run_root/preprocess\" 2>&1 | tee \"$run_root/preprocess.log\"\ncargo build --locked --offline --release -p prove --features local-development-subcircuit-library,timing 2>&1 | tee \"$run_root/build-prove.log\"\n/usr/bin/time -l cargo run --locked --offline --release -p prove --features local-development-subcircuit-library,timing -- \\\n  --subcircuit-library \"$library\" --tau-sequence \"$crs/tau_sequence.rkyv\" --keys \"$crs\" \\\n  --synthesizer-stat \"$fixture\" --device cpu --output \"$run_root/prove\" 2>&1 | tee \"$run_root/prove.log\"\ncargo build --locked --offline --release -p verify --features local-development-subcircuit-library 2>&1 | tee \"$run_root/build-verify.log\"\n/usr/bin/time -l cargo run --locked --offline --release -p verify --features local-development-subcircuit-library -- \\\n  --preprocess \"$run_root/preprocess/univariate_verifier_preprocess.bin\" \\\n  --proof \"$run_root/prove/univariate_proof.bin\" --instance \"$fixture/instance.json\" --timing 2>&1 | tee \"$run_root/verify.log\"\nrg --line-regexp 'true' \"$run_root/verify.log\"\nVERIFY_TEST_PREPROCESS=\"$run_root/preprocess/univariate_verifier_preprocess.bin\" \\\nVERIFY_TEST_PROOF=\"$run_root/prove/univariate_proof.bin\" \\\nVERIFY_TEST_INSTANCE=\"$fixture/instance.json\" \\\ncargo test --locked --offline --release -p verify --features local-development-subcircuit-library \\\n  --test local_fixture -- --ignored --exact accepts_real_proof_and_rejects_tampering --nocapture 2>&1 | tee \"$run_root/tamper.log\"\n",
+    "selectorPreparation": "// Test-fixture repair: use the current producer; leave repository outputs intact.\nimport fs from 'node:fs';\nimport assert from 'node:assert/strict';\nimport { derivePlacementSelector } from '/Users/jehyuk/repo/Tokamak-zk-EVM/packages/frontend/synthesizer/core/src/circuitGenerator/generators/placementSelector.ts';\n\nconst root = '/tmp/tokamak-mpc-native-e2e-optimized-BMRiqX';\nconst read = path => JSON.parse(fs.readFileSync(path, 'utf8'));\nconst placements = read(`${root}/inputs/placements.json`);\nconst variables = read(`${root}/inputs/synthesizer/placementVariables.json`);\nconst data = Object.fromEntries(['setupParams', 'globalWireList', 'subcircuitInfo']\n  .map(name => [name, read(`${root}/inputs/subcircuits/library/${name}.json`)]));\nconst selector = derivePlacementSelector(placements, variables, { data });\nconst original = read(`${root}/selector.original.json`);\nassert.deepEqual(selector.slice(0, variables.length), original.slice(0, variables.length));\nassert(original.slice(variables.length).every(value => value === 4294967295));\nassert(selector.slice(variables.length).every(value => value === -1));\nconsole.log(JSON.stringify(selector, null, 2));\n"
+  },
+  "logs": {
+    "prepare.log": "   Compiling mpc-setup v2.1.5 (/Users/jehyuk/repo/Tokamak-zk-EVM/packages/backend/rust/setup/mpc-setup)\n    Finished `release` profile [optimized] target(s) in 6.05s\n     Running unittests src/lib.rs (target/release/deps/mpc_setup-4a3065e56cd9a848)\n\nrunning 1 test\ntest native_fixture::prepare_native_e2e_keys ... [test-mpc] preparing standard-generator synthetic tau\n[test-mpc] generated synthetic tau; local QAP sha256:e2d425690aa68524ffa46a755d0a1eab7419d202f44a16805852c5dbfbdb0c92; input preparation 10.563s\n[test-mpc] starting encoded-power initialization\n[test-mpc] initialization 399.889s; packed=6006942 weighted=262144\n[test-mpc] starting contribution 1, including new-record verification\n[test-mpc] contribution 1 verified in 978.975s\n[test-mpc] starting contribution 2, including new-record verification\n[test-mpc] contribution 2 verified in 990.024s\n[test-mpc] starting verified final-key projection\n[test-mpc] final projection/archive 6.041s; output /tmp/tokamak-mpc-native-e2e-optimized-BMRiqX/crs; total 2387.779s; TEST ONLY, NOT FILECOIN QUALIFICATION\n[mpc-timing] {\"name\":\"lagrange_at\",\"category\":\"setup\",\"nanos\":164039542,\"sizes\":[{\"label\":\"count\",\"dims\":[262144]}]}\n[mpc-timing] {\"name\":\"lagrange_at\",\"category\":\"setup\",\"nanos\":163081875,\"sizes\":[{\"label\":\"count\",\"dims\":[262144]}]}\n[mpc-timing] {\"name\":\"lagrange_at\",\"category\":\"setup\",\"nanos\":10439333,\"sizes\":[{\"label\":\"count\",\"dims\":[16384]}]}\n[mpc-timing] {\"name\":\"lagrange_at\",\"category\":\"setup\",\"nanos\":211209,\"sizes\":[{\"label\":\"count\",\"dims\":[256]}]}\n[mpc-timing] {\"name\":\"nonpublic.scalar_labels\",\"category\":\"setup\",\"nanos\":214960000,\"sizes\":[]}\n[mpc-timing] {\"name\":\"public.scalar_labels\",\"category\":\"setup\",\"nanos\":849542,\"sizes\":[]}\n[mpc-timing] {\"name\":\"powers\",\"category\":\"setup\",\"nanos\":4729333,\"sizes\":[{\"label\":\"count\",\"dims\":[1048583]}]}\n[mpc-timing] {\"name\":\"encode_g1\",\"category\":\"setup\",\"nanos\":968214666,\"sizes\":[{\"label\":\"count\",\"dims\":[1048583]}]}\n[mpc-timing] {\"name\":\"encode_g1\",\"category\":\"setup\",\"nanos\":499366417,\"sizes\":[{\"label\":\"count\",\"dims\":[524292]}]}\n[mpc-timing] {\"name\":\"encode_g1\",\"category\":\"setup\",\"nanos\":498076250,\"sizes\":[{\"label\":\"count\",\"dims\":[524292]}]}\n[mpc-timing] {\"name\":\"encode_g2\",\"category\":\"setup\",\"nanos\":1381095334,\"sizes\":[{\"label\":\"count\",\"dims\":[524292]}]}\n[mpc-timing] {\"name\":\"encode_g2\",\"category\":\"setup\",\"nanos\":180167,\"sizes\":[{\"label\":\"count\",\"dims\":[1]}]}\n[mpc-timing] {\"name\":\"encode_g1\",\"category\":\"setup\",\"nanos\":2114500,\"sizes\":[{\"label\":\"count\",\"dims\":[140]}]}\n[mpc-timing] {\"name\":\"encode_g2\",\"category\":\"setup\",\"nanos\":180834,\"sizes\":[{\"label\":\"count\",\"dims\":[1]}]}\n[mpc-timing] {\"name\":\"encode_g1\",\"category\":\"setup\",\"nanos\":208237334,\"sizes\":[{\"label\":\"count\",\"dims\":[262144]}]}\n[mpc-timing] {\"name\":\"encode_g1\",\"category\":\"setup\",\"nanos\":242920375,\"sizes\":[{\"label\":\"count\",\"dims\":[262144]}]}\n[mpc-timing] {\"name\":\"encode_g1\",\"category\":\"setup\",\"nanos\":2166584,\"sizes\":[{\"label\":\"count\",\"dims\":[158]}]}\n[mpc-timing] {\"name\":\"encode_g1\",\"category\":\"setup\",\"nanos\":5529563625,\"sizes\":[{\"label\":\"count\",\"dims\":[6006784]}]}\n[mpc-timing] {\"name\":\"encode_g1\",\"category\":\"setup\",\"nanos\":198375,\"sizes\":[{\"label\":\"count\",\"dims\":[2]}]}\n[mpc-timing] {\"name\":\"encode_g1\",\"category\":\"setup\",\"nanos\":161417,\"sizes\":[{\"label\":\"count\",\"dims\":[2]}]}\n[mpc-timing] {\"name\":\"encode_g1\",\"category\":\"setup\",\"nanos\":164000,\"sizes\":[{\"label\":\"count\",\"dims\":[2]}]}\n[mpc-timing] {\"name\":\"encode_g1\",\"category\":\"setup\",\"nanos\":159209,\"sizes\":[{\"label\":\"count\",\"dims\":[2]}]}\n[mpc-timing] {\"name\":\"encode_g1\",\"category\":\"setup\",\"nanos\":138709,\"sizes\":[{\"label\":\"count\",\"dims\":[1]}]}\n[mpc-timing] {\"name\":\"mpc.source_decode\",\"category\":\"mpc\",\"nanos\":3310158416,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.source_decode\",\"category\":\"mpc\",\"nanos\":1638506125,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.source_decode\",\"category\":\"mpc\",\"nanos\":1672345834,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.initialize\",\"category\":\"mpc\",\"nanos\":399888528500,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.serialize\",\"category\":\"mpc\",\"nanos\":107900666,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.update\",\"category\":\"mpc\",\"nanos\":94950504958,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.serialize\",\"category\":\"mpc\",\"nanos\":208206542,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.state_hash\",\"category\":\"mpc\",\"nanos\":2178810666,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.share_generation\",\"category\":\"mpc\",\"nanos\":110892000,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.decode\",\"category\":\"mpc\",\"nanos\":333941708,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.state_hash\",\"category\":\"mpc\",\"nanos\":2135990959,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.share_verification\",\"category\":\"mpc\",\"nanos\":261246208,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.point_admission\",\"category\":\"mpc\",\"nanos\":39345387333,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.state_equations\",\"category\":\"mpc\",\"nanos\":837063488625,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.verify_state\",\"category\":\"mpc\",\"nanos\":876408878625,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.predecessor_and_chain_hash\",\"category\":\"mpc\",\"nanos\":2183604458,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.verify_record\",\"category\":\"mpc\",\"nanos\":881323681584,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.contribute\",\"category\":\"mpc\",\"nanos\":978974848583,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.update\",\"category\":\"mpc\",\"nanos\":98462885416,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.serialize\",\"category\":\"mpc\",\"nanos\":134244125,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.state_hash\",\"category\":\"mpc\",\"nanos\":2126630792,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.share_generation\",\"category\":\"mpc\",\"nanos\":106725417,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.decode\",\"category\":\"mpc\",\"nanos\":152571083,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.state_hash\",\"category\":\"mpc\",\"nanos\":2154594500,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.share_verification\",\"category\":\"mpc\",\"nanos\":257272125,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.point_admission\",\"category\":\"mpc\",\"nanos\":38976107042,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.state_equations\",\"category\":\"mpc\",\"nanos\":845213148334,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.verify_state\",\"category\":\"mpc\",\"nanos\":884189261542,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.predecessor_and_chain_hash\",\"category\":\"mpc\",\"nanos\":2312883667,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.verify_record\",\"category\":\"mpc\",\"nanos\":889066592208,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.contribute\",\"category\":\"mpc\",\"nanos\":990023645875,\"sizes\":[]}\n[mpc-timing] {\"name\":\"mpc.final_projection\",\"category\":\"mpc\",\"nanos\":100647167,\"sizes\":[]}\n[mpc-timing] {\"name\":\"verifier_keys.rkyv.serialize\",\"category\":\"setup\",\"nanos\":12042,\"sizes\":[]}\n[mpc-timing] {\"name\":\"verifier_keys.rkyv.hash\",\"category\":\"setup\",\"nanos\":3750,\"sizes\":[]}\n[mpc-timing] {\"name\":\"verifier_keys.rkyv.write\",\"category\":\"setup\",\"nanos\":179166,\"sizes\":[]}\n[mpc-timing] {\"name\":\"preprocess_keys.rkyv.serialize\",\"category\":\"setup\",\"nanos\":5868625,\"sizes\":[]}\n[mpc-timing] {\"name\":\"preprocess_keys.rkyv.hash\",\"category\":\"setup\",\"nanos\":52412916,\"sizes\":[]}\n[mpc-timing] {\"name\":\"preprocess_keys.rkyv.write\",\"category\":\"setup\",\"nanos\":25540584,\"sizes\":[]}\n[mpc-timing] {\"name\":\"prover_keys.rkyv.serialize\",\"category\":\"setup\",\"nanos\":150778625,\"sizes\":[]}\n[mpc-timing] {\"name\":\"tau_sequence.rkyv.serialize\",\"category\":\"setup\",\"nanos\":194324959,\"sizes\":[]}\n[mpc-timing] {\"name\":\"tau_sequence.rkyv.hash\",\"category\":\"setup\",\"nanos\":554690292,\"sizes\":[]}\n[mpc-timing] {\"name\":\"tau_sequence.rkyv.write\",\"category\":\"setup\",\"nanos\":162872584,\"sizes\":[]}\n[mpc-timing] {\"name\":\"prover_keys.rkyv.hash\",\"category\":\"setup\",\"nanos\":1141130250,\"sizes\":[]}\n[mpc-timing] {\"name\":\"prover_keys.rkyv.write\",\"category\":\"setup\",\"nanos\":140222000,\"sizes\":[]}\nok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 49 filtered out; finished in 2387.80s\n\n     2394.72 real     28503.50 user       193.11 sys\n         10042687488  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n             2299355  page reclaims\n                 365  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   3  signals received\n                1324  voluntary context switches\n            39701682  involuntary context switches\n          1822557673  instructions retired\n           616205965  cycles elapsed\n            77300312  peak memory footprint\n",
+    "preprocess-stale-selector.log": "    Finished `release` profile [optimized] target(s) in 0.13s\n     Running `target/release/preprocess --subcircuit-library /tmp/tokamak-mpc-native-e2e-optimized-BMRiqX/inputs/subcircuits/library --keys /tmp/tokamak-mpc-native-e2e-optimized-BMRiqX/crs --synthesizer-stat /tmp/tokamak-mpc-native-e2e-optimized-BMRiqX/inputs/synthesizer --device cpu --output /tmp/tokamak-mpc-native-e2e-optimized-BMRiqX/preprocess`\nerror: /tmp/tokamak-mpc-native-e2e-optimized-BMRiqX/inputs/synthesizer/selector.json: invalid value: integer `4294967295`, expected i32 at line 209 column 13\ncaused by: invalid value: integer `4294967295`, expected i32 at line 209 column 13\nhint: Check the reported file path and access permissions.\n        0.57 real         0.05 user         0.06 sys\n            10387456  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n                6039  page reclaims\n                  60  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                   9  voluntary context switches\n                 244  involuntary context switches\n          1380760356  instructions retired\n           488963136  cycles elapsed\n             4358576  peak memory footprint\n",
+    "preprocess.log": "    Finished `release` profile [optimized] target(s) in 0.08s\n     Running `target/release/preprocess --subcircuit-library /tmp/tokamak-mpc-native-e2e-optimized-BMRiqX/inputs/subcircuits/library --keys /tmp/tokamak-mpc-native-e2e-optimized-BMRiqX/crs --synthesizer-stat /tmp/tokamak-mpc-native-e2e-optimized-BMRiqX/inputs/synthesizer --device cpu --output /tmp/tokamak-mpc-native-e2e-optimized-BMRiqX/preprocess`\npreprocess input: 0.011177 s\npreprocess S_C: 0.232298 s\npreprocess E_kappa: 0.136350 s\npreprocess C_fix: 0.000486 s\nPreprocess saved to /tmp/tokamak-mpc-native-e2e-optimized-BMRiqX/preprocess/univariate_verifier_preprocess.bin\nTotal preprocess time: 0.382203 s\n        0.68 real         2.77 user         0.30 sys\n           229457920  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n               19981  page reclaims\n                  54  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                   8  voluntary context switches\n               16635  involuntary context switches\n         44054706430  instructions retired\n         11033976804  cycles elapsed\n           223314568  peak memory footprint\n",
+    "prove.log": "    Finished `release` profile [optimized] target(s) in 0.09s\n     Running `target/release/prove --subcircuit-library /tmp/tokamak-mpc-native-e2e-optimized-BMRiqX/inputs/subcircuits/library --tau-sequence /tmp/tokamak-mpc-native-e2e-optimized-BMRiqX/crs/tau_sequence.rkyv --keys /tmp/tokamak-mpc-native-e2e-optimized-BMRiqX/crs --synthesizer-stat /tmp/tokamak-mpc-native-e2e-optimized-BMRiqX/inputs/synthesizer --device cpu --output /tmp/tokamak-mpc-native-e2e-optimized-BMRiqX/prove`\nRunning univariate prove: Cpu\nUnivariate prove completed. Total elapsed time: 3.758s (3758 ms)\nTIMING_JSON [{\"name\":\"univariate.identity\",\"category\":\"input\",\"nanos\":231500,\"sizes\":[]},{\"name\":\"univariate.library\",\"category\":\"input\",\"nanos\":22312666,\"sizes\":[]},{\"name\":\"univariate.crs.read.tau\",\"category\":\"input\",\"nanos\":29440291,\"sizes\":[]},{\"name\":\"univariate.crs.decode.tau\",\"category\":\"input\",\"nanos\":32644667,\"sizes\":[]},{\"name\":\"univariate.crs.read.keys\",\"category\":\"input\",\"nanos\":54904375,\"sizes\":[]},{\"name\":\"univariate.crs.decode.keys\",\"category\":\"input\",\"nanos\":59895375,\"sizes\":[]},{\"name\":\"univariate.crs\",\"category\":\"input\",\"nanos\":176986583,\"sizes\":[]},{\"name\":\"univariate.fixture\",\"category\":\"input\",\"nanos\":30091917,\"sizes\":[]},{\"name\":\"univariate.maps\",\"category\":\"prepare\",\"nanos\":157562417,\"sizes\":[]},{\"name\":\"univariate.arithmetic\",\"category\":\"prove\",\"nanos\":115201500,\"sizes\":[]},{\"name\":\"univariate.commit.gather\",\"category\":\"C_L\",\"nanos\":2768625,\"sizes\":[]},{\"name\":\"univariate.commit.decode\",\"category\":\"prepare\",\"nanos\":12908125,\"sizes\":[]},{\"name\":\"univariate.msm\",\"category\":\"msm\",\"nanos\":387666125,\"sizes\":[{\"label\":\"bases\",\"dims\":[524548]}]},{\"name\":\"univariate.commit\",\"category\":\"C_L\",\"nanos\":403566750,\"sizes\":[]},{\"name\":\"univariate.commit.gather\",\"category\":\"C_H\",\"nanos\":1137709,\"sizes\":[]},{\"name\":\"univariate.commit.decode\",\"category\":\"prepare\",\"nanos\":12251792,\"sizes\":[]},{\"name\":\"univariate.msm\",\"category\":\"msm\",\"nanos\":392695083,\"sizes\":[{\"label\":\"bases\",\"dims\":[524292]}]},{\"name\":\"univariate.commit\",\"category\":\"C_H\",\"nanos\":406315000,\"sizes\":[]},{\"name\":\"univariate.commit.gather\",\"category\":\"C_O\",\"nanos\":1321542,\"sizes\":[]},{\"name\":\"univariate.commit.decode\",\"category\":\"prepare\",\"nanos\":1134083,\"sizes\":[]},{\"name\":\"univariate.msm\",\"category\":\"msm\",\"nanos\":21845875,\"sizes\":[{\"label\":\"bases\",\"dims\":[35928]}]},{\"name\":\"univariate.binding\",\"category\":\"prove\",\"nanos\":24870583,\"sizes\":[]},{\"name\":\"univariate.selection.interpolate\",\"category\":\"polynomial\",\"nanos\":40538417,\"sizes\":[]},{\"name\":\"univariate.commit.gather\",\"category\":\"D_Q\",\"nanos\":538375,\"sizes\":[]},{\"name\":\"univariate.commit.decode\",\"category\":\"prepare\",\"nanos\":6413542,\"sizes\":[]},{\"name\":\"univariate.msm\",\"category\":\"msm\",\"nanos\":198517209,\"sizes\":[{\"label\":\"bases\",\"dims\":[261633]}]},{\"name\":\"univariate.commit\",\"category\":\"D_Q\",\"nanos\":206349750,\"sizes\":[]},{\"name\":\"univariate.commit.gather\",\"category\":\"D_QK\",\"nanos\":617417,\"sizes\":[]},{\"name\":\"univariate.commit.decode\",\"category\":\"prepare\",\"nanos\":6346750,\"sizes\":[]},{\"name\":\"univariate.msm\",\"category\":\"msm\",\"nanos\":192178000,\"sizes\":[{\"label\":\"bases\",\"dims\":[261633]}]},{\"name\":\"univariate.commit\",\"category\":\"D_QK\",\"nanos\":199920333,\"sizes\":[]},{\"name\":\"univariate.selection\",\"category\":\"prove\",\"nanos\":446817834,\"sizes\":[]},{\"name\":\"univariate.commit.gather\",\"category\":\"C_D\",\"nanos\":1180375,\"sizes\":[]},{\"name\":\"univariate.commit.decode\",\"category\":\"prepare\",\"nanos\":12272958,\"sizes\":[]},{\"name\":\"univariate.msm\",\"category\":\"msm\",\"nanos\":388497000,\"sizes\":[{\"label\":\"bases\",\"dims\":[524548]}]},{\"name\":\"univariate.commit\",\"category\":\"C_D\",\"nanos\":402168542,\"sizes\":[]},{\"name\":\"univariate.copy.denominators\",\"category\":\"copy\",\"nanos\":8579041,\"sizes\":[]},{\"name\":\"univariate.copy.inversion\",\"category\":\"copy\",\"nanos\":1444750,\"sizes\":[]},{\"name\":\"univariate.copy.recurrence\",\"category\":\"copy\",\"nanos\":10794792,\"sizes\":[]},{\"name\":\"univariate.copy.interpolate\",\"category\":\"copy\",\"nanos\":11442583,\"sizes\":[]},{\"name\":\"univariate.copy.boundary\",\"category\":\"copy\",\"nanos\":2430167,\"sizes\":[]},{\"name\":\"univariate.copy.products\",\"category\":\"copy\",\"nanos\":229072708,\"sizes\":[]},{\"name\":\"univariate.copy\",\"category\":\"prove\",\"nanos\":266384250,\"sizes\":[]},{\"name\":\"univariate.commit.gather\",\"category\":\"C_R\",\"nanos\":558250,\"sizes\":[]},{\"name\":\"univariate.commit.decode\",\"category\":\"prepare\",\"nanos\":6344250,\"sizes\":[]},{\"name\":\"univariate.msm\",\"category\":\"msm\",\"nanos\":198713167,\"sizes\":[{\"label\":\"bases\",\"dims\":[262148]}]},{\"name\":\"univariate.commit\",\"category\":\"C_R\",\"nanos\":205721167,\"sizes\":[]},{\"name\":\"univariate.commit.gather\",\"category\":\"C_Q\",\"nanos\":538125,\"sizes\":[]},{\"name\":\"univariate.commit.decode\",\"category\":\"prepare\",\"nanos\":6212666,\"sizes\":[]},{\"name\":\"univariate.msm\",\"category\":\"msm\",\"nanos\":200770084,\"sizes\":[{\"label\":\"bases\",\"dims\":[262149]}]},{\"name\":\"univariate.commit\",\"category\":\"C_Q\",\"nanos\":207609500,\"sizes\":[]},{\"name\":\"univariate.commit.gather\",\"category\":\"Pi_chi\",\"nanos\":4471083,\"sizes\":[]},{\"name\":\"univariate.commit.decode\",\"category\":\"prepare\",\"nanos\":19330792,\"sizes\":[]},{\"name\":\"univariate.msm\",\"category\":\"msm\",\"nanos\":591007708,\"sizes\":[{\"label\":\"bases\",\"dims\":[786438]}]},{\"name\":\"univariate.commit\",\"category\":\"Pi_chi\",\"nanos\":615149542,\"sizes\":[]},{\"name\":\"univariate.commit.gather\",\"category\":\"Pi_plus\",\"nanos\":538417,\"sizes\":[]},{\"name\":\"univariate.commit.decode\",\"category\":\"prepare\",\"nanos\":6328875,\"sizes\":[]},{\"name\":\"univariate.msm\",\"category\":\"msm\",\"nanos\":199799875,\"sizes\":[{\"label\":\"bases\",\"dims\":[262147]}]},{\"name\":\"univariate.commit\",\"category\":\"Pi_plus\",\"nanos\":206756584,\"sizes\":[]},{\"name\":\"univariate.openings\",\"category\":\"prove\",\"nanos\":852269917,\"sizes\":[]},{\"name\":\"univariate.protocol\",\"category\":\"prove\",\"nanos\":3348863250,\"sizes\":[]},{\"name\":\"univariate.output\",\"category\":\"output\",\"nanos\":250709,\"sizes\":[]},{\"name\":\"univariate.total\",\"category\":\"total\",\"nanos\":3758159958,\"sizes\":[]}]\n        4.28 real        31.72 user         1.24 sys\n          2727706624  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n              187066  page reclaims\n                  54  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                  49  voluntary context switches\n               72909  involuntary context switches\n        480521549902  instructions retired\n        118936625847  cycles elapsed\n          2722679232  peak memory footprint\n",
+    "build-verify.log": "   Compiling zerocopy v0.8.31\n   Compiling rand_core v0.6.4\n   Compiling ptr_meta v0.3.2\n   Compiling arrayvec v0.7.6\n   Compiling either v1.15.0\n   Compiling ark-std v0.5.0\n   Compiling zeroize v1.8.2\n   Compiling ahash v0.8.12\n   Compiling once_cell v1.21.3\n   Compiling simdutf8 v0.1.5\n   Compiling allocator-api2 v0.2.21\n   Compiling munge v0.4.7\n   Compiling hashbrown v0.17.1\n   Compiling icicle-core v3.8.0 (https://github.com/ingonyama-zk/icicle.git?tag=v3.8.0#42b4f9a3)\n   Compiling rancor v0.1.3\n   Compiling hex v0.4.3\n   Compiling ark-serialize v0.5.0\n   Compiling itertools v0.13.0\n   Compiling bytecheck v0.8.3\n   Compiling hashbrown v0.15.5\n   Compiling ark-ff v0.5.0\n   Compiling rend v0.5.4\n   Compiling icicle-hash v3.8.0 (https://github.com/ingonyama-zk/icicle.git?tag=v3.8.0#42b4f9a3)\n   Compiling icicle-bls12-381 v3.8.0 (https://github.com/ingonyama-zk/icicle.git?tag=v3.8.0#42b4f9a3)\n   Compiling ppv-lite86 v0.2.21\n   Compiling rand_chacha v0.3.1\n   Compiling rand v0.8.5\n   Compiling rkyv v0.8.18\n   Compiling backend-univariate-crs-interface v2.1.5 (/Users/jehyuk/repo/Tokamak-zk-EVM/packages/backend/common/interface/univariate-crs)\n   Compiling ark-poly v0.5.0\n   Compiling ark-ec v0.5.0\n   Compiling ark-bls12-381 v0.5.0\n   Compiling verify v2.1.5 (/Users/jehyuk/repo/Tokamak-zk-EVM/packages/backend/rust/verify)\n   Compiling libs v2.1.5 (/Users/jehyuk/repo/Tokamak-zk-EVM/packages/backend/rust/libs)\n    Finished `release` profile [optimized] target(s) in 12.04s\n",
+    "verify.log": "    Finished `release` profile [optimized] target(s) in 0.12s\n     Running `target/release/verify --preprocess /tmp/tokamak-mpc-native-e2e-optimized-BMRiqX/preprocess/univariate_verifier_preprocess.bin --proof /tmp/tokamak-mpc-native-e2e-optimized-BMRiqX/prove/univariate_proof.bin --instance /tmp/tokamak-mpc-native-e2e-optimized-BMRiqX/inputs/synthesizer/instance.json --timing`\nVerifying the proof...\nverify total (input + verification): 0.004044 s\ntrue\n        0.56 real         0.05 user         0.06 sys\n             9633792  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n                6054  page reclaims\n                  55  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                   0  voluntary context switches\n                 452  involuntary context switches\n          1440968371  instructions retired\n           495393185  cycles elapsed\n             2769304  peak memory footprint\n",
+    "tamper.log": "   Compiling verify v2.1.5 (/Users/jehyuk/repo/Tokamak-zk-EVM/packages/backend/rust/verify)\n    Finished `release` profile [optimized] target(s) in 0.43s\n     Running tests/local_fixture.rs (target/release/deps/local_fixture-72910aa1fc9f71b6)\n\nrunning 1 test\ntest accepts_real_proof_and_rejects_tampering ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s\n\n"
+  }
+}

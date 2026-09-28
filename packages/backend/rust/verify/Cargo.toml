@@ -1,0 +1,40 @@
+[package]
+name = "verify"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+authors = { workspace = true }
+repository = { workspace = true }
+homepage = { workspace = true }
+
+[dependencies]
+ark-bls12-381 = { workspace = true }
+ark-ec = { workspace = true }
+ark-ff = { workspace = true }
+backend-interface = { workspace = true }
+hex = { workspace = true }
+libs = { workspace = true, default-features = false }
+clap = { workspace = true }
+thiserror = { workspace = true }
+serde_json = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+backend-univariate-crs-interface = { workspace = true }
+
+[build-dependencies]
+ark-bls12-381 = { workspace = true }
+ark-ec = { workspace = true }
+ark-ff = { workspace = true }
+backend-univariate-crs-interface = { workspace = true }
+hex = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+
+[features]
+default = ["local-development-subcircuit-library"]
+testing-mode = []
+development-crs-bypass = ["libs/development-crs-bypass"]
+local-development-subcircuit-library = ["libs/local-development-subcircuit-library"]
+production-npm-subcircuit-library = ["libs/production-npm-subcircuit-library"]

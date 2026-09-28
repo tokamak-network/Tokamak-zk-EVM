@@ -1,0 +1,50 @@
+{
+  "date": "2026-09-20",
+  "scope": "P18.5 cheap-restoration audit of a freshly generated compact current CRS",
+  "input": {
+    "build": "release",
+    "library": "local normalized QAP library",
+    "format": "current four-file RKYV CRS converted to canonical browser sections",
+    "outerChunkBytes": 67108864
+  },
+  "scan": {
+    "sectionCount": 19,
+    "pointBytes": 958005600,
+    "pointAtInfinityCount": 0,
+    "maximumInfinityRun": 0,
+    "adjacentRepeatedPointCount": 0,
+    "maximumAdjacentRepeatRun": 1
+  },
+  "knownExactAliases": {
+    "preprocessScFromS0": {
+      "bytes": 12582912,
+      "verified": true,
+      "decision": "retain self-contained preprocess artifact"
+    },
+    "preprocessSelectionFromTauG2": {
+      "bytes": 3096768,
+      "verified": true,
+      "decision": "retain self-contained preprocess artifact"
+    },
+    "g1VerifierHandlesFromTau": {
+      "bytes": 288,
+      "verified": true,
+      "decision": "retain verifier-only installation without tau"
+    },
+    "g2VerifierTauHandlesFromTau": {
+      "bytes": 576,
+      "verified": true,
+      "decision": "retain verifier-only installation without tau"
+    }
+  },
+  "lz4IndependentChunks": {
+    "command": "lz4 -q -BD -B6 <one-64-MiB-or-smaller-section-chunk> <chunk>.lz4",
+    "rawBytes": 958005600,
+    "compressedBytes": 958009751,
+    "deltaBytes": 4151,
+    "compressionSeconds": 0.434081458,
+    "decompressionSeconds": 0.281600416,
+    "decision": "rejected: no byte saving and repeated range reads would require decode"
+  },
+  "conclusion": "No additional cheap-restoration CRS compression is adopted. Current padding omission remains the only storage omission."
+}

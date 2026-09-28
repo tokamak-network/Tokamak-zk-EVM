@@ -1,19 +1,32 @@
 #!/usr/bin/env bash
 
-# The buffers must be placed in the following order: "bufferPubOut" "bufferPubIn" "bufferPrvOut" "bufferPrvIn"
-
 set -euo pipefail
 
-# Library configuration for merged arithmetic circuits
-names=("bufferPubOut" "bufferPubIn" "bufferBlockIn" "bufferEVMIn" "bufferPrvIn" "ALU1" "ALU2" "DecToBit" "SubExpBatch" "Accumulator" "Poseidon" "JubjubExpBatch" "EdDsaVerify" "VerifyMerkleProof")
 CURVE_NAME="bls12381"
 
 original_cwd="$(pwd)"
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 package_root="${script_dir}/.."
+canonical_package_root="$(cd "$package_root" && pwd)"
 cd "$script_dir"
 
-circom_dir_path="${package_root}/subcircuits/circom"
+names=()
+while IFS= read -r name; do
+  names+=("$name")
+done < <(
+  node - "$package_root" <<'NODE'
+const fs = require('node:fs');
+const path = require('node:path');
+const packageRoot = path.resolve(process.argv[2]);
+const { getSubcircuitNames } = require(path.join(packageRoot, 'scripts/configure.js'));
+const { parseCircomConstants } = require(path.join(packageRoot, 'scripts/runtime/logical-interface.js'));
+const constantsPath = path.join(packageRoot, 'subcircuits/circom/constants.circom');
+const constants = parseCircomConstants(fs.readFileSync(constantsPath, 'utf8'), constantsPath);
+const numberOfPrivateMessageInputs = constants.get('nPrivateMessageInputs');
+for (const name of getSubcircuitNames(numberOfPrivateMessageInputs)) console.log(name);
+NODE
+)
+
 default_output_dir="${script_dir}/../subcircuits/library"
 
 if [[ $# -lt 1 || $# -gt 2 ]]; then
@@ -89,7 +102,7 @@ if [[ $# -eq 1 ]]; then
 
   mkdir -p "$(dirname "$output_dir_path")"
 else
-  echo "Warning: No output directory specified. Writing to the package internal path '$output_dir_path' for backward compatibility." >&2
+  echo "Warning: No output directory specified. Writing to the package internal library path '$output_dir_path'." >&2
   rm -rf "$output_dir_path"
 fi
 
@@ -105,17 +118,27 @@ for (( i = 0 ; i < ${#names[@]} ; i++ )) ; do
 
   (
     cd "$circom_work_dir"
-    "${circom_cmd[@]}" "${package_root}/subcircuits/circom/${names[$i]}_circuit.circom" --r1cs --wasm --json -o "$output_dir_path" -p "$CURVE_NAME" "${include_args[@]}"
+    "${circom_cmd[@]}" "${package_root}/subcircuits/circom/${names[$i]}_circuit.circom" --r1cs --wasm --json --sym --O2 -o "$output_dir_path" -p "$CURVE_NAME" "${include_args[@]}"
   ) | tee "$output_dir_path/info/subcircuit${i}_${names[$i]}_info.txt"
-  cat "$output_dir_path/info/subcircuit${i}_${names[$i]}_info.txt" >> "$compiler_output_file"
+  info_file="$output_dir_path/info/subcircuit${i}_${names[$i]}_info.txt"
+  QAP_COMPILER_PACKAGE_ROOT="$canonical_package_root" perl -0pi -e '
+    my $root = $ENV{QAP_COMPILER_PACKAGE_ROOT};
+    s#\Q$root\E/scripts/\.\./#<qap-compiler>/#g;
+    s#\Q$root\E/#<qap-compiler>/#g;
+  ' "$info_file"
+  cat "$info_file" >> "$compiler_output_file"
   mv "$output_dir_path/${names[$i]}_circuit_constraints.json" "$output_dir_path/json/subcircuit${i}.json"
   mv "$output_dir_path/${names[$i]}_circuit.r1cs" "$output_dir_path/r1cs/subcircuit${i}.r1cs"
   mv "$output_dir_path/${names[$i]}_circuit_js/${names[$i]}_circuit.wasm" "$output_dir_path/wasm/subcircuit${i}.wasm"
-  mv -n "$output_dir_path/${names[$i]}_circuit_js/generate_witness.js" "$output_dir_path/generate_witness.js"
   mv -n "$output_dir_path/${names[$i]}_circuit_js/witness_calculator.js" "$output_dir_path/witness_calculator.js"
   rm -rf "$output_dir_path/${names[$i]}_circuit_js"
 done
 
+cp "$package_root/scripts/runtime/generate_witness.js" "$output_dir_path/generate_witness.js"
+cp "$package_root/scripts/runtime/logical-interface.js" "$output_dir_path/logical-interface.js"
+cp "$package_root/scripts/runtime/witness-input-diagnostics.js" "$output_dir_path/witness-input-diagnostics.js"
+
 node parse.js "$output_dir_path" "$compiler_output_file"
-node --import tsx ./exporter/exporter.ts "$output_dir_path"
+rm -f "$output_dir_path"/*_circuit.sym
+node --import tsx "$package_root/scripts/generate-frontend-config.ts" "$output_dir_path"
 rm -f "$compiler_output_file"

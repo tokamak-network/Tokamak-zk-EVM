@@ -16,13 +16,13 @@ Most low-level structures live under `core/src/synthesizer/types/` and `core/src
 
 - Defined in `core/src/synthesizer/types/placements.ts`
 - Each entry is shaped like `{ name, usage, subcircuitId, inPts, outPts }`
-- Buffer placements are created first by `BufferManager`; opcode handlers append new placements in execution order
+- Buffer placements are created first by `PlacementManager`; opcode handlers append new placements in execution order
 
 ## Buffers and reserved variables
 
-- Buffer names: `PUBLIC_IN`, `BLOCK_IN`, `EVM_IN`, `PRIVATE_IN`, `PUBLIC_OUT`
+- Buffer names: `LOG_OUT`, `STORAGE_STORE`, `STORAGE_LOAD`, `TX_IN`, `BLOCK_IN`, `EVM_IN`, `PRIVATE_IN`
 - Buffer metadata lives in `core/src/subcircuit/configuredTypes.ts`
-- Reserved variables such as `FUNCTION_SELECTOR`, `CONTRACT_ADDRESS`, `MERKLE_PROOF`, and `EDDSA_PUBLIC_KEY_X` are preloaded into buffers via `BufferManager`
+- Reserved variables such as `FUNCTION_SELECTOR`, `CONTRACT_ADDRESS`, and `EDDSA_PUBLIC_KEY_X` are added to buffers through `PlacementManager`; storage and log tuples are added dynamically
 - Buffer wires are the only entry and exit points for non-symbolic values
 
 ## StackPt and MemoryPt
@@ -31,19 +31,17 @@ Most low-level structures live under `core/src/synthesizer/types/` and `core/src
 - `MemoryPt` (`core/src/synthesizer/dataStructure/memoryPt.ts`) tracks memory writes as a time-ordered map of `{ memByteOffset, containerByteSize, dataPt }`
 - `MemoryPt.getDataAlias()` supports overlapping-read reconstruction for `MLOAD`, `MCOPY`, and related copy operations
 
-## MemoryPts and DataAliasInfos
+## MemoryPts
 
 - `MemoryPts`
   - arrays of memory entries returned by memory reads or batch writes
-- `DataAliasInfos`
-  - shift and mask descriptions used to rebuild a value from overlapping memory fragments
-  - consumed by `MemoryManager` to place `SHL`, `SHR`, and `AND` subcircuits
 
-## Cached storage
+## Storage access tracking
 
-- `StateManager.cachedStorage` is a `Map<bigint, { accessOrder: number; accessHistory: CachedStorageEntry[] }>`
-- Each history entry captures Merkle index (if registered), key and value `DataPt`s, and access type (`Read` or `Write`)
-- This cache supports warm and cold access handling and final Merkle-root verification in `_finalizeStorage()`
+- `StorageCache` indexes entries by concrete address and key while retaining canonical address/key `DataPt`s, the latest value `DataPt`, and a dirty flag
+- Repeated storage accesses place `StorageAccess` against the canonical address/key pair before reusing the cached value
+- `ContextManager.initialStorageReads` retains the first address/key/value triple for each location, and frame snapshots roll back cache changes from reverted calls
+- After a successful transaction, dirty cache entries are emitted through `STORAGE_STORE`
 
 ## Block and transaction context
 

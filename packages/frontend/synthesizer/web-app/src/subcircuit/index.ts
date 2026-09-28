@@ -1,13 +1,11 @@
 import {
   loadResolvedSubcircuitLibrary,
-  loadSubcircuitWasmBuffers,
   type SynthesisInput,
   type SynthesisPayloadInput,
 } from '../../../core/src/app.ts';
 import { parseSubcircuitLibraryData } from '../../../core/src/subcircuit.ts';
 import {
   frontendCfgJson,
-  globalWireListJson,
   setupParamsJson,
   subcircuitInfoJson,
   wasmFiles,
@@ -15,7 +13,6 @@ import {
 
 const bundledSubcircuitLibraryData = parseSubcircuitLibraryData({
   setupParams: setupParamsJson,
-  globalWireList: globalWireListJson,
   frontendCfg: frontendCfgJson,
   subcircuitInfo: subcircuitInfoJson,
 });
@@ -35,23 +32,17 @@ const bundledSubcircuitLibraryProvider = {
 };
 
 let preparedRuntimePromise:
-  | Promise<Pick<SynthesisInput, 'subcircuitLibrary' | 'wasmBuffers'>>
+  | Promise<Pick<SynthesisInput, 'subcircuitLibrary'>>
   | undefined;
 
-async function getPreparedRuntime(): Promise<Pick<SynthesisInput, 'subcircuitLibrary' | 'wasmBuffers'>> {
+async function getPreparedRuntime(): Promise<Pick<SynthesisInput, 'subcircuitLibrary'>> {
   if (preparedRuntimePromise === undefined) {
     preparedRuntimePromise = (async () => {
       const subcircuitLibrary = await loadResolvedSubcircuitLibrary(
         bundledSubcircuitLibraryProvider,
       );
-      const wasmBuffers = await loadSubcircuitWasmBuffers(
-        bundledSubcircuitLibraryProvider,
-        subcircuitLibrary.data.subcircuitInfo,
-      );
-
       return {
         subcircuitLibrary,
-        wasmBuffers,
       };
     })();
   }

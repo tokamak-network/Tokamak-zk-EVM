@@ -2,14 +2,14 @@ pragma circom 2.1.6;
 include "../../templates/255bit/poseidon.circom";
 include "./constants.circom";
 
-template PoseidonTokamak(N) {
+template PoseidonTokamak(N, M) {
     assert(N == 2);
-    signal input in[15];
+    signal input in[1 + 2 * (M + 1)];
     signal output out[2];
 
-    component H = poseidonTokamakByMode(N);
+    component H = poseidonTokamakByMode(N, M);
     H.selector <== in[0];
-    for (var i = 0; i < 7; i++){
+    for (var i = 0; i < M + 1; i++){
         H.in[i][0] <== in[1 + 2 * i];
         H.in[i][1] <== in[1 + 2 * i + 1];
     }
@@ -17,4 +17,4 @@ template PoseidonTokamak(N) {
 
 }
 
-component main = PoseidonTokamak(nPoseidonInputs());
+component main {public [in]} = PoseidonTokamak(nPoseidonInputs(), nPoseidonBatch());
