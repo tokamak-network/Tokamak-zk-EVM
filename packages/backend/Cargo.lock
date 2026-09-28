@@ -277,21 +277,21 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
 name = "backend-interface"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "backend-univariate-crs-interface",
 ]
 
 [[package]]
 name = "backend-univariate-crs-interface"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "rkyv 0.8.18",
 ]
 
 [[package]]
 name = "backend-wasm-univariate-crs-chunker"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "backend-univariate-crs-interface",
  "clap 4.5.53",
@@ -1459,7 +1459,7 @@ checksum = "37c93d8daa9d8a012fd8ab92f088405fb202ea0b6ab73ee2482ae66af4f42091"
 
 [[package]]
 name = "libs"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "ark-bls12-381",
  "ark-ec",
@@ -1538,7 +1538,7 @@ dependencies = [
 
 [[package]]
 name = "mpc-setup"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "ark-bls12-381",
  "ark-ec",
@@ -1749,7 +1749,7 @@ dependencies = [
 
 [[package]]
 name = "preprocess"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "ark-bls12-381",
  "ark-ec",
@@ -1781,7 +1781,7 @@ dependencies = [
 
 [[package]]
 name = "prove"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "ark-bls12-381",
  "ark-ec",
@@ -2795,7 +2795,7 @@ dependencies = [
 
 [[package]]
 name = "trusted-setup"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "backend-univariate-crs-interface",
  "clap 4.5.53",
@@ -2878,7 +2878,7 @@ dependencies = [
 
 [[package]]
 name = "verify"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "ark-bls12-381",
  "ark-ec",

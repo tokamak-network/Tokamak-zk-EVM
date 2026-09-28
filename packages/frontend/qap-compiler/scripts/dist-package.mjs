@@ -10,10 +10,19 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const require = createRequire(import.meta.url);
 const packageRoot = path.resolve(__dirname, '..');
-const distDir = path.resolve(packageRoot, 'dist');
+const options = new Map();
+for (let index = 2; index < process.argv.length; index += 2) {
+  const option = process.argv[index];
+  const value = process.argv[index + 1];
+  if (!['--library-dir', '--output-dir'].includes(option) || !value || options.has(option)) {
+    throw new Error('Usage: dist-package.mjs [--library-dir PATH] [--output-dir PATH]');
+  }
+  options.set(option, value);
+}
+const distDir = path.resolve(options.get('--output-dir') ?? path.join(packageRoot, 'dist'));
 const rootPackageJsonPath = path.resolve(packageRoot, 'package.json');
 const readmePath = path.resolve(packageRoot, 'README.md');
-const libraryDir = path.resolve(packageRoot, 'subcircuits/library');
+const libraryDir = path.resolve(options.get('--library-dir') ?? path.join(packageRoot, 'subcircuits/library'));
 const constantsPath = path.resolve(packageRoot, 'subcircuits/circom/constants.circom');
 const expectedCircomVersion = '2.2.3';
 
@@ -22,7 +31,8 @@ const resolvePackageJsonPath = packageName => {
 
   while (true) {
     const packageJsonPath = path.join(currentPath, 'package.json');
-    if (fs.existsSync(packageJsonPath)) {
+    if (fs.existsSync(packageJsonPath) &&
+        JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')).name === packageName) {
       return packageJsonPath;
     }
 
@@ -108,6 +118,9 @@ const publishedPackage = {
 };
 
 const tokamakL2jsPackage = JSON.parse(fs.readFileSync(tokamakL2jsPackageJsonPath, 'utf8'));
+if (tokamakL2jsPackage.version !== rootPackage.dependencies['tokamak-l2js']) {
+  throw new Error(`Expected tokamak-l2js ${rootPackage.dependencies['tokamak-l2js']}, found ${tokamakL2jsPackage.version}.`);
+}
 const buildMetadata = {
   compiler: resolveCircomMetadata(),
   dependencies: {
@@ -122,7 +135,13 @@ const buildMetadata = {
   packageVersion: rootPackage.version,
 };
 
-fs.rmSync(distDir, { recursive: true, force: true });
+if (options.has('--output-dir')) {
+  if (fs.existsSync(distDir)) {
+    throw new Error(`Output directory already exists: '${distDir}'.`);
+  }
+} else {
+  fs.rmSync(distDir, { recursive: true, force: true });
+}
 fs.mkdirSync(path.join(distDir, 'subcircuits', 'circom'), { recursive: true });
 
 fs.cpSync(libraryDir, path.join(distDir, 'subcircuits', 'library'), {

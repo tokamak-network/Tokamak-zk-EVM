@@ -5,13 +5,17 @@ into circuit-ready JSON artifacts.
 
 ## Install and run
 
+The command below assumes a local copy of the
+[`transferNotes1To2` example](../examples/privateState/transferNotes/transferNotes1To2)
+at `./transferNotes1To2`; the example is not included in the npm package.
+
 ```bash
 npm install @tokamak-zk-evm/synthesizer-node
 npx synthesizer tokamak-ch-tx \
-  --previous-state ./L2StateChannel/previous_state_snapshot.json \
-  --transaction ./L2StateChannel/transaction.json \
-  --block-info ./L2StateChannel/block_info.json \
-  --contract-code ./L2StateChannel/contract_codes.json
+  --previous-state ./transferNotes1To2/previous_state_snapshot.json \
+  --transaction ./transferNotes1To2/transaction.json \
+  --block-info ./transferNotes1To2/block_info.json \
+  --contract-code ./transferNotes1To2/contract_codes.json
 ```
 
 Use this package when inputs and outputs belong on the local filesystem. Use
@@ -26,10 +30,10 @@ otherwise application choices.
 
 | File                           | Role                                                          | Format and owner                                                                                                          | How to obtain it                                                                     | Example                                                         |
 | ------------------------------ | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
-| `previous_state_snapshot.json` | Reconstructs state immediately before execution               | [`tokamak-l2js` `StateSnapshot`](https://github.com/tokamak-network/TokamakL2JS/blob/main/src/interface/channel/types.ts) | Call `TokamakL2StateManager.captureStateSnapshot()` before executing the transaction | [File](../examples/L2StateChannel/previous_state_snapshot.json) |
-| `transaction.json`             | Supplies the signed Tokamak L2 transaction                    | [`tokamak-l2js` `TxSnapshot`](https://github.com/tokamak-network/TokamakL2JS/blob/main/src/interface/channel/types.ts)    | Call `TokamakL2Tx.captureTxSnapshot()`                                               | [File](../examples/L2StateChannel/transaction.json)             |
-| `block_info.json`              | Supplies block-opcode and execution-environment values        | Synthesizer `BlockInfo` JSON                                                                                              | Normalize the trusted application or L2 RPC block context                            | [File](../examples/L2StateChannel/block_info.json)              |
-| `contract_codes.json`          | Supplies deployed bytecode reached by the supported call flow | Synthesizer `ContractCodeEntry[]` JSON                                                                                    | Export deployment/state data or query the trusted state source                       | [File](../examples/L2StateChannel/contract_codes.json)          |
+| `previous_state_snapshot.json` | Reconstructs state immediately before execution               | [`tokamak-l2js` `StateSnapshot`](https://github.com/tokamak-network/TokamakL2JS/blob/main/src/interface/channel/types.ts) | Call `TokamakL2StateManager.captureStateSnapshot()` before executing the transaction | [File](../examples/privateState/transferNotes/transferNotes1To2/previous_state_snapshot.json) |
+| `transaction.json`             | Supplies the signed Tokamak L2 transaction                    | [`tokamak-l2js` `TxSnapshot`](https://github.com/tokamak-network/TokamakL2JS/blob/main/src/interface/channel/types.ts)    | Call `TokamakL2Tx.captureTxSnapshot()`                                               | [File](../examples/privateState/transferNotes/transferNotes1To2/transaction.json)             |
+| `block_info.json`              | Supplies block-opcode and execution-environment values        | Synthesizer `BlockInfo` JSON                                                                                              | Normalize the trusted application or L2 RPC block context                            | [File](../examples/privateState/transferNotes/transferNotes1To2/block_info.json)              |
+| `contract_codes.json`          | Supplies deployed bytecode reached by the supported call flow | Synthesizer `ContractCodeEntry[]` JSON                                                                                    | Export deployment/state data or query the trusted state source                       | [File](../examples/privateState/transferNotes/transferNotes1To2/contract_codes.json)          |
 
 `StateSnapshot` and `TxSnapshot` are defined by the `tokamak-l2js` version
 recorded in this package's `buildMetadata`. Use those exported types and
@@ -93,9 +97,8 @@ missing state.
 
 ## Outputs
 
-By default, the command creates `outputs/` under the detected application root,
-normally the current project root. The command prints each absolute output path
-as it writes the file.
+The command creates `outputs/` in the current working directory and prints
+each absolute output path as it writes the file.
 
 | File                        | Purpose                                               |
 | --------------------------- | ----------------------------------------------------- |

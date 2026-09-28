@@ -1,6 +1,6 @@
 {
   "name": "@tokamak-zk-evm/synthesizer-node",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Node CLI for running the Tokamak zk-EVM synthesizer against JSON transaction snapshot inputs.",
   "keywords": [
     "ethereum",
@@ -62,8 +62,6 @@
     "examples": "tsx --tsconfig tsconfig.dev.json ../../../scripts/examples-runner.ts -- evm",
     "hooks:install": "git config core.hooksPath packages/frontend/synthesizer/node-cli/.githooks",
     "hooks:uninstall": "git config --unset core.hooksPath",
-    "synthesize": "tsx --tsconfig tsconfig.dev.json src/cli/index.ts synthesize",
-    "synthesizer": "tsx --tsconfig tsconfig.dev.json src/cli/index.ts run",
     "private-state-mint-l2": "tsx --tsconfig tsconfig.dev.json ../examples/config-runner.ts private-state-mint",
     "private-state-transfer-l2": "tsx --tsconfig tsconfig.dev.json ../examples/config-runner.ts private-state-transfer",
     "private-state-redeem-l2": "tsx --tsconfig tsconfig.dev.json ../examples/config-runner.ts private-state-redeem",
@@ -89,7 +87,7 @@
     "@ethereumjs/vm": "^10.0.0",
     "@js-sdsl/ordered-map": "^4.4.2",
     "@noble/curves": "1.9.7",
-    "@tokamak-zk-evm/subcircuit-library": "3.0.0",
+    "@tokamak-zk-evm/subcircuit-library": "3.0.1",
     "@types/debug": "^4.1.9",
     "@vitest/coverage-v8": "^2.1.8",
     "@zk-kit/imt": "2.0.0-beta.8",

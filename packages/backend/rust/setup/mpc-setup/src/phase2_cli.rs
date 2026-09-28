@@ -39,7 +39,7 @@ struct Args {
     /// Select the MPC operation to run.
     #[arg(long, value_enum)]
     step: Step,
-    /// Input transcript for contribute or finalize.
+    /// Input transcript for contribute, verify or finalize.
     #[arg(long)]
     input: Option<PathBuf>,
     /// Output transcript or finalized CRS directory, depending on --step.
@@ -55,6 +55,7 @@ enum Step {
     Init,
     InitDev,
     Contribute,
+    Verify,
     Finalize,
     Upload,
 }
@@ -63,6 +64,7 @@ enum Operation {
     Init { output: PathBuf },
     InitDev { output: PathBuf },
     Contribute { input: PathBuf, output: PathBuf },
+    Verify { input: PathBuf },
     Finalize { input: PathBuf, output: PathBuf },
     Upload { crs_directory: PathBuf },
 }
@@ -111,6 +113,12 @@ impl Args {
                         .output
                         .clone()
                         .ok_or("contribute requires --output PATH")?,
+                })
+            }
+            Step::Verify => {
+                no_unexpected_paths(true, false, false)?;
+                Ok(Operation::Verify {
+                    input: self.input.clone().ok_or("verify requires --input PATH")?,
                 })
             }
             Step::Finalize => {
@@ -254,7 +262,9 @@ fn execute(args: Args) -> Result<(), String> {
     let started = Instant::now();
     let input = match &operation {
         Operation::Init { .. } | Operation::InitDev { .. } => None,
-        Operation::Contribute { input, .. } | Operation::Finalize { input, .. } => Some(input),
+        Operation::Contribute { input, .. }
+        | Operation::Verify { input }
+        | Operation::Finalize { input, .. } => Some(input),
         Operation::Upload { .. } => unreachable!("upload handled before MPC setup"),
     };
     let transcript = if let Some(input) = input {
@@ -281,6 +291,7 @@ fn execute(args: Args) -> Result<(), String> {
                 .contribute(&mut rand::rngs::OsRng)?
                 .write_new(&output)?;
         }
+        Operation::Verify { .. } => {}
         Operation::Finalize { output, .. } => {
             if transcript.contributions() == 0 {
                 return Err("finalization requires a verified participant contribution".into());
@@ -360,7 +371,9 @@ fn mode_and_library_version_for_run(
             )?;
             Ok((Mode::Development, None))
         }
-        Operation::Contribute { input, .. } | Operation::Finalize { input, .. } => {
+        Operation::Contribute { input, .. }
+        | Operation::Verify { input }
+        | Operation::Finalize { input, .. } => {
             match Transcript::library_version_from_file(input)? {
                 Some(version) => {
                     Mode::Publish.validate(Some(&version), args.subcircuit_library.as_deref())?;
@@ -404,6 +417,7 @@ mod tests {
                 "contribute",
                 vec!["--input", "init.mpc", "--output", "next.mpc"],
             ),
+            ("verify", vec!["--input", "final.mpc"]),
             ("finalize", vec!["--input", "final.mpc", "--output", "crs"]),
             ("upload", vec!["--crs-directory", "crs"]),
         ] {
@@ -413,7 +427,6 @@ mod tests {
         }
         assert!(Args::try_parse_from(["mpc", "--mode", "publish", "--step", "init"]).is_err());
         assert!(Args::try_parse_from(["mpc", "init", "--output", "init.mpc"]).is_err());
-        assert!(Args::try_parse_from(["mpc", "--step", "verify"]).is_err());
     }
 
     #[test]
@@ -426,6 +439,7 @@ mod tests {
                 Some("input.mpc".into()),
                 Some("output.mpc".into()),
             ),
+            args(Step::Verify, Some("input.mpc".into()), None),
             args(Step::Finalize, Some("input.mpc".into()), Some("crs".into())),
         ];
         for args in valid {
@@ -437,6 +451,14 @@ mod tests {
         assert!(args(Step::Finalize, Some("input.mpc".into()), None)
             .operation()
             .is_err());
+        assert!(args(Step::Verify, None, None).operation().is_err());
+        assert!(args(
+            Step::Verify,
+            Some("input.mpc".into()),
+            Some("unexpected".into())
+        )
+        .operation()
+        .is_err());
         let mut upload = args(Step::Upload, None, None);
         upload.crs_directory = Some("crs".into());
         assert!(upload.operation().is_ok());
@@ -509,6 +531,19 @@ mod tests {
             mode_and_library_version_for_run(&finalize, &finalize.operation().unwrap()).unwrap(),
             (Mode::Publish, Some(version.to_owned()))
         );
+        let verify = args(Step::Verify, Some(input.clone()), None);
+        assert_eq!(
+            mode_and_library_version_for_run(&verify, &verify.operation().unwrap()).unwrap(),
+            (Mode::Publish, Some(version.to_owned()))
+        );
+        let mut version_override = verify;
+        version_override.library_version = Some(version.into());
+        assert!(mode_and_library_version_for_run(
+            &version_override,
+            &version_override.operation().unwrap()
+        )
+        .unwrap_err()
+        .contains("only accepted with --step init"));
         publish.library_version = Some(version.into());
         assert!(mode_and_library_version_for_run(&publish, &operation)
             .unwrap_err()
@@ -524,6 +559,13 @@ mod tests {
         development.subcircuit_library = Some("local-library".into());
         assert_eq!(
             mode_and_library_version_for_run(&development, &development.operation().unwrap())
+                .unwrap(),
+            (Mode::Development, None)
+        );
+        let mut dev_verify = args(Step::Verify, development.input.clone(), None);
+        dev_verify.subcircuit_library = Some("local-library".into());
+        assert_eq!(
+            mode_and_library_version_for_run(&dev_verify, &dev_verify.operation().unwrap())
                 .unwrap(),
             (Mode::Development, None)
         );

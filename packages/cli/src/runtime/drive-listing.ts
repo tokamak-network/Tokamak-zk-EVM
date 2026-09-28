@@ -10,7 +10,7 @@ function decodeHexQuad(value: string): string {
 
 /**
  * Decodes only the single-quoted JavaScript string used by the Drive listing.
- * It deliberately accepts a small JSON-compatible escape subset rather than
+ * It deliberately accepts a small escape subset rather than
  * evaluating server-provided JavaScript.
  */
 export function decodeDriveListingLiteral(html: string): string {
@@ -65,6 +65,15 @@ export function decodeDriveListingLiteral(html: string): string {
         case 't':
           decoded += '\t';
           break;
+        case 'x': {
+          const hex = html.slice(index, index + 2);
+          if (!/^[0-9a-f]{2}$/iu.test(hex)) {
+            throw new Error('Google Drive listing uses an invalid hex escape.');
+          }
+          decoded += String.fromCharCode(Number.parseInt(hex, 16));
+          index += 2;
+          break;
+        }
         case 'u':
           decoded += decodeHexQuad(html.slice(index, index + 4));
           index += 4;

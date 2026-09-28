@@ -18,6 +18,7 @@ export async function promoteStagedRuntimePaths(paths: readonly StagedRuntimePat
   }));
   try {
     for (const entry of states) {
+      await fs.mkdir(path.dirname(entry.activePath), { recursive: true });
       if (await exists(entry.activePath)) {
         await fs.rename(entry.activePath, entry.backupPath);
         entry.activeBackedUp = true;

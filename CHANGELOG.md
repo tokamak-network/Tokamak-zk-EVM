@@ -8,6 +8,33 @@ The format is based on Keep a Changelog.
 
 Release-entry dates are the dates on which version-bump pull requests are prepared offline and may differ from GitHub pull-request creation, merge, and npm publication dates.
 
+## [3.0.1] - 2026-09-27
+
+### Compatibility
+
+- The subcircuit library retains the 3.0.0 circuit artifacts. Their CRS source
+  digest is unchanged, so this patch continues to use the existing 3.0 CRS.
+
+### Added
+
+- MPC operators can verify a phase-2 contribution transcript independently
+  before finalizing CRS. The command reads the recorded library version and
+  does not create keys or publish artifacts.
+
+### Fixed
+
+- The CLI now recognizes the public Google Drive listing format during
+  `--install`. Previously, a valid hexadecimal escape in the listing could
+  prevent discovery of the CRS before installation began.
+- The standalone Node Synthesizer command now starts from its published
+  package and writes outputs in the invoking project. Its CommonJS build
+  previously failed before reading transaction inputs.
+
+### Documentation
+
+- The CLI and Synthesizer guides now use the supported private-state note
+  transfer example instead of the retired L2 state-channel example.
+
 ## [3.0.0] - 2026-09-23
 
 ### Protocol Changes

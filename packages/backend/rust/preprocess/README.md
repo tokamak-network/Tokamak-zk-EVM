@@ -61,8 +61,11 @@ build uses local QAP output. Production builds select the existing
 and use the embedded npm snapshot without a local library argument.
 
 Normal execution validates the common provenance format, protocol identifier,
-backend compatibility class, and selected library package name, version and
-origin. It does not impose `releaseEligible` or hash all CRS/library payloads.
+backend compatibility class, and selected library package name and origin.
+Production builds also compare the recorded source digest with their embedded
+digest, allowing CRS reuse across patch versions when the source is unchanged.
+Local-QAP development builds require an exact library package version instead.
+Normal execution does not impose `releaseEligible` or hash all CRS/library payloads.
 It checks the consumed key shapes and canonical coordinate bytes, selector,
 permutation and public layout. These checks are not a cryptographic ceremony
 verification or proof that two local directories have identical contents.

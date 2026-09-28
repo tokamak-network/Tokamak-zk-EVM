@@ -14,9 +14,9 @@ Consumers install the npm package. They do not need to run the QAP compiler or
 rebuild the circuits.
 
 The repository's `subcircuits/library` directory is a local build output and is
-intentionally not tracked in Git. The package build regenerates it from the
-tracked Circom sources and includes the resulting files in the published npm
-package.
+intentionally not tracked in Git. Published packages include generated circuit
+artifacts; a patch release may retain those of an earlier compatible version
+when the circuits have not changed.
 
 ## When to use this package
 

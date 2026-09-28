@@ -23,7 +23,8 @@ executable for both initialization choices:
 - `--step init-dev` starts a development ceremony from the local QAP build and
   requires `--subcircuit-library PATH`. Build QAP first. Its transcript records
   a `null` npm version and cannot authorize publication.
-- `contribute` and `finalize` infer the source mode from the input transcript.
+- `contribute`, `verify`, and `finalize` infer the source mode from the input
+  transcript.
   Publish transcripts select the recorded npm version; development transcripts
   require `--subcircuit-library PATH` on each operation. The CLI rejects
   `--library-version` outside `--step init`. `upload` accepts only a finalized
@@ -32,8 +33,9 @@ executable for both initialization choices:
   dependencies, and has no local-QAP fallback.
 
 Only initialization selects the source mode: use `--step init` for the npm
-library or `--step init-dev` for local QAP output. `finalize` verifies the
-transcript and writes the completed CRS locally. The separate `upload` operation
+library or `--step init-dev` for local QAP output. `verify` independently checks
+the transcript without writing a CRS. `finalize` repeats that check and writes
+the completed CRS locally. The separate `upload` operation
 sends that already finalized CRS to Google Drive without replaying the ceremony
 or regenerating keys. Neither the Cargo profile nor a Cargo feature selects the
 MPC circuit source.
@@ -64,14 +66,19 @@ target/release/mpc \
 
 target/release/mpc \
   --subcircuit-library ../frontend/qap-compiler/subcircuits/library \
+  --step verify --filecoin-source /path/to/challenge_19 --input ./bob.mpc
+
+target/release/mpc \
+  --subcircuit-library ../frontend/qap-compiler/subcircuits/library \
   --step finalize --filecoin-source /path/to/challenge_19 --input ./bob.mpc --output ./final-keys
 ```
 
 For a publish ceremony, use `--step init` without a local library path;
 `--library-version <exact-compatible-version>` is optional. For development,
-use `--step init-dev` with the local QAP library path. `contribute` and
-`finalize` infer the source mode and, for publish transcripts, the exact npm
-version from their input transcript. `upload` takes only the finalized CRS
+use `--step init-dev` with the local QAP library path. `contribute`, `verify`,
+and `finalize` infer the source mode and, for publish transcripts, the exact npm
+version from their input transcript. `verify` accepts `--input` but neither
+`--output` nor `--library-version`. `upload` takes only the finalized CRS
 directory. Do not rebuild the executable to change modes. Run contributor
 commands in each contributor's own environment. Initialization is deterministic
 and is not a contribution; each transcript output must use a new path.
@@ -81,8 +88,9 @@ and is not a contribution; each transcript output must use a new path.
 Source preparation verifies the pinned digest, file length, response header,
 and required point families. Initialization derives circuit-specific material
 from encoded powers. Each contribution updates the designated phase 2 state and
-provides share-knowledge evidence. `finalize` verifies the full record chain
-and final-family equations before deriving CRS keys. The
+provides share-knowledge evidence. `verify` checks the full contribution record
+chain without deriving keys; `finalize` checks the chain again and the
+final-family equations before deriving CRS keys. The
 [design record](docs/current-phase2-design.md) defines the exact source mapping,
 contribution evidence, and query handling.
 

@@ -44,10 +44,10 @@ All APIs produce the same logical input:
 
 | Property / conventional file                     | Role                                                          | Format and owner                                                                                                          | How to obtain it                                                     | Example                                                         |
 | ------------------------------------------------ | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `previousState` / `previous_state_snapshot.json` | Reconstructs state immediately before execution               | [`tokamak-l2js` `StateSnapshot`](https://github.com/tokamak-network/TokamakL2JS/blob/main/src/interface/channel/types.ts) | Call `TokamakL2StateManager.captureStateSnapshot()` before execution | [File](../examples/L2StateChannel/previous_state_snapshot.json) |
-| `transaction` / `transaction.json`               | Supplies the signed Tokamak L2 transaction                    | [`tokamak-l2js` `TxSnapshot`](https://github.com/tokamak-network/TokamakL2JS/blob/main/src/interface/channel/types.ts)    | Call `TokamakL2Tx.captureTxSnapshot()`                               | [File](../examples/L2StateChannel/transaction.json)             |
-| `blockInfo` / `block_info.json`                  | Supplies block-opcode and environment values                  | Synthesizer `BlockInfo`                                                                                                   | Normalize the trusted application or L2 RPC block context            | [File](../examples/L2StateChannel/block_info.json)              |
-| `contractCodes` / `contract_codes.json`          | Supplies deployed bytecode reached by the supported call flow | Synthesizer `ContractCodeEntry[]`                                                                                         | Export deployment/state data or query the trusted state source       | [File](../examples/L2StateChannel/contract_codes.json)          |
+| `previousState` / `previous_state_snapshot.json` | Reconstructs state immediately before execution               | [`tokamak-l2js` `StateSnapshot`](https://github.com/tokamak-network/TokamakL2JS/blob/main/src/interface/channel/types.ts) | Call `TokamakL2StateManager.captureStateSnapshot()` before execution | [File](../examples/privateState/transferNotes/transferNotes1To2/previous_state_snapshot.json) |
+| `transaction` / `transaction.json`               | Supplies the signed Tokamak L2 transaction                    | [`tokamak-l2js` `TxSnapshot`](https://github.com/tokamak-network/TokamakL2JS/blob/main/src/interface/channel/types.ts)    | Call `TokamakL2Tx.captureTxSnapshot()`                               | [File](../examples/privateState/transferNotes/transferNotes1To2/transaction.json)             |
+| `blockInfo` / `block_info.json`                  | Supplies block-opcode and environment values                  | Synthesizer `BlockInfo`                                                                                                   | Normalize the trusted application or L2 RPC block context            | [File](../examples/privateState/transferNotes/transferNotes1To2/block_info.json)              |
+| `contractCodes` / `contract_codes.json`          | Supplies deployed bytecode reached by the supported call flow | Synthesizer `ContractCodeEntry[]`                                                                                         | Export deployment/state data or query the trusted state source       | [File](../examples/privateState/transferNotes/transferNotes1To2/contract_codes.json)          |
 
 The package imports `StateSnapshot` and `TxSnapshot` from the `tokamak-l2js`
 version recorded in `buildMetadata`.
@@ -78,7 +78,7 @@ values.
 ```
 
 Use the four values from one coherent state and block context. See the complete
-[`L2StateChannel` example](../examples/L2StateChannel).
+[`transferNotes1To2` example](../examples/privateState/transferNotes/transferNotes1To2).
 
 ## Outputs
 

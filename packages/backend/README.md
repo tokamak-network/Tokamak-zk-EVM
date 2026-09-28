@@ -13,8 +13,9 @@ The backend is organized around five user-facing binaries:
 
 `trusted-setup` generates development-only CRS artifacts. `mpc` implements
 Tokamak phase 2 using the externally completed Filecoin phase 1. Both emit the
-four common CRS files. For a transcript created with `--step init`, MPC verifies
-the transcript and finalizes a release-eligible CRS locally. A separate
+four common CRS files. MPC can check a transcript independently; finalization
+repeats that check and, for one created with `--step init`, writes a
+release-eligible CRS locally. A separate
 `upload` operation sends that completed CRS to Google Drive without replaying
 the ceremony or regenerating keys.
 `preprocess`, `prove`, and `verify` accept any CRS whose compatibility version matches the selected
@@ -25,7 +26,7 @@ subcircuit library, together with transaction-specific data from the frontend sy
 | Binary                  | Responsibility                                                                       |
 | ----------------------- | ------------------------------------------------------------------------------------ |
 | `trusted-setup`         | Generate a local-development four-file CRS.                                          |
-| `mpc` | Manage phase 2 initialization and contributions; `finalize` verifies the transcript and derives the CRS, while `upload` sends the finalized CRS to Google Drive. |
+| `mpc` | Manage phase 2 initialization and contributions; `verify` checks the transcript independently, `finalize` checks it again and derives the CRS, and `upload` sends the finalized CRS to Google Drive. |
 | `preprocess`            | Commit permutation and fixed function-instance data.                                 |
 | `prove`                 | Generate a proof for one synthesized transaction.                                    |
 | `verify`                | Verify the proof, preprocess commitments, and public instance.                       |
@@ -106,7 +107,7 @@ cargo run --locked --release -p trusted-setup -- \
 
 ### `mpc`
 
-Each invocation prepares its own circuit snapshot and authenticates the complete original Filecoin source. `--step init` starts a publish ceremony from npm; `--step init-dev` starts a development ceremony from the local QAP build and requires `--subcircuit-library`. On `init`, pass `--library-version MAJOR.MINOR.PATCH` to select an exact npm version, or omit it to select the latest published version compatible with the backend's `MAJOR.MINOR` version. The selected version is recorded in the transcript and CRS provenance. Later `contribute` and `finalize` steps infer the source mode and exact npm version from their input transcript; development transcripts require the local `--subcircuit-library` path on each step. `--library-version` is rejected outside `--step init`; `upload` accepts only a finalized CRS directory and does not read a transcript. Both source modes use the same repository-built release executable. There is no repository phase 1, standalone import receipt or source-check bypass. For development initialization:
+Each invocation prepares its own circuit snapshot and authenticates the complete original Filecoin source. `--step init` starts a publish ceremony from npm; `--step init-dev` starts a development ceremony from the local QAP build and requires `--subcircuit-library`. On `init`, pass `--library-version MAJOR.MINOR.PATCH` to select an exact npm version, or omit it to select the latest published version compatible with the backend's `MAJOR.MINOR` version. The selected version is recorded in the transcript and CRS provenance. Later `contribute`, `verify`, and `finalize` steps infer the source mode and exact npm version from their input transcript; development transcripts require the local `--subcircuit-library` path on each step. `--library-version` is rejected outside `--step init`; `upload` accepts only a finalized CRS directory and does not read a transcript. Both source modes use the same repository-built release executable. There is no repository phase 1, standalone import receipt or source-check bypass. For development initialization:
 
 ```sh
 cargo run --locked --release -p mpc-setup --bin mpc -- \
@@ -114,7 +115,7 @@ cargo run --locked --release -p mpc-setup --bin mpc -- \
   --step init-dev --filecoin-source /path/to/challenge_19 --output ./initial.mpc
 ```
 
-The transcript output path must not already exist. Subsequent operations repeat original-source authentication. Initialization does not upload. Finalizing a transcript created with `--step init` verifies it and writes a release-eligible CRS locally; `--step upload --crs-directory <directory>` transfers that completed CRS to Google Drive. See the [MPC operator guide](rust/setup/mpc-setup/README.md#upload-a-finalized-crs) for configuration, retry behavior and qualification limits.
+The transcript output path must not already exist. Subsequent operations repeat original-source authentication. Initialization does not upload. `--step verify --input <transcript>` checks the contribution chain without producing a CRS; finalizing a transcript created with `--step init` checks it again and writes a release-eligible CRS locally. `--step upload --crs-directory <directory>` transfers that completed CRS to Google Drive. See the [MPC operator guide](rust/setup/mpc-setup/README.md#upload-a-finalized-crs) for configuration, retry behavior and qualification limits.
 
 ## Setup outputs and common provenance
 
@@ -199,8 +200,12 @@ silently switches to CPU. The CPU path skips ICICLE backend discovery and
 device initialization, although the shared native package still links ICICLE
 libraries. Hardware selection does not change the local-QAP/npm input policy.
 
-By default, native `prove` validates the provenance format and library package
-name, version and origin without checking content digests. CRS decoding and
+By default, production native `prove` validates the provenance format,
+library package name and origin, backend compatibility class, and the recorded
+library source digest against the digest embedded at build time. A CRS from an
+earlier patch release can be reused when that digest is unchanged. Local-QAP
+development builds instead require an exact library package version unless
+CRS provenance checks are explicitly bypassed. CRS decoding and
 protocol shape checks still run. Add `--check-digests` to also verify the
 SHA-256 digests of `tau_sequence.rkyv`, `prover_keys.rkyv` and
 `verifier_keys.rkyv`, and the library `sourceDigest`. This option does not hash

@@ -21,7 +21,7 @@ export async function runTokamakChannelTxFromFiles(
   outputDir?: string,
   options: TokamakChannelTxOptions = {},
 ): Promise<void> {
-  console.log('🔄 Executing L2 State Channel Transfer...');
+  console.log('🔄 Executing Tokamak L2 transaction...');
   console.log('');
 
   const previousState = readJson<StateSnapshot>(files.previousState);

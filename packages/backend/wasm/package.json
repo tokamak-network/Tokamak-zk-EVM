@@ -1,6 +1,6 @@
 {
   "name": "@tokamak-zk-evm/snark-browser-compat",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "@tokamak-zk-evm/snark-browser-compat provides browser-compatible Tokamak zk-EVM preprocessing, proof generation, verification, and artifact conversion.",
   "license": "MIT OR Apache-2.0",
   "author": "Tokamak Network",
@@ -122,7 +122,7 @@
   },
   "dependencies": {
     "@noble/hashes": "^1.8.0",
-    "@tokamak-zk-evm/subcircuit-library": "3.0.0",
+    "@tokamak-zk-evm/subcircuit-library": "3.0.1",
     "ffjavascript": "^0.3.1"
   },
   "devDependencies": {
