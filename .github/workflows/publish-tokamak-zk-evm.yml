@@ -3,21 +3,25 @@ name: Publish Tokamak zk-EVM packages
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
 
 concurrency:
-  group: tokamak-zk-evm-publication
-  cancel-in-progress: false
+  group: tokamak-zk-evm-publication-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   prepare:
-    name: Build and validate packages from main
+    name: Build and validate candidate packages
+    if: ${{ github.event_name == 'push' || (github.head_ref == 'dev' && github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: ubuntu-22.04
     timeout-minutes: 90
     steps:
-      - name: Checkout merged source
+      - name: Checkout candidate source
         uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -266,6 +270,7 @@ jobs:
   publish:
     name: Publish missing packages
     needs: [prepare, native-e2e, native-macos-e2e, browser-e2e]
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-22.04
     permissions:
       contents: read
