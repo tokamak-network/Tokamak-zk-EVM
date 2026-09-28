@@ -271,7 +271,10 @@ pub fn validate_operational_univariate_crs_compatibility(
     let _library = crate::timing::SpanGuard::new("univariate.identity.library", "identity", vec![]);
     let expected = selected_subcircuit_library_provenance(library_dir)
         .map_err(|error| CrsError::Compatibility(error.to_string()))?;
-    if provenance.subcircuit_library != expected {
+    if provenance.subcircuit_library.package_name != expected.package_name
+        || provenance.subcircuit_library.origin != expected.origin
+        || provenance.subcircuit_library.source_digest != expected.source_digest
+    {
         return Err(CrsError::Compatibility(
             "univariate CRS subcircuit-library identity does not match the selected library"
                 .to_string(),
@@ -308,9 +311,20 @@ pub fn read_univariate_crs_identity(keys_dir: &Path) -> Result<CrsProvenance, Cr
     }
     {
         let (origin, version) = selected_subcircuit_library_package_identity();
+        let library_compatibility =
+            compatibility_from_package_version(&provenance.subcircuit_library.package_version)
+                .map_err(|error| CrsError::Compatibility(error.to_string()))?;
+        let selected_compatibility = compatibility_from_package_version(&version)
+            .map_err(|error| CrsError::Compatibility(error.to_string()))?;
+        #[cfg(tokamak_embedded_subcircuit_library)]
+        let source_matches = provenance.subcircuit_library.source_digest
+            == env!("TOKAMAK_ZKEVM_SUBCIRCUIT_LIBRARY_SOURCE_DIGEST");
+        #[cfg(not(tokamak_embedded_subcircuit_library))]
+        let source_matches = provenance.subcircuit_library.package_version == version;
         if provenance.subcircuit_library.package_name != SUBCIRCUIT_LIBRARY_PACKAGE_NAME
-            || provenance.subcircuit_library.package_version != version
+            || library_compatibility != selected_compatibility
             || provenance.subcircuit_library.origin != origin
+            || !source_matches
         {
             return Err(CrsError::Compatibility(
                 "univariate CRS subcircuit-library package identity does not match the selected library"
@@ -679,10 +693,8 @@ mod tests {
 
     #[test]
     fn univariate_prove_identity_default_does_not_read_payloads_or_hash_library() {
-        let (dir, mut provenance) = univariate_identity_fixture();
-        // Well-formed but mismatched hashes are ignored without the explicit option.
-        provenance["subcircuitLibrary"]["sourceDigest"] =
-            format!("sha256:{}", "0".repeat(64)).into();
+        let (dir, provenance) = univariate_identity_fixture();
+        // The embedded source digest is checked as metadata, not by hashing files.
         for file in [
             "tau_sequence.rkyv",
             "prover_keys.rkyv",
@@ -723,12 +735,15 @@ mod tests {
         }
         let mut wrong = provenance.clone();
         wrong["subcircuitLibrary"]["sourceDigest"] = format!("sha256:{}", "0".repeat(64)).into();
+        #[cfg(not(tokamak_embedded_subcircuit_library))]
         assert!(admit_univariate_identity(dir.path(), &wrong, false)
             .unwrap()
             .is_none());
+        #[cfg(tokamak_embedded_subcircuit_library)]
+        assert!(admit_univariate_identity(dir.path(), &wrong, false).is_err());
         assert!(
             matches!(admit_univariate_identity(dir.path(), &wrong, true),
-            Err(CrsError::Compatibility(message)) if message.contains("library identity"))
+            Err(CrsError::Compatibility(message)) if message.contains("identity"))
         );
     }
 
@@ -761,6 +776,27 @@ mod tests {
                 wrong[field] = value.into();
                 assert!(admit_univariate_identity(dir.path(), &wrong, check_digests).is_err());
             }
+        }
+    }
+
+    #[cfg(tokamak_embedded_subcircuit_library)]
+    #[test]
+    fn univariate_identity_accepts_same_source_from_earlier_patch() {
+        let (dir, mut provenance) = univariate_identity_fixture();
+        let version = provenance["subcircuitLibrary"]["packageVersion"]
+            .as_str()
+            .unwrap();
+        let (compatibility, patch) = version.rsplit_once('.').unwrap();
+        let patch = patch.parse::<u64>().unwrap();
+        provenance["subcircuitLibrary"]["packageVersion"] =
+            format!("{compatibility}.{}", if patch == 0 { 1 } else { patch - 1 }).into();
+        for check_digests in [false, true] {
+            assert!(admit_univariate_identity(dir.path(), &provenance, check_digests).is_ok());
+        }
+        provenance["subcircuitLibrary"]["sourceDigest"] =
+            format!("sha256:{}", "0".repeat(64)).into();
+        for check_digests in [false, true] {
+            assert!(admit_univariate_identity(dir.path(), &provenance, check_digests).is_err());
         }
     }
 

@@ -321,6 +321,20 @@ test('restores every active stage path when a multi-path promotion fails', async
   }
 });
 
+test('promotes staged output when its active parent does not yet exist', async () => {
+  const temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'tokamak-cli-fresh-stage-'));
+  const activePath = path.join(temporaryRoot, 'synthesizer', 'output');
+  const stagingPath = path.join(temporaryRoot, 'staging');
+  try {
+    await fs.mkdir(stagingPath);
+    await fs.writeFile(path.join(stagingPath, 'selector.json'), '{}\n', 'utf8');
+    await promoteStagedRuntimePaths([{ activePath, stagingPath }]);
+    assert.equal(await fs.readFile(path.join(activePath, 'selector.json'), 'utf8'), '{}\n');
+  } finally {
+    await fs.rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
 test('uses installation state as the sole native-versus-Docker selector', async () => {
   const { context, temporaryRoot } = await createRuntimeSelectionFixture();
   try {

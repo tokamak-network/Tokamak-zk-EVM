@@ -83,10 +83,11 @@ identity test for the immutable npm tarball.
 Each push to `main`, whether from a PR merge or a direct push, runs
 `.github/workflows/publish-tokamak-zk-evm.yml` from that commit. The workflow
 builds the four dependent packages from merged source, checks the published
-subcircuit library and compatible CRS, and publishes only missing exact
-versions in dependency order. The CRS is downloaded and hash-checked through
-read-only Drive access; Actions never uploads it or publishes the foundation
-package.
+subcircuit library and compatible CRS, and tests the candidate Node/CLI and
+Web/browser-backend package pairs through complete proof workflows. Publication
+starts only after both tests pass, then publishes missing exact versions in
+dependency order. The CRS is downloaded and hash-checked through read-only
+Drive access; Actions never uploads it or publishes the foundation package.
 
 The publishing job uses npm Trusted Publishing. For each dependent package,
 an absent exact version is published, an identical version is skipped, and a
@@ -104,7 +105,7 @@ authorizes republishing an immutable version with changed contents.
 ## Operational constraints
 
 - `tokamak-l2js` remains exactly `0.2.0` in manifests and tracked locks.
-- The CLI must fail before runtime work when synchronized `3.0.0` packages are
+- The CLI must fail before runtime work when synchronized `3.x.y` packages are
   mixed with `2.x.y` packages.
 - Release checks use Node.js `24.20.0`, npm `11.19.0`, Rust `1.95.0`, Circom
   `2.2.3`, and committed locks.
