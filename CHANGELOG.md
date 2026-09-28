@@ -26,6 +26,9 @@ Release-entry dates are the dates on which version-bump pull requests are prepar
 - The CLI now recognizes the public Google Drive listing format during
   `--install`. Previously, a valid hexadecimal escape in the listing could
   prevent discovery of the CRS before installation began.
+- The standalone Node Synthesizer command now starts from its published
+  package and writes outputs in the invoking project. Its CommonJS build
+  previously failed before reading transaction inputs.
 
 ### Documentation
 

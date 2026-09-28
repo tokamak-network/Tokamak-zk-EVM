@@ -1,4 +1,5 @@
 import { build } from 'esbuild';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -56,3 +57,10 @@ await build({
 await fs.writeFile(path.join(distDir, 'cjs', 'package.json'), JSON.stringify({ type: 'commonjs' }, null, 2) + '\n');
 
 await fs.writeFile(path.join(distDir, 'esm', 'package.json'), JSON.stringify({ type: 'module' }, null, 2) + '\n');
+
+const builtCliVersion = execFileSync(process.execPath, [path.join(distDir, 'cjs', 'cli', 'index.js'), '--version'], {
+  encoding: 'utf8',
+}).trim();
+if (builtCliVersion !== buildMetadata.packageVersion) {
+  throw new Error(`Built Synthesizer CLI reports ${builtCliVersion}, expected ${buildMetadata.packageVersion}.`);
+}

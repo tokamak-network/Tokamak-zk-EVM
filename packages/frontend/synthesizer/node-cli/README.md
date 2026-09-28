@@ -97,9 +97,8 @@ missing state.
 
 ## Outputs
 
-By default, the command creates `outputs/` under the detected application root,
-normally the current project root. The command prints each absolute output path
-as it writes the file.
+The command creates `outputs/` in the current working directory and prints
+each absolute output path as it writes the file.
 
 | File                        | Purpose                                               |
 | --------------------------- | ----------------------------------------------------- |

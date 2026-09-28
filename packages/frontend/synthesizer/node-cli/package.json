@@ -62,8 +62,6 @@
     "examples": "tsx --tsconfig tsconfig.dev.json ../../../scripts/examples-runner.ts -- evm",
     "hooks:install": "git config core.hooksPath packages/frontend/synthesizer/node-cli/.githooks",
     "hooks:uninstall": "git config --unset core.hooksPath",
-    "synthesize": "tsx --tsconfig tsconfig.dev.json src/cli/index.ts synthesize",
-    "synthesizer": "tsx --tsconfig tsconfig.dev.json src/cli/index.ts run",
     "private-state-mint-l2": "tsx --tsconfig tsconfig.dev.json ../examples/config-runner.ts private-state-mint",
     "private-state-transfer-l2": "tsx --tsconfig tsconfig.dev.json ../examples/config-runner.ts private-state-transfer",
     "private-state-redeem-l2": "tsx --tsconfig tsconfig.dev.json ../examples/config-runner.ts private-state-redeem",
