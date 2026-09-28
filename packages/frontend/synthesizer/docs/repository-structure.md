@@ -65,7 +65,6 @@ node-cli/
 ```text
 examples/
 ├── config-runner.ts
-├── L2StateChannel/
 └── privateState/
 ```
 

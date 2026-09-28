@@ -8,7 +8,7 @@ proof export.
 
 First prepare a directory containing the
 [four synthesis input files](#synthesis-inputs). The
-[`L2StateChannel` example](../frontend/synthesizer/examples/L2StateChannel)
+[`transferNotes1To2` example](../frontend/synthesizer/examples/privateState/transferNotes/transferNotes1To2)
 shows the expected layout and values. Clone or download that example from this
 repository before using it: it is not installed with the npm CLI package. You
 can instead provide your own directory with the same four inputs.
@@ -22,7 +22,7 @@ macOS or Ubuntu setup, or `--docker` on another Linux distribution or Windows.
 ```bash
 npm install -g @tokamak-zk-evm/cli
 tokamak-cli --install
-tokamak-cli --synthesize ./L2StateChannel
+tokamak-cli --synthesize ./transferNotes1To2
 tokamak-cli --preprocess
 tokamak-cli --prove
 tokamak-cli --verify
@@ -174,10 +174,10 @@ Relative paths are resolved from the current working directory.
 
 | File                           | Role                                                                      | Format and owner                                                                                                          | How to obtain it                                                     | Example                                                                              |
 | ------------------------------ | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `previous_state_snapshot.json` | State immediately before execution, including storage reconstruction data | [`tokamak-l2js` `StateSnapshot`](https://github.com/tokamak-network/TokamakL2JS/blob/main/src/interface/channel/types.ts) | Call `TokamakL2StateManager.captureStateSnapshot()` before execution | [File](../frontend/synthesizer/examples/L2StateChannel/previous_state_snapshot.json) |
-| `transaction.json`             | Signed Tokamak L2 transaction to replay                                   | [`tokamak-l2js` `TxSnapshot`](https://github.com/tokamak-network/TokamakL2JS/blob/main/src/interface/channel/types.ts)    | Call `TokamakL2Tx.captureTxSnapshot()`                               | [File](../frontend/synthesizer/examples/L2StateChannel/transaction.json)             |
-| `block_info.json`              | Block-opcode and execution-environment values                             | Synthesizer `BlockInfo` JSON                                                                                              | Normalize the trusted application or L2 RPC block context            | [File](../frontend/synthesizer/examples/L2StateChannel/block_info.json)              |
-| `contract_codes.json`          | Deployed bytecode reached by the supported call flow                      | Synthesizer `ContractCodeEntry[]` JSON                                                                                    | Export deployment/state data or query the trusted state source       | [File](../frontend/synthesizer/examples/L2StateChannel/contract_codes.json)          |
+| `previous_state_snapshot.json` | State immediately before execution, including storage reconstruction data | [`tokamak-l2js` `StateSnapshot`](https://github.com/tokamak-network/TokamakL2JS/blob/main/src/interface/channel/types.ts) | Call `TokamakL2StateManager.captureStateSnapshot()` before execution | [File](../frontend/synthesizer/examples/privateState/transferNotes/transferNotes1To2/previous_state_snapshot.json) |
+| `transaction.json`             | Signed Tokamak L2 transaction to replay                                   | [`tokamak-l2js` `TxSnapshot`](https://github.com/tokamak-network/TokamakL2JS/blob/main/src/interface/channel/types.ts)    | Call `TokamakL2Tx.captureTxSnapshot()`                               | [File](../frontend/synthesizer/examples/privateState/transferNotes/transferNotes1To2/transaction.json)             |
+| `block_info.json`              | Block-opcode and execution-environment values                             | Synthesizer `BlockInfo` JSON                                                                                              | Normalize the trusted application or L2 RPC block context            | [File](../frontend/synthesizer/examples/privateState/transferNotes/transferNotes1To2/block_info.json)              |
+| `contract_codes.json`          | Deployed bytecode reached by the supported call flow                      | Synthesizer `ContractCodeEntry[]` JSON                                                                                    | Export deployment/state data or query the trusted state source       | [File](../frontend/synthesizer/examples/privateState/transferNotes/transferNotes1To2/contract_codes.json)          |
 
 `StateSnapshot` contains `stateRoots`, `storageAddresses`, `storageKeys`,
 `storageTrieRoots`, `storageTrieDb`, and `channelId`. Its address-indexed arrays
@@ -209,7 +209,7 @@ describe one coherent pre-transaction state and block context.
 
 ```bash
 # Conventional directory
-tokamak-cli --synthesize ./L2StateChannel
+tokamak-cli --synthesize ./transferNotes1To2
 
 # Explicit files
 tokamak-cli --synthesize \

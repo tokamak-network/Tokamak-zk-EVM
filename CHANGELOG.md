@@ -27,6 +27,11 @@ Release-entry dates are the dates on which version-bump pull requests are prepar
   `--install`. Previously, a valid hexadecimal escape in the listing could
   prevent discovery of the CRS before installation began.
 
+### Documentation
+
+- The CLI and Synthesizer guides now use the supported private-state note
+  transfer example instead of the retired L2 state-channel example.
+
 ## [3.0.0] - 2026-09-23
 
 ### Protocol Changes

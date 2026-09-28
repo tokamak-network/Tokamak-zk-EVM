@@ -27,9 +27,9 @@ Each runtime consumes one coherent transaction replay payload:
 | `contractCodes` | Deployed bytecode required by the supported call flow                     | Synthesizer `ContractCodeEntry[]`                                                                                         | Export application deployment/state data or query the trusted state source |
 
 The complete
-[`L2StateChannel` example](./examples/L2StateChannel) contains the conventional
-JSON filenames. The Node and Web package READMEs document each field and input
-method.
+[`transferNotes1To2` example](./examples/privateState/transferNotes/transferNotes1To2)
+contains the conventional JSON filenames. The Node and Web package READMEs
+document each field and input method.
 
 ## Shared outputs
 
