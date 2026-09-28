@@ -14,7 +14,7 @@ const wasmRoot = path.join(repository, 'packages/backend/wasm');
 const requireFromWasm = createRequire(path.join(wasmRoot, 'package.json'));
 const { build } = requireFromWasm('esbuild') as typeof import('esbuild');
 const { chromium } = requireFromWasm('playwright') as typeof import('playwright');
-const tarballDirectory = process.argv[2];
+const tarballDirectory = process.argv[2] && path.resolve(process.argv[2]);
 const crsDirectory = process.argv[3];
 if (!tarballDirectory || !crsDirectory) {
   throw new Error('Usage: tsx scripts/release-e2e/browser.mts <tarball-directory> <converted-crs-directory>');

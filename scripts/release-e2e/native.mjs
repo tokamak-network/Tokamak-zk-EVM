@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { findPackageTarball } from '../release-registry.mjs';
 
 const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const tarballDirectory = process.argv[2];
+const tarballDirectory = process.argv[2] && path.resolve(process.argv[2]);
 if (!tarballDirectory) throw new Error('Usage: node scripts/release-e2e/native.mjs <tarball-directory>');
 
 const version = JSON.parse(readFileSync(path.join(repository, 'package.json'), 'utf8')).version;
